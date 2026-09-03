@@ -81,12 +81,7 @@ const internalLinks = [
   {
     to: '/internal/onboarding', label: 'Hội nhập', icon: <CheckSquare size={20} />,
     children: [
-      { to: '/internal/onboarding/newbies', label: 'Nhân viên mới' },
-      { to: '/internal/onboarding/checklist', label: 'Checklist' },
-      { to: '/internal/onboarding/equipment', label: 'Cấp phát thiết bị' },
-      { to: '/internal/onboarding/accounts', label: 'Tài khoản hệ thống' },
-      { to: '/internal/onboarding/contracts', label: 'Ký hợp đồng' },
-      { to: '/internal/onboarding/progress', label: 'Tiến độ hội nhập' },
+      { to: '/internal/onboarding/newbies', label: 'Trung tâm Hội nhập' },
     ]
   },
   {

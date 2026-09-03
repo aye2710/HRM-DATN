@@ -7,6 +7,11 @@ export const Positions = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [positions, setPositions] = useState([]);
   const [departments, setDepartments] = useState([]);
+  
+  const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterLevel, setFilterLevel] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -92,10 +97,15 @@ export const Positions = () => {
       .catch(err => alert(err.response?.data?.error || 'Lỗi xóa vị trí'));
   };
 
-  const filteredPositions = positions.filter(pos =>
-    pos.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pos.code?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPositions = positions.filter(pos => {
+    const matchSearch = pos.title?.toLowerCase().includes(searchTerm.toLowerCase()) || pos.code?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchDept = filterDepartment ? pos.departmentId === filterDepartment : true;
+    const matchLevel = filterLevel ? pos.level === filterLevel : true;
+    return matchSearch && matchDept && matchLevel;
+  });
+
+  const totalPages = Math.ceil(filteredPositions.length / itemsPerPage);
+  const paginatedPositions = filteredPositions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="flex-col gap-6 animate-fade-in relative">
@@ -111,21 +121,42 @@ export const Positions = () => {
 
       <div className="card glass flex-col gap-4">
         <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center w-1/2">
-            <div style={{ position: 'relative', width: '100%' }}>
+          <div className="flex gap-4 items-center w-full max-w-4xl">
+            <div style={{ position: 'relative', width: '40%' }}>
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
                 placeholder="Tìm kiếm mã/tên vị trí..."
-                className="form-input"
+                className="form-input w-full"
                 style={{ paddingLeft: '2.5rem' }}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
-            <button className="btn btn-outline" style={{ padding: '0.75rem', height: '100%' }}>
-              <Filter size={18} />
-            </button>
+            
+            <select
+              className="form-input flex-1 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white rounded-lg outline-none"
+              style={{ padding: '0.6rem 1rem' }}
+              value={filterDepartment}
+              onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="" className="text-black">-- Tất cả phòng ban --</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id} className="text-black">{d.name}</option>
+              ))}
+            </select>
+
+            <select
+              className="form-input flex-1 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white rounded-lg outline-none"
+              style={{ padding: '0.6rem 1rem' }}
+              value={filterLevel}
+              onChange={(e) => { setFilterLevel(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="" className="text-black">-- Tất cả cấp bậc --</option>
+              {Array.from(new Set(positions.map(p => p.level))).filter(Boolean).map(lvl => (
+                <option key={lvl} value={lvl} className="text-black">{lvl}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -142,12 +173,12 @@ export const Positions = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredPositions.length === 0 ? (
+              {paginatedPositions.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="text-center text-muted py-8">Không tìm thấy vị trí nào</td>
                 </tr>
               ) : (
-                filteredPositions.map(pos => (
+                paginatedPositions.map(pos => (
                   <tr key={pos.id}>
                     <td>
                       <div className="flex items-center gap-3">
@@ -193,6 +224,40 @@ export const Positions = () => {
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4 px-2">
+            <span className="text-sm text-muted">
+              Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredPositions.length)} trong tổng số {filteredPositions.length} vị trí
+            </span>
+            <div className="flex gap-2">
+              <button 
+                className="btn btn-outline" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                Trước
+              </button>
+              {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ minWidth: '40px', padding: '0.5rem' }}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              <button 
+                className="btn btn-outline"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {showModal && createPortal(

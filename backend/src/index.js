@@ -13,6 +13,8 @@ const job_posting_routes_1 = __importDefault(require("./routes/job-posting.route
 const candidate_routes_1 = __importDefault(require("./routes/candidate.routes"));
 const interview_routes_1 = __importDefault(require("./routes/interview.routes"));
 const offer_routes_1 = __importDefault(require("./routes/offer.routes"));
+const onboarding_routes_1 = __importDefault(require("./routes/onboarding.routes"));
+const contracts_routes_1 = __importDefault(require("./routes/contracts.routes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 app.use((0, cors_1.default)());
@@ -25,6 +27,8 @@ app.use('/api/job-postings', job_posting_routes_1.default);
 app.use('/api/candidates', candidate_routes_1.default);
 app.use('/api/interviews', interview_routes_1.default);
 app.use('/api/offers', offer_routes_1.default);
+app.use('/api/onboarding', onboarding_routes_1.default);
+app.use('/api/contracts', contracts_routes_1.default);
 // Dashboard Stats API
 app.get('/api/dashboard/stats', async (req, res) => {
     try {

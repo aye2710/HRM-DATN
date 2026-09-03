@@ -5,6 +5,18 @@ import axios from 'axios';
 const OrgNode = ({ department }) => {
   const children = department.children || [];
   
+  const calculateTotalEmployees = (node) => {
+    let total = node._count?.employees || 0;
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(child => {
+        total += calculateTotalEmployees(child);
+      });
+    }
+    return total;
+  };
+
+  const totalEmployees = calculateTotalEmployees(department);
+  
   return (
     <div className="flex flex-col items-center">
       <div className="card glass card-hover p-4 text-center min-w-[220px]" style={{ zIndex: 1 }}>
@@ -12,9 +24,9 @@ const OrgNode = ({ department }) => {
           {department.managerName ? department.managerName.charAt(0).toUpperCase() : department.name.charAt(0).toUpperCase()}
         </div>
         <h4 className="font-bold text-main m-0 mb-1" style={{ fontSize: '1.05rem' }}>{department.name}</h4>
-        <p className="text-muted text-xs mb-3">{department.managerName || 'Chưa bổ nhiệm'}</p>
+        <p className="text-muted text-xs mb-3">{department.managerName || 'Chưa có đại diện'}</p>
         <span className="badge badge-primary inline-flex items-center" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: 'none', padding: '0.25rem 0.75rem' }}>
-          <Users size={12} className="mr-2 text-muted" /> Định biên: {department.quota || 0}
+          <Users size={12} className="mr-2 text-muted" /> Tổng nhân sự: {totalEmployees}
         </span>
       </div>
       
@@ -87,7 +99,7 @@ export const OrgChart = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Sơ đồ Tổ chức</h1>
-          <p className="text-muted text-sm">Cấu trúc phân bổ phòng ban và định biên nhân sự tự động từ Database</p>
+          <p className="text-muted text-sm">Cấu trúc phân bổ phòng ban và số lượng nhân sự tự động từ Database</p>
         </div>
       </div>
 

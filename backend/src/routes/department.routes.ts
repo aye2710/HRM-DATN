@@ -24,15 +24,15 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { code, name, managerName, quota, status, parentId } = req.body;
-    
+
     const existing = await prisma.department.findUnique({ where: { code } });
     if (existing) {
       return res.status(400).json({ error: 'Mã phòng ban đã tồn tại' });
     }
 
     const newDept = await prisma.department.create({
-      data: { 
-        code: code as string, 
+      data: {
+        code: code as string,
         name: name as string,
         managerName: managerName as string | undefined,
         quota: quota ? parseInt(quota as string) : 15,
@@ -51,11 +51,11 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { code, name, managerName, quota, status, parentId } = req.body;
-    
+
     const updatedDept = await prisma.department.update({
       where: { id },
-      data: { 
-        code: code as string, 
+      data: {
+        code: code as string,
         name: name as string,
         managerName: managerName as string | undefined,
         quota: quota ? parseInt(quota as string) : 15,
@@ -73,7 +73,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    
+
     const employeeCount = await prisma.employee.count({ where: { departmentId: id } });
     if (employeeCount > 0) {
       return res.status(400).json({ error: 'Không thể xóa phòng ban đang có nhân viên' });

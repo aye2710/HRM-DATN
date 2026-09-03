@@ -8,7 +8,8 @@ import jobPostingRoutes from './routes/job-posting.routes';
 import candidateRoutes from './routes/candidate.routes';
 import interviewRoutes from './routes/interview.routes';
 import offerRoutes from './routes/offer.routes';
-
+import onboardingRoutes from './routes/onboarding.routes';
+import contractRoutes from './routes/contracts.routes';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -23,6 +24,8 @@ app.use('/api/job-postings', jobPostingRoutes);
 app.use('/api/candidates', candidateRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/offers', offerRoutes);
+app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/contracts', contractRoutes);
 
 // Dashboard Stats API
 app.get('/api/dashboard/stats', async (req: Request, res: Response) => {

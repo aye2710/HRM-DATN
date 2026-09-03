@@ -93,8 +93,6 @@ export const Departments = () => {
 
   const totalDepts = departments.length;
   const totalHeadcount = departments.reduce((acc, dept) => acc + (dept._count?.employees || 0), 0);
-  const totalQuota = departments.length * 15; // Giả định định biên
-  const remainingQuota = Math.max(0, totalQuota - totalHeadcount);
 
   const filteredDepartments = departments.filter(d =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,7 +105,7 @@ export const Departments = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Phòng ban</h1>
-          <p className="text-muted text-sm">Quản lý cơ cấu phòng ban và kiểm soát định biên nhân sự (Headcount Quota)</p>
+          <p className="text-muted text-sm">Quản lý cơ cấu phòng ban và số lượng nhân sự</p>
         </div>
         <button onClick={handleOpenAdd} className="btn btn-primary">
           <Plus size={18} /> Thêm Phòng ban
@@ -136,30 +134,6 @@ export const Departments = () => {
             <div>
               <p className="text-muted text-sm font-medium mb-1">Tổng Nhân sự hiện tại</p>
               <h3 className="text-2xl font-bold money-text">{totalHeadcount}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="card glass card-hover">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)' }}>
-              <Users size={24} color="var(--warning)" />
-            </div>
-            <div>
-              <p className="text-muted text-sm font-medium mb-1">Tổng Định biên (Quota)</p>
-              <h3 className="text-2xl font-bold money-text">{totalQuota}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="card glass card-hover">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)' }}>
-              <Filter size={24} color="var(--error)" />
-            </div>
-            <div>
-              <p className="text-muted text-sm font-medium mb-1">Chỉ tiêu còn lại</p>
-              <h3 className="text-2xl font-bold money-text">{remainingQuota}</h3>
             </div>
           </div>
         </div>
@@ -194,9 +168,9 @@ export const Departments = () => {
               <tr>
                 <th>Tên Phòng ban</th>
                 <th>Mã PB</th>
-                <th>Trưởng phòng</th>
+                <th>Người đại diện</th>
                 <th>Trực thuộc</th>
-                <th>Hiện tại / Định biên</th>
+                <th>Số lượng nhân sự</th>
                 <th>Trạng thái</th>
                 <th className="text-center">Thao tác</th>
               </tr>
@@ -213,9 +187,6 @@ export const Departments = () => {
               ) : (
                 filteredDepartments.map(dept => {
                   const currentHeadcount = dept._count?.employees || 0;
-                  const quota = dept.quota || 15;
-                  const isFull = currentHeadcount >= quota;
-                  const ratio = quota > 0 ? (currentHeadcount / quota) * 100 : 0;
                   const status = dept.status || 'Hoạt động';
 
                   return (
@@ -240,17 +211,9 @@ export const Departments = () => {
                         )}
                       </td>
                       <td>
-                        <div className="flex-col gap-1">
-                          <div className="flex justify-between items-center" style={{ fontSize: '0.85rem' }}>
-                            <span style={{ color: isFull ? 'var(--error)' : 'var(--text-main)' }}>
-                              {currentHeadcount} / {quota} nhân sự
-                            </span>
-                            <span style={{ color: 'var(--text-muted)' }}>{Math.min(100, Math.round(ratio))}%</span>
-                          </div>
-                          <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${Math.min(100, ratio)}%`, backgroundColor: isFull ? 'var(--error)' : 'var(--primary)', borderRadius: '3px', transition: 'width 0.5s ease-out' }}></div>
-                          </div>
-                        </div>
+                        <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>
+                          {currentHeadcount} nhân sự
+                        </span>
                       </td>
                       <td>
                         <span className={`badge ${status === 'ACTIVE' || status === 'Hoạt động' ? 'badge-success' : 'badge-error'}`}>
@@ -314,25 +277,16 @@ export const Departments = () => {
                 />
               </div>
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Trưởng phòng</label>
+                <label className="text-sm font-medium text-[var(--text-muted)]">Người đại diện</label>
                 <input
                   type="text"
                   className="form-input w-full"
                   value={formData.managerName || ''}
                   onChange={e => setFormData({ ...formData, managerName: e.target.value })}
-                  placeholder="Họ tên trưởng phòng..."
+                  placeholder="Họ tên người đại diện..."
                 />
               </div>
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Định biên (Quota)</label>
-                <input
-                  type="number"
-                  className="form-input w-full"
-                  value={formData.quota}
-                  onChange={e => setFormData({ ...formData, quota: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="flex-col gap-2" style={{ gridColumn: 'span 2' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Phòng ban trực thuộc (Cấp cha)</label>
                 <select
                   className="form-input w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white rounded-lg outline-none"

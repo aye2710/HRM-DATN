@@ -11,6 +11,9 @@ router.get('/', async (req, res) => {
                 _count: {
                     select: { candidates: true }
                 },
+                candidates: {
+                    select: { status: true }
+                },
                 department: {
                     select: { name: true }
                 },

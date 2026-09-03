@@ -94,6 +94,7 @@ model Position {
 
 enum EmployeeStatus {
   ONBOARDING
+  INTERNSHIP
   PROBATION
   ACTIVE
   RESIGNED
@@ -122,9 +123,20 @@ model Employee {
   payslips       Payslip[]
   reviews        PerformanceReview[]
   kpis           KPI[]
+  onboardingTasks OnboardingTask[]
+}
+
+model OnboardingTask {
+  id          String   @id @default(uuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  taskName    String
+  category    String   // 'EQUIPMENT', 'ACCOUNT', 'CONTRACT', 'TRAINING'
+  isCompleted Boolean  @default(false)
 }
 
 enum ContractType {
+  INTERNSHIP
   PROBATION
   OFFICIAL_1Y
   INDEFINITE
