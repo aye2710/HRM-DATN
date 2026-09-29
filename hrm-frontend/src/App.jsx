@@ -5,47 +5,47 @@ import { AppLayout } from './layouts/AppLayout';
 
 // Admin & Internal Portal
 import { InternalDashboard } from './pages/internal/Dashboard';
-import { EmployeeList } from './pages/internal/EmployeeList';
-import { AttendanceMgmt } from './pages/internal/Attendance';
-import { LeaveMgmt } from './pages/internal/LeaveMgmt';
-import { PayrollMgmt } from './pages/internal/Payroll';
-import { RecruitmentATS } from './pages/internal/RecruitmentATS';
-import { Performance } from './pages/internal/Performance';
-import { SettingsRBAC } from './pages/internal/SettingsRBAC';
-import { Departments } from './pages/internal/Departments';
-import { Positions } from './pages/internal/Positions';
-import { OrgChart } from './pages/internal/OrgChart';
-import { OnboardingMgmt } from './pages/internal/OnboardingMgmt';
+import { EmployeeList } from './pages/internal/employees/EmployeeList';
+import { AttendanceMgmt } from './pages/internal/attendance/Attendance';
+import { LeaveMgmt } from './pages/internal/leave/LeaveMgmt';
+import { PayrollMgmt } from './pages/internal/payroll/Payroll';
+import { RecruitmentATS } from './pages/internal/recruitment/RecruitmentATS';
+import { Performance } from './pages/internal/performance/Performance';
+import { SettingsRBAC } from './pages/internal/system/SettingsRBAC';
+import { Departments } from './pages/internal/organization/Departments';
+import { Positions } from './pages/internal/organization/Positions';
+import { OrgChart } from './pages/internal/organization/OrgChart';
+import { OnboardingMgmt } from './pages/internal/onboarding/OnboardingMgmt';
 
-import { Requisitions } from './pages/internal/Requisitions';
-import { Interviews } from './pages/internal/Interviews';
-import { Offers } from './pages/internal/Offers';
+import { Requisitions } from './pages/internal/recruitment/Requisitions';
+import { Interviews } from './pages/internal/recruitment/Interviews';
+import { Offers } from './pages/internal/recruitment/Offers';
 
-import { ChecklistMgmt } from './pages/internal/ChecklistMgmt';
-import { EquipmentProvision } from './pages/internal/EquipmentProvision';
-import { SystemAccounts } from './pages/internal/SystemAccounts';
-import { OnboardingProgress } from './pages/internal/OnboardingProgress';
+import { ChecklistMgmt } from './pages/internal/onboarding/ChecklistMgmt';
+import { EquipmentProvision } from './pages/internal/onboarding/EquipmentProvision';
+import { SystemAccounts } from './pages/internal/onboarding/SystemAccounts';
+import { OnboardingProgress } from './pages/internal/onboarding/OnboardingProgress';
 
-import { EmploymentHistory } from './pages/internal/EmploymentHistory';
-import { Contracts } from './pages/internal/Contracts';
-import { Transfers } from './pages/internal/Transfers';
-import { Terminations } from './pages/internal/Terminations';
+import { EmploymentHistory } from './pages/internal/employees/EmploymentHistory';
+import { Contracts } from './pages/internal/employees/Contracts';
+import { Transfers } from './pages/internal/employees/Transfers';
+import { Terminations } from './pages/internal/employees/Terminations';
 
-import { Shifts } from './pages/internal/Shifts';
-import { Adjustments } from './pages/internal/Adjustments';
+import { Shifts } from './pages/internal/attendance/Shifts';
+import { Adjustments } from './pages/internal/attendance/Adjustments';
 
-import { LeaveTypes } from './pages/internal/LeaveTypes';
-import { LeavePolicies } from './pages/internal/LeavePolicies';
-import { Holidays } from './pages/internal/Holidays';
+import { LeaveTypes } from './pages/internal/leave/LeaveTypes';
+import { LeavePolicies } from './pages/internal/leave/LeavePolicies';
+import { Holidays } from './pages/internal/leave/Holidays';
 
-import { PayrollPeriods } from './pages/internal/PayrollPeriods';
+import { PayrollPeriods } from './pages/internal/payroll/PayrollPeriods';
 
-import { ApprovalWorkflows } from './pages/internal/ApprovalWorkflows';
-import { Notifications } from './pages/internal/Notifications';
-import { AuditLogs } from './pages/internal/AuditLogs';
+import { ApprovalWorkflows } from './pages/internal/system/ApprovalWorkflows';
+import { Notifications } from './pages/internal/system/Notifications';
+import { AuditLogs } from './pages/internal/system/AuditLogs';
 
-import { ReportsDashboard } from './pages/internal/ReportsDashboard';
-import { KPITemplates } from './pages/internal/KPITemplates';
+import { ReportsDashboard } from './pages/internal/reports/ReportsDashboard';
+import { KPITemplates } from './pages/internal/performance/KPITemplates';
 
 import { PlaceholderPage } from './components/PlaceholderPage';
 

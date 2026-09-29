@@ -1,6 +1,6 @@
 import React from 'react';
 import { Target, TrendingUp, Award, Search, Filter } from 'lucide-react';
-import { kpiEvaluations } from '../../mockData';
+import { kpiEvaluations } from '../../../mockData';
 
 export const Performance = () => {
   return (

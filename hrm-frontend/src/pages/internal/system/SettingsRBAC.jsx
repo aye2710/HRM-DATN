@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings, Shield, UserCheck, AlertTriangle } from 'lucide-react';
-import { systemRoles } from '../../mockData';
+import { systemRoles } from '../../../mockData';
 
 export const SettingsRBAC = () => {
   return (

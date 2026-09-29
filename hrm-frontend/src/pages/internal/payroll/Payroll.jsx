@@ -1,6 +1,6 @@
 import React from 'react';
 import { Download, Calculator, Lock, Banknote, ShieldAlert, FileSignature } from 'lucide-react';
-import { payrollList } from '../../mockData';
+import { payrollList } from '../../../mockData';
 
 export const PayrollMgmt = () => {
   const formatCurrency = (amount) => {

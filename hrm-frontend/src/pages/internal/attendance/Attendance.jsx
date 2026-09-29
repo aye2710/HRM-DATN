@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, Download, Filter, AlertCircle, Clock } from 'lucide-react';
-import { attendanceList } from '../../mockData';
+import { attendanceList } from '../../../mockData';
 
 export const AttendanceMgmt = () => {
   return (

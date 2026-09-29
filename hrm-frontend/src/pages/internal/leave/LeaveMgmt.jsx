@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, CheckCircle, XCircle } from 'lucide-react';
-import { leaveRequests } from '../../mockData';
+import { leaveRequests } from '../../../mockData';
 
 export const LeaveMgmt = () => {
   return (
