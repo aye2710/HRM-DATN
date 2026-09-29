@@ -11,7 +11,7 @@ export const PlaceholderPage = ({ title, description }) => {
         </div>
       </div>
       <div className="card glass flex-1 flex flex-col items-center justify-center opacity-80">
-        <div className="p-4 rounded-full mb-4" style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)' }}>
+        <div className="p-4 rounded-full mb-4" style={{ backgroundColor: 'var(--bg-hover)' }}>
           <Hammer size={40} color="var(--primary)" />
         </div>
         <h3 className="text-xl font-bold mb-2">Đang xây dựng: {title}</h3>

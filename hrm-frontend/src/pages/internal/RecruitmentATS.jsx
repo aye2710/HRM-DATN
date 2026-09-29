@@ -143,11 +143,11 @@ export const RecruitmentATS = () => {
           <p className="text-muted mt-2">Kéo thả thẻ ứng viên để thay đổi trạng thái tuyển dụng.</p>
         </div>
         <div className="flex gap-3 items-center">
-          <div className="bg-[rgba(255,255,255,0.05)] p-1 rounded-lg flex border border-[rgba(255,255,255,0.1)]">
-            <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-md transition-colors flex items-center gap-1 ${viewMode === 'kanban' ? 'bg-[rgba(255,255,255,0.1)] text-white' : 'text-muted hover:text-white'}`} title="Dạng Bảng kéo thả">
+          <div className="bg-white p-1 rounded-lg flex border border-[var(--border)]">
+            <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-md transition-colors flex items-center gap-1 ${viewMode === 'kanban' ? 'bg-white text-[var(--text-heading)]' : 'text-muted hover:text-[var(--primary)]'}`} title="Dạng Bảng kéo thả">
               <LayoutGrid size={18} />
             </button>
-            <button onClick={() => setViewMode('table')} className={`p-2 rounded-md transition-colors flex items-center gap-1 ${viewMode === 'table' ? 'bg-[rgba(255,255,255,0.1)] text-white' : 'text-muted hover:text-white'}`} title="Dạng Danh sách">
+            <button onClick={() => setViewMode('table')} className={`p-2 rounded-md transition-colors flex items-center gap-1 ${viewMode === 'table' ? 'bg-white text-[var(--text-heading)]' : 'text-muted hover:text-[var(--primary)]'}`} title="Dạng Danh sách">
               <List size={18} />
             </button>
           </div>
@@ -167,7 +167,7 @@ export const RecruitmentATS = () => {
             <input 
               type="text" 
               placeholder="Tìm kiếm ứng viên theo tên, email..." 
-              className="form-input w-full pl-10 bg-[rgba(255,255,255,0.02)]" 
+              className="form-input w-full pl-10 bg-white" 
               value={searchQuery} 
               onChange={e => setSearchQuery(e.target.value)} 
             />
@@ -248,8 +248,8 @@ export const RecruitmentATS = () => {
         <div className="card glass overflow-hidden flex-1 flex flex-col p-0" style={{ minHeight: 0 }}>
           <div className="overflow-y-auto flex-1 custom-scrollbar">
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-[rgba(15,23,42,0.95)] backdrop-blur-md z-10">
-                <tr className="border-b border-[rgba(255,255,255,0.1)]">
+              <thead className="sticky top-0 bg-white backdrop-blur-md z-10">
+                <tr className="border-b border-[var(--border)]">
                   <th className="p-4 text-sm font-semibold text-muted">Ứng viên</th>
                   <th className="p-4 text-sm font-semibold text-muted">Vị trí ứng tuyển</th>
                   <th className="p-4 text-sm font-semibold text-muted">Liên hệ</th>
@@ -263,9 +263,9 @@ export const RecruitmentATS = () => {
                   .map(c => {
                     const statusObj = statuses.find(s => s.id === c.status) || statuses[0];
                     return (
-                      <tr key={c.id} className="border-b border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                      <tr key={c.id} className="border-b border-[var(--border)] hover:bg-white transition-colors">
                         <td className="p-4">
-                          <div className="font-medium text-white">{c.name}</div>
+                          <div className="font-medium text-[var(--text-heading)]">{c.name}</div>
                           <div className="text-xs text-muted">ID: #{c.id.substring(0,6).toUpperCase()}</div>
                         </td>
                         <td className="p-4">
@@ -286,7 +286,7 @@ export const RecruitmentATS = () => {
                           <select 
                             className="form-input text-sm font-semibold cursor-pointer outline-none" 
                             style={{ 
-                              backgroundColor: 'rgba(255,255,255,0.05)', 
+                              backgroundColor: 'var(--bg-hover)', 
                               border: `1px solid ${statusObj.color}`, 
                               color: statusObj.color,
                               padding: '0.4rem 0.75rem',
@@ -320,11 +320,11 @@ export const RecruitmentATS = () => {
 
       {/* MODALS */}
       {showJobModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
               <h3 className="text-xl font-bold text-[var(--text-main)]">Tạo Tin tuyển dụng</h3>
-              <button onClick={() => setShowJobModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors"><X size={20} /></button>
+              <button onClick={() => setShowJobModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"><X size={20} /></button>
             </div>
             <div className="flex-col gap-4" style={{ padding: '1.5rem' }}>
               <div className="flex-col gap-2">
@@ -336,7 +336,7 @@ export const RecruitmentATS = () => {
                 <textarea className="form-input w-full" style={{ minHeight: '80px', padding: '0.75rem' }} value={jobForm.description} onChange={e => setJobForm({...jobForm, description: e.target.value})} placeholder="Mô tả yêu cầu..." />
               </div>
             </div>
-            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
               <button onClick={() => setShowJobModal(false)} className="btn btn-outline">Hủy</button>
               <button onClick={handleCreateJob} className="btn btn-primary">Lưu thông tin</button>
             </div>
@@ -346,16 +346,16 @@ export const RecruitmentATS = () => {
       )}
 
       {showCandidateModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
               <h3 className="text-xl font-bold text-[var(--text-main)]">Thêm Ứng viên mới</h3>
-              <button onClick={() => setShowCandidateModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors"><X size={20} /></button>
+              <button onClick={() => setShowCandidateModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"><X size={20} /></button>
             </div>
             <div className="flex-col gap-4" style={{ padding: '1.5rem' }}>
               <div className="flex-col gap-2">
                 <label className="text-sm font-medium text-[var(--text-muted)]">Tin tuyển dụng (Job Posting)</label>
-                <select className="form-input w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white" style={{ padding: '0.5rem' }} value={candidateForm.jobPostingId} onChange={e => setCandidateForm({...candidateForm, jobPostingId: e.target.value})}>
+                <select className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" style={{ padding: '0.5rem' }} value={candidateForm.jobPostingId} onChange={e => setCandidateForm({...candidateForm, jobPostingId: e.target.value})}>
                   <option value="" className="text-black">-- Chọn tin tuyển dụng --</option>
                   {jobPostings.filter(j => j.status === 'PUBLISHED').map(j => (
                     <option key={j.id} value={j.id} className="text-black">{j.title}</option>
@@ -375,7 +375,7 @@ export const RecruitmentATS = () => {
                 <input type="text" className="form-input w-full" value={candidateForm.phone} onChange={e => setCandidateForm({...candidateForm, phone: e.target.value})} placeholder="SĐT..." />
               </div>
             </div>
-            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
               <button onClick={() => setShowCandidateModal(false)} className="btn btn-outline">Hủy</button>
               <button onClick={handleCreateCandidate} className="btn btn-primary">Thêm ứng viên</button>
             </div>
@@ -386,14 +386,14 @@ export const RecruitmentATS = () => {
 
       {/* Confirmation Modal */}
       {pendingDrop && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden text-center" style={{ width: '400px', maxWidth: '95vw', padding: '2rem' }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
               <AlertTriangle size={32} color="var(--primary)" />
             </div>
             <h3 className="text-xl font-bold text-[var(--text-main)] mb-2">Xác nhận chuyển trạng thái</h3>
             <p className="text-[var(--text-muted)] mb-6">
-              Bạn có chắc chắn muốn chuyển ứng viên <strong className="text-white">{pendingDrop.candidateName}</strong> sang trạng thái <strong className="text-[var(--primary)]">{statuses.find(s => s.id === pendingDrop.newStatus)?.title}</strong>?
+              Bạn có chắc chắn muốn chuyển ứng viên <strong className="text-[var(--text-heading)]">{pendingDrop.candidateName}</strong> sang trạng thái <strong className="text-[var(--primary)]">{statuses.find(s => s.id === pendingDrop.newStatus)?.title}</strong>?
             </p>
             <div className="flex justify-center gap-3">
               <button onClick={cancelDrop} className="btn btn-outline flex-1">Hủy bỏ</button>

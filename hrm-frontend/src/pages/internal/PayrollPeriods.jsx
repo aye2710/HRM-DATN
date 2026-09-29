@@ -60,7 +60,7 @@ export const PayrollPeriods = () => {
                 <tr key={period.id}>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)' }}>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                         <CalendarClock size={16} color="var(--warning)" />
                       </div>
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{period.name}</span>

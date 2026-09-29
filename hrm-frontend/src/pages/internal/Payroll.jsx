@@ -66,10 +66,10 @@ export const PayrollMgmt = () => {
                 <th>Nhân viên</th>
                 <th><div className="text-right">Lương cơ bản</div></th>
                 <th><div className="text-right">Phụ cấp + Thưởng</div></th>
-                <th style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)' }}><div className="text-right">Tổng Gross</div></th>
+                <th style={{ backgroundColor: 'var(--bg-hover)' }}><div className="text-right">Tổng Gross</div></th>
                 <th><div className="text-right" style={{ color: 'var(--error)' }}>- Trừ BHXH</div></th>
                 <th><div className="text-right" style={{ color: 'var(--error)' }}>- Trừ Thuế & Phạt</div></th>
-                <th style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}><div className="text-right">Thực lãnh (Net)</div></th>
+                <th style={{ backgroundColor: 'var(--bg-hover)' }}><div className="text-right">Thực lãnh (Net)</div></th>
                 <th className="text-center">TT</th>
               </tr>
             </thead>
@@ -86,7 +86,7 @@ export const PayrollMgmt = () => {
                   </td>
                   <td className="text-right money-text">{formatCurrency(pr.baseSalary)}</td>
                   <td className="text-right money-text">{formatCurrency(pr.allowance + pr.bonus)}</td>
-                  <td className="text-right money-text" style={{ color: 'var(--primary)', fontWeight: 700, backgroundColor: 'rgba(99, 102, 241, 0.05)' }}>
+                  <td className="text-right money-text" style={{ color: 'var(--primary)', fontWeight: 700, backgroundColor: 'var(--bg-hover)' }}>
                     {formatCurrency(pr.gross)}
                   </td>
                   <td className="text-right money-text" style={{ color: 'var(--error)' }}>
@@ -95,7 +95,7 @@ export const PayrollMgmt = () => {
                   <td className="text-right money-text" style={{ color: 'var(--error)' }}>
                     {formatCurrency(pr.tax + pr.penalty)}
                   </td>
-                  <td className="text-right money-text" style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1.05rem', backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>
+                  <td className="text-right money-text" style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1.05rem', backgroundColor: 'var(--bg-hover)' }}>
                     {formatCurrency(pr.net)}
                   </td>
                   <td className="text-center">

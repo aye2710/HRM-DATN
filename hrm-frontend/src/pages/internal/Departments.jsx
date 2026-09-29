@@ -116,7 +116,7 @@ export const Departments = () => {
       <div className="grid grid-cols-4 gap-6">
         <div className="card glass card-hover">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(99, 102, 241, 0.2)' }}>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
               <Building size={24} color="var(--primary)" />
             </div>
             <div>
@@ -128,7 +128,7 @@ export const Departments = () => {
 
         <div className="card glass card-hover">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)' }}>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
               <Users size={24} color="var(--success)" />
             </div>
             <div>
@@ -193,7 +193,7 @@ export const Departments = () => {
                     <tr key={dept.id}>
                       <td>
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                          <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                             <Building size={16} color="var(--text-muted)" />
                           </div>
                           <span style={{ fontWeight: 500, color: 'var(--text-main)' }}>{dept.name}</span>
@@ -244,13 +244,13 @@ export const Departments = () => {
 
       {/* Add/Edit Modal */}
       {showModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden" style={{ width: '600px', maxWidth: '95vw', padding: 0, animation: 'slideUp 0.3s ease-out' }}>
-            <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid var(--border)' }}>
               <h3 className="text-xl font-bold text-[var(--text-main)]">
                 {modalMode === 'add' ? 'Thêm Phòng ban Mới' : 'Cập nhật Phòng ban'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors">
+              <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -289,7 +289,7 @@ export const Departments = () => {
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Phòng ban trực thuộc (Cấp cha)</label>
                 <select
-                  className="form-input w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white rounded-lg outline-none"
+                  className="form-input w-full"
                   style={{ padding: '0.5rem' }}
                   value={formData.parentId}
                   onChange={e => setFormData({ ...formData, parentId: e.target.value })}
@@ -302,7 +302,7 @@ export const Departments = () => {
               </div>
             </div>
 
-            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid var(--border)' }}>
               <button onClick={() => setShowModal(false)} className="btn btn-outline">Hủy bỏ</button>
               <button onClick={handleSave} className="btn btn-primary">Lưu thông tin</button>
             </div>
@@ -313,9 +313,9 @@ export const Departments = () => {
 
       {/* Delete Confirmation Modal */}
       {deleteId && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col items-center justify-center text-center gap-4" style={{ width: '400px', padding: '1.5rem', animation: 'zoomIn 0.2s ease-out' }}>
-            <div className="flex items-center justify-center mb-2" style={{ width: '4rem', height: '4rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.2)' }}>
+            <div className="flex items-center justify-center mb-2" style={{ width: '4rem', height: '4rem', borderRadius: '50%', backgroundColor: 'var(--bg-hover)' }}>
               <AlertTriangle size={32} color="var(--error)" />
             </div>
             <h3 className="text-xl font-bold text-[var(--text-main)]">Xác nhận xóa?</h3>

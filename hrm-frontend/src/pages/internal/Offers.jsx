@@ -98,7 +98,7 @@ export const Offers = () => {
           <input 
             type="text" 
             placeholder="Tìm kiếm ứng viên theo tên, email..." 
-            className="form-input w-full pl-10 bg-[rgba(255,255,255,0.02)]" 
+            className="form-input w-full pl-10 bg-white" 
             value={searchQuery} 
             onChange={e => setSearchQuery(e.target.value)} 
           />
@@ -110,7 +110,7 @@ export const Offers = () => {
           {loading ? (
              <div className="p-8 text-center text-muted">Đang tải...</div>
           ) : filteredCandidates.length === 0 ? (
-             <div className="p-12 flex-col items-center justify-center text-center border-b border-[rgba(255,255,255,0.05)]">
+             <div className="p-12 flex-col items-center justify-center text-center border-b border-[var(--border)]">
                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
                  <CheckCircle size={32} color="var(--text-muted)" />
                </div>
@@ -119,8 +119,8 @@ export const Offers = () => {
              </div>
           ) : (
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-[rgba(15,23,42,0.95)] backdrop-blur-md z-10">
-                <tr className="border-b border-[rgba(255,255,255,0.1)]">
+              <thead className="sticky top-0 bg-white backdrop-blur-md z-10">
+                <tr className="border-b border-[var(--border)]">
                   <th className="p-4 text-sm font-semibold text-muted">Ứng viên</th>
                   <th className="p-4 text-sm font-semibold text-muted">Vị trí tuyển dụng</th>
                   <th className="p-4 text-sm font-semibold text-muted">Thông tin liên hệ</th>
@@ -129,9 +129,9 @@ export const Offers = () => {
               </thead>
               <tbody>
                 {filteredCandidates.map(c => (
-                  <tr key={c.id} className="border-b border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                  <tr key={c.id} className="border-b border-[var(--border)] hover:bg-white transition-colors">
                     <td className="p-4">
-                      <div className="font-medium text-white text-[1.1rem]">{c.name}</div>
+                      <div className="font-medium text-[var(--text-heading)] text-[1.1rem]">{c.name}</div>
                       <div className="text-xs text-[var(--success)] flex items-center gap-1 mt-1">
                         <CheckCircle size={12} /> Đã qua phỏng vấn
                       </div>
@@ -171,19 +171,19 @@ export const Offers = () => {
 
       {/* Onboarding Modal */}
       {showOnboardModal && selectedCandidate && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden relative" style={{ width: '600px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'linear-gradient(to right, rgba(16, 185, 129, 0.1), transparent)' }}>
               <div>
                 <h3 className="text-xl font-bold text-[var(--text-main)] mb-1">Khởi tạo Hồ sơ Nhân viên</h3>
-                <p className="text-sm text-muted">Ứng viên: <strong className="text-white">{selectedCandidate.name}</strong></p>
+                <p className="text-sm text-muted">Ứng viên: <strong className="text-[var(--text-heading)]">{selectedCandidate.name}</strong></p>
               </div>
-              <button onClick={() => setShowOnboardModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors p-2"><X size={20} /></button>
+              <button onClick={() => setShowOnboardModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors p-2"><X size={20} /></button>
             </div>
             
             <form onSubmit={handleOnboardSubmit}>
               <div style={{ padding: '1.5rem' }}>
-                <div className="p-4 rounded-lg bg-[rgba(14,165,233,0.05)] border border-[rgba(14,165,233,0.1)] mb-6 flex items-start gap-3">
+                <div className="p-4 rounded-lg bg-white border border-[var(--border)] mb-6 flex items-start gap-3">
                   <AlertTriangle size={20} className="text-[var(--accent)] flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-muted">
                     Hệ thống sẽ lấy tự động Họ tên, Email, Phòng ban và Vị trí từ thông tin ứng tuyển. Vui lòng cung cấp thêm các thông tin pháp lý bên dưới để hoàn tất việc tạo Hồ sơ nhân viên.
@@ -235,7 +235,7 @@ export const Offers = () => {
                 </div>
               </div>
               
-              <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+              <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
                 <button type="button" onClick={() => setShowOnboardModal(false)} className="btn btn-outline" disabled={isSubmitting}>Hủy</button>
                 <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--success)', borderColor: 'var(--success)' }} disabled={isSubmitting}>
                   {isSubmitting ? 'Đang tạo hồ sơ...' : 'Lưu & Khởi tạo Nhân viên'}

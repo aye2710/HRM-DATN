@@ -59,7 +59,7 @@ export const Notifications = () => {
                 <tr key={notif.id}>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)' }}>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                         <BellRing size={16} color="var(--error)" />
                       </div>
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{notif.name}</span>

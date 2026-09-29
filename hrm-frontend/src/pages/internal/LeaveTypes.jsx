@@ -60,7 +60,7 @@ export const LeaveTypes = () => {
                 <tr key={leave.id}>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)' }}>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                         <CalendarHeart size={16} color="var(--success)" />
                       </div>
                       <div className="flex-col">

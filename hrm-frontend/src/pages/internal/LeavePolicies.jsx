@@ -59,7 +59,7 @@ export const LeavePolicies = () => {
                 <tr key={policy.id}>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)' }}>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                         <FileBadge size={16} color="var(--primary)" />
                       </div>
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{policy.name}</span>

@@ -67,7 +67,7 @@ const NavItem = ({ item }) => {
                   fontSize: '0.9rem', transition: 'all 0.2s',
                   borderLeft: childActive ? '2px solid var(--primary)' : '2px solid transparent'
                 })}
-                className="hover:text-white"
+                className="hover:text-[var(--primary)]"
               >
                 {child.icon ? child.icon : <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'currentColor' }} />}
                 {child.label}
@@ -90,7 +90,7 @@ const NavItem = ({ item }) => {
         borderRight: linkActive ? '3px solid var(--primary)' : '3px solid transparent',
         fontWeight: linkActive ? 600 : 500, transition: 'all 0.2s'
       })}
-      className="hover:bg-white/5 hover:text-white"
+      className="hover:bg-white/5 hover:text-[var(--primary)]"
     >
       {item.icon}
       {item.label}
@@ -99,15 +99,15 @@ const NavItem = ({ item }) => {
 };
 
 const Sidebar = ({ links }) => (
-  <div className="sidebar" style={{ background: '#0B1120', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+  <div className="sidebar">
     <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-      <h1 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'Outfit, sans-serif' }}>
+      <h1 style={{ margin: 0, color: '#fff', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'Outfit, sans-serif' }}>
         <div style={{ width: 32, height: 32, backgroundColor: 'var(--primary)', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '1rem' }}>
           <Shield size={18} />
         </div>
         <div className="flex-col">
           <span style={{ lineHeight: 1 }}>GHC HRM</span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>Enterprise Portal</span>
+          <span style={{ fontSize: '0.7rem', color: '#a1b0cb', fontWeight: 400 }}>Enterprise Portal</span>
         </div>
       </h1>
     </div>
@@ -119,10 +119,10 @@ const Sidebar = ({ links }) => (
     </nav>
     
     <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-       <NavLink to="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
+       <NavLink to="/" style={{ color: '#a1b0cb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
          <Settings size={18} /> Cài đặt
        </NavLink>
-       <NavLink to="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem' }}>
+       <NavLink to="/" style={{ color: '#a1b0cb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem' }}>
          <LogOut size={18} /> Đăng xuất
        </NavLink>
     </div>

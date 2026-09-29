@@ -25,7 +25,7 @@ const OrgNode = ({ department }) => {
         </div>
         <h4 className="font-bold text-main m-0 mb-1" style={{ fontSize: '1.05rem' }}>{department.name}</h4>
         <p className="text-muted text-xs mb-3">{department.managerName || 'Chưa có đại diện'}</p>
-        <span className="badge badge-primary inline-flex items-center" style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: 'none', padding: '0.25rem 0.75rem' }}>
+        <span className="badge badge-primary inline-flex items-center" style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-main)', border: 'none', padding: '0.25rem 0.75rem' }}>
           <Users size={12} className="mr-2 text-muted" /> Tổng nhân sự: {totalEmployees}
         </span>
       </div>
@@ -103,7 +103,7 @@ export const OrgChart = () => {
         </div>
       </div>
 
-      <div className="card glass flex-1 overflow-auto p-10" style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', minHeight: '600px' }}>
+      <div className="card glass flex-1 overflow-auto p-10" style={{ backgroundColor: 'var(--bg-hover)', minHeight: '600px' }}>
         {departments.length === 0 ? (
            <div className="text-muted text-center p-10">Đang tải dữ liệu sơ đồ...</div>
         ) : (

@@ -142,10 +142,10 @@ export const OnboardingMgmt = () => {
 
               return (
                 <div key={emp.id} onClick={() => handleOpenPanel(emp)} 
-                     className="card bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.05)] transition-all cursor-pointer flex flex-col gap-4">
+                     className="card bg-white border border-[var(--border)] hover:border-[var(--border)] hover:bg-white transition-all cursor-pointer flex flex-col gap-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="font-semibold text-lg text-white mb-1">{emp.fullName}</div>
+                      <div className="font-semibold text-lg text-[var(--text-heading)] mb-1">{emp.fullName}</div>
                       <div className="text-xs text-muted flex items-center gap-2">
                         <span>{emp.code}</span>
                         <span>•</span>
@@ -164,9 +164,9 @@ export const OnboardingMgmt = () => {
                   <div className="mt-2">
                     <div className="flex justify-between text-xs mb-2">
                       <span className="text-muted">Tiến độ Onboarding</span>
-                      <span className={empProgress === 100 ? "text-[var(--success)] font-bold" : "text-white"}>{empProgress}%</span>
+                      <span className={empProgress === 100 ? "text-[var(--success)] font-bold" : "text-[var(--text-heading)]"}>{empProgress}%</span>
                     </div>
-                    <div className="w-full bg-[rgba(255,255,255,0.1)] rounded-full h-2">
+                    <div className="w-full bg-white rounded-full h-2">
                       <div className="bg-[var(--primary)] h-2 rounded-full transition-all duration-500" style={{ width: `${empProgress}%`, backgroundColor: empProgress === 100 ? 'var(--success)' : 'var(--primary)' }}></div>
                     </div>
                   </div>
@@ -179,10 +179,10 @@ export const OnboardingMgmt = () => {
 
       {/* Centered Modal for Onboarding Details */}
       {selectedEmp && createPortal(
-        <div className="animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)' }} onClick={handleClosePanel}>
+        <div className="animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(5px)' }} onClick={handleClosePanel}>
           <div className="animate-fade-in" style={{ width: '90%', maxWidth: '600px', maxHeight: '90vh', backgroundColor: '#0f172a', borderRadius: '1rem', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)', border: '1px solid rgba(255,255,255,0.1)' }} onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-hover)', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '0.25rem' }}>Checklist Hội nhập</h3>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Nhân viên: <strong style={{ color: 'var(--primary)' }}>{selectedEmp.fullName}</strong></p>
@@ -191,12 +191,12 @@ export const OnboardingMgmt = () => {
             </div>
 
             {/* Progress Bar Header */}
-            <div style={{ padding: '1rem 1.5rem', backgroundColor: 'rgba(99,102,241,0.1)', borderBottom: '1px solid rgba(99,102,241,0.2)' }}>
+            <div style={{ padding: '1rem 1.5rem', backgroundColor: 'var(--bg-hover)', borderBottom: '1px solid rgba(99,102,241,0.2)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
                 <span style={{ fontWeight: 500, color: 'var(--text-main)' }}>Tổng tiến độ hoàn thành</span>
                 <span style={{ fontWeight: 'bold', color: progressPercent === 100 ? 'var(--success)' : 'white' }}>{progressPercent}%</span>
               </div>
-              <div style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '9999px', height: '0.625rem' }}>
+              <div style={{ width: '100%', backgroundColor: 'var(--bg-hover)', borderRadius: '9999px', height: '0.625rem' }}>
                 <div style={{ height: '0.625rem', borderRadius: '9999px', transition: 'all 0.5s', backgroundColor: progressPercent === 100 ? 'var(--success)' : 'var(--primary)', width: `${progressPercent}%`, boxShadow: '0 0 10px rgba(99,102,241,0.5)' }}></div>
               </div>
             </div>
@@ -204,9 +204,9 @@ export const OnboardingMgmt = () => {
             {/* Checklist Content */}
             <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {checklistItems.map((group, gIdx) => (
-                <div key={gIdx} style={{ flexShrink: 0, backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0.75rem', overflow: 'hidden' }}>
-                  <div style={{ padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ padding: '0.5rem', borderRadius: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--primary)' }}>
+                <div key={gIdx} style={{ flexShrink: 0, backgroundColor: 'var(--bg-hover)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0.75rem', overflow: 'hidden' }}>
+                  <div style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--bg-hover)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ padding: '0.5rem', borderRadius: '0.5rem', backgroundColor: 'var(--bg-hover)', color: 'var(--primary)' }}>
                       {group.icon}
                     </div>
                     <h4 style={{ fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>
@@ -238,7 +238,7 @@ export const OnboardingMgmt = () => {
             </div>
 
             {/* Footer Action */}
-            <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.9)', borderBottomLeftRadius: '1rem', borderBottomRightRadius: '1rem' }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)', borderBottomLeftRadius: '1rem', borderBottomRightRadius: '1rem' }}>
               <button 
                 onClick={handleCompleteOnboarding}
                 disabled={progressPercent < 100 || isSubmitting}
@@ -272,9 +272,9 @@ export const OnboardingMgmt = () => {
 
       {/* Confirm Popup */}
       {showConfirmPopup && createPortal(
-        <div className="animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)' }}>
+        <div className="animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(5px)' }}>
           <div className="animate-fade-in" style={{ width: '90%', maxWidth: '400px', backgroundColor: '#0f172a', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', textAlign: 'center', boxShadow: 'var(--shadow-lg)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', backgroundColor: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', backgroundColor: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
               <AlertCircle size={32} color="var(--warning, #f59e0b)" />
             </div>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '0.75rem' }}>Xác nhận Hoàn tất</h3>
@@ -285,7 +285,7 @@ export const OnboardingMgmt = () => {
               <button 
                 onClick={() => setShowConfirmPopup(false)}
                 className="btn"
-                style={{ flex: 1, padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: 'none' }}>
+                style={{ flex: 1, padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--bg-hover)', color: 'white', border: 'none' }}>
                 Hủy
               </button>
               <button 
@@ -303,9 +303,9 @@ export const OnboardingMgmt = () => {
 
       {/* Success Popup */}
       {showSuccessPopup && createPortal(
-        <div className="animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)' }}>
+        <div className="animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(5px)' }}>
           <div className="animate-fade-in" style={{ width: '90%', maxWidth: '400px', backgroundColor: '#0f172a', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', textAlign: 'center', boxShadow: 'var(--shadow-lg)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', backgroundColor: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', backgroundColor: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
               <CheckCircle2 size={32} color="var(--success)" />
             </div>
             <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', marginBottom: '0.5rem' }}>Hoàn tất Hội nhập!</h3>

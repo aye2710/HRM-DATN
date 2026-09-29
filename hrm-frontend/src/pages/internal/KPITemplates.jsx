@@ -59,7 +59,7 @@ export const KPITemplates = () => {
                 <tr key={tpl.id}>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)' }}>
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                         <FileDiff size={16} color="var(--primary)" />
                       </div>
                       <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{tpl.name}</span>

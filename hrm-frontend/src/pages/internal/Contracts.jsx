@@ -113,7 +113,7 @@ export const Contracts = () => {
       </div>
 
       <div className="card glass flex-col flex-1 overflow-hidden p-0">
-        <div className="flex justify-between items-center p-4 border-b border-[rgba(255,255,255,0.1)]">
+        <div className="flex justify-between items-center p-4 border-b border-[var(--border)]">
           <div className="flex gap-4 items-center w-1/2">
             <div style={{ position: 'relative', width: '100%' }}>
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
@@ -134,8 +134,8 @@ export const Contracts = () => {
              <div className="p-8 text-center text-muted">Đang tải dữ liệu...</div>
           ) : (
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-[rgba(15,23,42,0.95)] backdrop-blur-md z-10">
-                <tr className="border-b border-[rgba(255,255,255,0.1)]">
+              <thead className="sticky top-0 bg-white backdrop-blur-md z-10">
+                <tr className="border-b border-[var(--border)]">
                   <th className="p-4 text-sm font-semibold text-muted">Mã NV</th>
                   <th className="p-4 text-sm font-semibold text-muted">Nhân viên</th>
                   <th className="p-4 text-sm font-semibold text-muted">Chức vụ / Phòng ban</th>
@@ -145,12 +145,12 @@ export const Contracts = () => {
               </thead>
               <tbody>
                 {filteredEmployees.map(emp => (
-                  <tr key={emp.id} className="border-b border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                  <tr key={emp.id} className="border-b border-[var(--border)] hover:bg-white transition-colors">
                     <td className="p-4 font-semibold text-[var(--primary)]">{emp.code}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="flex-col">
-                          <span className="font-semibold text-white">{emp.fullName}</span>
+                          <span className="font-semibold text-[var(--text-heading)]">{emp.fullName}</span>
                           <span className="text-muted text-xs">Trạng thái: {emp.status}</span>
                         </div>
                       </div>
@@ -177,7 +177,7 @@ export const Contracts = () => {
 
       {/* History Modal */}
       {showHistoryModal && selectedEmp && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden relative" style={{ width: '800px', maxWidth: '95vw', maxHeight: '90vh', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'linear-gradient(to right, rgba(99, 102, 241, 0.1), transparent)' }}>
               <div>
@@ -188,7 +188,7 @@ export const Contracts = () => {
                 <button onClick={openCreateModal} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
                   <Plus size={16} className="mr-1" /> Ký HĐ Mới
                 </button>
-                <button onClick={() => setShowHistoryModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors p-2"><X size={20} /></button>
+                <button onClick={() => setShowHistoryModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors p-2"><X size={20} /></button>
               </div>
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar" style={{ flex: 1 }}>
@@ -197,18 +197,18 @@ export const Contracts = () => {
               ) : (
                 <div className="flex-col gap-4">
                   {selectedEmp.contracts.map(contract => (
-                    <div key={contract.id} className="card p-4" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
+                    <div key={contract.id} className="card p-4" style={{ backgroundColor: 'var(--bg-hover)', border: '1px solid var(--border)' }}>
                       <div className="flex justify-between items-center mb-3">
                         <div className="flex items-center gap-2">
                           <Briefcase size={18} className="text-primary" />
-                          <h4 className="font-bold text-white m-0">{getContractTypeName(contract.contractType)}</h4>
+                          <h4 className="font-bold text-[var(--text-heading)] m-0">{getContractTypeName(contract.contractType)}</h4>
                         </div>
                         <span className={`badge ${contract.status === 'ACTIVE' ? 'badge-success' : 'badge-error'}`}>{contract.status}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm text-muted">
-                        <div><strong className="text-white">Lương cơ bản:</strong> <span className="money-text">{formatCurrency(contract.baseSalary)}</span></div>
-                        <div><strong className="text-white">Ngày bắt đầu:</strong> {new Date(contract.startDate).toLocaleDateString('vi-VN')}</div>
-                        {contract.endDate && <div><strong className="text-white">Ngày hết hạn:</strong> {new Date(contract.endDate).toLocaleDateString('vi-VN')}</div>}
+                        <div><strong className="text-[var(--text-heading)]">Lương cơ bản:</strong> <span className="money-text">{formatCurrency(contract.baseSalary)}</span></div>
+                        <div><strong className="text-[var(--text-heading)]">Ngày bắt đầu:</strong> {new Date(contract.startDate).toLocaleDateString('vi-VN')}</div>
+                        {contract.endDate && <div><strong className="text-[var(--text-heading)]">Ngày hết hạn:</strong> {new Date(contract.endDate).toLocaleDateString('vi-VN')}</div>}
                       </div>
                     </div>
                   ))}
@@ -222,17 +222,17 @@ export const Contracts = () => {
 
       {/* Create Contract Modal */}
       {showCreateModal && selectedEmp && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 110, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 110, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden relative" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
               <h3 className="text-xl font-bold text-[var(--text-main)] m-0">Tạo Hợp đồng Mới</h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors p-2"><X size={20} /></button>
+              <button onClick={() => setShowCreateModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors p-2"><X size={20} /></button>
             </div>
             <form onSubmit={handleCreateContract} className="p-6 flex-col gap-4">
               
               {/* Nếu nhân viên đang thử việc/thực tập, hiện khung đánh giá */}
               {(selectedEmp.status === 'PROBATION' || selectedEmp.status === 'INTERNSHIP') && (
-                <div className="p-4 rounded-lg mb-2" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                <div className="p-4 rounded-lg mb-2" style={{ backgroundColor: 'var(--bg-hover)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
                   <h4 className="font-bold text-warning mb-2" style={{ fontSize: '0.9rem' }}>Đánh giá Kết thúc Thử việc/Thực tập</h4>
                   <p className="text-muted text-xs mb-3">Nhân viên này đang ở trạng thái {selectedEmp.status}. Vui lòng nhập kết quả đánh giá để ký hợp đồng tiếp theo.</p>
                   <label className="form-label text-muted">Kết quả đánh giá</label>
@@ -268,7 +268,7 @@ export const Contracts = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[rgba(255,255,255,0.1)]">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--border)]">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-outline">Hủy</button>
                 <button type="submit" disabled={isSubmitting} className="btn btn-primary">{isSubmitting ? 'Đang tạo...' : 'Tạo hợp đồng'}</button>
               </div>

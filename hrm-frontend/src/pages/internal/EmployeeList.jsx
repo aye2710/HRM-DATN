@@ -62,7 +62,7 @@ export const EmployeeList = () => {
     switch (status) {
       case 'ACTIVE': return <span className="badge badge-success">Chính thức</span>;
       case 'PROBATION': return <span className="badge badge-warning">Thử việc</span>;
-      case 'INTERNSHIP': return <span className="badge badge-info" style={{ backgroundColor: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4', borderColor: 'rgba(6, 182, 212, 0.3)' }}>Thực tập</span>;
+      case 'INTERNSHIP': return <span className="badge badge-info" style={{ backgroundColor: 'var(--bg-hover)', color: '#06b6d4', borderColor: 'rgba(6, 182, 212, 0.3)' }}>Thực tập</span>;
       case 'ONBOARDING': return <span className="badge badge-info">Đang hội nhập</span>;
       case 'RESIGNED': return <span className="badge badge-error">Đã nghỉ việc</span>;
       default: return <span className="badge badge-purple">{status}</span>;
@@ -194,8 +194,8 @@ export const EmployeeList = () => {
              <div className="p-12 text-center text-muted">Không tìm thấy nhân sự nào phù hợp.</div>
           ) : (
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-[rgba(15,23,42,0.95)] backdrop-blur-md z-10">
-                <tr className="border-b border-[rgba(255,255,255,0.1)]">
+              <thead className="sticky top-0 bg-white backdrop-blur-md z-10">
+                <tr className="border-b border-[var(--border)]">
                   <th className="p-4 text-sm font-semibold text-muted">Mã NV</th>
                   <th className="p-4 text-sm font-semibold text-muted">Họ và Tên</th>
                   <th className="p-4 text-sm font-semibold text-muted">Chức vụ / Phòng ban</th>
@@ -206,7 +206,7 @@ export const EmployeeList = () => {
               </thead>
               <tbody>
                 {filteredEmployees.map(emp => (
-                  <tr key={emp.id} className="border-b border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                  <tr key={emp.id} className="border-b border-[var(--border)] hover:bg-white transition-colors">
                     <td className="p-4 font-semibold text-[var(--primary)]">{emp.code}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -214,7 +214,7 @@ export const EmployeeList = () => {
                           <UserCircle size={24} className="text-muted" />
                         </div>
                         <div className="flex-col">
-                          <span className="font-semibold text-white">{emp.fullName}</span>
+                          <span className="font-semibold text-[var(--text-heading)]">{emp.fullName}</span>
                           <span className="text-muted text-xs">CCCD: {emp.cccd}</span>
                         </div>
                       </div>
@@ -245,11 +245,11 @@ export const EmployeeList = () => {
 
       {/* Employee Modal */}
       {showModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden relative" style={{ width: '600px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'linear-gradient(to right, rgba(99, 102, 241, 0.1), transparent)' }}>
               <h3 className="text-xl font-bold text-[var(--text-main)] m-0">{isEditing ? 'Cập nhật Nhân viên' : 'Thêm Nhân viên mới'}</h3>
-              <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors p-2"><X size={20} /></button>
+              <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors p-2"><X size={20} /></button>
             </div>
             
             <form onSubmit={handleSubmit}>
@@ -302,7 +302,7 @@ export const EmployeeList = () => {
                 </div>
               </div>
               
-              <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+              <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
                 <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline" disabled={isSubmitting}>Hủy</button>
                 <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
                   {isSubmitting ? 'Đang lưu...' : 'Lưu thông tin'}

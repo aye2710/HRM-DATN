@@ -88,11 +88,11 @@ export const Interviews = () => {
           {loading ? (
              <div className="p-8 text-center text-muted">Đang tải...</div>
           ) : interviews.length === 0 ? (
-             <div className="p-8 text-center text-muted border-b border-[rgba(255,255,255,0.05)]">Chưa có lịch phỏng vấn nào.</div>
+             <div className="p-8 text-center text-muted border-b border-[var(--border)]">Chưa có lịch phỏng vấn nào.</div>
           ) : (
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-[rgba(15,23,42,0.95)] backdrop-blur-md z-10">
-                <tr className="border-b border-[rgba(255,255,255,0.1)]">
+              <thead className="sticky top-0 bg-white backdrop-blur-md z-10">
+                <tr className="border-b border-[var(--border)]">
                   <th className="p-4 text-sm font-semibold text-muted">Ngày & Giờ</th>
                   <th className="p-4 text-sm font-semibold text-muted">Ứng viên</th>
                   <th className="p-4 text-sm font-semibold text-muted">Vòng / Vị trí</th>
@@ -109,7 +109,7 @@ export const Interviews = () => {
                   const isPast = date < new Date();
 
                   return (
-                    <tr key={inv.id} className="border-b border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                    <tr key={inv.id} className="border-b border-[var(--border)] hover:bg-white transition-colors">
                       <td className="p-4">
                         <div className="font-medium text-[var(--primary)] flex items-center gap-2">
                           <Clock size={16} /> {formattedTime}
@@ -117,7 +117,7 @@ export const Interviews = () => {
                         <div className="text-sm text-muted mt-1">{formattedDate}</div>
                       </td>
                       <td className="p-4">
-                        <div className="font-medium text-white">{inv.candidate?.name || 'Unknown'}</div>
+                        <div className="font-medium text-[var(--text-heading)]">{inv.candidate?.name || 'Unknown'}</div>
                         <div className="text-xs text-muted">{inv.candidate?.email}</div>
                       </td>
                       <td className="p-4">
@@ -152,17 +152,17 @@ export const Interviews = () => {
 
       {/* Schedule Modal */}
       {showScheduleModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
               <h3 className="text-xl font-bold text-[var(--text-main)]">Lên lịch Phỏng vấn</h3>
-              <button onClick={() => setShowScheduleModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors"><X size={20} /></button>
+              <button onClick={() => setShowScheduleModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"><X size={20} /></button>
             </div>
             <form onSubmit={handleScheduleSubmit}>
               <div className="flex-col gap-4" style={{ padding: '1.5rem' }}>
                 <div className="flex-col gap-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Ứng viên (Đang chờ phỏng vấn)</label>
-                  <select required className="form-input w-full bg-[rgba(255,255,255,0.05)]" value={scheduleForm.candidateId} onChange={e => setScheduleForm({...scheduleForm, candidateId: e.target.value})}>
+                  <select required className="form-input w-full bg-white" value={scheduleForm.candidateId} onChange={e => setScheduleForm({...scheduleForm, candidateId: e.target.value})}>
                     <option value="" className="text-black">-- Chọn ứng viên --</option>
                     {interviewingCandidates.map(c => (
                       <option key={c.id} value={c.id} className="text-black">{c.name} - {c.jobPosting?.title}</option>
@@ -183,7 +183,7 @@ export const Interviews = () => {
                   <input required type="text" className="form-input w-full" value={scheduleForm.interviewerId} onChange={e => setScheduleForm({...scheduleForm, interviewerId: e.target.value})} placeholder="VD: Anh Tuấn (Tech Lead)" />
                 </div>
               </div>
-              <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+              <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
                 <button type="button" onClick={() => setShowScheduleModal(false)} className="btn btn-outline">Hủy</button>
                 <button type="submit" className="btn btn-primary" disabled={interviewingCandidates.length === 0}>Xác nhận Lên lịch</button>
               </div>
@@ -195,11 +195,11 @@ export const Interviews = () => {
 
       {/* Feedback Modal */}
       {showFeedbackModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden" style={{ width: '450px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'linear-gradient(to right, rgba(245, 158, 11, 0.1), transparent)' }}>
               <h3 className="text-xl font-bold text-[var(--text-main)]">Đánh giá Ứng viên</h3>
-              <button onClick={() => setShowFeedbackModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors"><X size={20} /></button>
+              <button onClick={() => setShowFeedbackModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"><X size={20} /></button>
             </div>
             <form onSubmit={handleFeedbackSubmit}>
               <div className="flex-col gap-4" style={{ padding: '1.5rem' }}>
@@ -226,7 +226,7 @@ export const Interviews = () => {
                   />
                 </div>
               </div>
-              <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+              <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
                 <button type="button" onClick={() => setShowFeedbackModal(false)} className="btn btn-outline">Hủy</button>
                 <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--warning)', borderColor: 'var(--warning)', color: 'black' }}>Lưu Đánh giá</button>
               </div>

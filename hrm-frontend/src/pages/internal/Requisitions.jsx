@@ -195,7 +195,7 @@ export const Requisitions = () => {
                     <tr key={req.id}>
                       <td>
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)' }}>
+                          <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                             <Briefcase size={16} color="var(--primary)" />
                           </div>
                           <div className="flex-col">
@@ -230,7 +230,7 @@ export const Requisitions = () => {
                             <span>{hiredCount} / {req.amount}</span>
                             <span style={{ color: 'var(--text-muted)' }}>{Math.round(ratio)}%</span>
                           </div>
-                          <div style={{ width: '100px', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: '100px', height: '6px', backgroundColor: 'var(--bg-hover)', borderRadius: '3px', overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${Math.min(100, ratio)}%`, backgroundColor: 'var(--success)', borderRadius: '3px' }}></div>
                           </div>
                         </div>
@@ -261,13 +261,13 @@ export const Requisitions = () => {
 
       {/* Modal */}
       {showModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden" style={{ width: '650px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
               <h3 className="text-xl font-bold text-[var(--text-main)]">
                 {modalMode === 'add' ? 'Tạo Yêu cầu Tuyển dụng' : 'Cập nhật Yêu cầu'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-white"><X size={20} /></button>
+              <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)]"><X size={20} /></button>
             </div>
 
             <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
@@ -278,7 +278,7 @@ export const Requisitions = () => {
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Phòng ban yêu cầu (Cố định theo vị trí)</label>
-                <select className="form-input w-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] text-white" style={{ padding: '0.5rem', opacity: 0.6, cursor: 'not-allowed' }} value={formData.departmentId} disabled>
+                <select className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" style={{ padding: '0.5rem', opacity: 0.6, cursor: 'not-allowed' }} value={formData.departmentId} disabled>
                   <option value="" className="text-black">-- Tự động điền --</option>
                   {departments.map(d => (
                     <option key={d.id} value={d.id} className="text-black">{d.name}</option>
@@ -288,7 +288,7 @@ export const Requisitions = () => {
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Vị trí (Chức danh)</label>
-                <select className="form-input w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white" style={{ padding: '0.5rem' }} value={formData.positionId} onChange={handlePositionChange}>
+                <select className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" style={{ padding: '0.5rem' }} value={formData.positionId} onChange={handlePositionChange}>
                   <option value="" className="text-black">-- Chọn vị trí --</option>
                   {positions.map(p => (
                     <option key={p.id} value={p.id} className="text-black">
@@ -300,12 +300,12 @@ export const Requisitions = () => {
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Mức lương (Cố định theo vị trí)</label>
-                <input type="text" className="form-input w-full" style={{ opacity: 0.6, cursor: 'not-allowed', backgroundColor: 'rgba(255,255,255,0.02)' }} value={formData.salaryRange} disabled placeholder="Tự động điền..." />
+                <input type="text" className="form-input w-full" style={{ opacity: 0.6, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }} value={formData.salaryRange} disabled placeholder="Tự động điền..." />
               </div>
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Cấp bậc (Cố định theo vị trí)</label>
-                <select className="form-input w-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] text-white" style={{ padding: '0.5rem', opacity: 0.6, cursor: 'not-allowed' }} value={formData.level} disabled>
+                <select className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" style={{ padding: '0.5rem', opacity: 0.6, cursor: 'not-allowed' }} value={formData.level} disabled>
                   <option value="Intern" className="text-black">Intern</option>
                   <option value="Fresher" className="text-black">Fresher</option>
                   <option value="Junior" className="text-black">Junior</option>
@@ -318,7 +318,7 @@ export const Requisitions = () => {
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Loại hình</label>
-                <select className="form-input w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white" style={{ padding: '0.5rem' }} value={formData.jobType} onChange={e => setFormData({...formData, jobType: e.target.value})}>
+                <select className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" style={{ padding: '0.5rem' }} value={formData.jobType} onChange={e => setFormData({...formData, jobType: e.target.value})}>
                   <option value="Full-time" className="text-black">Toàn thời gian (Full-time)</option>
                   <option value="Part-time" className="text-black">Bán thời gian (Part-time)</option>
                   <option value="Internship" className="text-black">Thực tập (Internship)</option>
@@ -338,7 +338,7 @@ export const Requisitions = () => {
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Trạng thái phát hành</label>
-                <select className="form-input w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white" style={{ padding: '0.5rem' }} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                <select className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" style={{ padding: '0.5rem' }} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                   <option value="DRAFT" className="text-black">Nháp (DRAFT)</option>
                   <option value="PUBLISHED" className="text-black">Phát hành (PUBLISHED)</option>
                   <option value="CLOSED" className="text-black">Ngừng phát hành (CLOSED)</option>
@@ -351,7 +351,7 @@ export const Requisitions = () => {
               </div>
             </div>
 
-            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
               <button onClick={() => setShowModal(false)} className="btn btn-outline">Hủy bỏ</button>
               <button onClick={handleSave} className="btn btn-primary">Lưu thông tin</button>
             </div>

@@ -111,7 +111,7 @@ export const CandidateLandingPage = () => {
       {/* Top Navbar */}
       <nav style={{ 
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-        padding: '1.25rem 4rem', backgroundColor: 'rgba(15, 23, 42, 0.85)', 
+        padding: '1.25rem 4rem', backgroundColor: 'rgba(67, 89, 113, 0.5)', 
         backdropFilter: 'blur(16px)', position: 'fixed', top: 0, width: '100%', zIndex: 50,
         borderBottom: '1px solid var(--border)'
       }}>
@@ -124,7 +124,7 @@ export const CandidateLandingPage = () => {
           </span>
         </div>
         <div style={{ display: 'flex', gap: '2.5rem', alignItems: 'center' }}>
-          <a href="#about" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }} className="hover:text-white">Về chúng tôi</a>
+          <a href="#about" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }} className="hover:text-[var(--primary)]">Về chúng tôi</a>
           <a href="#jobs" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600, transition: 'color 0.2s' }}>Tuyển dụng</a>
           <button 
             onClick={() => { setTrackResults(null); setTrackEmail(''); setShowTrackModal(true); }} 
@@ -188,7 +188,7 @@ export const CandidateLandingPage = () => {
       </div>
 
       {/* Core Values & Perks */}
-      <div id="about" style={{ padding: '6rem 2rem', position: 'relative', zIndex: 10, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+      <div id="about" style={{ padding: '6rem 2rem', position: 'relative', zIndex: 10, backgroundColor: 'var(--bg-hover)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div className="text-center mb-12">
             <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem', fontFamily: 'Outfit, sans-serif' }}>Đãi ngộ & Văn hóa</h2>
@@ -260,7 +260,7 @@ export const CandidateLandingPage = () => {
       </div>
 
       {/* Testimonials */}
-      <div style={{ padding: '6rem 2rem', backgroundColor: 'rgba(99, 102, 241, 0.05)' }}>
+      <div style={{ padding: '6rem 2rem', backgroundColor: 'var(--bg-hover)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div className="text-center mb-12">
             <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem', fontFamily: 'Outfit, sans-serif' }}>Lời chia sẻ từ đội ngũ</h2>
@@ -371,7 +371,7 @@ export const CandidateLandingPage = () => {
 
       {/* Application Modal */}
       {showApplyModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden relative" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
             {/* Modal Header */}
             <div className="flex justify-between items-center" style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'linear-gradient(to right, rgba(99, 102, 241, 0.1), transparent)' }}>
@@ -379,7 +379,7 @@ export const CandidateLandingPage = () => {
                 <h3 className="text-xl font-bold text-[var(--text-main)] mb-1">Ứng tuyển vị trí</h3>
                 <p className="text-[var(--primary)] font-medium">{selectedJob?.title}</p>
               </div>
-              <button onClick={() => setShowApplyModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors p-2"><X size={20} /></button>
+              <button onClick={() => setShowApplyModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors p-2"><X size={20} /></button>
             </div>
 
             {/* Modal Body */}
@@ -389,7 +389,7 @@ export const CandidateLandingPage = () => {
                   <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
                     <CheckCircle2 size={40} color="var(--success)" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Ứng tuyển thành công!</h3>
+                  <h3 className="text-xl font-bold text-[var(--text-heading)] mb-2">Ứng tuyển thành công!</h3>
                   <p className="text-muted mb-6">Hồ sơ của bạn đã được gửi đến bộ phận Nhân sự của LLA. Chúng tôi sẽ liên hệ lại trong thời gian sớm nhất.</p>
                   <button onClick={() => setShowApplyModal(false)} className="btn btn-primary w-full">Đóng cửa sổ</button>
                 </div>
@@ -397,17 +397,17 @@ export const CandidateLandingPage = () => {
                 <form onSubmit={handleApplySubmit} className="flex-col gap-4">
                   <div className="flex-col gap-2">
                     <label className="text-sm font-medium text-[var(--text-muted)]">Họ và tên <span className="text-[var(--error)]">*</span></label>
-                    <input type="text" required className="form-input w-full bg-[rgba(255,255,255,0.02)]" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Nguyễn Văn A" />
+                    <input type="text" required className="form-input w-full bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Nguyễn Văn A" />
                   </div>
                   
                   <div className="flex-col gap-2">
                     <label className="text-sm font-medium text-[var(--text-muted)]">Email <span className="text-[var(--error)]">*</span></label>
-                    <input type="email" required className="form-input w-full bg-[rgba(255,255,255,0.02)]" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="nguyenvana@email.com" />
+                    <input type="email" required className="form-input w-full bg-white" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="nguyenvana@email.com" />
                   </div>
                   
                   <div className="flex-col gap-2">
                     <label className="text-sm font-medium text-[var(--text-muted)]">Số điện thoại</label>
-                    <input type="tel" className="form-input w-full bg-[rgba(255,255,255,0.02)]" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="0901234567" />
+                    <input type="tel" className="form-input w-full bg-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="0901234567" />
                   </div>
 
                   <div className="flex-col gap-2 mb-4">
@@ -416,7 +416,7 @@ export const CandidateLandingPage = () => {
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <FileText size={16} className="text-[var(--text-muted)]" />
                       </div>
-                      <input type="url" required className="form-input w-full bg-[rgba(255,255,255,0.02)] pl-10" value={formData.cvUrl} onChange={e => setFormData({...formData, cvUrl: e.target.value})} placeholder="https://drive.google.com/..." />
+                      <input type="url" required className="form-input w-full bg-white pl-10" value={formData.cvUrl} onChange={e => setFormData({...formData, cvUrl: e.target.value})} placeholder="https://drive.google.com/..." />
                     </div>
                     <p className="text-xs text-[var(--text-muted)] mt-1">Vui lòng đảm bảo link CV của bạn được cấp quyền truy cập công khai (Anyone with the link can view).</p>
                   </div>
@@ -435,14 +435,14 @@ export const CandidateLandingPage = () => {
 
       {/* Tracking Modal */}
       {showTrackModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="card glass flex-col overflow-hidden relative" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
             <div className="flex justify-between items-center" style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'linear-gradient(to right, rgba(14, 165, 233, 0.1), transparent)' }}>
               <div>
                 <h3 className="text-xl font-bold text-[var(--text-main)] mb-1">Tra cứu kết quả ứng tuyển</h3>
                 <p className="text-[var(--text-muted)] text-sm">Xem trạng thái hồ sơ của bạn tại LLA</p>
               </div>
-              <button onClick={() => setShowTrackModal(false)} className="text-[var(--text-muted)] hover:text-white transition-colors p-2"><X size={20} /></button>
+              <button onClick={() => setShowTrackModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors p-2"><X size={20} /></button>
             </div>
 
             <div style={{ padding: '1.5rem' }}>
@@ -450,7 +450,7 @@ export const CandidateLandingPage = () => {
                 <input 
                   type="email" 
                   required 
-                  className="form-input flex-1 bg-[rgba(255,255,255,0.02)]" 
+                  className="form-input flex-1 bg-white" 
                   value={trackEmail} 
                   onChange={e => setTrackEmail(e.target.value)} 
                   placeholder="Nhập email ứng tuyển..." 
@@ -462,10 +462,10 @@ export const CandidateLandingPage = () => {
 
               {trackResults && (
                 <div className="flex-col gap-3">
-                  <h4 className="text-[var(--text-main)] font-medium mb-2 border-b border-[rgba(255,255,255,0.1)] pb-2">Lịch sử ứng tuyển ({trackResults.length})</h4>
+                  <h4 className="text-[var(--text-main)] font-medium mb-2 border-b border-[var(--border)] pb-2">Lịch sử ứng tuyển ({trackResults.length})</h4>
                   
                   {trackResults.length === 0 ? (
-                    <div className="text-center py-6 text-muted bg-[rgba(255,255,255,0.02)] rounded-lg border border-[rgba(255,255,255,0.05)]">
+                    <div className="text-center py-6 text-muted bg-white rounded-lg border border-[var(--border)]">
                       Không tìm thấy hồ sơ ứng tuyển nào với email này.
                     </div>
                   ) : (
@@ -473,9 +473,9 @@ export const CandidateLandingPage = () => {
                       {trackResults.map(res => {
                         const styleInfo = getStatusText(res.status);
                         return (
-                          <div key={res.id} className="flex justify-between items-center p-4 rounded-xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)]">
+                          <div key={res.id} className="flex justify-between items-center p-4 rounded-xl border border-[var(--border)] bg-white">
                             <div>
-                              <div className="font-medium text-white mb-1">{res.jobTitle}</div>
+                              <div className="font-medium text-[var(--text-heading)] mb-1">{res.jobTitle}</div>
                               <div className="text-xs text-muted">ID: #{res.id.substring(0,6).toUpperCase()}</div>
                             </div>
                             <div style={{ background: styleInfo.bg, color: styleInfo.color, padding: '0.4rem 0.8rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 600 }}>
