@@ -11,6 +11,10 @@ import interviewRoutes from './routes/interview.routes';
 import offerRoutes from './routes/offer.routes';
 import onboardingRoutes from './routes/onboarding.routes';
 import contractRoutes from './routes/contracts.routes';
+import leaveRoutes from './routes/leave.routes';
+import attendanceRoutes from './routes/attendance.routes';
+import payrollRoutes from './routes/payroll.routes';
+import kpiRoutes from './routes/kpi.routes';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -27,7 +31,11 @@ app.use('/api/interviews', interviewRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/contracts', contractRoutes);
+app.use('/api/leaves', leaveRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/payroll', payrollRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/kpi', kpiRoutes);
 
 // Dashboard Stats API
 app.get('/api/dashboard/stats', async (req: Request, res: Response) => {

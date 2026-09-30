@@ -103,4 +103,45 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// 5. Terminate employee (Nghỉ việc)
+router.post('/:id/terminate', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    
+    await prisma.$transaction(async (tx) => {
+      // Đổi status nhân viên
+      await tx.employee.update({
+        where: { id },
+        data: { status: 'RESIGNED' }
+      });
+      // Đóng các hợp đồng đang kích hoạt
+      await tx.contract.updateMany({
+        where: { employeeId: id, status: 'ACTIVE' },
+        data: { status: 'TERMINATED', endDate: new Date() }
+      });
+    });
+    
+    res.json({ message: 'Đã cập nhật trạng thái nghỉ việc' });
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi khi xử lý nghỉ việc' });
+  }
+});
+
+// 6. Transfer employee (Điều chuyển)
+router.post('/:id/transfer', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { departmentId, positionId } = req.body;
+    
+    const updated = await prisma.employee.update({
+      where: { id },
+      data: { departmentId, positionId }
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi khi điều chuyển nhân sự' });
+  }
+});
+
 export default router;
