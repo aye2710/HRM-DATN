@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { MapPin, Briefcase, Clock, ChevronRight, CheckCircle2, Rocket, Heart, Coffee, UserCircle, Users, Quote, CheckSquare, Search, FileText, X } from 'lucide-react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
 
 export const CandidateLandingPage = () => {
   const navigate = useNavigate();
@@ -52,7 +54,7 @@ export const CandidateLandingPage = () => {
   const handleApplySubmit = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.cvUrl) {
-      alert("Vui lòng điền đầy đủ Họ tên, Email và Link CV");
+      toast.error("Vui lòng điền đầy đủ Họ tên, Email và Link CV");
       return;
     }
 
@@ -68,7 +70,7 @@ export const CandidateLandingPage = () => {
       setApplySuccess(true);
     })
     .catch(err => {
-      alert("Có lỗi xảy ra khi nộp hồ sơ. Vui lòng thử lại!");
+      toast.error("Có lỗi xảy ra khi nộp hồ sơ. Vui lòng thử lại!");
       console.error(err);
     })
     .finally(() => {
@@ -86,7 +88,7 @@ export const CandidateLandingPage = () => {
         setTrackResults(res.data);
       })
       .catch(err => {
-        alert("Có lỗi xảy ra khi tra cứu.");
+        toast.error("Có lỗi xảy ra khi tra cứu.");
         console.error(err);
       })
       .finally(() => {

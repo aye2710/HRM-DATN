@@ -1,13 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, Clock, FileText } from 'lucide-react';
-import { employees } from '../../mockData';
+import axios from 'axios';
 
 export const InternalDashboard = () => {
+  const [statsData, setStatsData] = useState({
+    totalEmployees: 0,
+    pendingLeaves: 0,
+    estimatedPayroll: '0'
+  });
+  const [newEmployees, setNewEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statsRes, empRes] = await Promise.all([
+          axios.get('http://localhost:5000/api/dashboard/stats'),
+          axios.get('http://localhost:5000/api/employees')
+        ]);
+        setStatsData(statsRes.data);
+        
+        // Lấy 3 nhân sự mới nhất
+        const sortedEmp = empRes.data.sort((a, b) => new Date(b.joinDate) - new Date(a.joinDate));
+        setNewEmployees(sortedEmp.slice(0, 3));
+      } catch (error) {
+        console.error("Dashboard fetch error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   const stats = [
-    { label: 'Tổng Nhân Sự', value: employees.length, icon: <Users size={24} />, color: 'var(--primary)', trend: '+2 this month' },
-    { label: 'Tuyển dụng', value: 4, icon: <UserPlus size={24} />, color: 'var(--accent)', trend: 'Open roles' },
-    { label: 'Vắng Mặt (Hôm nay)', value: 1, icon: <Clock size={24} />, color: 'var(--warning)', trend: 'Nguyễn Văn A' },
-    { label: 'Action Required', value: 5, icon: <FileText size={24} />, color: 'var(--error)', trend: 'Pending requests' },
+    { label: 'Tổng Nhân Sự', value: statsData.totalEmployees, icon: <Users size={24} />, color: 'var(--primary)', trend: 'Active' },
+    { label: 'Tuyển dụng', value: 4, icon: <UserPlus size={24} />, color: 'var(--accent)', trend: 'Vị trí trống' },
+    { label: 'Đơn Phép (Chờ)', value: statsData.pendingLeaves, icon: <Clock size={24} />, color: 'var(--warning)', trend: 'Cần duyệt' },
+    { label: 'Dự toán Lương', value: statsData.estimatedPayroll, icon: <FileText size={24} />, color: 'var(--success)', trend: 'VNĐ' },
   ];
 
   return (
@@ -33,7 +62,9 @@ export const InternalDashboard = () => {
             <div className="flex-col">
               <span className="text-muted mb-1" style={{ fontSize: '0.95rem', fontWeight: 500 }}>{stat.label}</span>
               <div className="flex items-end gap-3">
-                <span style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>{stat.value}</span>
+                <span style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
+                   {loading ? '...' : stat.value}
+                </span>
                 <span style={{ fontSize: '0.85rem', color: stat.color, marginBottom: '0.5rem', fontWeight: 600 }}>{stat.trend}</span>
               </div>
             </div>
@@ -55,19 +86,23 @@ export const InternalDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {employees.slice(0, 3).map(emp => (
+                {loading ? (
+                  <tr><td colSpan="3" className="text-center p-4">Đang tải...</td></tr>
+                ) : newEmployees.map(emp => (
                   <tr key={emp.id}>
                     <td>
                       <div className="flex items-center gap-3">
-                        <div className="avatar" style={{ width: '2.5rem', height: '2.5rem', fontSize: '1rem', background: 'var(--bg-main)', border: '1px solid var(--border)' }}>{emp.avatar}</div>
+                        <div className="avatar" style={{ width: '2.5rem', height: '2.5rem', fontSize: '1rem', background: 'var(--bg-main)', border: '1px solid var(--border)' }}>
+                          {emp.fullName.charAt(0)}
+                        </div>
                         <div className="flex-col">
-                          <span style={{ fontWeight: 600 }}>{emp.name}</span>
-                          <span className="text-muted" style={{ fontSize: '0.85rem' }}>{emp.id}</span>
+                          <span style={{ fontWeight: 600 }}>{emp.fullName}</span>
+                          <span className="text-muted" style={{ fontSize: '0.85rem' }}>{emp.code}</span>
                         </div>
                       </div>
                     </td>
-                    <td><span className="badge badge-purple">{emp.department}</span></td>
-                    <td><span className="badge badge-info">Onboarding</span></td>
+                    <td><span className="badge badge-purple">{emp.department?.name || 'Đang chờ xếp'}</span></td>
+                    <td><span className="badge badge-info">{emp.status}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -86,7 +121,7 @@ export const InternalDashboard = () => {
                 </div>
                 <div>
                   <h4 style={{ margin: 0, marginBottom: '0.25rem' }}>Duyệt đơn nghỉ phép</h4>
-                  <p className="text-muted" style={{ fontSize: '0.85rem', margin: 0 }}>Phạm Thị D (2 ngày) - Nghỉ ốm</p>
+                  <p className="text-muted" style={{ fontSize: '0.85rem', margin: 0 }}>Có {statsData.pendingLeaves} đơn đang chờ duyệt</p>
                 </div>
               </div>
               <button className="btn btn-outline" style={{ padding: '0.5rem 1rem' }}>Review</button>
@@ -98,8 +133,8 @@ export const InternalDashboard = () => {
                   <FileText size={20} />
                 </div>
                 <div>
-                  <h4 style={{ margin: 0, marginBottom: '0.25rem' }}>Chốt bảng lương Tháng 8</h4>
-                  <p className="text-muted" style={{ fontSize: '0.85rem', margin: 0 }}>Hạn chót: 25/08/2026</p>
+                  <h4 style={{ margin: 0, marginBottom: '0.25rem' }}>Chốt bảng lương Tháng {new Date().getMonth() + 1}</h4>
+                  <p className="text-muted" style={{ fontSize: '0.85rem', margin: 0 }}>Hạn chót: Mùng 5 hàng tháng</p>
                 </div>
               </div>
               <button className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>Processing</button>
@@ -110,3 +145,4 @@ export const InternalDashboard = () => {
     </div>
   );
 };
+

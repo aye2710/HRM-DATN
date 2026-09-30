@@ -1,25 +1,115 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, Calculator, Lock, Banknote, ShieldAlert, FileSignature } from 'lucide-react';
-import { payrollList } from '../../../mockData';
+import axios from 'axios';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
+
 
 export const PayrollMgmt = () => {
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+  const [payrolls, setPayrolls] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`http://localhost:5000/api/payroll?month=${month}&year=${year}`);
+      setPayrolls(res.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    fetchData();
+  }, [month, year]);
+
+  const handleGenerate = async () => {
+    try {
+      await axios.post('http://localhost:5000/api/payroll/generate', { month, year });
+      toast.success(`Đã tính toán xong bảng lương tháng ${month}/${year}`);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Lỗi khi tính lương');
+    }
+  };
+
+  const handleLock = async (id) => {
+    const result = await Swal.fire({ title: 'Xác nhận', text: 'Bạn có chắc muốn chốt lương nhân sự này? (Chỉ có thể mở khóa bởi sếp)', icon: 'warning', showCancelButton: true, confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' });
+    if (!result.isConfirmed) return;
+    try {
+      await axios.put(`http://localhost:5000/api/payroll/${id}/status`, { status: 'LOCKED' });
+      fetchData();
+    } catch (err) {
+      toast.error("Lỗi khi chốt lương");
+    }
+  };
+
+  const handleExportExcel = () => {
+    if (payrolls.length === 0) return toast.error("Không có dữ liệu để xuất");
+    
+    const headers = ["Mã NV", "Họ và tên", "Phòng ban", "Lương cơ bản (VND)", "Số ngày công", "Khấu trừ (VND)", "Thực lãnh (VND)", "Trạng thái"];
+    const rows = payrolls.map(pr => [
+      `"${pr.employee?.code || ''}"`,
+      `"${pr.employee?.fullName || ''}"`,
+      `"${pr.employee?.department?.name || ''}"`,
+      pr.baseSalary || 0,
+      pr.workingDays || 0,
+      pr.totalDeduction || 0,
+      pr.netSalary || 0,
+      pr.status === 'LOCKED' ? '"Đã chốt"' : '"Đang duyệt"'
+    ]);
+
+    const csvContent = "\uFEFF" + [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Bang_Luong_Thang_${month}_${year}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount));
+  };
+
+  const totalBase = payrolls.reduce((sum, p) => sum + Number(p.baseSalary), 0);
+  const totalNet = payrolls.reduce((sum, p) => sum + Number(p.netSalary), 0);
+  const totalDeduction = payrolls.reduce((sum, p) => sum + Number(p.totalDeduction), 0);
+
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2>Bảng Lương Tháng 07/2026</h2>
-          <p className="text-muted mt-1">Động cơ tính lương tự động (Auto Payroll Engine) - Chốt sổ mùng 5 hàng tháng</p>
+          <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+             Bảng Lương Tháng {month}/{year}
+          </h2>
+          <p className="text-muted mt-1">Động cơ tính lương tự động cào số công & hợp đồng</p>
         </div>
-        <div className="flex gap-3">
-          <button className="btn btn-outline">
-            <Download size={18} /> Xuất Báo Cáo
+        <div className="flex gap-3 items-center">
+          <div className="flex gap-2 bg-black/20 p-1 rounded-lg">
+             <select className="form-input" value={month} onChange={e => setMonth(Number(e.target.value))}>
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => <option key={m} value={m}>Tháng {m}</option>)}
+             </select>
+             <select className="form-input" value={year} onChange={e => setYear(Number(e.target.value))}>
+                <option value={2026}>2026</option>
+                <option value={2025}>2025</option>
+             </select>
+          </div>
+          <button onClick={handleGenerate} className="btn btn-primary">
+            <Calculator size={18} /> Chạy Bảng Lương
           </button>
-          <button className="btn btn-primary">
-            <Calculator size={18} /> Chạy Lại Bảng Lương
+          <button onClick={handleExportExcel} className="btn btn-outline" style={{ borderColor: 'var(--success)', color: 'var(--success)' }}>
+            <Download size={18} /> Xuất Excel
           </button>
         </div>
       </div>
@@ -27,23 +117,23 @@ export const PayrollMgmt = () => {
       <div className="grid grid-cols-4 gap-6 mb-8">
         <div className="card text-center flex-col items-center glass card-hover">
           <Banknote size={24} className="mb-3" style={{ color: 'var(--accent)' }}/>
-          <span className="text-muted mb-1 text-sm uppercase tracking-wider">Tổng Quỹ Lương (Gross)</span>
+          <span className="text-muted mb-1 text-sm uppercase tracking-wider">Tổng Quỹ Lương (Base)</span>
           <span className="money-text text-gradient" style={{ fontSize: '1.75rem', fontWeight: 800 }}>
-            {formatCurrency(payrollList.reduce((acc, curr) => acc + curr.gross, 0))}
+            {formatCurrency(totalBase)}
           </span>
         </div>
         <div className="card text-center flex-col items-center glass card-hover" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
           <Banknote size={24} className="mb-3" style={{ color: 'var(--success)' }}/>
           <span className="text-muted mb-1 text-sm uppercase tracking-wider">Tổng Thực Chi (Net)</span>
           <span className="money-text" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--success)' }}>
-            {formatCurrency(payrollList.reduce((acc, curr) => acc + curr.net, 0))}
+            {formatCurrency(totalNet)}
           </span>
         </div>
         <div className="card text-center flex-col items-center glass card-hover">
           <ShieldAlert size={24} className="mb-3" style={{ color: 'var(--error)' }}/>
-          <span className="text-muted mb-1 text-sm uppercase tracking-wider">Tổng Khấu Trừ (BHXH & Thuế)</span>
+          <span className="text-muted mb-1 text-sm uppercase tracking-wider">Tổng Khấu Trừ (Phạt/Thuế)</span>
           <span className="money-text" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--error)' }}>
-            {formatCurrency(payrollList.reduce((acc, curr) => acc + curr.insurance + curr.tax + curr.penalty, 0))}
+            {formatCurrency(totalDeduction)}
           </span>
         </div>
         <div className="card text-center flex-col items-center glass card-hover">
@@ -56,7 +146,7 @@ export const PayrollMgmt = () => {
       <div className="card glass">
         <div className="flex justify-between items-center mb-4">
           <h3 style={{ fontSize: '1.1rem' }}>Chi tiết lương nhân viên</h3>
-          <span className="text-muted" style={{ fontSize: '0.85rem' }}>Công thức chuẩn: <strong>Net = Gross - BHXH (10.5%) - Thuế TNCN - Phạt</strong></span>
+          <span className="text-muted" style={{ fontSize: '0.85rem' }}>Công thức: <strong>Net = (Base / 22) * Số ngày công thực tế - Phạt</strong></span>
         </div>
         <div className="table-container">
           <table>
@@ -64,49 +154,53 @@ export const PayrollMgmt = () => {
               <tr>
                 <th>Mã NV</th>
                 <th>Nhân viên</th>
-                <th><div className="text-right">Lương cơ bản</div></th>
-                <th><div className="text-right">Phụ cấp + Thưởng</div></th>
-                <th style={{ backgroundColor: 'var(--bg-hover)' }}><div className="text-right">Tổng Gross</div></th>
-                <th><div className="text-right" style={{ color: 'var(--error)' }}>- Trừ BHXH</div></th>
+                <th><div className="text-right">Lương cơ bản (Base)</div></th>
+                <th><div className="text-right">Số công</div></th>
                 <th><div className="text-right" style={{ color: 'var(--error)' }}>- Trừ Thuế & Phạt</div></th>
                 <th style={{ backgroundColor: 'var(--bg-hover)' }}><div className="text-right">Thực lãnh (Net)</div></th>
-                <th className="text-center">TT</th>
+                <th className="text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {payrollList.map((pr, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontWeight: 600, color: 'var(--accent)' }}>
-                    {pr.empId}
-                    {pr.isProbation && <div className="text-muted" style={{ fontSize: '0.7rem', marginTop: '2px' }}>(Thử việc)</div>}
-                  </td>
-                  <td style={{ fontWeight: 500 }}>
-                    {pr.name}
-                    <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '2px' }}>{pr.department}</div>
-                  </td>
-                  <td className="text-right money-text">{formatCurrency(pr.baseSalary)}</td>
-                  <td className="text-right money-text">{formatCurrency(pr.allowance + pr.bonus)}</td>
-                  <td className="text-right money-text" style={{ color: 'var(--primary)', fontWeight: 700, backgroundColor: 'var(--bg-hover)' }}>
-                    {formatCurrency(pr.gross)}
-                  </td>
-                  <td className="text-right money-text" style={{ color: 'var(--error)' }}>
-                    {pr.insurance > 0 ? formatCurrency(pr.insurance) : '0 ₫'}
-                  </td>
-                  <td className="text-right money-text" style={{ color: 'var(--error)' }}>
-                    {formatCurrency(pr.tax + pr.penalty)}
-                  </td>
-                  <td className="text-right money-text" style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1.05rem', backgroundColor: 'var(--bg-hover)' }}>
-                    {formatCurrency(pr.net)}
-                  </td>
-                  <td className="text-center">
-                    {pr.status === 'Locked' ? (
-                      <Lock size={16} color="var(--text-muted)" title="Đã chốt" />
-                    ) : (
-                      <span className="badge badge-warning" style={{ padding: '0.2rem 0.5rem', fontSize: '0.65rem' }}>Nháp</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td colSpan="7" className="text-center p-8 text-muted">Đang tải dữ liệu...</td></tr>
+              ) : payrolls.length === 0 ? (
+                <tr><td colSpan="7" className="text-center p-8 text-muted">Chưa chạy bảng lương cho tháng này. Hãy bấm "Chạy Bảng Lương".</td></tr>
+              ) : (
+                payrolls.map(pr => (
+                  <tr key={pr.id}>
+                    <td style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                      {pr.employee?.code}
+                    </td>
+                    <td style={{ fontWeight: 500 }}>
+                      <div className="flex items-center gap-3">
+                        <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.8rem' }}>{pr.employee?.fullName.charAt(0)}</div>
+                        <div className="flex-col gap-1">
+                          <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{pr.employee?.fullName}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{pr.employee?.department?.name || 'Không có PB'}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="text-right money-text">{formatCurrency(pr.baseSalary)}</td>
+                    <td className="text-right font-bold" style={{ color: 'var(--warning)' }}>{Number(pr.workingDays)} ngày</td>
+                    <td className="text-right money-text" style={{ color: 'var(--error)' }}>
+                      {formatCurrency(pr.totalDeduction)}
+                    </td>
+                    <td className="text-right money-text" style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1.05rem', backgroundColor: 'var(--bg-hover)' }}>
+                      {formatCurrency(pr.netSalary)}
+                    </td>
+                    <td className="text-center">
+                      {pr.status === 'LOCKED' ? (
+                        <Lock size={16} color="var(--text-muted)" title="Đã chốt" />
+                      ) : (
+                        <button onClick={() => handleLock(pr.id)} className="btn btn-outline" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>
+                          Chốt
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -114,3 +208,4 @@ export const PayrollMgmt = () => {
     </div>
   );
 };
+

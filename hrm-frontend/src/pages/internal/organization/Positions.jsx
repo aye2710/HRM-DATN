@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, Search, Plus, Filter, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
 
 export const Positions = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,7 +62,7 @@ export const Positions = () => {
 
   const handleSave = () => {
     if (!formData.code || !formData.title) {
-      alert('Vui lòng nhập đủ Mã và Tên vị trí!');
+      toast.error('Vui lòng nhập đủ Mã và Tên vị trí!');
       return;
     }
     if (modalMode === 'add') {
@@ -69,14 +71,14 @@ export const Positions = () => {
           fetchPositions();
           setShowModal(false);
         })
-        .catch(err => alert(err.response?.data?.error || 'Lỗi thêm vị trí'));
+        .catch(err => toast.error(err.response?.data?.error || 'Lỗi thêm vị trí'));
     } else {
       axios.put(`http://localhost:5000/api/positions/${editingId}`, formData)
         .then(() => {
           fetchPositions();
           setShowModal(false);
         })
-        .catch(err => alert(err.response?.data?.error || 'Lỗi sửa vị trí'));
+        .catch(err => toast.error(err.response?.data?.error || 'Lỗi sửa vị trí'));
     }
   };
 
@@ -84,7 +86,7 @@ export const Positions = () => {
     const newStatus = pos.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     axios.put(`http://localhost:5000/api/positions/${pos.id}`, { ...pos, status: newStatus })
       .then(() => fetchPositions())
-      .catch(err => alert(err.response?.data?.error || 'Lỗi cập nhật trạng thái'));
+      .catch(err => toast.error(err.response?.data?.error || 'Lỗi cập nhật trạng thái'));
   };
 
   const handleDelete = () => {
@@ -94,7 +96,7 @@ export const Positions = () => {
         fetchPositions();
         setDeleteId(null);
       })
-      .catch(err => alert(err.response?.data?.error || 'Lỗi xóa vị trí'));
+      .catch(err => toast.error(err.response?.data?.error || 'Lỗi xóa vị trí'));
   };
 
   const filteredPositions = positions.filter(pos => {

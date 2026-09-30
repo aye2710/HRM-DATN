@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, CheckCircle, X, Search, FileText, UserCheck, AlertTriangle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
+
 
 export const Offers = () => {
   const [candidates, setCandidates] = useState([]);
@@ -47,7 +50,7 @@ export const Offers = () => {
   const handleOnboardSubmit = (e) => {
     e.preventDefault();
     if (!onboardForm.employeeCode || !onboardForm.cccd || !onboardForm.baseSalary || !onboardForm.joinDate) {
-      return alert("Vui lòng nhập đầy đủ thông tin.");
+      return toast.error("Vui lòng nhập đầy đủ thông tin.");
     }
     
     setIsSubmitting(true);
@@ -56,24 +59,25 @@ export const Offers = () => {
       ...onboardForm
     })
     .then(() => {
-      alert("Tiếp nhận nhân viên thành công!");
+      toast.success("Tiếp nhận nhân viên thành công!");
       setShowOnboardModal(false);
       fetchOffers(); // Reload list
     })
     .catch(err => {
-      alert(err.response?.data?.error || "Có lỗi xảy ra khi tạo hồ sơ.");
+      toast.error(err.response?.data?.error || "Có lỗi xảy ra khi tạo hồ sơ.");
     })
     .finally(() => setIsSubmitting(false));
   };
 
-  const handleReject = (candidateId) => {
-    if (!window.confirm("Bạn có chắc chắn muốn Từ chối Offer của ứng viên này? Họ sẽ bị chuyển về trạng thái REJECTED.")) return;
+  const handleReject = async (candidateId) => {
+    const result = await Swal.fire({ title: 'Xác nhận', text: 'Bạn có chắc chắn muốn Từ chối Offer của ứng viên này? Họ sẽ bị chuyển về trạng thái REJECTED.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' });
+    if (!result.isConfirmed) return;
     
     axios.post(`http://localhost:5000/api/offers/${candidateId}/reject`)
       .then(() => {
         fetchOffers();
       })
-      .catch(err => alert("Lỗi khi từ chối Offer"));
+      .catch(err => toast.error("Lỗi khi từ chối Offer"));
   };
 
   const filteredCandidates = candidates.filter(c => 

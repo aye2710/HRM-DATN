@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileDiff, Search, Plus, Filter, Edit2, Trash2 } from 'lucide-react';
-
-const mockTemplates = [
-  { id: 1, name: 'Đánh giá Năng lực Developer (Q3/2026)', department: 'Phòng Phát triển', criteria: 5, weight: '100%', status: 'Active' },
-  { id: 2, name: 'Chỉ tiêu Doanh số Sales (Tháng 8)', department: 'Phòng Kinh doanh', criteria: 3, weight: '100%', status: 'Active' },
-  { id: 3, name: 'Đánh giá Thử việc chung', department: 'Tất cả phòng ban', criteria: 8, weight: '100%', status: 'Draft' },
-];
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 export const KPITemplates = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/kpi/templates');
+        setTemplates(res.data);
+      } catch (err) {
+        toast.error('Lỗi lấy dữ liệu templates');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTemplates();
+  }, []);
 
   return (
     <div className="flex-col gap-6 animate-fade-in">
@@ -17,7 +29,7 @@ export const KPITemplates = () => {
           <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Mẫu đánh giá KPI</h1>
           <p className="text-muted text-sm">Quản lý các bộ tiêu chí và trọng số đánh giá hiệu suất nhân sự</p>
         </div>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={() => toast.success('Mở form tạo mới KPI Template')}>
           <Plus size={18} /> Tạo Mẫu KPI mới
         </button>
       </div>
@@ -55,7 +67,9 @@ export const KPITemplates = () => {
               </tr>
             </thead>
             <tbody>
-              {mockTemplates.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase())).map(tpl => (
+              {loading ? (
+                <tr><td colSpan="6" className="text-center p-8 text-muted">Đang tải...</td></tr>
+              ) : templates.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase())).map(tpl => (
                 <tr key={tpl.id}>
                   <td>
                     <div className="flex items-center gap-3">

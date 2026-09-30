@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Building, Users, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
 
 export const Departments = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,7 +53,7 @@ export const Departments = () => {
 
   const handleSave = () => {
     if (!formData.code || !formData.name) {
-      alert('Vui lòng nhập đủ Mã và Tên phòng ban!');
+      toast.error('Vui lòng nhập đủ Mã và Tên phòng ban!');
       return;
     }
     if (modalMode === 'add') {
@@ -60,14 +62,14 @@ export const Departments = () => {
           fetchDepartments();
           setShowModal(false);
         })
-        .catch(err => alert(err.response?.data?.error || 'Lỗi thêm phòng ban'));
+        .catch(err => toast.error(err.response?.data?.error || 'Lỗi thêm phòng ban'));
     } else {
       axios.put(`http://localhost:5000/api/departments/${editingId}`, formData)
         .then(() => {
           fetchDepartments();
           setShowModal(false);
         })
-        .catch(err => alert(err.response?.data?.error || 'Lỗi sửa phòng ban'));
+        .catch(err => toast.error(err.response?.data?.error || 'Lỗi sửa phòng ban'));
     }
   };
 
@@ -75,7 +77,7 @@ export const Departments = () => {
     const newStatus = (dept.status === 'ACTIVE' || dept.status === 'Hoạt động') ? 'INACTIVE' : 'ACTIVE';
     axios.put(`http://localhost:5000/api/departments/${dept.id}`, { ...dept, status: newStatus })
       .then(() => fetchDepartments())
-      .catch(err => alert(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái'));
+      .catch(err => toast.error(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái'));
   };
 
   const handleDelete = () => {
@@ -86,7 +88,7 @@ export const Departments = () => {
         setDeleteId(null);
       })
       .catch(err => {
-        alert(err.response?.data?.error || 'Lỗi xóa phòng ban');
+        toast.error(err.response?.data?.error || 'Lỗi xóa phòng ban');
         setDeleteId(null);
       });
   };

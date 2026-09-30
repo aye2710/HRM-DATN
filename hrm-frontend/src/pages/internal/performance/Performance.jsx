@@ -1,8 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Target, TrendingUp, Award, Search, Filter } from 'lucide-react';
-import { kpiEvaluations } from '../../../mockData';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 export const Performance = () => {
+  const [evaluations, setEvaluations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('http://localhost:5000/api/kpi/reviews');
+      setEvaluations(res.data);
+    } catch (err) {
+      toast.error('Lỗi khi tải dữ liệu KPI');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleOpenCycle = async () => {
+    const cycleName = prompt("Nhập tên kỳ đánh giá mới (VD: Q3-2026):");
+    if (!cycleName) return;
+    try {
+      await axios.post('http://localhost:5000/api/kpi/cycles', {
+        name: cycleName,
+        startDate: new Date().toISOString(),
+        endDate: new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString()
+      });
+      toast.success(`Đã mở kỳ đánh giá ${cycleName}`);
+      fetchData();
+    } catch (err) {
+      toast.error('Lỗi mở kỳ đánh giá');
+    }
+  };
+
   return (
     <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
       <div className="flex items-center justify-between mb-8">
@@ -16,7 +52,7 @@ export const Performance = () => {
           <button className="btn btn-outline" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem' }}>
             Xuất Báo cáo
           </button>
-          <button className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem' }}>
+          <button onClick={handleOpenCycle} className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem' }}>
             <Target size={18} /> Mở Kỳ Đánh giá Mới
           </button>
         </div>
@@ -28,7 +64,7 @@ export const Performance = () => {
             <span className="text-muted">Nhóm A (Excellent - 20%)</span>
             <Award size={20} color="var(--success)" />
           </div>
-          <h3 style={{ fontSize: '2rem', margin: 0 }}>1</h3>
+          <h3 style={{ fontSize: '2rem', margin: 0 }}>{evaluations.filter(e => e.finalGrade === 'A').length}</h3>
           <p className="text-muted" style={{ fontSize: '0.85rem' }}>Đủ tiêu chuẩn thưởng quý</p>
         </div>
         
@@ -37,7 +73,7 @@ export const Performance = () => {
             <span className="text-muted">Nhóm B (Good - 60%)</span>
             <TrendingUp size={20} color="var(--primary)" />
           </div>
-          <h3 style={{ fontSize: '2rem', margin: 0 }}>2</h3>
+          <h3 style={{ fontSize: '2rem', margin: 0 }}>{evaluations.filter(e => e.finalGrade === 'B').length}</h3>
           <p className="text-muted" style={{ fontSize: '0.85rem' }}>Đạt KPI tiêu chuẩn</p>
         </div>
 
@@ -46,29 +82,12 @@ export const Performance = () => {
             <span className="text-muted">Nhóm C/D (Needs Improvement - 20%)</span>
             <Target size={20} color="var(--warning)" />
           </div>
-          <h3 style={{ fontSize: '2rem', margin: 0 }}>1</h3>
+          <h3 style={{ fontSize: '2rem', margin: 0 }}>{evaluations.filter(e => e.finalGrade === 'C').length}</h3>
           <p className="text-muted" style={{ fontSize: '0.85rem' }}>Cần cải thiện hiệu suất</p>
         </div>
       </div>
 
       <div className="card glass mb-6">
-        <div className="flex gap-4 mb-6">
-          <div className="flex-col" style={{ width: '200px' }}>
-            <label className="form-label text-muted">Kỳ đánh giá</label>
-            <select className="form-input" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
-              <option value="Q2-2026">Quý 2 / 2026</option>
-              <option value="Q1-2026">Quý 1 / 2026</option>
-            </select>
-          </div>
-          <div className="flex-col" style={{ flex: 1 }}>
-            <label className="form-label text-muted">Tìm kiếm nhân viên</label>
-            <div style={{ position: 'relative' }}>
-              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input type="text" className="form-input" placeholder="Nhập tên..." style={{ paddingLeft: '3rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }} />
-            </div>
-          </div>
-        </div>
-
         <div className="table-container">
           <table>
             <thead>
@@ -83,28 +102,34 @@ export const Performance = () => {
               </tr>
             </thead>
             <tbody>
-              {kpiEvaluations.map(kpi => (
-                <tr key={kpi.empId} style={{ transition: 'background-color 0.2s' }} className="hover:bg-white/5">
-                  <td>
-                    <div className="flex-col">
-                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{kpi.name}</span>
-                      <span className="text-muted" style={{ fontSize: '0.85rem' }}>{kpi.empId}</span>
-                    </div>
-                  </td>
-                  <td><span className="badge badge-purple" style={{ background: 'transparent', border: '1px solid var(--primary)' }}>{kpi.department}</span></td>
-                  <td><strong style={{ fontSize: '1.1rem' }}>{kpi.selfScore}</strong>/100</td>
-                  <td><strong style={{ fontSize: '1.1rem' }}>{kpi.managerScore}</strong>/100</td>
-                  <td>
-                    {kpi.finalGrade === 'A' && <span className="badge badge-success">Hạng A (Top 20%)</span>}
-                    {kpi.finalGrade === 'B' && <span className="badge badge-info" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8' }}>Hạng B (Mid 60%)</span>}
-                    {kpi.finalGrade === 'C' && <span className="badge badge-warning">Hạng C (Bot 20%)</span>}
-                  </td>
-                  <td style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{kpi.note}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-outline" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>Review</button>
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                 <tr><td colSpan="7" className="text-center p-8 text-muted">Đang tải dữ liệu...</td></tr>
+              ) : evaluations.length === 0 ? (
+                 <tr><td colSpan="7" className="text-center p-8 text-muted">Chưa có dữ liệu. Vui lòng Mở Kỳ Đánh giá Mới.</td></tr>
+              ) : (
+                evaluations.map(kpi => (
+                  <tr key={kpi.id} style={{ transition: 'background-color 0.2s' }} className="hover:bg-white/5">
+                    <td>
+                      <div className="flex-col">
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{kpi.name}</span>
+                        <span className="text-muted" style={{ fontSize: '0.85rem' }}>{kpi.empId}</span>
+                      </div>
+                    </td>
+                    <td><span className="badge badge-purple" style={{ background: 'transparent', border: '1px solid var(--primary)' }}>{kpi.department}</span></td>
+                    <td><strong style={{ fontSize: '1.1rem' }}>{kpi.selfScore}</strong>/100</td>
+                    <td><strong style={{ fontSize: '1.1rem' }}>{kpi.managerScore}</strong>/100</td>
+                    <td>
+                      {kpi.finalGrade === 'A' && <span className="badge badge-success">Hạng A (Top 20%)</span>}
+                      {kpi.finalGrade === 'B' && <span className="badge badge-info" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8' }}>Hạng B (Mid 60%)</span>}
+                      {kpi.finalGrade === 'C' && <span className="badge badge-warning">Hạng C (Bot 20%)</span>}
+                    </td>
+                    <td style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{kpi.note}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn btn-outline" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>Review</button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

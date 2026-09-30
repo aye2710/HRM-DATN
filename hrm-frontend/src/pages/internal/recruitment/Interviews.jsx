@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, UserPlus, Star, Clock, X, CheckCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
 
 export const Interviews = () => {
   const [interviews, setInterviews] = useState([]);
@@ -42,7 +44,7 @@ export const Interviews = () => {
   const handleScheduleSubmit = (e) => {
     e.preventDefault();
     if (!scheduleForm.candidateId || !scheduleForm.interviewerId || !scheduleForm.scheduledAt) {
-      return alert("Vui lòng điền đầy đủ thông tin");
+      return toast.error("Vui lòng điền đầy đủ thông tin");
     }
 
     axios.post('http://localhost:5000/api/interviews', scheduleForm)
@@ -51,7 +53,7 @@ export const Interviews = () => {
         setShowScheduleModal(false);
         setScheduleForm({ candidateId: '', interviewerId: '', roundName: 'Phỏng vấn Kỹ thuật', scheduledAt: '' });
       })
-      .catch(err => alert("Lỗi khi xếp lịch"));
+      .catch(err => toast.error("Lỗi khi xếp lịch"));
   };
 
   const handleFeedbackSubmit = (e) => {
@@ -62,7 +64,7 @@ export const Interviews = () => {
         setShowFeedbackModal(false);
         setFeedbackForm({ score: 5, comments: '' });
       })
-      .catch(err => alert("Lỗi khi lưu đánh giá"));
+      .catch(err => toast.error("Lỗi khi lưu đánh giá"));
   };
 
   const interviewingCandidates = candidates.filter(c => c.status === 'INTERVIEWING');

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { CheckSquare, UserPlus, Laptop, Mail, FileSignature, ChevronRight, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { createPortal } from 'react-dom';
+import toast from 'react-hot-toast';
+
 
 const checklistItems = [
   { category: 'EQUIPMENT', icon: <Laptop size={18}/>, title: 'Thiết bị & Chỗ ngồi', items: ['Cấp phát Laptop/PC', 'Cấp màn hình rời', 'Chuẩn bị chỗ ngồi, VPP'] },
@@ -68,7 +70,7 @@ export const OnboardingMgmt = () => {
       ));
 
     } catch (error) {
-      alert("Lỗi cập nhật tiến độ");
+      toast.error("Lỗi cập nhật tiến độ");
     }
   };
 
@@ -87,7 +89,7 @@ export const OnboardingMgmt = () => {
 
   const handleCompleteOnboarding = () => {
     if (progressPercent < 100) {
-      return alert("Vui lòng hoàn thành tất cả các thủ tục trước khi chốt Hội nhập.");
+      return toast.error("Vui lòng hoàn thành tất cả các thủ tục trước khi chốt Hội nhập.");
     }
     setShowConfirmPopup(true);
   };
@@ -105,7 +107,7 @@ export const OnboardingMgmt = () => {
       handleClosePanel();
       fetchNewbies();
     } catch (error) {
-      alert("Có lỗi xảy ra");
+      toast.error("Có lỗi xảy ra");
     } finally {
       setIsSubmitting(false);
     }

@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Trash2, Edit, X, UserCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
+
 
 export const EmployeeList = () => {
   const [employees, setEmployees] = useState([]);
@@ -100,34 +103,35 @@ export const EmployeeList = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa nhân viên này? Dữ liệu không thể phục hồi.")) return;
+    const result = await Swal.fire({ title: 'Xác nhận xóa', text: 'Bạn có chắc chắn muốn xóa nhân viên này? Dữ liệu không thể phục hồi.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' });
+    if (!result.isConfirmed) return;
     try {
       await axios.delete(`http://localhost:5000/api/employees/${id}`);
       fetchData();
     } catch (error) {
-      alert(error.response?.data?.error || "Lỗi khi xóa nhân viên");
+      toast.error(error.response?.data?.error || "Lỗi khi xóa nhân viên");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.code || !formData.fullName || !formData.joinDate) {
-      return alert("Vui lòng điền đủ các trường bắt buộc (*)");
+      return toast.error("Vui lòng điền đủ các trường bắt buộc (*)");
     }
 
     setIsSubmitting(true);
     try {
       if (isEditing) {
         await axios.put(`http://localhost:5000/api/employees/${formData.id}`, formData);
-        alert("Cập nhật thành công!");
+        toast.success("Cập nhật thành công!");
       } else {
         await axios.post(`http://localhost:5000/api/employees`, formData);
-        alert("Thêm mới thành công!");
+        toast.success("Thêm mới thành công!");
       }
       setShowModal(false);
       fetchData();
     } catch (error) {
-      alert(error.response?.data?.error || "Có lỗi xảy ra khi lưu.");
+      toast.error(error.response?.data?.error || "Có lỗi xảy ra khi lưu.");
     } finally {
       setIsSubmitting(false);
     }

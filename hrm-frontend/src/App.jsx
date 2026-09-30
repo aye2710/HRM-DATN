@@ -1,5 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { PortalSelection } from './pages/PortalSelection';
 import { AppLayout } from './layouts/AppLayout';
 
@@ -143,87 +144,101 @@ const employeeLinks = [
   { to: '/employee/payslip', label: 'Phiếu lương', icon: <FileText size={20} /> },
 ];
 
+const ProtectedRoute = ({ allowedRole }) => {
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
+
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Admin có thể vào xem màn hình Employee nhưng Employee ko được vào màn hình Admin
+  if (allowedRole === 'ADMIN' && role === 'EMPLOYEE') {
+    return <Navigate to="/employee" replace />;
+  }
+
+  return <Outlet />;
+};
+
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<PortalSelection />} />
-        
-        {/* Admin / Internal Portal */}
-        <Route path="/internal" element={<AppLayout portalName="Enterprise Portal" navLinks={internalLinks} />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<InternalDashboard />} />
+    <>
+      <Toaster position="top-right" />
+      <Router>
+        <Routes>
+          <Route path="/" element={<PortalSelection />} />
           
-          {/* Organization */}
-          <Route path="organization/departments" element={<Departments />} />
-          <Route path="organization/positions" element={<Positions />} />
-          <Route path="organization/chart" element={<OrgChart />} />
-          
-          {/* Recruitment */}
-          <Route path="recruitment/requisitions" element={<Requisitions />} />
-          <Route path="recruitment/candidates" element={<RecruitmentATS />} />
-          <Route path="recruitment/interviews" element={<Interviews />} />
-          <Route path="recruitment/offers" element={<Offers />} />
+          {/* Admin / Internal Portal */}
+          <Route element={<ProtectedRoute allowedRole="ADMIN" />}>
+            <Route path="/internal" element={<AppLayout portalName="Enterprise Portal" navLinks={internalLinks} />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<InternalDashboard />} />
+              
+              <Route path="organization/departments" element={<Departments />} />
+              <Route path="organization/positions" element={<Positions />} />
+              <Route path="organization/chart" element={<OrgChart />} />
+              
+              <Route path="recruitment/requisitions" element={<Requisitions />} />
+              <Route path="recruitment/candidates" element={<RecruitmentATS />} />
+              <Route path="recruitment/interviews" element={<Interviews />} />
+              <Route path="recruitment/offers" element={<Offers />} />
 
-          {/* Onboarding */}
-          <Route path="onboarding/newbies" element={<OnboardingMgmt />} />
-          <Route path="onboarding/checklist" element={<ChecklistMgmt />} />
-          <Route path="onboarding/equipment" element={<EquipmentProvision />} />
-          <Route path="onboarding/accounts" element={<SystemAccounts />} />
-          <Route path="onboarding/contracts" element={<Contracts />} /> {/* Reuse Contracts from Employees */}
-          <Route path="onboarding/progress" element={<OnboardingProgress />} />
+              <Route path="onboarding/newbies" element={<OnboardingMgmt />} />
+              <Route path="onboarding/checklist" element={<ChecklistMgmt />} />
+              <Route path="onboarding/equipment" element={<EquipmentProvision />} />
+              <Route path="onboarding/accounts" element={<SystemAccounts />} />
+              <Route path="onboarding/contracts" element={<Contracts />} />
+              <Route path="onboarding/progress" element={<OnboardingProgress />} />
 
-          {/* Employees */}
-          <Route path="employees/profiles" element={<EmployeeList />} />
-          <Route path="employees/jobs" element={<EmploymentHistory />} />
-          <Route path="employees/contracts" element={<Contracts />} />
-          <Route path="employees/transfers" element={<Transfers />} />
-          <Route path="employees/terminations" element={<Terminations />} />
+              <Route path="employees/profiles" element={<EmployeeList />} />
+              <Route path="employees/jobs" element={<EmploymentHistory />} />
+              <Route path="employees/contracts" element={<Contracts />} />
+              <Route path="employees/transfers" element={<Transfers />} />
+              <Route path="employees/terminations" element={<Terminations />} />
 
-          {/* Attendance */}
-          <Route path="attendance/shifts" element={<Shifts />} />
-          <Route path="attendance/records" element={<AttendanceMgmt />} />
-          <Route path="attendance/adjustments" element={<Adjustments />} />
+              <Route path="attendance/shifts" element={<Shifts />} />
+              <Route path="attendance/records" element={<AttendanceMgmt />} />
+              <Route path="attendance/adjustments" element={<Adjustments />} />
 
-          {/* Leave */}
-          <Route path="leave/requests" element={<LeaveMgmt />} />
-          <Route path="leave/types" element={<LeaveTypes />} />
-          <Route path="leave/policies" element={<LeavePolicies />} />
-          <Route path="leave/holidays" element={<Holidays />} />
+              <Route path="leave/requests" element={<LeaveMgmt />} />
+              <Route path="leave/types" element={<LeaveTypes />} />
+              <Route path="leave/policies" element={<LeavePolicies />} />
+              <Route path="leave/holidays" element={<Holidays />} />
 
-          {/* Performance */}
-          <Route path="performance/templates" element={<KPITemplates />} />
-          <Route path="performance/assignments" element={<Performance />} />
+              <Route path="performance/templates" element={<KPITemplates />} />
+              <Route path="performance/assignments" element={<Performance />} />
 
-          {/* Payroll */}
-          <Route path="payroll/periods" element={<PayrollPeriods />} />
-          <Route path="payroll/payslips" element={<PayrollMgmt />} />
+              <Route path="payroll/periods" element={<PayrollPeriods />} />
+              <Route path="payroll/payslips" element={<PayrollMgmt />} />
 
-          {/* Reports */}
-          <Route path="reports" element={<ReportsDashboard />} />
+              <Route path="reports" element={<ReportsDashboard />} />
 
-          {/* System */}
-          <Route path="system/workflows" element={<ApprovalWorkflows />} />
-          <Route path="system/notifications" element={<Notifications />} />
-          <Route path="system/audit" element={<AuditLogs />} />
-          <Route path="system/rbac" element={<SettingsRBAC />} />
-          
-          <Route path="*" element={<PlaceholderPage title="404" description="Không tìm thấy module này" />} />
-        </Route>
+              <Route path="system/workflows" element={<ApprovalWorkflows />} />
+              <Route path="system/notifications" element={<Notifications />} />
+              <Route path="system/audit" element={<AuditLogs />} />
+              <Route path="system/rbac" element={<SettingsRBAC />} />
+              
+              <Route path="*" element={<PlaceholderPage title="404" description="Không tìm thấy module này" />} />
+            </Route>
+          </Route>
 
-        {/* Employee Portal */}
-        <Route path="/employee" element={<AppLayout portalName="EMPLOYEE SELF-SERVICE" navLinks={employeeLinks} />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<EmployeeDashboard />} />
-          <Route path="leave" element={<EmployeeLeave />} />
-          <Route path="payslip" element={<EmployeePayslip />} />
-        </Route>
+          {/* Employee Portal */}
+          <Route element={<ProtectedRoute allowedRole="EMPLOYEE" />}>
+            <Route path="/employee" element={<AppLayout portalName="EMPLOYEE SELF-SERVICE" navLinks={employeeLinks} />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<EmployeeDashboard />} />
+              <Route path="leave" element={<EmployeeLeave />} />
+              <Route path="payslip" element={<EmployeePayslip />} />
+            </Route>
+          </Route>
 
-        {/* Candidate Portal */}
-        <Route path="/candidate" element={<CandidateLandingPage />} />
-      </Routes>
-    </Router>
+          {/* Candidate Portal */}
+          <Route path="/candidate" element={<CandidateLandingPage />} />
+        </Routes>
+      </Router>
+    </>
   );
 }
 
 export default App;
+

@@ -1,23 +1,67 @@
-import React, { useState } from 'react';
-import { RefreshCw, Search, Plus, Filter, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, ArrowRight, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
-const mockTransfers = [
-  { id: 1, employee: 'Lê C', fromDept: 'Phòng Nhân sự', toDept: 'Phòng Phát triển', fromPos: 'HR Executive', toPos: 'Scrum Master', date: '2026-09-01', status: 'Pending' },
-  { id: 2, employee: 'Phạm D', fromDept: 'Phòng Kế toán', toDept: 'Phòng Kinh doanh', fromPos: 'Accountant', toPos: 'Sales Executive', date: '2026-08-15', status: 'Approved' },
-  { id: 3, employee: 'Trần Văn X', fromDept: 'Phòng Phát triển', toDept: 'Chi nhánh ĐN', fromPos: 'Frontend Dev', toPos: 'Team Lead', date: '2026-07-01', status: 'Completed' },
-];
 
 export const Transfers = () => {
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  // Modal
+  const [showModal, setShowModal] = useState(false);
+  const [selectedEmpId, setSelectedEmpId] = useState('');
+  const [transferForm, setTransferForm] = useState({ departmentId: '', positionId: '' });
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [empRes, deptRes, posRes] = await Promise.all([
+        axios.get('http://localhost:5000/api/employees'),
+        axios.get('http://localhost:5000/api/departments'),
+        axios.get('http://localhost:5000/api/positions')
+      ]);
+      setEmployees(empRes.data);
+      setDepartments(deptRes.data);
+      setPositions(posRes.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleTransferSubmit = (e) => {
+    e.preventDefault();
+    if (!selectedEmpId) return toast.error('Vui lòng chọn nhân viên');
+    
+    axios.post(`http://localhost:5000/api/employees/${selectedEmpId}/transfer`, transferForm)
+      .then(() => {
+        toast.success('Điều chuyển thành công!');
+        setShowModal(false);
+        fetchData();
+      })
+      .catch(err => toast.error('Lỗi khi điều chuyển'));
+  };
+
+  const activeEmployees = employees.filter(e => e.status !== 'RESIGNED');
 
   return (
-    <div className="flex-col gap-6 animate-fade-in">
+    <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 1rem' }}>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Điều chuyển Nhân sự</h1>
-          <p className="text-muted text-sm">Quản lý luân chuyển phòng ban, thăng tiến và thay đổi vị trí</p>
+          <p className="text-muted text-sm">Cập nhật phòng ban và vị trí mới cho nhân sự đang làm việc</p>
         </div>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           <Plus size={18} /> Tạo Đề xuất Điều chuyển
         </button>
       </div>
@@ -29,16 +73,13 @@ export const Transfers = () => {
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input 
                 type="text" 
-                placeholder="Tìm kiếm nhân sự điều chuyển..." 
+                placeholder="Tìm kiếm nhân sự..." 
                 className="form-input"
                 style={{ paddingLeft: '2.5rem' }}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button className="btn btn-outline" style={{ padding: '0.75rem', height: '100%' }}>
-              <Filter size={18} />
-            </button>
           </div>
         </div>
 
@@ -46,49 +87,90 @@ export const Transfers = () => {
           <table>
             <thead>
               <tr>
+                <th>Mã NV</th>
                 <th>Nhân viên</th>
-                <th>Từ (Đơn vị cũ)</th>
-                <th>Sang (Đơn vị mới)</th>
-                <th>Ngày hiệu lực</th>
-                <th>Trạng thái (Workflow)</th>
+                <th>Đơn vị hiện tại</th>
+                <th>Vị trí hiện tại</th>
+                <th>Trạng thái</th>
               </tr>
             </thead>
             <tbody>
-              {mockTransfers.filter(t => t.employee.toLowerCase().includes(searchTerm.toLowerCase())).map(transfer => (
-                <tr key={transfer.id}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.8rem' }}>{transfer.employee.charAt(0)}</div>
-                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{transfer.employee}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex-col gap-1">
-                      <span className="text-sm font-medium">{transfer.fromDept}</span>
-                      <span className="text-xs text-muted">{transfer.fromPos}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <ArrowRight size={16} color="var(--primary)" />
-                      <div className="flex-col gap-1">
-                        <span className="text-sm font-medium text-main">{transfer.toDept}</span>
-                        <span className="text-xs text-primary">{transfer.toPos}</span>
+              {loading ? (
+                <tr><td colSpan="5" className="text-center p-8">Đang tải...</td></tr>
+              ) : (
+                activeEmployees.filter(t => t.fullName.toLowerCase().includes(searchTerm.toLowerCase())).map(emp => (
+                  <tr key={emp.id}>
+                    <td className="font-semibold text-[var(--primary)]">{emp.code}</td>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.8rem' }}>{emp.fullName.charAt(0)}</div>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{emp.fullName}</span>
                       </div>
-                    </div>
-                  </td>
-                  <td className="text-muted text-sm">{transfer.date}</td>
-                  <td>
-                    {transfer.status === 'Pending' && <span className="badge badge-warning">Chờ duyệt</span>}
-                    {transfer.status === 'Approved' && <span className="badge badge-info">Đã duyệt</span>}
-                    {transfer.status === 'Completed' && <span className="badge badge-success">Đã hoàn tất</span>}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <span className="text-sm font-medium">{emp.department?.name || 'Chưa phân bổ'}</span>
+                    </td>
+                    <td>
+                      <span className="text-xs text-muted">{emp.position?.title || '-'}</span>
+                    </td>
+                    <td>
+                      <span className="badge badge-success">Đang làm việc</span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {showModal && createPortal(
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="card glass flex-col overflow-hidden relative" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
+            <div className="flex justify-between items-center" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+               <h3 className="text-xl font-bold">Thực hiện Luân chuyển</h3>
+               <button onClick={() => setShowModal(false)}><X size={20} /></button>
+            </div>
+            
+            <form onSubmit={handleTransferSubmit} className="p-6 flex-col gap-4">
+               <div>
+                  <label className="form-label text-muted">Chọn Nhân viên *</label>
+                  <select required className="form-input w-full" value={selectedEmpId} onChange={e => setSelectedEmpId(e.target.value)}>
+                    <option value="">-- Lựa chọn --</option>
+                    {activeEmployees.map(e => <option key={e.id} value={e.id}>{e.fullName} ({e.code})</option>)}
+                  </select>
+               </div>
+               
+               <div className="flex items-center justify-center py-2">
+                 <ArrowRight size={24} className="text-muted" />
+               </div>
+
+               <div>
+                  <label className="form-label text-muted">Phòng ban mới *</label>
+                  <select required className="form-input w-full" value={transferForm.departmentId} onChange={e => setTransferForm({...transferForm, departmentId: e.target.value})}>
+                    <option value="">-- Lựa chọn --</option>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+               </div>
+
+               <div>
+                  <label className="form-label text-muted">Vị trí mới *</label>
+                  <select required className="form-input w-full" value={transferForm.positionId} onChange={e => setTransferForm({...transferForm, positionId: e.target.value})}>
+                    <option value="">-- Lựa chọn --</option>
+                    {positions.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+               </div>
+
+               <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-[var(--border)]">
+                 <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline">Hủy</button>
+                 <button type="submit" className="btn btn-primary">Xác nhận Luân chuyển</button>
+               </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
+

@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, Search, Plus, Filter, Edit2, Trash2, Users, X, AlertTriangle, Calendar } from 'lucide-react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
+
 
 export const Requisitions = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,7 +76,7 @@ export const Requisitions = () => {
   };
 
   const handleSave = () => {
-    if (!formData.title) return alert("Vui lòng nhập tên chiến dịch tuyển dụng");
+    if (!formData.title) return toast.error("Vui lòng nhập tên chiến dịch tuyển dụng");
     
     if (modalMode === 'add') {
       axios.post('http://localhost:5000/api/job-postings', formData)
@@ -81,22 +84,23 @@ export const Requisitions = () => {
           fetchData();
           setShowModal(false);
         })
-        .catch(err => alert("Lỗi khi thêm yêu cầu"));
+        .catch(err => toast.error("Lỗi khi thêm yêu cầu"));
     } else {
       axios.put(`http://localhost:5000/api/job-postings/${editingId}`, formData)
         .then(() => {
           fetchData();
           setShowModal(false);
         })
-        .catch(err => alert("Lỗi khi cập nhật"));
+        .catch(err => toast.error("Lỗi khi cập nhật"));
     }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Bạn có chắc muốn xóa Yêu cầu này?")) {
+  const handleDelete = async (id) => {
+    const result = await Swal.fire({ title: 'Xác nhận xóa', text: 'Bạn có chắc muốn xóa Yêu cầu này?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' });
+    if (result.isConfirmed) {
       axios.delete(`http://localhost:5000/api/job-postings/${id}`)
         .then(() => fetchData())
-        .catch(err => alert(err.response?.data?.error || "Lỗi xóa"));
+        .catch(err => toast.error(err.response?.data?.error || "Lỗi xóa"));
     }
   };
 

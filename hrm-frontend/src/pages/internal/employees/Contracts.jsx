@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ScrollText, Search, Plus, Filter, AlertTriangle, FileText, CheckCircle, ChevronRight, X, Briefcase } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
 
 export const Contracts = () => {
   const [employees, setEmployees] = useState([]);
@@ -63,7 +65,7 @@ export const Contracts = () => {
   const handleCreateContract = async (e) => {
     e.preventDefault();
     if (!formData.baseSalary || !formData.startDate) {
-      return alert("Vui lòng điền đủ Lương cơ bản và Ngày bắt đầu");
+      return toast.error("Vui lòng điền đủ Lương cơ bản và Ngày bắt đầu");
     }
 
     setIsSubmitting(true);
@@ -73,7 +75,7 @@ export const Contracts = () => {
         ...formData,
         baseSalary: parseFloat(formData.baseSalary)
       });
-      alert("Tạo hợp đồng thành công!");
+      toast.success("Tạo hợp đồng thành công!");
       setShowCreateModal(false);
       // Refresh the employee list to get updated contracts
       const res = await axios.get('http://localhost:5000/api/employees');
@@ -82,7 +84,7 @@ export const Contracts = () => {
       const updatedEmp = res.data.find(e => e.id === selectedEmp.id);
       setSelectedEmp(updatedEmp);
     } catch (error) {
-      alert(error.response?.data?.error || "Lỗi khi tạo hợp đồng");
+      toast.error(error.response?.data?.error || "Lỗi khi tạo hợp đồng");
     } finally {
       setIsSubmitting(false);
     }

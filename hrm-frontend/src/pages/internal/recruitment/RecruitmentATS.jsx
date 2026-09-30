@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, UserPlus, CheckCircle, X, AlertTriangle, LayoutGrid, List, Search } from 'lucide-react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
 
 export const RecruitmentATS = () => {
   const [candidates, setCandidates] = useState([]);
@@ -41,19 +43,19 @@ export const RecruitmentATS = () => {
 
   // --- Handlers for Forms ---
   const handleCreateJob = () => {
-    if (!jobForm.title) return alert("Vui lòng nhập tiêu đề Job");
+    if (!jobForm.title) return toast.error("Vui lòng nhập tiêu đề Job");
     axios.post('http://localhost:5000/api/job-postings', jobForm)
       .then(() => {
         fetchJobsAndCandidates();
         setShowJobModal(false);
         setJobForm({ title: '', description: '', status: 'OPEN' });
       })
-      .catch(err => alert("Lỗi khi tạo Job"));
+      .catch(err => toast.error("Lỗi khi tạo Job"));
   };
 
   const handleCreateCandidate = () => {
     if (!candidateForm.name || !candidateForm.email || !candidateForm.jobPostingId) {
-      return alert("Vui lòng nhập Tên, Email và Chọn Job ứng tuyển");
+      return toast.error("Vui lòng nhập Tên, Email và Chọn Job ứng tuyển");
     }
     axios.post('http://localhost:5000/api/candidates', candidateForm)
       .then(() => {
@@ -61,7 +63,7 @@ export const RecruitmentATS = () => {
         setShowCandidateModal(false);
         setCandidateForm({ name: '', email: '', phone: '', cvUrl: '', jobPostingId: '' });
       })
-      .catch(err => alert("Lỗi khi thêm ứng viên"));
+      .catch(err => toast.error("Lỗi khi thêm ứng viên"));
   };
 
   // --- Drag & Drop Handlers ---
@@ -97,7 +99,7 @@ export const RecruitmentATS = () => {
 
     // Validate business logic: only forward or reject
     if (!checkValidTransition(candidate.status, newStatus)) {
-      return alert("Thao tác không hợp lệ! Ứng viên chỉ có thể đi tiếp vòng sau hoặc bị Từ chối, không thể lùi lại quy trình.");
+      return toast.error("Thao tác không hợp lệ! Ứng viên chỉ có thể đi tiếp vòng sau hoặc bị Từ chối, không thể lùi lại quy trình.");
     }
 
     // Show custom modal instead of window.confirm
@@ -116,7 +118,7 @@ export const RecruitmentATS = () => {
     axios.put(`http://localhost:5000/api/candidates/${candidateId}`, { status: newStatus })
       .catch(err => {
         console.error("Lỗi khi chuyển trạng thái", err);
-        alert("Lỗi khi lưu trạng thái ứng viên. Sẽ reload lại dữ liệu.");
+        toast.error("Lỗi khi lưu trạng thái ứng viên. Sẽ reload lại dữ liệu.");
         fetchJobsAndCandidates();
       });
   };
@@ -297,7 +299,7 @@ export const RecruitmentATS = () => {
                             onChange={(e) => {
                               const newStatus = e.target.value;
                               if (!checkValidTransition(c.status, newStatus)) {
-                                return alert("Thao tác không hợp lệ! Ứng viên chỉ có thể đi tiếp vòng sau hoặc bị Từ chối, không thể lùi lại quy trình.");
+                                return toast.error("Thao tác không hợp lệ! Ứng viên chỉ có thể đi tiếp vòng sau hoặc bị Từ chối, không thể lùi lại quy trình.");
                               }
                               setPendingDrop({ candidateId: c.id, newStatus, candidateName: c.name })
                             }}
