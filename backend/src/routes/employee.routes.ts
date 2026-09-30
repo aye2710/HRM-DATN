@@ -28,10 +28,10 @@ router.post('/', async (req: Request, res: Response) => {
       data: {
         code,
         fullName,
-        cccd,
+        cccd: cccd ? cccd : null,
         joinDate: new Date(joinDate),
-        departmentId,
-        positionId
+        departmentId: departmentId || null,
+        positionId: positionId || null
       }
     });
     res.status(201).json(newEmployee);
@@ -47,9 +47,14 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { code, fullName, cccd, status, joinDate, departmentId, positionId } = req.body;
     
     // Check if code or cccd already exists for another employee
+    const orConditions: any[] = [{ code }];
+    if (cccd) {
+      orConditions.push({ cccd });
+    }
+
     const existing = await prisma.employee.findFirst({
       where: {
-        OR: [{ code }, { cccd }],
+        OR: orConditions,
         NOT: { id }
       }
     });
@@ -63,7 +68,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       data: {
         code,
         fullName,
-        cccd,
+        cccd: cccd ? cccd : null,
         status,
         joinDate: joinDate ? new Date(joinDate) : undefined,
         departmentId: departmentId || null,

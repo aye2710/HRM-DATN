@@ -111,7 +111,7 @@ export const EmployeeList = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.code || !formData.fullName || !formData.cccd || !formData.joinDate) {
+    if (!formData.code || !formData.fullName || !formData.joinDate) {
       return alert("Vui lòng điền đủ các trường bắt buộc (*)");
     }
 
@@ -265,8 +265,8 @@ export const EmployeeList = () => {
                 </div>
 
                 <div className="flex-col gap-2">
-                  <label className="text-sm font-medium text-[var(--text-muted)]">Số CCCD *</label>
-                  <input type="text" required className="form-input w-full" value={formData.cccd} onChange={e => setFormData({...formData, cccd: e.target.value})} />
+                  <label className="text-sm font-medium text-[var(--text-muted)]">Số CCCD (Có thể bổ sung sau)</label>
+                  <input type="text" className="form-input w-full" value={formData.cccd || ''} onChange={e => setFormData({...formData, cccd: e.target.value})} placeholder="Nhập số CCCD..." />
                 </div>
 
                 <div className="flex-col gap-2">

@@ -7,7 +7,7 @@ const router = Router();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const candidates = await prisma.candidate.findMany({
-      where: { status: 'OFFERED' },
+      where: { status: 'OFFERING' },
       include: {
         jobPosting: {
           include: { department: true, position: true }
@@ -22,35 +22,35 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST: Chấp nhận Offer & Chuyển thành Nhân viên (Onboarding)
-router.post('/accept', async (req: Request, res: Response) => {
-  try {
-    const { candidateId, employeeCode, cccd, baseSalary, joinDate } = req.body;
-    
-    if (!candidateId || !employeeCode || !cccd || !baseSalary || !joinDate) {
-      return res.status(400).json({ error: 'Thiếu thông tin bắt buộc để khởi tạo hồ sơ nhân viên.' });
-    }
-
-    // Thực hiện Transaction để đảm bảo tính toàn vẹn dữ liệu
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Lấy thông tin ứng viên
-      const candidate = await tx.candidate.findUnique({
-        where: { id: candidateId },
-        include: { jobPosting: true }
-      });
-      if (!candidate) throw new Error("Không tìm thấy ứng viên");
-
-      // 2. Tạo bản ghi Nhân viên (Employee)
-      const newEmployee = await tx.employee.create({
-        data: {
-          code: employeeCode as string,
-          fullName: candidate.name,
-          cccd: cccd as string,
-          status: 'ONBOARDING', // Trạng thái ban đầu của NV mới
-          joinDate: new Date(joinDate),
-          departmentId: candidate.jobPosting.departmentId,
-          positionId: candidate.jobPosting.positionId
-        }
-      });
+  router.post('/accept', async (req: Request, res: Response) => {
+    try {
+      const { candidateId, employeeCode, cccd, baseSalary, joinDate } = req.body;
+      
+      if (!candidateId || !employeeCode || !baseSalary || !joinDate) {
+        return res.status(400).json({ error: 'Thiếu thông tin bắt buộc để khởi tạo hồ sơ nhân viên.' });
+      }
+  
+      // Thực hiện Transaction để đảm bảo tính toàn vẹn dữ liệu
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Lấy thông tin ứng viên
+        const candidate = await tx.candidate.findUnique({
+          where: { id: candidateId },
+          include: { jobPosting: true }
+        });
+        if (!candidate) throw new Error("Không tìm thấy ứng viên");
+  
+        // 2. Tạo bản ghi Nhân viên (Employee)
+        const newEmployee = await tx.employee.create({
+          data: {
+            code: employeeCode as string,
+            fullName: candidate.name,
+            cccd: cccd ? (cccd as string) : null,
+            status: 'ONBOARDING', // Trạng thái ban đầu của NV mới
+            joinDate: new Date(joinDate),
+            departmentId: candidate.jobPosting?.departmentId,
+            positionId: candidate.jobPosting?.positionId
+          }
+        });
 
       // 3. Tạo bản ghi Hợp đồng (Contract) tạm thời/thử việc
       await tx.contract.create({

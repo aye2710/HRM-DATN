@@ -4,6 +4,7 @@ import { prisma } from './db';
 import employeeRoutes from './routes/employee.routes';
 import departmentRoutes from './routes/department.routes';
 import positionRoutes from './routes/position.routes';
+import authRoutes from './routes/auth.routes';
 import jobPostingRoutes from './routes/job-posting.routes';
 import candidateRoutes from './routes/candidate.routes';
 import interviewRoutes from './routes/interview.routes';
@@ -26,6 +27,7 @@ app.use('/api/interviews', interviewRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/contracts', contractRoutes);
+app.use('/api/auth', authRoutes);
 
 // Dashboard Stats API
 app.get('/api/dashboard/stats', async (req: Request, res: Response) => {

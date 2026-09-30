@@ -74,11 +74,12 @@ export const RecruitmentATS = () => {
   };
 
   const validTransitions = {
-    APPLIED: ['INTERVIEWING', 'REJECTED'],
-    INTERVIEWING: ['OFFERED', 'REJECTED'],
-    OFFERED: ['HIRED', 'REJECTED'],
+    SOURCED: ['SCREENING', 'REJECTED'],
+    SCREENING: ['INTERVIEWING', 'REJECTED'],
+    INTERVIEWING: ['OFFERING', 'REJECTED'],
+    OFFERING: ['HIRED', 'REJECTED'],
     HIRED: [],
-    REJECTED: ['APPLIED'] // Cho phép ứng tuyển lại
+    REJECTED: ['SOURCED']
   };
 
   const checkValidTransition = (currentStatus, newStatus) => {
@@ -124,11 +125,11 @@ export const RecruitmentATS = () => {
     setPendingDrop(null);
   };
 
-  // Các cột trạng thái
   const statuses = [
-    { id: 'APPLIED', title: 'SÀNG LỌC CV', color: 'var(--primary)', badgeColor: 'badge-purple' },
+    { id: 'SOURCED', title: 'SÀNG LỌC CV', color: 'var(--primary)', badgeColor: 'badge-purple' },
+    { id: 'SCREENING', title: 'ĐÁNH GIÁ (SCREENING)', color: 'var(--info)', badgeColor: 'badge-info' },
     { id: 'INTERVIEWING', title: 'PHỎNG VẤN', color: 'var(--warning)', badgeColor: 'badge-warning' },
-    { id: 'OFFERED', title: 'MỜI NHẬN VIỆC', color: 'var(--success)', badgeColor: 'badge-success' },
+    { id: 'OFFERING', title: 'CHỐT OFFER', color: 'var(--success)', badgeColor: 'badge-success' },
     { id: 'HIRED', title: 'NHẬN VIỆC (HIRED)', color: 'var(--text-main)', badgeColor: 'badge-primary' },
     { id: 'REJECTED', title: 'TỪ CHỐI', color: 'var(--error)', badgeColor: 'badge-error' }
   ];
@@ -216,7 +217,7 @@ export const RecruitmentATS = () => {
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-main)' }}>{c.name}</h4>
-                        {statusCol.id === 'OFFERED' && <CheckCircle size={16} color="var(--success)" />}
+                        {statusCol.id === 'OFFERING' && <CheckCircle size={16} color="var(--success)" />}
                         {statusCol.id === 'INTERVIEWING' && <span className="badge badge-warning" style={{ fontSize: '0.7rem', background: 'transparent' }}>Phỏng vấn</span>}
                       </div>
                       <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>

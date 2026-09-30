@@ -60,7 +60,7 @@ router.post('/', async (req: Request, res: Response) => {
         phone: phone as string | undefined,
         cvUrl: cvUrl as string | undefined,
         jobPostingId: jobPostingId as string,
-        status: (status as string) || 'APPLIED'
+        status: (status as any) || 'SOURCED'
       }
     });
     res.status(201).json(newCandidate);
@@ -75,6 +75,63 @@ router.put('/:id', async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { name, email, phone, cvUrl, jobPostingId, status } = req.body;
     
+    // Nếu chuyển sang HIRED, thực hiện Transaction để Auto-provisioning
+    if (status === 'HIRED') {
+      const result = await prisma.$transaction(async (tx) => {
+        // Cập nhật trạng thái ứng viên
+        const updatedCandidate = await tx.candidate.update({
+          where: { id },
+          data: { status: 'HIRED' },
+          include: { jobPosting: true }
+        });
+
+        // Tự động tạo Employee
+        const empCode = `EMP${Math.floor(Math.random() * 10000)}`;
+        const newEmployee = await tx.employee.create({
+          data: {
+            code: empCode,
+            fullName: updatedCandidate.name,
+            cccd: null, // Nullable theo DB mới
+            status: 'ONBOARDING',
+            joinDate: new Date(),
+            departmentId: updatedCandidate.jobPosting?.departmentId,
+            positionId: updatedCandidate.jobPosting?.positionId
+          }
+        });
+
+        // Tạo Hợp đồng thử việc mặc định
+        await tx.contract.create({
+          data: {
+            employeeId: newEmployee.id,
+            contractType: 'PROBATION',
+            baseSalary: 10000000, // Lương tạm mặc định
+            startDate: new Date(),
+            status: 'ACTIVE'
+          }
+        });
+
+        // Auto-close JobPosting logic
+        if (updatedCandidate.jobPostingId) {
+          const job = updatedCandidate.jobPosting;
+          if (job && job.status === 'PUBLISHED') {
+            const hiredCount = await tx.candidate.count({
+              where: { jobPostingId: job.id, status: 'HIRED' }
+            });
+            if (hiredCount >= job.amount) {
+              await tx.jobPosting.update({
+                where: { id: job.id },
+                data: { status: 'CLOSED' }
+              });
+            }
+          }
+        }
+
+        return updatedCandidate;
+      });
+      return res.json(result);
+    }
+
+    // Các trường hợp cập nhật thông thường khác
     const updatedCandidate = await prisma.candidate.update({
       where: { id },
       data: { 
@@ -83,28 +140,13 @@ router.put('/:id', async (req: Request, res: Response) => {
         phone: phone !== undefined ? phone as string : undefined,
         cvUrl: cvUrl !== undefined ? cvUrl as string : undefined,
         jobPostingId: jobPostingId !== undefined ? jobPostingId as string : undefined,
-        status: status !== undefined ? status as string : undefined
+        status: status !== undefined ? status as any : undefined
       }
     });
 
-    // AUTO-CLOSE LOGIC
-    if (updatedCandidate.status === 'HIRED' && updatedCandidate.jobPostingId) {
-      const job = await prisma.jobPosting.findUnique({ where: { id: updatedCandidate.jobPostingId } });
-      if (job && job.status === 'PUBLISHED') {
-        const hiredCount = await prisma.candidate.count({
-          where: { jobPostingId: job.id, status: 'HIRED' }
-        });
-        if (hiredCount >= job.amount) {
-          await prisma.jobPosting.update({
-            where: { id: job.id },
-            data: { status: 'CLOSED' }
-          });
-        }
-      }
-    }
-
     res.json(updatedCandidate);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Lỗi khi cập nhật ứng viên' });
   }
 });

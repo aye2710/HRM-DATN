@@ -104,7 +104,7 @@ model Employee {
   id             String         @id @default(uuid())
   code           String         @unique 
   fullName       String
-  cccd           String         @unique
+  cccd           String?        @unique
   status         EmployeeStatus @default(ACTIVE)
   joinDate       DateTime
   
@@ -327,16 +327,26 @@ model JobPosting {
   candidates   Candidate[]
 }
 
+enum CandidateStatus {
+  SOURCED
+  SCREENING
+  INTERVIEWING
+  OFFERING
+  HIRED
+  REJECTED
+}
+
 model Candidate {
-  id           String   @id @default(uuid())
+  id           String          @id @default(uuid())
   name         String
   email        String
   phone        String?
   cvUrl        String?
   jobPostingId String
-  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id])
-  status       String   // APPLIED, INTERVIEWING, OFFERED, REJECTED
+  jobPosting   JobPosting      @relation(fields: [jobPostingId], references: [id])
+  status       CandidateStatus @default(SOURCED)
   interviews   InterviewRound[]
+  offer        JobOffer?
 }
 
 model InterviewRound {
@@ -355,6 +365,22 @@ model CandidateFeedback {
   interviewRound   InterviewRound @relation(fields: [interviewRoundId], references: [id])
   score            Int
   comments         String?  @db.Text
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model JobOffer {
+  id            String      @id @default(uuid())
+  candidateId   String      @unique
+  candidate     Candidate   @relation(fields: [candidateId], references: [id])
+  baseSalary    Decimal
+  probationRate Int         @default(85)
+  startDate     DateTime    @db.Date
+  status        OfferStatus @default(PENDING)
 }
 
 // ==========================================
