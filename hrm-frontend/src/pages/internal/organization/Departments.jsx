@@ -7,6 +7,9 @@ import toast from 'react-hot-toast';
 
 export const Departments = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,10 +99,13 @@ export const Departments = () => {
   const totalDepts = departments.length;
   const totalHeadcount = departments.reduce((acc, dept) => acc + (dept._count?.employees || 0), 0);
 
-  const filteredDepartments = departments.filter(d =>
-    d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (d.code && d.code.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredDepartments = departments.filter(d => {
+    const matchSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || (d.code && d.code.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchStatus = statusFilter === '' || d.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+  
+  const paginatedDepartments = filteredDepartments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="flex-col gap-6 animate-fade-in relative">
@@ -114,52 +120,32 @@ export const Departments = () => {
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-6">
-        <div className="card glass card-hover">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
-              <Building size={24} color="var(--primary)" />
-            </div>
-            <div>
-              <p className="text-muted text-sm font-medium mb-1">Tổng Phòng ban</p>
-              <h3 className="text-2xl font-bold money-text">{totalDepts}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="card glass card-hover">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
-              <Users size={24} color="var(--success)" />
-            </div>
-            <div>
-              <p className="text-muted text-sm font-medium mb-1">Tổng Nhân sự hiện tại</p>
-              <h3 className="text-2xl font-bold money-text">{totalHeadcount}</h3>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
-      <div className="card glass flex-col gap-4">
+      <div className="card glass flex-col gap-4" style={{ flex: 1 }}>
         {/* Toolbar */}
         <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center w-1/2">
-            <div style={{ position: 'relative', width: '100%' }}>
+          <div className="flex gap-4 items-center w-full max-w-2xl">
+            <div style={{ position: 'relative', flex: 1 }}>
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
                 placeholder="Tìm kiếm mã PB, tên phòng ban..."
-                className="form-input"
+                className="form-input w-full"
                 style={{ paddingLeft: '2.5rem' }}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
-            <button className="btn btn-outline" style={{ padding: '0.75rem', height: '100%' }}>
-              <Filter size={18} />
-            </button>
+            <select
+              className="form-input"
+              style={{ width: '200px' }}
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">-- Trạng thái --</option>
+              <option value="ACTIVE">Hoạt động</option>
+              <option value="INACTIVE">Ngưng hoạt động</option>
+            </select>
           </div>
         </div>
 
@@ -187,7 +173,7 @@ export const Departments = () => {
                   <td colSpan="7" className="text-center text-muted py-8">Không tìm thấy phòng ban nào</td>
                 </tr>
               ) : (
-                filteredDepartments.map(dept => {
+                paginatedDepartments.map(dept => {
                   const currentHeadcount = dept._count?.employees || 0;
                   const status = dept.status || 'Hoạt động';
 
@@ -242,6 +228,46 @@ export const Departments = () => {
             </tbody>
           </table>
         </div>
+
+        {(() => {
+          const totalPages = Math.ceil(filteredDepartments.length / itemsPerPage);
+          if (totalPages <= 1) return null;
+          return (
+            <div className="flex justify-between items-center mt-4 px-2">
+              <span className="text-sm text-muted">
+                Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredDepartments.length)} trong tổng số {filteredDepartments.length} phòng ban
+              </span>
+              <div className="flex gap-2">
+                <button 
+                  className="btn btn-outline" 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  style={{ padding: '0.4rem 0.8rem' }}
+                >
+                  Trước
+                </button>
+                {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ minWidth: '40px', padding: '0.4rem 0.8rem' }}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button 
+                  className="btn btn-outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  style={{ padding: '0.4rem 0.8rem' }}
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Add/Edit Modal */}

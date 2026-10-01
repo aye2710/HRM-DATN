@@ -8,6 +8,11 @@ import Swal from 'sweetalert2';
 
 export const Requisitions = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
   const [requisitions, setRequisitions] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [positions, setPositions] = useState([]);
@@ -131,9 +136,14 @@ export const Requisitions = () => {
     }
   };
 
-  const filteredRequisitions = requisitions.filter(r => 
-    r.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRequisitions = requisitions.filter(r => {
+    const matchSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchDept = deptFilter === '' || r.departmentId === deptFilter;
+    const matchStatus = statusFilter === '' || r.status === statusFilter;
+    return matchSearch && matchDept && matchStatus;
+  });
+
+  const paginatedRequisitions = filteredRequisitions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="flex-col gap-6 animate-fade-in relative">
@@ -147,23 +157,44 @@ export const Requisitions = () => {
         </button>
       </div>
 
-      <div className="card glass flex-col gap-4">
+      <div className="card glass flex-col gap-4" style={{ flex: 1 }}>
         <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center w-1/2">
-            <div style={{ position: 'relative', width: '100%' }}>
+          <div className="flex gap-4 items-center w-full">
+            <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input 
                 type="text" 
                 placeholder="Tìm kiếm chiến dịch..." 
-                className="form-input"
+                className="form-input w-full"
                 style={{ paddingLeft: '2.5rem' }}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
-            <button className="btn btn-outline" style={{ padding: '0.75rem', height: '100%' }}>
-              <Filter size={18} />
-            </button>
+            
+            <select
+              className="form-input"
+              style={{ width: '200px' }}
+              value={deptFilter}
+              onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">-- Tất cả phòng ban --</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+            
+            <select
+              className="form-input"
+              style={{ width: '180px' }}
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">-- Trạng thái --</option>
+              <option value="DRAFT">Bản nháp</option>
+              <option value="PUBLISHED">Phát hành</option>
+              <option value="CLOSED">Ngừng phát hành</option>
+            </select>
           </div>
         </div>
 
@@ -186,12 +217,12 @@ export const Requisitions = () => {
                 <tr>
                   <td colSpan="8" className="text-center text-muted py-8">Đang tải dữ liệu...</td>
                 </tr>
-              ) : filteredRequisitions.length === 0 ? (
+              ) : paginatedRequisitions.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center text-muted py-8">Chưa có yêu cầu tuyển dụng nào</td>
                 </tr>
               ) : (
-                filteredRequisitions.map(req => {
+                paginatedRequisitions.map(req => {
                   const hiredCount = req.candidates ? req.candidates.filter(c => c.status === 'HIRED').length : 0;
                   const ratio = req.amount > 0 ? (hiredCount / req.amount) * 100 : 0;
 
@@ -261,6 +292,46 @@ export const Requisitions = () => {
             </tbody>
           </table>
         </div>
+        
+        {(() => {
+          const totalPages = Math.ceil(filteredRequisitions.length / itemsPerPage);
+          if (totalPages <= 1) return null;
+          return (
+            <div className="flex justify-between items-center mt-4 px-2">
+              <span className="text-sm text-muted">
+                Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredRequisitions.length)} trong tổng số {filteredRequisitions.length} chiến dịch
+              </span>
+              <div className="flex gap-2">
+                <button 
+                  className="btn btn-outline" 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  style={{ padding: '0.4rem 0.8rem' }}
+                >
+                  Trước
+                </button>
+                {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ minWidth: '40px', padding: '0.4rem 0.8rem' }}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button 
+                  className="btn btn-outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  style={{ padding: '0.4rem 0.8rem' }}
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Modal */}

@@ -113,62 +113,70 @@ export const CandidateLandingPage = () => {
       {/* Top Navbar */}
       <nav style={{ 
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-        padding: '1.25rem 4rem', backgroundColor: 'rgba(67, 89, 113, 0.5)', 
-        backdropFilter: 'blur(16px)', position: 'fixed', top: 0, width: '100%', zIndex: 50,
-        borderBottom: '1px solid var(--border)'
+        padding: '0.85rem 4rem', backgroundColor: 'rgba(255, 255, 255, 0.92)', 
+        backdropFilter: 'blur(12px)', position: 'fixed', top: 0, width: '100%', zIndex: 50,
+        borderBottom: '1px solid var(--border)',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }} onClick={() => window.scrollTo(0, 0)}>
-          <div style={{ width: 40, height: 40, background: 'linear-gradient(135deg, var(--primary), var(--accent))', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <div style={{ width: 38, height: 38, background: 'linear-gradient(135deg, var(--primary), var(--accent))', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '1.2rem', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)' }}>
             L
           </div>
-          <span style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+          <span style={{ fontSize: '1.35rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
             LLA Careers
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '2.5rem', alignItems: 'center' }}>
-          <a href="#about" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }} className="hover:text-[var(--primary)]">Về chúng tôi</a>
-          <a href="#jobs" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600, transition: 'color 0.2s' }}>Tuyển dụng</a>
+        <div style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
+          <a href="#about" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 500, fontSize: '0.9rem' }}>Về chúng tôi</a>
+          <a href="#jobs" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>Tuyển dụng</a>
           <button 
             onClick={() => { setTrackResults(null); setTrackEmail(''); setShowTrackModal(true); }} 
-            className="text-[var(--primary)] hover:text-[var(--accent)] transition-colors" 
-            style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            className="btn btn-outline"
+            style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '9999px', fontSize: '0.85rem', padding: '0.45rem 1.1rem' }}
           >
-            <Search size={18} /> Tra cứu kết quả
+            <Search size={15} /> Tra cứu kết quả
           </button>
-          <button className="btn btn-outline" style={{ borderRadius: '9999px', padding: '0.5rem 1.25rem', borderColor: 'rgba(255,255,255,0.2)', color: 'var(--text-main)' }} onClick={() => navigate('/')}>
-            <UserCircle size={18} /> Đăng nhập
+          <button className="btn btn-primary" style={{ borderRadius: '9999px', padding: '0.45rem 1.25rem', fontSize: '0.85rem' }} onClick={() => navigate('/')}>
+            <UserCircle size={16} /> Đăng nhập
           </button>
         </div>
       </nav>
 
       {/* Hero Banner */}
       <div style={{ 
-        padding: '12rem 2rem 8rem 2rem', 
+        padding: '9rem 2rem 5rem 2rem', 
         textAlign: 'center', 
         position: 'relative', 
         overflow: 'hidden',
-        background: 'radial-gradient(ellipse at top, rgba(99, 102, 241, 0.15), transparent 60%)'
+        background: 'linear-gradient(180deg, rgba(37, 99, 235, 0.05) 0%, rgba(248, 250, 252, 0) 100%)'
       }}>
-        <div style={{ position: 'relative', zIndex: 10, maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div className="badge badge-purple mb-6 animate-fade-in" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', animationDelay: '0.1s', opacity: 0, animationFillMode: 'forwards' }}>
+        <div style={{ position: 'relative', zIndex: 10, maxWidth: '850px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div className="badge badge-purple mb-4 animate-fade-in" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>
             ✨ Best IT Workplace 2026
           </div>
-          <h1 className="animate-fade-in" style={{ fontSize: '4.5rem', color: 'var(--text-main)', marginBottom: '1.5rem', lineHeight: 1.1, fontFamily: 'Outfit, sans-serif', animationDelay: '0.2s', opacity: 0, animationFillMode: 'forwards' }}>
+          <h1 className="animate-fade-in" style={{ fontSize: '3.5rem', color: 'var(--text-main)', marginBottom: '1.25rem', lineHeight: 1.15, fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
             Kiến tạo tương lai cùng <br/> <span className="text-gradient">Công ty TNHH LLA</span>
           </h1>
-          <p className="animate-fade-in" style={{ fontSize: '1.25rem', color: 'var(--text-muted)', marginBottom: '3rem', maxWidth: '700px', lineHeight: 1.6, animationDelay: '0.3s', opacity: 0, animationFillMode: 'forwards' }}>
+          <p className="animate-fade-in" style={{ fontSize: '1.15rem', color: 'var(--text-muted)', marginBottom: '2.25rem', maxWidth: '650px', lineHeight: 1.6 }}>
             Trở thành một phần của đội ngũ kỹ sư tinh hoa. Chúng tôi xây dựng những giải pháp công nghệ mang tính biểu tượng và thay đổi cách thế giới vận hành.
           </p>
-          <div className="animate-fade-in" style={{ display: 'flex', gap: '1rem', animationDelay: '0.4s', opacity: 0, animationFillMode: 'forwards' }}>
-            <a href="#jobs" className="btn btn-primary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Search size={20} /> Khám phá cơ hội ngay
+          <div className="animate-fade-in" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <a href="#jobs" className="btn btn-primary" style={{ padding: '0.75rem 2rem', fontSize: '1rem', height: '46px', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', boxShadow: '0 8px 18px rgba(37, 99, 235, 0.25)' }}>
+              <Search size={18} /> Khám phá cơ hội ngay
             </a>
+            <button 
+              onClick={() => { setTrackResults(null); setTrackEmail(''); setShowTrackModal(true); }}
+              className="btn btn-outline" 
+              style={{ padding: '0.75rem 1.75rem', fontSize: '1rem', height: '46px', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              Tra cứu hồ sơ
+            </button>
           </div>
         </div>
         
-        {/* Glow Effects */}
-        <div style={{ position: 'absolute', top: '20%', left: '15%', width: '400px', height: '400px', background: 'var(--primary)', filter: 'blur(150px)', opacity: 0.15, borderRadius: '50%' }}></div>
-        <div style={{ position: 'absolute', bottom: '10%', right: '15%', width: '300px', height: '300px', background: 'var(--accent)', filter: 'blur(120px)', opacity: 0.15, borderRadius: '50%' }}></div>
+        {/* Ambient Glow */}
+        <div style={{ position: 'absolute', top: '15%', left: '20%', width: '380px', height: '380px', background: 'var(--primary)', filter: 'blur(160px)', opacity: 0.1, borderRadius: '50%', pointerEvents: 'none' }}></div>
+        <div style={{ position: 'absolute', bottom: '5%', right: '20%', width: '350px', height: '350px', background: 'var(--accent)', filter: 'blur(160px)', opacity: 0.08, borderRadius: '50%', pointerEvents: 'none' }}></div>
       </div>
 
       {/* Workspace & Gallery */}
@@ -342,32 +350,32 @@ export const CandidateLandingPage = () => {
       </div>
       
       {/* Footer */}
-      <footer style={{ backgroundColor: 'var(--bg-sidebar)', borderTop: '1px solid var(--border)', padding: '4rem 2rem 2rem 2rem' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', marginBottom: '3rem' }}>
+      <footer style={{ backgroundColor: '#FFFFFF', borderTop: '1px solid var(--border)', padding: '4rem 2rem 2rem 2rem' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', marginBottom: '3rem', flexWrap: 'wrap', gap: '2rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
               <div style={{ width: 32, height: 32, background: 'linear-gradient(135deg, var(--primary), var(--accent))', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800 }}>L</div>
-              <span style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'var(--text-main)' }}>Công ty TNHH LLA</span>
+              <span style={{ fontSize: '1.35rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'var(--text-main)' }}>Công ty TNHH LLA</span>
             </div>
-            <p className="text-muted" style={{ maxWidth: '300px' }}>Kiến tạo các giải pháp phần mềm đẳng cấp thế giới bằng sự đổi mới không ngừng.</p>
+            <p className="text-muted" style={{ maxWidth: '320px', lineHeight: 1.6, fontSize: '0.9rem' }}>Kiến tạo các giải pháp phần mềm đẳng cấp thế giới bằng sự đổi mới không ngừng.</p>
           </div>
-          <div style={{ display: 'flex', gap: '5rem' }}>
-            <div className="flex-col gap-3">
-              <h4 style={{ color: 'var(--text-main)', marginBottom: '1rem' }}>Công ty</h4>
-              <a href="#" className="text-muted" style={{ textDecoration: 'none' }}>Về LLA</a>
-              <a href="#" className="text-muted" style={{ textDecoration: 'none' }}>Văn hóa</a>
-              <a href="#" className="text-muted" style={{ textDecoration: 'none' }}>Tin tức</a>
+          <div style={{ display: 'flex', gap: '4rem', flexWrap: 'wrap' }}>
+            <div className="flex-col gap-2">
+              <h4 style={{ color: 'var(--text-main)', marginBottom: '0.75rem', fontSize: '0.95rem', fontWeight: 600 }}>Công ty</h4>
+              <a href="#about" className="text-muted" style={{ textDecoration: 'none', fontSize: '0.875rem' }}>Về LLA</a>
+              <a href="#workspace" className="text-muted" style={{ textDecoration: 'none', fontSize: '0.875rem' }}>Không gian làm việc</a>
+              <a href="#jobs" className="text-muted" style={{ textDecoration: 'none', fontSize: '0.875rem' }}>Tuyển dụng</a>
             </div>
-            <div className="flex-col gap-3">
-              <h4 style={{ color: 'var(--text-main)', marginBottom: '1rem' }}>Hỗ trợ</h4>
-              <a href="#" className="text-muted" style={{ textDecoration: 'none' }}>Quy trình ứng tuyển</a>
-              <a href="#" className="text-muted" style={{ textDecoration: 'none' }}>Liên hệ Bộ phận Tuyển dụng</a>
-              <a href="#" className="text-muted" style={{ textDecoration: 'none' }}>Chính sách bảo mật</a>
+            <div className="flex-col gap-2">
+              <h4 style={{ color: 'var(--text-main)', marginBottom: '0.75rem', fontSize: '0.95rem', fontWeight: 600 }}>Hỗ trợ</h4>
+              <a href="#process" className="text-muted" style={{ textDecoration: 'none', fontSize: '0.875rem' }}>Quy trình ứng tuyển</a>
+              <a href="#" className="text-muted" style={{ textDecoration: 'none', fontSize: '0.875rem' }}>Liên hệ Tuyển dụng</a>
+              <a href="#" className="text-muted" style={{ textDecoration: 'none', fontSize: '0.875rem' }}>Chính sách bảo mật</a>
             </div>
           </div>
         </div>
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', paddingTop: '2rem', fontSize: '0.875rem' }}>
-          <p>© 2026 Công ty TNHH LLA. Đồ án Tốt Nghiệp HRM.</p>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', paddingTop: '2rem', fontSize: '0.85rem' }}>
+          <p>© 2026 Công ty TNHH LLA. Đồ án Tốt Nghiệp HRM Enterprise.</p>
         </div>
       </footer>
 
@@ -475,14 +483,25 @@ export const CandidateLandingPage = () => {
                       {trackResults.map(res => {
                         const styleInfo = getStatusText(res.status);
                         return (
-                          <div key={res.id} className="flex justify-between items-center p-4 rounded-xl border border-[var(--border)] bg-white">
-                            <div>
-                              <div className="font-medium text-[var(--text-heading)] mb-1">{res.jobTitle}</div>
-                              <div className="text-xs text-muted">ID: #{res.id.substring(0,6).toUpperCase()}</div>
+                          <div key={res.id} className="flex-col p-4 rounded-xl border border-[var(--border)] bg-white gap-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-medium text-[var(--text-heading)] mb-1">{res.jobTitle}</div>
+                                <div className="text-xs text-muted">ID: #{res.id.substring(0,6).toUpperCase()}</div>
+                              </div>
+                              <div style={{ background: styleInfo.bg, color: styleInfo.color, padding: '0.4rem 0.8rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 600 }}>
+                                {styleInfo.text}
+                              </div>
                             </div>
-                            <div style={{ background: styleInfo.bg, color: styleInfo.color, padding: '0.4rem 0.8rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 600 }}>
-                              {styleInfo.text}
-                            </div>
+                            {res.latestInterview && (
+                              <div className="mt-3 pt-3 border-t border-[var(--border)] flex items-center gap-2 text-sm text-[var(--text-main)] bg-[rgba(99,102,241,0.05)] p-2 rounded-lg">
+                                <Clock size={16} className="text-[var(--primary)]" />
+                                <div>
+                                  <span className="font-medium">{res.latestInterview.roundName}:</span> 
+                                  {" "} {new Date(res.latestInterview.scheduledAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}

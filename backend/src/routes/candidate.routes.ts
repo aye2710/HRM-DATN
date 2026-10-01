@@ -28,14 +28,22 @@ router.get('/track', async (req: Request, res: Response) => {
     
     const applications = await prisma.candidate.findMany({
       where: { email },
-      include: { jobPosting: true },
+      include: { 
+        jobPosting: true,
+        interviews: {
+          select: { scheduledAt: true, roundName: true },
+          orderBy: { scheduledAt: 'desc' },
+          take: 1
+        }
+      },
       orderBy: { id: 'desc' }
     });
     
     const safeData = applications.map(app => ({
       id: app.id,
       jobTitle: app.jobPosting?.title || 'Không rõ',
-      status: app.status
+      status: app.status,
+      latestInterview: app.interviews.length > 0 ? app.interviews[0] : null
     }));
     
     res.json(safeData);

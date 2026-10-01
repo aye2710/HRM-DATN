@@ -13,6 +13,8 @@ export const RecruitmentATS = () => {
   // View state
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   // Modals state
   const [showJobModal, setShowJobModal] = useState(false);
@@ -172,7 +174,7 @@ export const RecruitmentATS = () => {
               placeholder="Tìm kiếm ứng viên theo tên, email..." 
               className="form-input w-full pl-10 bg-white" 
               value={searchQuery} 
-              onChange={e => setSearchQuery(e.target.value)} 
+              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
             />
           </div>
         </div>
@@ -180,25 +182,26 @@ export const RecruitmentATS = () => {
 
       {/* Main Content Area */}
       {viewMode === 'kanban' ? (
-        <div style={{ flex: 1, display: 'flex', gap: '1.5rem', overflowX: 'auto', paddingBottom: '1rem', minHeight: 0 }} className="custom-scrollbar">
-        {statuses.map(statusCol => {
-          const columnCandidates = candidates.filter(c => c.status === statusCol.id);
-          
-          return (
-            <div 
-              key={statusCol.id}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', gap: '1.5rem', overflowX: 'auto', paddingBottom: '1rem' }} className="custom-scrollbar">
+            {statuses.map(statusCol => {
+              const columnCandidates = candidates.filter(c => c.status === statusCol.id);
+              
+              return (
+                <div 
+                  key={statusCol.id}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, statusCol.id)}
-              style={{ flex: '0 0 320px', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem', padding: '1rem', border: '1px solid var(--border)' }}
+              style={{ flex: '0 0 320px', height: '100%', background: 'var(--bg-card)', borderRadius: '1rem', padding: '1rem', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
             >
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-4 flex-shrink-0">
                 <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-muted)' }}>{statusCol.title}</h3>
                 <span className={`badge ${statusCol.badgeColor}`} style={{ borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                   {columnCandidates.length}
                 </span>
               </div>
               
-              <div className="flex-col gap-3" style={{ minHeight: '100px' }}>
+              <div className="flex-col gap-3 custom-scrollbar" style={{ flex: 1, paddingRight: '0.5rem', minHeight: 0, overflowY: 'auto' }}>
                 {loading ? (
                    <p className="text-center text-muted text-sm py-4">Đang tải...</p>
                 ) : columnCandidates.length === 0 ? (
@@ -211,11 +214,11 @@ export const RecruitmentATS = () => {
                       onDragStart={(e) => handleDragStart(e, c.id)}
                       onDragOver={handleDragOver}
                       onDrop={(e) => {
-                        e.stopPropagation(); // Ngăn sự kiện bong bóng lên column (tùy chọn nhưng tốt)
+                        e.stopPropagation();
                         handleDrop(e, statusCol.id);
                       }}
-                      className="card glass card-hover" 
-                      style={{ padding: '1rem', cursor: 'grab', borderLeft: `3px solid ${statusCol.color}` }}
+                      className="card card-hover" 
+                      style={{ padding: '1rem', cursor: 'grab', borderLeft: `3px solid ${statusCol.color}`, flexShrink: 0, backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-main)' }}>{c.name}</h4>
@@ -246,7 +249,8 @@ export const RecruitmentATS = () => {
             </div>
           );
         })}
-      </div>
+          </div>
+        </div>
       ) : (
         <div className="card glass overflow-hidden flex-1 flex flex-col p-0" style={{ minHeight: 0 }}>
           <div className="overflow-y-auto flex-1 custom-scrollbar">
@@ -263,6 +267,7 @@ export const RecruitmentATS = () => {
               <tbody>
                 {candidates
                   .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                   .map(c => {
                     const statusObj = statuses.find(s => s.id === c.status) || statuses[0];
                     return (
@@ -318,6 +323,46 @@ export const RecruitmentATS = () => {
               </tbody>
             </table>
           </div>
+          {(() => {
+            const totalFiltered = candidates.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase())).length;
+            const totalPages = Math.ceil(totalFiltered / itemsPerPage);
+            if (totalPages <= 1) return null;
+            return (
+              <div className="flex justify-between items-center p-4 border-t border-[var(--border)] bg-white" style={{ borderBottomLeftRadius: '1.5rem', borderBottomRightRadius: '1.5rem' }}>
+                <span className="text-sm text-muted">
+                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalFiltered)} trong tổng số {totalFiltered} ứng viên
+                </span>
+                <div className="flex gap-2">
+                  <button 
+                    className="btn btn-outline" 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    style={{ padding: '0.4rem 0.8rem' }}
+                  >
+                    Trước
+                  </button>
+                  {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ minWidth: '40px', padding: '0.4rem 0.8rem' }}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button 
+                    className="btn btn-outline"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    style={{ padding: '0.4rem 0.8rem' }}
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, UserPlus, Star, Clock, X, CheckCircle } from 'lucide-react';
+import { Calendar, UserPlus, Star, Clock, X, CheckCircle, Edit2, Trash2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 
 export const Interviews = () => {
@@ -13,6 +14,7 @@ export const Interviews = () => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedInterviewId, setSelectedInterviewId] = useState(null);
+  const [modalMode, setModalMode] = useState('add');
 
   const [scheduleForm, setScheduleForm] = useState({
     candidateId: '',
@@ -41,30 +43,100 @@ export const Interviews = () => {
     fetchData();
   }, []);
 
+  const handleOpenAdd = () => {
+    setModalMode('add');
+    setScheduleForm({ candidateId: '', interviewerId: '', roundName: 'Phỏng vấn Kỹ thuật', scheduledAt: '' });
+    setShowScheduleModal(true);
+  };
+
+  const handleOpenEdit = (inv) => {
+    setModalMode('edit');
+    setSelectedInterviewId(inv.id);
+    setScheduleForm({
+      candidateId: inv.candidateId,
+      interviewerId: inv.interviewerId,
+      roundName: inv.roundName,
+      scheduledAt: new Date(inv.scheduledAt).toISOString().slice(0, 16)
+    });
+    setShowScheduleModal(true);
+  };
+
+  const handleDelete = async (id) => {
+    const result = await Swal.fire({ title: 'Xác nhận hủy', text: 'Bạn có chắc muốn hủy lịch phỏng vấn này?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Hủy lịch', cancelButtonText: 'Không' });
+    if (result.isConfirmed) {
+      axios.delete(`http://localhost:5000/api/interviews/${id}`)
+        .then(() => { toast.success("Đã hủy lịch phỏng vấn"); fetchData(); })
+        .catch(err => toast.error("Lỗi khi hủy lịch"));
+    }
+  };
+
   const handleScheduleSubmit = (e) => {
     e.preventDefault();
     if (!scheduleForm.candidateId || !scheduleForm.interviewerId || !scheduleForm.scheduledAt) {
       return toast.error("Vui lòng điền đầy đủ thông tin");
     }
 
-    axios.post('http://localhost:5000/api/interviews', scheduleForm)
-      .then(() => {
-        fetchData();
-        setShowScheduleModal(false);
-        setScheduleForm({ candidateId: '', interviewerId: '', roundName: 'Phỏng vấn Kỹ thuật', scheduledAt: '' });
-      })
-      .catch(err => toast.error("Lỗi khi xếp lịch"));
+    if (modalMode === 'add') {
+      axios.post('http://localhost:5000/api/interviews', scheduleForm)
+        .then(() => {
+          toast.success("Đã lên lịch thành công!");
+          fetchData();
+          setShowScheduleModal(false);
+        })
+        .catch(err => toast.error("Lỗi khi xếp lịch"));
+    } else {
+      axios.put(`http://localhost:5000/api/interviews/${selectedInterviewId}`, scheduleForm)
+        .then(() => {
+          toast.success("Đã cập nhật lịch!");
+          fetchData();
+          setShowScheduleModal(false);
+        })
+        .catch(err => toast.error("Lỗi khi cập nhật lịch"));
+    }
   };
 
   const handleFeedbackSubmit = (e) => {
     e.preventDefault();
     axios.post(`http://localhost:5000/api/interviews/${selectedInterviewId}/feedback`, feedbackForm)
       .then(() => {
-        fetchData();
         setShowFeedbackModal(false);
         setFeedbackForm({ score: 5, comments: '' });
+        
+        // SweetAlert2 asking to change status
+        Swal.fire({
+          title: 'Đã lưu đánh giá!',
+          text: 'Bạn có muốn quyết định ngay kết quả của ứng viên này không?',
+          icon: 'success',
+          showCancelButton: true,
+          showDenyButton: true,
+          confirmButtonText: 'Chốt Offer',
+          denyButtonText: 'Từ chối',
+          cancelButtonText: 'Để sau',
+          confirmButtonColor: 'var(--success)',
+          denyButtonColor: 'var(--error)'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            updateCandidateStatus(selectedInterviewId, 'OFFERING');
+          } else if (result.isDenied) {
+            updateCandidateStatus(selectedInterviewId, 'REJECTED');
+          } else {
+            fetchData();
+          }
+        });
       })
       .catch(err => toast.error("Lỗi khi lưu đánh giá"));
+  };
+
+  const updateCandidateStatus = (interviewId, status) => {
+    const inv = interviews.find(i => i.id === interviewId);
+    if (inv) {
+      axios.put(`http://localhost:5000/api/candidates/${inv.candidateId}`, { status })
+        .then(() => {
+          toast.success(`Đã chuyển ứng viên sang trạng thái ${status === 'OFFERING' ? 'Chốt Offer' : 'Từ chối'}!`);
+          fetchData();
+        })
+        .catch(() => toast.error("Lỗi khi chuyển trạng thái"));
+    }
   };
 
   const interviewingCandidates = candidates.filter(c => c.status === 'INTERVIEWING');
@@ -79,7 +151,7 @@ export const Interviews = () => {
           <p className="text-muted mt-2">Quản lý lịch hẹn và đánh giá ứng viên sau phỏng vấn.</p>
         </div>
         <div>
-          <button onClick={() => setShowScheduleModal(true)} className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem' }}>
+          <button onClick={handleOpenAdd} className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem' }}>
             <Calendar size={18} /> Lên lịch mới
           </button>
         </div>
@@ -100,6 +172,7 @@ export const Interviews = () => {
                   <th className="p-4 text-sm font-semibold text-muted">Vòng / Vị trí</th>
                   <th className="p-4 text-sm font-semibold text-muted">Người phỏng vấn</th>
                   <th className="p-4 text-sm font-semibold text-muted text-right">Đánh giá</th>
+                  <th className="p-4 text-sm font-semibold text-muted text-center w-24">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,6 +216,18 @@ export const Interviews = () => {
                           <span className="text-muted text-sm italic opacity-50">Chưa diễn ra</span>
                         )}
                       </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {!hasFeedback && (
+                            <button onClick={() => handleOpenEdit(inv)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title="Sửa lịch">
+                              <Edit2 size={16} color="var(--text-muted)" />
+                            </button>
+                          )}
+                          <button onClick={() => handleDelete(inv.id)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title="Hủy lịch">
+                            <Trash2 size={16} color="var(--error)" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}
@@ -164,11 +249,15 @@ export const Interviews = () => {
               <div className="flex-col gap-4" style={{ padding: '1.5rem' }}>
                 <div className="flex-col gap-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Ứng viên (Đang chờ phỏng vấn)</label>
-                  <select required className="form-input w-full bg-white" value={scheduleForm.candidateId} onChange={e => setScheduleForm({...scheduleForm, candidateId: e.target.value})}>
+                  <select required disabled={modalMode === 'edit'} className="form-input w-full bg-white disabled:opacity-50" value={scheduleForm.candidateId} onChange={e => setScheduleForm({...scheduleForm, candidateId: e.target.value})}>
                     <option value="" className="text-black">-- Chọn ứng viên --</option>
-                    {interviewingCandidates.map(c => (
-                      <option key={c.id} value={c.id} className="text-black">{c.name} - {c.jobPosting?.title}</option>
-                    ))}
+                    {modalMode === 'edit' ? (
+                      <option value={scheduleForm.candidateId} className="text-black">Đang sửa lịch cho ứng viên hiện tại</option>
+                    ) : (
+                      interviewingCandidates.map(c => (
+                        <option key={c.id} value={c.id} className="text-black">{c.name} - {c.jobPosting?.title}</option>
+                      ))
+                    )}
                   </select>
                   {interviewingCandidates.length === 0 && <p className="text-xs text-[var(--warning)] mt-1">Không có ứng viên nào đang ở trạng thái PHỎNG VẤN.</p>}
                 </div>
@@ -178,7 +267,7 @@ export const Interviews = () => {
                 </div>
                 <div className="flex-col gap-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Ngày & Giờ (Dự kiến)</label>
-                  <input required type="datetime-local" className="form-input w-full" style={{ colorScheme: 'dark' }} value={scheduleForm.scheduledAt} onChange={e => setScheduleForm({...scheduleForm, scheduledAt: e.target.value})} />
+                  <input required type="datetime-local" className="form-input w-full" value={scheduleForm.scheduledAt} onChange={e => setScheduleForm({...scheduleForm, scheduledAt: e.target.value})} />
                 </div>
                 <div className="flex-col gap-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Người phỏng vấn (Tên)</label>

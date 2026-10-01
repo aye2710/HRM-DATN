@@ -72,4 +72,34 @@ router.post('/:id/feedback', async (req: Request, res: Response) => {
   }
 });
 
+// PUT: Cập nhật lịch phỏng vấn
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const { interviewerId, roundName, scheduledAt } = req.body;
+    const updated = await prisma.interviewRound.update({
+      where: { id: req.params.id },
+      data: {
+        interviewerId,
+        roundName,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined
+      }
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi khi cập nhật lịch phỏng vấn' });
+  }
+});
+
+// DELETE: Hủy lịch phỏng vấn
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    await prisma.interviewRound.delete({
+      where: { id: req.params.id }
+    });
+    res.json({ message: 'Đã hủy lịch phỏng vấn' });
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi khi hủy lịch phỏng vấn' });
+  }
+});
+
 export default router;

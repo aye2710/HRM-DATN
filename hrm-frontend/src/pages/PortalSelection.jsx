@@ -118,8 +118,16 @@ export const PortalSelection = () => {
           </button>
         </form>
 
-        <div className="w-full text-center mt-6 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
-          <p className="text-muted" style={{ fontSize: '0.8rem' }}>
+        <div className="w-full text-center mt-6 pt-6 flex flex-col gap-3" style={{ borderTop: '1px solid var(--border)' }}>
+          <button 
+            type="button"
+            onClick={() => navigate('/candidate')}
+            className="btn btn-outline w-full flex items-center justify-center gap-2"
+            style={{ borderRadius: '0.75rem', padding: '0.6rem 1rem', fontSize: '0.9rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+          >
+            🌐 Đến Cổng Tuyển Dụng (Dành cho Ứng viên)
+          </button>
+          <p className="text-muted" style={{ fontSize: '0.8rem', margin: 0 }}>
             <span style={{ color: 'var(--warning)', fontWeight: 600 }}>Tài khoản Demo:</span><br/>
             Admin: admin / 123456<br/>
             Nhân viên: emp01 / 123456
