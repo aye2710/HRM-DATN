@@ -422,11 +422,9 @@ export const CandidateLandingPage = () => {
 
                   <div className="flex-col gap-2 mb-4">
                     <label className="text-sm font-medium text-[var(--text-muted)]">Đường dẫn CV (Google Drive, Notion...) <span className="text-[var(--error)]">*</span></label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <FileText size={16} className="text-[var(--text-muted)]" />
-                      </div>
-                      <input type="url" required className="form-input w-full bg-white pl-10" value={formData.cvUrl} onChange={e => setFormData({...formData, cvUrl: e.target.value})} placeholder="https://drive.google.com/..." />
+                    <div style={{ position: 'relative' }}>
+                      <FileText size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+                      <input type="url" required className="form-input w-full bg-white" style={{ paddingLeft: '2.5rem' }} value={formData.cvUrl} onChange={e => setFormData({...formData, cvUrl: e.target.value})} placeholder="https://drive.google.com/..." />
                     </div>
                     <p className="text-xs text-[var(--text-muted)] mt-1">Vui lòng đảm bảo link CV của bạn được cấp quyền truy cập công khai (Anyone with the link can view).</p>
                   </div>

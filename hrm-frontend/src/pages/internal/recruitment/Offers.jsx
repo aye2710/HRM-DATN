@@ -19,6 +19,7 @@ export const Offers = () => {
     employeeCode: '',
     cccd: '',
     baseSalary: '',
+    contractType: 'PROBATION',
     joinDate: ''
   });
 
@@ -42,6 +43,7 @@ export const Offers = () => {
       employeeCode: `NV${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`, // Auto-generate suggestion
       cccd: '',
       baseSalary: '15000000',
+      contractType: 'PROBATION',
       joinDate: new Date().toISOString().split('T')[0]
     });
     setShowOnboardModal(true);
@@ -49,7 +51,7 @@ export const Offers = () => {
 
   const handleOnboardSubmit = (e) => {
     e.preventDefault();
-    if (!onboardForm.employeeCode || !onboardForm.cccd || !onboardForm.baseSalary || !onboardForm.joinDate) {
+    if (!onboardForm.employeeCode || !onboardForm.cccd || !onboardForm.baseSalary || !onboardForm.joinDate || !onboardForm.contractType) {
       return toast.error("Vui lòng nhập đầy đủ thông tin.");
     }
     
@@ -97,12 +99,13 @@ export const Offers = () => {
       </div>
 
       <div className="mb-4 flex gap-4">
-        <div className="flex-1 relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+        <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+          <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
           <input 
             type="text" 
             placeholder="Tìm kiếm ứng viên theo tên, email..." 
-            className="form-input w-full pl-10 bg-white" 
+            className="form-input w-full bg-white" 
+            style={{ paddingLeft: '2.5rem' }}
             value={searchQuery} 
             onChange={e => setSearchQuery(e.target.value)} 
           />
@@ -196,6 +199,31 @@ export const Offers = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex-col gap-2">
+                    <label className="text-sm font-medium text-[var(--text-muted)]">Loại Hợp Đồng *</label>
+                    <select 
+                      required className="form-input w-full" 
+                      value={onboardForm.contractType} 
+                      onChange={e => setOnboardForm({...onboardForm, contractType: e.target.value})}
+                    >
+                      <option value="PROBATION">Thử việc</option>
+                      <option value="INTERNSHIP">Thực tập sinh</option>
+                      <option value="OFFICIAL_1Y">Chính thức (1 năm)</option>
+                      <option value="INDEFINITE">Không xác định thời hạn</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex-col gap-2">
+                    <label className="text-sm font-medium text-[var(--text-muted)]">Mức lương cơ bản (VNĐ) *</label>
+                    <input 
+                      type="number" required min="0" step="100000"
+                      className="form-input w-full" 
+                      value={onboardForm.baseSalary} 
+                      onChange={e => setOnboardForm({...onboardForm, baseSalary: e.target.value})} 
+                    />
+                    <div className="text-xs text-[var(--primary)] mt-1 font-medium">Lương Offer: {Number(onboardForm.baseSalary).toLocaleString('vi-VN')} đ</div>
+                  </div>
+
+                  <div className="flex-col gap-2">
                     <label className="text-sm font-medium text-[var(--text-muted)]">Mã Nhân Viên *</label>
                     <input 
                       type="text" required 
@@ -216,18 +244,7 @@ export const Offers = () => {
                     />
                   </div>
                   
-                  <div className="flex-col gap-2">
-                    <label className="text-sm font-medium text-[var(--text-muted)]">Mức lương cơ bản (VNĐ) *</label>
-                    <input 
-                      type="number" required min="0" step="100000"
-                      className="form-input w-full" 
-                      value={onboardForm.baseSalary} 
-                      onChange={e => setOnboardForm({...onboardForm, baseSalary: e.target.value})} 
-                    />
-                    <div className="text-xs text-muted mt-1">Lương Offer: {Number(onboardForm.baseSalary).toLocaleString('vi-VN')} đ</div>
-                  </div>
-                  
-                  <div className="flex-col gap-2">
+                  <div className="flex-col gap-2" style={{ gridColumn: 'span 2' }}>
                     <label className="text-sm font-medium text-[var(--text-muted)]">Ngày bắt đầu làm việc *</label>
                     <input 
                       type="date" required 

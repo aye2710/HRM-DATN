@@ -202,11 +202,53 @@ export const Interviews = () => {
                       <td className="p-4 text-sm">{inv.interviewerId}</td>
                       <td className="p-4 text-right">
                         {hasFeedback ? (
-                          <div className="flex flex-col items-end">
-                            <span className="text-[var(--success)] flex items-center gap-1 font-semibold text-sm">
+                          <div className="flex flex-col items-end gap-1.5">
+                            <span className="text-[var(--success)] flex items-center gap-1 font-semibold text-sm" title={inv.feedbacks[0].comments}>
                               <CheckCircle size={14} /> Đã đánh giá ({inv.feedbacks[0].score}/10)
                             </span>
-                            <span className="text-xs text-muted max-w-[200px] truncate" title={inv.feedbacks[0].comments}>{inv.feedbacks[0].comments}</span>
+                            {inv.candidate?.status === 'INTERVIEWING' && (
+                              <button 
+                                onClick={() => {
+                                  Swal.fire({
+                                    title: 'Phê duyệt kết quả',
+                                    text: 'Chuyển ứng viên này sang giai đoạn tiếp theo:',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    showDenyButton: true,
+                                    confirmButtonText: 'Chốt Offer',
+                                    denyButtonText: 'Từ chối (Loại)',
+                                    cancelButtonText: 'Để sau',
+                                    confirmButtonColor: 'var(--success)',
+                                    denyButtonColor: 'var(--error)'
+                                  }).then((result) => {
+                                    if (result.isConfirmed) {
+                                      updateCandidateStatus(inv.id, 'OFFERING');
+                                    } else if (result.isDenied) {
+                                      updateCandidateStatus(inv.id, 'REJECTED');
+                                    }
+                                  });
+                                }}
+                                className="text-xs font-semibold rounded-md transition-all hover:scale-105 active:scale-95"
+                                style={{ 
+                                  padding: '0.35rem 0.8rem', 
+                                  backgroundColor: 'rgba(105,108,255,0.1)', 
+                                  color: 'var(--primary)',
+                                  border: '1px solid rgba(105,108,255,0.3)',
+                                  boxShadow: '0 2px 4px rgba(105,108,255,0.05)'
+                                }}
+                              >
+                                Phê duyệt kết quả
+                              </button>
+                            )}
+                            {inv.candidate?.status === 'OFFERING' && (
+                              <span className="badge badge-success text-[0.7rem] font-medium" style={{ padding: '0.2rem 0.6rem' }}>Đang chốt Offer</span>
+                            )}
+                            {inv.candidate?.status === 'REJECTED' && (
+                              <span className="badge badge-error text-[0.7rem] font-medium" style={{ padding: '0.2rem 0.6rem' }}>Đã từ chối</span>
+                            )}
+                            {inv.candidate?.status === 'HIRED' && (
+                              <span className="badge badge-primary text-[0.7rem] font-medium" style={{ padding: '0.2rem 0.6rem' }}>Đã nhận việc</span>
+                            )}
                           </div>
                         ) : isPast ? (
                            <button onClick={() => { setSelectedInterviewId(inv.id); setShowFeedbackModal(true); }} className="btn btn-outline" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', borderColor: 'var(--warning)', color: 'var(--warning)' }}>

@@ -8,7 +8,11 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const candidates = await prisma.candidate.findMany({
       include: {
-        jobPosting: true
+        jobPosting: {
+          include: {
+            department: true
+          }
+        }
       },
       orderBy: { name: 'asc' }
     });

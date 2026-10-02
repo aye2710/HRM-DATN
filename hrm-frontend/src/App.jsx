@@ -7,6 +7,7 @@ import { AppLayout } from './layouts/AppLayout';
 // Admin & Internal Portal
 import { InternalDashboard } from './pages/internal/Dashboard';
 import { EmployeeList } from './pages/internal/employees/EmployeeList';
+import { EmployeeDetail } from './pages/internal/employees/EmployeeDetail';
 import { AttendanceMgmt } from './pages/internal/attendance/Attendance';
 import { LeaveMgmt } from './pages/internal/leave/LeaveMgmt';
 import { PayrollMgmt } from './pages/internal/payroll/Payroll';
@@ -191,6 +192,7 @@ function App() {
               <Route path="onboarding/progress" element={<OnboardingProgress />} />
 
               <Route path="employees/profiles" element={<EmployeeList />} />
+              <Route path="employees/profiles/:id" element={<EmployeeDetail />} />
               <Route path="employees/jobs" element={<EmploymentHistory />} />
               <Route path="employees/contracts" element={<Contracts />} />
               <Route path="employees/transfers" element={<Transfers />} />

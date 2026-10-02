@@ -24,7 +24,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST: Chấp nhận Offer & Chuyển thành Nhân viên (Onboarding)
   router.post('/accept', async (req: Request, res: Response) => {
     try {
-      const { candidateId, employeeCode, cccd, baseSalary, joinDate } = req.body;
+      const { candidateId, employeeCode, cccd, baseSalary, joinDate, contractType } = req.body;
       
       if (!candidateId || !employeeCode || !baseSalary || !joinDate) {
         return res.status(400).json({ error: 'Thiếu thông tin bắt buộc để khởi tạo hồ sơ nhân viên.' });
@@ -56,7 +56,7 @@ router.get('/', async (req: Request, res: Response) => {
       await tx.contract.create({
         data: {
           employeeId: newEmployee.id,
-          contractType: 'PROBATION',
+          contractType: contractType || 'PROBATION',
           baseSalary: Number(baseSalary),
           startDate: new Date(joinDate),
           status: 'ACTIVE'

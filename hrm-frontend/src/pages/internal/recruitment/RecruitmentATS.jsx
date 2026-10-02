@@ -11,10 +11,12 @@ export const RecruitmentATS = () => {
   const [loading, setLoading] = useState(true);
 
   // View state
-  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
+  const [viewMode, setViewMode] = useState('table'); // Mở table luôn để kiểm tra
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+  const [departments, setDepartments] = useState([]);
 
   // Modals state
   const [showJobModal, setShowJobModal] = useState(false);
@@ -29,11 +31,13 @@ export const RecruitmentATS = () => {
     setLoading(true);
     Promise.all([
       axios.get('http://localhost:5000/api/job-postings'),
-      axios.get('http://localhost:5000/api/candidates')
+      axios.get('http://localhost:5000/api/candidates'),
+      axios.get('http://localhost:5000/api/departments')
     ])
-    .then(([jobRes, candRes]) => {
+    .then(([jobRes, candRes, deptRes]) => {
       setJobPostings(jobRes.data);
       setCandidates(candRes.data);
+      setDepartments(deptRes.data);
     })
     .catch(err => console.error(err))
     .finally(() => setLoading(false));
@@ -138,6 +142,12 @@ export const RecruitmentATS = () => {
     { id: 'REJECTED', title: 'TỪ CHỐI', color: 'var(--error)', badgeColor: 'badge-error' }
   ];
 
+  const processedCandidates = candidates.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDept = filterDepartment ? c.jobPosting?.departmentId === filterDepartment : true;
+    return matchesSearch && matchesDept;
+  });
+
   return (
     <div className="animate-fade-in" style={{ padding: '0 1rem', height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
       <div className="flex items-center justify-between mb-8">
@@ -166,16 +176,30 @@ export const RecruitmentATS = () => {
       </div>
 
       {viewMode === 'table' && (
-        <div className="mb-4 flex gap-4">
-          <div className="flex-1 relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm ứng viên theo tên, email..." 
-              className="form-input w-full pl-10 bg-white" 
-              value={searchQuery} 
-              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
-            />
+        <div className="mb-4 flex justify-between items-center">
+          <div className="flex gap-4 items-center w-full">
+            <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <input 
+                type="text" 
+                placeholder="Tìm kiếm ứng viên theo tên, email..." 
+                className="form-input w-full bg-white" 
+                style={{ paddingLeft: '2.5rem' }}
+                value={searchQuery} 
+                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
+              />
+            </div>
+            <select 
+              className="form-input bg-white" 
+              style={{ width: '200px' }}
+              value={filterDepartment} 
+              onChange={e => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">Tất cả phòng ban</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -185,7 +209,7 @@ export const RecruitmentATS = () => {
         <div style={{ flex: 1, position: 'relative' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', gap: '1.5rem', overflowX: 'auto', paddingBottom: '1rem' }} className="custom-scrollbar">
             {statuses.map(statusCol => {
-              const columnCandidates = candidates.filter(c => c.status === statusCol.id);
+              const columnCandidates = processedCandidates.filter(c => c.status === statusCol.id);
               
               return (
                 <div 
@@ -252,21 +276,21 @@ export const RecruitmentATS = () => {
           </div>
         </div>
       ) : (
-        <div className="card glass overflow-hidden flex-1 flex flex-col p-0" style={{ minHeight: 0 }}>
-          <div className="overflow-y-auto flex-1 custom-scrollbar">
+        <div className="card glass overflow-hidden flex-1 flex flex-col p-6" style={{ minHeight: 0 }}>
+          <div className="table-container overflow-y-auto flex-1 custom-scrollbar" style={{ border: '1px solid var(--border)', borderRadius: '0.75rem' }}>
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 bg-white backdrop-blur-md z-10">
                 <tr className="border-b border-[var(--border)]">
                   <th className="p-4 text-sm font-semibold text-muted">Ứng viên</th>
                   <th className="p-4 text-sm font-semibold text-muted">Vị trí ứng tuyển</th>
+                  <th className="p-4 text-sm font-semibold text-muted">Phòng ban</th>
                   <th className="p-4 text-sm font-semibold text-muted">Liên hệ</th>
                   <th className="p-4 text-sm font-semibold text-muted">Hồ sơ CV</th>
                   <th className="p-4 text-sm font-semibold text-muted">Trạng thái (Click đổi)</th>
                 </tr>
               </thead>
               <tbody>
-                {candidates
-                  .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase()))
+                {processedCandidates
                   .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                   .map(c => {
                     const statusObj = statuses.find(s => s.id === c.status) || statuses[0];
@@ -278,6 +302,9 @@ export const RecruitmentATS = () => {
                         </td>
                         <td className="p-4">
                           <span className="text-[var(--text-main)] font-medium">{c.jobPosting?.title || 'Không rõ'}</span>
+                        </td>
+                        <td className="p-4">
+                          <span className="text-[var(--text-muted)] text-sm font-medium">{c.jobPosting?.department?.name || 'Không rõ'}</span>
                         </td>
                         <td className="p-4">
                           <div className="text-sm">{c.email}</div>
@@ -315,24 +342,24 @@ export const RecruitmentATS = () => {
                       </tr>
                     );
                 })}
-                {candidates.length > 0 && candidates.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                {processedCandidates.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="p-8 text-center text-muted">Không tìm thấy ứng viên nào phù hợp.</td>
+                    <td colSpan="6" className="p-8 text-center text-muted">Không tìm thấy ứng viên nào phù hợp.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
           {(() => {
-            const totalFiltered = candidates.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase())).length;
+            const totalFiltered = processedCandidates.length;
             const totalPages = Math.ceil(totalFiltered / itemsPerPage);
             if (totalPages <= 1) return null;
             return (
-              <div className="flex justify-between items-center p-4 border-t border-[var(--border)] bg-white" style={{ borderBottomLeftRadius: '1.5rem', borderBottomRightRadius: '1.5rem' }}>
+              <div className="flex justify-between items-center mt-4 px-2 flex-shrink-0">
                 <span className="text-sm text-muted">
                   Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalFiltered)} trong tổng số {totalFiltered} ứng viên
                 </span>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <button 
                     className="btn btn-outline" 
                     disabled={currentPage === 1}
