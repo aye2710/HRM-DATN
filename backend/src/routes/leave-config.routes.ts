@@ -36,7 +36,8 @@ router.post('/types', async (req: Request, res: Response) => {
 
 router.delete('/types/:id', async (req: Request, res: Response) => {
   try {
-    await prisma.leaveTypeConfig.delete({ where: { id: req.params.id } });
+    const id = req.params.id as string;
+    await prisma.leaveTypeConfig.delete({ where: { id } });
     res.json({ message: 'Đã xóa loại phép' });
   } catch (error) {
     res.status(400).json({ error: 'Lỗi khi xóa loại phép' });
@@ -75,7 +76,8 @@ router.post('/policies', async (req: Request, res: Response) => {
 
 router.delete('/policies/:id', async (req: Request, res: Response) => {
   try {
-    await prisma.leavePolicy.delete({ where: { id: req.params.id } });
+    const id = req.params.id as string;
+    await prisma.leavePolicy.delete({ where: { id } });
     res.json({ message: 'Đã xóa chính sách' });
   } catch (error) {
     res.status(400).json({ error: 'Lỗi khi xóa chính sách' });
