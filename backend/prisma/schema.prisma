@@ -521,3 +521,12 @@ model PerformanceReview {
   score         Decimal
   comments      String?  @db.Text
 }
+
+model KPITemplate {
+  id          String   @id @default(uuid())
+  name        String
+  department  String
+  criteria    Int
+  weight      String
+  status      String   @default("Active")
+}

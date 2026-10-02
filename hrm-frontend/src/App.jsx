@@ -13,6 +13,7 @@ import { LeaveMgmt } from './pages/internal/leave/LeaveMgmt';
 import { PayrollMgmt } from './pages/internal/payroll/Payroll';
 import { RecruitmentATS } from './pages/internal/recruitment/RecruitmentATS';
 import { Performance } from './pages/internal/performance/Performance';
+import { KPIAssignments } from './pages/internal/performance/KPIAssignments';
 import { SettingsRBAC } from './pages/internal/system/SettingsRBAC';
 import { Departments } from './pages/internal/organization/Departments';
 import { Positions } from './pages/internal/organization/Positions';
@@ -118,6 +119,7 @@ const internalLinks = [
     children: [
       { to: '/internal/performance/templates', label: 'Mẫu KPI' },
       { to: '/internal/performance/assignments', label: 'Giao KPI' },
+      { to: '/internal/performance/reviews', label: 'Chấm điểm' },
     ]
   },
   {
@@ -208,7 +210,8 @@ function App() {
               <Route path="leave/holidays" element={<Holidays />} />
 
               <Route path="performance/templates" element={<KPITemplates />} />
-              <Route path="performance/assignments" element={<Performance />} />
+              <Route path="performance/assignments" element={<KPIAssignments />} />
+              <Route path="performance/reviews" element={<Performance />} />
 
               <Route path="payroll/periods" element={<PayrollPeriods />} />
               <Route path="payroll/payslips" element={<PayrollMgmt />} />

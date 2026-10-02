@@ -8,36 +8,74 @@ export const KPITemplates = () => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    department: '',
+    criteria: 1,
+    weight: '100%',
+    status: 'Active'
+  });
+
+  const fetchTemplates = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/kpi/templates');
+      setTemplates(res.data);
+    } catch (err) {
+      toast.error('Lỗi lấy dữ liệu templates');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTemplates = async () => {
-      try {
-        const res = await axios.get('http://localhost:5000/api/kpi/templates');
-        setTemplates(res.data);
-      } catch (err) {
-        toast.error('Lỗi lấy dữ liệu templates');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchTemplates();
   }, []);
 
-  return (
-    <div className="flex-col gap-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Mẫu đánh giá KPI</h1>
-          <p className="text-muted text-sm">Quản lý các bộ tiêu chí và trọng số đánh giá hiệu suất nhân sự</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => toast.success('Mở form tạo mới KPI Template')}>
-          <Plus size={18} /> Tạo Mẫu KPI mới
-        </button>
-      </div>
+  const handleCreate = async () => {
+    if (!formData.name || !formData.department) {
+      toast.error('Vui lòng nhập tên mẫu và phòng ban áp dụng');
+      return;
+    }
+    try {
+      await axios.post('http://localhost:5000/api/kpi/templates', formData);
+      toast.success('Đã tạo Mẫu KPI mới');
+      setIsModalOpen(false);
+      setFormData({ name: '', department: '', criteria: 1, weight: '100%', status: 'Active' });
+      fetchTemplates();
+    } catch (err) {
+      toast.error('Lỗi khi tạo mẫu KPI');
+    }
+  };
 
-      <div className="card glass flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center w-1/2">
-            <div style={{ position: 'relative', width: '100%' }}>
+  const handleDelete = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa mẫu này?')) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/kpi/templates/${id}`);
+      toast.success('Đã xóa mẫu KPI');
+      fetchTemplates();
+    } catch (err) {
+      toast.error('Lỗi khi xóa mẫu KPI');
+    }
+  };
+
+  return (
+    <>
+      <div className="flex-col gap-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Mẫu đánh giá KPI</h1>
+            <p className="text-muted text-sm">Quản lý các bộ tiêu chí và trọng số đánh giá hiệu suất nhân sự</p>
+          </div>
+          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+            <Plus size={18} /> Tạo Mẫu KPI mới
+          </button>
+        </div>
+
+        <div className="card glass flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <div className="flex gap-4 items-center w-1/2">
+              <div style={{ position: 'relative', width: '100%' }}>
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input 
                 type="text" 
@@ -92,7 +130,7 @@ export const KPITemplates = () => {
                       <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }}>
                         <Edit2 size={16} color="var(--text-muted)" />
                       </button>
-                      <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }}>
+                      <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => handleDelete(tpl.id)}>
                         <Trash2 size={16} color="var(--error)" />
                       </button>
                     </div>
@@ -103,6 +141,77 @@ export const KPITemplates = () => {
           </table>
         </div>
       </div>
-    </div>
+      </div>
+
+      {isModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', margin: '0 auto', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <FileDiff size={22} color="var(--primary)" /> Tạo Mẫu KPI mới
+            </h3>
+            
+            <div className="mb-4">
+              <label className="form-label">Tên mẫu đánh giá</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder="VD: Đánh giá năng lực Developer..."
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label">Phòng ban áp dụng</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={formData.department}
+                onChange={(e) => setFormData({...formData, department: e.target.value})}
+                placeholder="VD: Phòng IT"
+              />
+            </div>
+
+            <div className="mb-4 grid grid-cols-2 gap-4">
+              <div>
+                <label className="form-label">Số tiêu chí</label>
+                <input 
+                  type="number" 
+                  className="form-input" 
+                  value={formData.criteria}
+                  onChange={(e) => setFormData({...formData, criteria: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="form-label">Trọng số (VD: 100%)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={formData.weight}
+                  onChange={(e) => setFormData({...formData, weight: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <label className="form-label">Trạng thái</label>
+              <select 
+                className="form-input"
+                value={formData.status}
+                onChange={(e) => setFormData({...formData, status: e.target.value})}
+              >
+                <option value="Active">Active (Sẵn sàng)</option>
+                <option value="Draft">Draft (Bản nháp)</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button className="btn btn-outline" onClick={() => setIsModalOpen(false)}>Hủy</button>
+              <button className="btn btn-primary" onClick={handleCreate}>Tạo mẫu</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
