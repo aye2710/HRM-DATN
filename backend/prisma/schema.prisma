@@ -73,6 +73,7 @@ model Department {
   employees    Employee[]
   positions    Position[]
   jobPostings  JobPosting[]
+  employmentHistories EmploymentHistory[]
 }
 
 model Position {
@@ -90,6 +91,7 @@ model Position {
   
   employees    Employee[]
   jobPostings  JobPosting[]
+  employmentHistories EmploymentHistory[]
 }
 
 enum EmployeeStatus {
@@ -105,6 +107,22 @@ model Employee {
   code           String         @unique 
   fullName       String
   cccd           String?        @unique
+  email          String?        @unique
+  phone          String?
+  gender         String?        // 'MALE', 'FEMALE', 'OTHER'
+  dateOfBirth    DateTime?
+  address        String?
+  nationality    String?
+  maritalStatus  String?
+  taxCode        String?
+  bankName       String?
+  bankAccount    String?
+  socialInsurance String?
+  healthInsurance String?
+  emergencyContactName String?
+  emergencyContactPhone String?
+  emergencyContactRelation String?
+  
   status         EmployeeStatus @default(ACTIVE)
   joinDate       DateTime
   
@@ -124,6 +142,41 @@ model Employee {
   reviews        PerformanceReview[]
   kpis           KPI[]
   onboardingTasks OnboardingTask[]
+  relatives      Relative[]
+  degrees        Degree[]
+  certificates   Certificate[]
+  employmentHistories EmploymentHistory[]
+}
+
+model Relative {
+  id          String    @id @default(uuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fullName    String
+  relation    String
+  dateOfBirth DateTime?
+  taxCode     String?
+  isDependent Boolean   @default(false)
+}
+
+model Degree {
+  id          String    @id @default(uuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  degreeName  String
+  major       String
+  institution String
+  gradYear    Int?
+}
+
+model Certificate {
+  id          String    @id @default(uuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name        String
+  issuedBy    String
+  issueDate   DateTime?
+  expiryDate  DateTime?
 }
 
 model OnboardingTask {
@@ -133,6 +186,23 @@ model OnboardingTask {
   taskName    String
   category    String   // 'EQUIPMENT', 'ACCOUNT', 'CONTRACT', 'TRAINING'
   isCompleted Boolean  @default(false)
+}
+
+model EmploymentHistory {
+  id            String   @id @default(uuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  
+  positionId    String?
+  position      Position? @relation(fields: [positionId], references: [id])
+  
+  changeReason  String   // 'NEW_HIRE', 'PROMOTION', 'TRANSFER'
+  effectiveDate DateTime @default(now())
+  salary        Decimal?
+  createdAt     DateTime @default(now())
 }
 
 enum ContractType {
