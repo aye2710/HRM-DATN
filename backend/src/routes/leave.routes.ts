@@ -23,7 +23,7 @@ router.get('/', async (req: Request, res: Response) => {
 // Lấy dữ liệu nghỉ phép của một nhân viên (Cổng Employee)
 router.get('/employee/:employeeId', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { employeeId } = req.params;
+    const employeeId = req.params.employeeId as string;
     const currentYear = new Date().getFullYear();
 
     const [requests, balance] = await Promise.all([
@@ -82,9 +82,15 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
           error: `Anti-negative Balance: Không đủ ngày phép! Quỹ phép năm ${currentYear} của bạn chỉ còn ${availableDays} ngày, nhưng bạn xin nghỉ ${requestDays} ngày. Vui lòng chọn loại nghỉ Không lương (UNPAID).`
         });
       }
+
+      // Trừ tạm thời quỹ phép ngay khi Submit đơn (Lock số dư) theo đúng BA
+      await prisma.leaveBalance.update({
+        where: { id: balance.id },
+        data: { usedDays: Number(balance.usedDays) + requestDays }
+      });
     }
 
-    // Nếu hợp lệ, tạo đơn ở trạng thái PENDING
+    // Tạo đơn ở trạng thái PENDING
     const newRequest = await prisma.leaveRequest.create({
       data: {
         employeeId,
@@ -118,8 +124,8 @@ router.put('/:id/status', async (req: Request, res: Response): Promise<any> => {
       if (!leaveReq) throw new Error('Không tìm thấy đơn phép');
       if (leaveReq.status !== 'PENDING') throw new Error('Đơn này đã được xử lý rồi');
 
-      // Nếu duyệt đơn PAID, tiến hành trừ quỹ phép
-      if (status === 'APPROVED' && leaveReq.leaveType === 'PAID') {
+      // Nếu TỪ CHỐI đơn PAID, tiến hành HOÀN LẠI quỹ phép (Refund)
+      if (status === 'REJECTED' && leaveReq.leaveType === 'PAID') {
         const diffTime = Math.abs(leaveReq.endDate.getTime() - leaveReq.startDate.getTime());
         const requestDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
         const currentYear = leaveReq.startDate.getFullYear();
@@ -131,7 +137,7 @@ router.put('/:id/status', async (req: Request, res: Response): Promise<any> => {
         if (balance) {
           await tx.leaveBalance.update({
             where: { id: balance.id },
-            data: { usedDays: Number(balance.usedDays) + requestDays }
+            data: { usedDays: Number(balance.usedDays) - requestDays }
           });
         }
       }
@@ -156,7 +162,7 @@ router.put('/:id/status', async (req: Request, res: Response): Promise<any> => {
                  employeeId: leaveReq.employeeId,
                  date: new Date(current),
                  status: 'ABSENT',
-                 workingDay: 0
+                 workingDay: leaveReq.leaveType === 'PAID' ? 1.0 : 0.0 // Nghỉ có lương thì tính là 1 ngày công
                }
              });
           }

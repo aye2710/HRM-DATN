@@ -3,7 +3,7 @@ import { prisma } from '../db';
 
 const router = Router();
 
-// Lấy danh sách Payroll
+// Lấy danh sách phiếu lương
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { month, year } = req.query;
@@ -11,22 +11,20 @@ router.get('/', async (req: Request, res: Response) => {
     let whereClause = {};
     if (month && year) {
       whereClause = {
-        periodMonth: parseInt(month as string),
-        periodYear: parseInt(year as string)
+        payrollPeriod: {
+          monthYear: `${month}-${year}`
+        }
       };
     }
 
-    const records = await prisma.payroll.findMany({
+    const records = await prisma.payslip.findMany({
       where: whereClause,
       include: {
         employee: {
           select: { fullName: true, code: true, department: true, position: true }
-        }
-      },
-      orderBy: [
-        { periodYear: 'desc' },
-        { periodMonth: 'desc' }
-      ]
+        },
+        payrollPeriod: true
+      }
     });
     res.json(records);
   } catch (error) {
@@ -37,18 +35,15 @@ router.get('/', async (req: Request, res: Response) => {
 // Lấy danh sách phiếu lương của 1 nhân viên
 router.get('/employee/:employeeId', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { employeeId } = req.params;
-    const records = await prisma.payroll.findMany({
+    const employeeId = req.params.employeeId as string;
+    const records = await prisma.payslip.findMany({
       where: { employeeId },
       include: {
         employee: {
           select: { fullName: true, code: true, department: { select: { name: true } }, position: { select: { title: true } } }
-        }
-      },
-      orderBy: [
-        { periodYear: 'desc' },
-        { periodMonth: 'desc' }
-      ]
+        },
+        payrollPeriod: true
+      }
     });
     return res.json(records);
   } catch (error) {
@@ -62,7 +57,24 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
     const { month, year } = req.body;
     if (!month || !year) return res.status(400).json({ error: 'Missing month or year' });
 
-    // Lấy tất cả nhân viên đang ACTIVE hoặc có contract ACTIVE
+    const monthYearStr = `${month}-${year}`;
+
+    // Lấy hoặc tạo PayrollPeriod
+    let period = await prisma.payrollPeriod.findUnique({
+      where: { monthYear: monthYearStr }
+    });
+
+    if (!period) {
+      period = await prisma.payrollPeriod.create({
+        data: {
+          monthYear: monthYearStr,
+          standardWorkingDays: 22,
+          status: 'DRAFT'
+        }
+      });
+    }
+
+    // Lấy tất cả nhân viên đang ACTIVE
     const employees = await prisma.employee.findMany({
       where: { status: { not: 'RESIGNED' } },
       include: { contracts: { where: { status: 'ACTIVE' } } }
@@ -71,12 +83,10 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
     let generatedCount = 0;
 
     for (const emp of employees) {
-      // Chỉ tính lương cho người có hợp đồng
       if (emp.contracts.length === 0) continue;
 
       const baseSalary = emp.contracts[0].baseSalary;
 
-      // Lấy số ngày công trong tháng
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
       
@@ -89,35 +99,31 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
 
       const totalWorkingDays = attendances.reduce((sum, att) => sum + Number(att.workingDay), 0);
       
-      // Tính lương (Công chuẩn = 22 ngày)
       const netSalary = (Number(baseSalary) / 22) * totalWorkingDays;
 
-      // Kiểm tra xem đã có bản ghi payroll cho tháng này chưa
-      const existing = await prisma.payroll.findFirst({
-        where: { employeeId: emp.id, periodMonth: month, periodYear: year }
+      const existing = await prisma.payslip.findFirst({
+        where: { employeeId: emp.id, payrollPeriodId: period.id }
       });
 
       if (existing) {
-        // Cập nhật
-        await prisma.payroll.update({
+        await prisma.payslip.update({
           where: { id: existing.id },
           data: {
             baseSalary,
-            workingDays: totalWorkingDays,
-            netSalary
+            actualWorkingDays: totalWorkingDays,
+            grossSalary: netSalary, // simplified
+            netSalary: netSalary
           }
         });
       } else {
-        // Tạo mới
-        await prisma.payroll.create({
+        await prisma.payslip.create({
           data: {
             employeeId: emp.id,
-            periodMonth: month,
-            periodYear: year,
+            payrollPeriodId: period.id,
             baseSalary,
-            workingDays: totalWorkingDays,
-            netSalary,
-            status: 'DRAFT'
+            actualWorkingDays: totalWorkingDays,
+            grossSalary: netSalary, // simplified
+            netSalary: netSalary
           }
         });
       }
@@ -134,9 +140,10 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
 // Cập nhật trạng thái
 router.put('/:id/status', async (req: Request, res: Response) => {
   try {
+    const id = req.params.id as string;
     const { status } = req.body;
-    const updated = await prisma.payroll.update({
-      where: { id: req.params.id },
+    const updated = await prisma.payrollPeriod.update({
+      where: { id },
       data: { status }
     });
     res.json(updated);

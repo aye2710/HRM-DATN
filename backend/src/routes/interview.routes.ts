@@ -75,9 +75,10 @@ router.post('/:id/feedback', async (req: Request, res: Response) => {
 // PUT: Cập nhật lịch phỏng vấn
 router.put('/:id', async (req: Request, res: Response) => {
   try {
+    const id = req.params.id as string;
     const { interviewerId, roundName, scheduledAt } = req.body;
     const updated = await prisma.interviewRound.update({
-      where: { id: req.params.id },
+      where: { id },
       data: {
         interviewerId,
         roundName,
@@ -93,8 +94,9 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE: Hủy lịch phỏng vấn
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const id = req.params.id as string;
     await prisma.interviewRound.delete({
-      where: { id: req.params.id }
+      where: { id }
     });
     res.json({ message: 'Đã hủy lịch phỏng vấn' });
   } catch (error) {

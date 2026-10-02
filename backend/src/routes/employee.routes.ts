@@ -75,8 +75,9 @@ router.post('/', async (req: Request, res: Response) => {
 // 2.5 Get employee details
 router.get('/:id', async (req: Request, res: Response) => {
   try {
+    const id = req.params.id as string;
     const employee = await prisma.employee.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       include: {
         department: true,
         position: true,

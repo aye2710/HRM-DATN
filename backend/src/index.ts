@@ -15,6 +15,7 @@ import leaveRoutes from './routes/leave.routes';
 import attendanceRoutes from './routes/attendance.routes';
 import payrollRoutes from './routes/payroll.routes';
 import kpiRoutes from './routes/kpi.routes';
+import holidayRoutes from './routes/holiday.routes';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -36,6 +37,8 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/kpi', kpiRoutes);
+app.use('/api/holidays', holidayRoutes);
+app.use('/api/leave-config', require('./routes/leave-config.routes').default);
 
 // Dashboard Stats API
 app.get('/api/dashboard/stats', async (req: Request, res: Response) => {

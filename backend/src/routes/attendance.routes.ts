@@ -139,7 +139,8 @@ router.post('/shifts', async (req: Request, res: Response) => {
 
 router.delete('/shifts/:id', async (req: Request, res: Response) => {
   try {
-    await prisma.shift.delete({ where: { id: req.params.id } });
+    const id = req.params.id as string;
+    await prisma.shift.delete({ where: { id } });
     res.json({ message: 'Đã xóa ca làm việc' });
   } catch (error) {
     res.status(500).json({ error: 'Lỗi xóa ca làm' });
@@ -162,9 +163,10 @@ router.get('/adjustments', async (req: Request, res: Response) => {
 // 7. Duyệt / Từ chối điều chỉnh chấm công
 router.put('/adjustments/:id/status', async (req: Request, res: Response) => {
   try {
+    const id = req.params.id as string;
     const { status } = req.body;
     const record = await prisma.attendanceAdjustment.update({
-      where: { id: req.params.id },
+      where: { id },
       data: { status }
     });
     // Nếu duyệt, ta có thể tự động cập nhật lại bảng Attendance, nhưng để đơn giản ta chỉ cập nhật status ở đây

@@ -314,6 +314,27 @@ model LeaveRequest {
   status        RequestStatus @default(PENDING)
   reason        String?
   approverId    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
+}
+
+model LeaveTypeConfig {
+  id           String  @id @default(uuid())
+  name         String
+  code         String  @unique
+  defaultDays  Int     @default(12)
+  paid         Boolean @default(true)
+  carryForward Boolean @default(true)
+  status       String  @default("Hoạt động") // Hoạt động, Tạm dừng
+}
+
+model LeavePolicy {
+  id          String  @id @default(uuid())
+  name        String
+  type        String
+  seniority   String
+  extraDays   String
+  maxDays     String
 }
 
 // ==========================================
