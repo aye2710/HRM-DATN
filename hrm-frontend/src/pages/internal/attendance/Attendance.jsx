@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Download, Filter, AlertCircle, Clock, CheckCircle, ArrowRight } from 'lucide-react';
+import { Search, Download, AlertCircle, Clock } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-
 export const AttendanceMgmt = () => {
   const [attendances, setAttendances] = useState([]);
-  const [employees, setEmployees] = useState([]); // Để dùng cho form check-in nhanh
+  const [employees, setEmployees] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Selected for checkin simulation (Vì chưa có màn hình Login cho nhân viên)
   const [selectedEmpId, setSelectedEmpId] = useState('');
 
   const fetchData = async () => {
@@ -90,88 +88,97 @@ export const AttendanceMgmt = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
-      <div className="flex items-center justify-between mb-8">
+    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Quản lý Chấm công
-          </h2>
-          <p className="text-muted mt-1">Giám sát giờ giấc & Tự động tính công theo bộ luật LLA</p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)', margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Clock size={24} color="var(--primary)" /> Quản lý Chấm công
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Giám sát giờ giấc & Tự động tính công theo bộ luật LLA</p>
         </div>
-        <div className="flex gap-2 items-center">
-           <select className="form-input" value={selectedEmpId} onChange={e => setSelectedEmpId(e.target.value)} style={{ padding: '0.4rem 1rem' }}>
-              <option value="">-- Chọn NV để giả lập --</option>
-              {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
-           </select>
-           <button onClick={handleCheckIn} className="btn btn-primary" style={{ backgroundColor: 'var(--success)', borderColor: 'var(--success)' }}>
-             Check-in
-           </button>
-           <button onClick={handleCheckOut} className="btn btn-outline" style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}>
-             Check-out
-           </button>
-           <button onClick={handleExportExcel} className="btn btn-outline" style={{ borderColor: 'var(--success)', color: 'var(--success)', marginLeft: '1rem' }}>
-             <Download size={18} /> Xuất Excel
-           </button>
-        </div>
-      </div>
-
-      <div className="card glass mb-6 card-hover">
-        <div className="flex gap-4 mb-2">
-          <div className="flex-col" style={{ flex: 1 }}>
-            <label className="form-label text-muted">Tìm kiếm nhân sự</label>
-            <div style={{ position: 'relative' }}>
-              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input type="text" className="form-input bg-white" placeholder="Nhập Mã NV, Tên NV..." style={{ paddingLeft: '2.75rem' }} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-            </div>
-          </div>
+        
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <select className="form-input" value={selectedEmpId} onChange={e => setSelectedEmpId(e.target.value)} style={{ padding: '0.5rem 1rem', width: '220px' }}>
+            <option value="">-- Chọn NV để giả lập --</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
+          </select>
+          <button onClick={handleCheckIn} className="btn btn-primary" style={{ backgroundColor: 'var(--success)', borderColor: 'var(--success)' }}>
+            Check-in
+          </button>
+          <button onClick={handleCheckOut} className="btn btn-outline" style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}>
+            Check-out
+          </button>
+          <button onClick={handleExportExcel} className="btn btn-outline" style={{ borderColor: 'var(--success)', color: 'var(--success)', marginLeft: '1rem' }}>
+            <Download size={18} /> Xuất Excel
+          </button>
         </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 text-muted" style={{ fontSize: '0.85rem' }}>
-        <AlertCircle size={16} color="var(--warning)" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', backgroundColor: '#fffbeb', color: '#b45309', borderRadius: '8px', fontSize: '0.875rem' }}>
+        <AlertCircle size={18} />
         <span><strong>Luật công ty:</strong> Khung giờ hành chính 08:30 - 17:30. Cho phép ân hạn (Grace Period) đi muộn tối đa 15 phút (08:45). Nửa ngày = 0.5 công, cả ngày = 1.0 công.</span>
       </div>
 
-      <div className="card glass">
-        <div className="table-container">
+      <div className="card glass" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, padding: 0 }}>
+        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: 'var(--text-main)', margin: 0 }}>Bảng công theo ngày</h3>
+          <div style={{ position: 'relative', width: '300px' }}>
+            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="Nhập Mã NV, Tên NV..." 
+              style={{ paddingLeft: '2.5rem', width: '100%' }} 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)} 
+            />
+          </div>
+        </div>
+
+        <div className="table-container" style={{ margin: '0 1.5rem 1.5rem 1.5rem' }}>
           <table>
             <thead>
               <tr>
                 <th>Mã NV</th>
                 <th>Tên nhân sự</th>
                 <th>Ngày</th>
-                <th><div className="flex items-center gap-2"><Clock size={14}/> Check-in</div></th>
-                <th><div className="flex items-center gap-2"><Clock size={14}/> Check-out</div></th>
+                <th><div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Clock size={14}/> Check-in</div></th>
+                <th><div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Clock size={14}/> Check-out</div></th>
                 <th>Trạng thái</th>
                 <th>Số công</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="7" className="text-center p-8 text-muted">Đang tải dữ liệu...</td></tr>
+                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Đang tải dữ liệu...</td></tr>
               ) : filteredAttendances.length === 0 ? (
-                <tr><td colSpan="7" className="text-center p-8 text-muted">Chưa có dữ liệu chấm công nào</td></tr>
+                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Không có dữ liệu chấm công nào.</td></tr>
               ) : (
                 filteredAttendances.map(att => (
-                  <tr key={att.id} className="hover:bg-white/5 transition-colors">
-                    <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{att.employee?.code}</td>
-                    <td style={{ fontWeight: 600, color: 'var(--text-main)' }}>{att.employee?.fullName}</td>
-                    <td className="text-muted">{new Date(att.date).toLocaleDateString('vi-VN')}</td>
-                    <td style={{ color: att.status === 'LATE' ? 'var(--warning)' : 'var(--success)', fontWeight: 500 }}>
+                  <tr key={att.id}>
+                    <td style={{ fontWeight: '600', color: 'var(--text-muted)' }}>{att.employee?.code}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div className="avatar" style={{ backgroundColor: '#eff6ff', color: '#2563eb', fontWeight: 'bold' }}>
+                          {att.employee?.fullName?.charAt(0) || 'U'}
+                        </div>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{att.employee?.fullName}</span>
+                      </div>
+                    </td>
+                    <td>{new Date(att.date).toLocaleDateString('vi-VN')}</td>
+                    <td style={{ fontWeight: '600', color: att.checkIn ? 'var(--text-main)' : 'var(--text-muted)' }}>
                       {att.checkIn ? new Date(att.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute:'2-digit' }) : '--:--'}
                     </td>
-                    <td style={{ fontWeight: 500 }}>
+                    <td style={{ fontWeight: '600', color: att.checkOut ? 'var(--text-main)' : 'var(--text-muted)' }}>
                       {att.checkOut ? new Date(att.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute:'2-digit' }) : '--:--'}
                     </td>
                     <td>
-                      {att.status === 'NORMAL' && <span className="badge badge-success">Đúng giờ</span>}
-                      {att.status === 'LATE' && <span className="badge badge-warning">Đi muộn</span>}
-                      {att.status === 'ABSENT' && <span className="badge badge-error">Nghỉ phép</span>}
+                      <span className={`badge ${att.status === 'NORMAL' ? 'badge-success' : att.status === 'LATE' ? 'badge-warning' : 'badge-error'}`}>
+                        {att.status === 'NORMAL' ? 'Đúng giờ' : att.status === 'LATE' ? 'Đi muộn' : 'Vắng mặt'}
+                      </span>
                     </td>
                     <td>
-                      <div className="flex items-center gap-1 font-bold" style={{ color: Number(att.workingDay) === 1 ? 'var(--success)' : Number(att.workingDay) === 0 ? 'var(--error)' : 'var(--warning)' }}>
-                        {Number(att.workingDay)} công
-                      </div>
+                      <span className="badge badge-info" style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{Number(att.workingDay)}</span>
                     </td>
                   </tr>
                 ))
@@ -183,4 +190,3 @@ export const AttendanceMgmt = () => {
     </div>
   );
 };
-

@@ -46,8 +46,8 @@ router.post('/check-in', async (req: Request, res: Response): Promise<any> => {
     const checkInTime = new Date();
     const hours = checkInTime.getHours();
     
-    // Nếu check-in sau 8h30 sáng -> LATE
-    const status = hours >= 9 || (hours === 8 && checkInTime.getMinutes() > 30) ? 'LATE' : 'NORMAL';
+    // Nếu check-in sau 8h45 sáng -> LATE (Ân hạn 15 phút từ 8h30)
+    const status = hours >= 9 || (hours === 8 && checkInTime.getMinutes() > 45) ? 'LATE' : 'NORMAL';
 
     const record = await prisma.attendance.create({
       data: {
@@ -111,6 +111,66 @@ router.post('/check-out', async (req: Request, res: Response): Promise<any> => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Lỗi server khi Check-out' });
+  }
+});
+
+// 4. Lấy danh sách ca làm việc
+router.get('/shifts', async (req: Request, res: Response) => {
+  try {
+    const shifts = await prisma.shift.findMany();
+    res.json(shifts);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi lấy danh sách ca làm' });
+  }
+});
+
+// 5. Thêm / sửa ca làm việc
+router.post('/shifts', async (req: Request, res: Response) => {
+  try {
+    const { name, startTime, endTime, breakTime, workHours, isActive } = req.body;
+    const shift = await prisma.shift.create({
+      data: { name, startTime, endTime, breakTime, workHours, isActive }
+    });
+    res.json(shift);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi thêm ca làm' });
+  }
+});
+
+router.delete('/shifts/:id', async (req: Request, res: Response) => {
+  try {
+    await prisma.shift.delete({ where: { id: req.params.id } });
+    res.json({ message: 'Đã xóa ca làm việc' });
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi xóa ca làm' });
+  }
+});
+
+// 6. Lấy danh sách điều chỉnh chấm công
+router.get('/adjustments', async (req: Request, res: Response) => {
+  try {
+    const records = await prisma.attendanceAdjustment.findMany({
+      include: { employee: { select: { fullName: true } } },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(records);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi lấy yêu cầu điều chỉnh' });
+  }
+});
+
+// 7. Duyệt / Từ chối điều chỉnh chấm công
+router.put('/adjustments/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { status } = req.body;
+    const record = await prisma.attendanceAdjustment.update({
+      where: { id: req.params.id },
+      data: { status }
+    });
+    // Nếu duyệt, ta có thể tự động cập nhật lại bảng Attendance, nhưng để đơn giản ta chỉ cập nhật status ở đây
+    res.json(record);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi xử lý duyệt' });
   }
 });
 

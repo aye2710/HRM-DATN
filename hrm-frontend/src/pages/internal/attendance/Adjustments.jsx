@@ -1,45 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCcw, Search, Filter, CheckCircle, XCircle } from 'lucide-react';
-
-const mockAdjustments = [
-  { id: 1, employee: 'Nguyễn Văn A', date: '2026-08-20', type: 'Thiếu Check-in', oldTime: '-', newTime: '08:00', reason: 'Quên chấm công đầu giờ', status: 'Pending' },
-  { id: 2, employee: 'Lê C', date: '2026-08-19', type: 'Sai giờ làm', oldTime: '14:00', newTime: '17:30', reason: 'Đi gặp khách hàng nên không check-out tại công ty', status: 'Approved' },
-  { id: 3, employee: 'Trần Thị B', date: '2026-08-15', type: 'Thiếu Check-out', oldTime: '-', newTime: '18:00', reason: 'Hệ thống lỗi không nhận diện khuôn mặt', status: 'Rejected' },
-];
+import axios from 'axios';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 export const Adjustments = () => {
+  const [adjustments, setAdjustments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const fetchAdjustments = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('http://localhost:5000/api/attendance/adjustments');
+      setAdjustments(res.data);
+    } catch (err) {
+      toast.error('Lỗi khi tải yêu cầu điều chỉnh');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdjustments();
+  }, []);
+
+  const handleUpdateStatus = async (id, status) => {
+    const isApprove = status === 'APPROVED';
+    
+    Swal.fire({
+      title: isApprove ? 'Duyệt yêu cầu?' : 'Từ chối yêu cầu?',
+      text: isApprove 
+        ? 'Bạn có chắc chắn muốn duyệt yêu cầu điều chỉnh công này?' 
+        : 'Bạn có chắc chắn muốn từ chối yêu cầu điều chỉnh công này?',
+      icon: isApprove ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isApprove ? 'var(--success)' : 'var(--error)',
+      cancelButtonColor: 'var(--text-muted)',
+      confirmButtonText: isApprove ? 'Đồng ý duyệt' : 'Đồng ý từ chối',
+      cancelButtonText: 'Hủy'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await axios.put(`http://localhost:5000/api/attendance/adjustments/${id}/status`, { status });
+          toast.success(isApprove ? 'Đã duyệt yêu cầu' : 'Đã từ chối yêu cầu');
+          fetchAdjustments();
+        } catch (err) {
+          toast.error('Lỗi xử lý yêu cầu');
+        }
+      }
+    });
+  };
+
   return (
-    <div className="flex-col gap-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Điều chỉnh Chấm công</h1>
-          <p className="text-muted text-sm">Xử lý các yêu cầu cập nhật lại giờ vào/ra bị lỗi hoặc quên chấm công</p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)', margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <RefreshCcw size={24} color="var(--primary)" /> Điều chỉnh Chấm công
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Xử lý các yêu cầu cập nhật lại giờ vào/ra bị lỗi hoặc quên chấm công</p>
         </div>
       </div>
 
-      <div className="card glass flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center w-1/2">
+      <div className="card glass" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, padding: 0 }}>
+        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', width: '350px' }}>
             <div style={{ position: 'relative', width: '100%' }}>
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input 
                 type="text" 
                 placeholder="Tìm kiếm nhân sự..." 
                 className="form-input"
-                style={{ paddingLeft: '2.5rem' }}
+                style={{ paddingLeft: '2.5rem', width: '100%' }}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button className="btn btn-outline" style={{ padding: '0.75rem', height: '100%' }}>
+            <button className="btn btn-outline" style={{ padding: '0.5rem', flexShrink: 0 }}>
               <Filter size={18} />
             </button>
           </div>
         </div>
 
-        <div className="table-container">
+        <div className="table-container" style={{ margin: '0 1.5rem 1.5rem 1.5rem' }}>
           <table>
             <thead>
               <tr>
@@ -48,55 +92,65 @@ export const Adjustments = () => {
                 <th>Yêu cầu điều chỉnh</th>
                 <th>Lý do</th>
                 <th>Trạng thái</th>
-                <th className="text-center">Phê duyệt</th>
+                <th style={{ textAlign: 'center' }}>Phê duyệt</th>
               </tr>
             </thead>
             <tbody>
-              {mockAdjustments.filter(a => a.employee.toLowerCase().includes(searchTerm.toLowerCase())).map(adj => (
-                <tr key={adj.id}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.8rem' }}>{adj.employee.charAt(0)}</div>
-                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{adj.employee}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex-col gap-1">
-                      <span className="text-sm font-medium">{adj.date}</span>
-                      <span className="badge badge-purple" style={{ alignSelf: 'flex-start' }}>{adj.type}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-muted line-through">{adj.oldTime}</span>
-                      <RefreshCcw size={12} color="var(--primary)" />
-                      <span className="text-main font-bold">{adj.newTime}</span>
-                    </div>
-                  </td>
-                  <td className="text-muted text-sm max-w-[200px]" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {adj.reason}
-                  </td>
-                  <td>
-                    {adj.status === 'Pending' && <span className="badge badge-warning">Chờ duyệt</span>}
-                    {adj.status === 'Approved' && <span className="badge badge-success">Đã duyệt</span>}
-                    {adj.status === 'Rejected' && <span className="badge badge-error">Từ chối</span>}
-                  </td>
-                  <td className="text-center">
-                    {adj.status === 'Pending' ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <button className="btn btn-outline" style={{ padding: '0.3rem', border: 'none', color: 'var(--success)' }} title="Duyệt">
-                          <CheckCircle size={18} />
-                        </button>
-                        <button className="btn btn-outline" style={{ padding: '0.3rem', border: 'none', color: 'var(--error)' }} title="Từ chối">
-                          <XCircle size={18} />
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-muted text-xs">Đã xử lý</span>
-                    )}
+              {loading ? (
+                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Đang tải dữ liệu...</td></tr>
+              ) : adjustments.filter(a => a.employee?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    Không có yêu cầu điều chỉnh nào.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                adjustments.filter(a => a.employee?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())).map(adj => (
+                  <tr key={adj.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div className="avatar" style={{ backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: 'bold' }}>{adj.employee?.fullName?.charAt(0)}</div>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{adj.employee?.fullName}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>{new Date(adj.date).toLocaleDateString('vi-VN')}</span>
+                        <span className="badge badge-purple" style={{ alignSelf: 'flex-start' }}>{adj.type}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}>
+                        <span style={{ color: 'var(--text-muted)', textDecoration: 'line-through' }}>{adj.oldTime || '--:--'}</span>
+                        <RefreshCcw size={12} color="var(--primary)" />
+                        <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{adj.newTime}</span>
+                      </div>
+                    </td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '0.875rem', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={adj.reason}>
+                      {adj.reason}
+                    </td>
+                    <td>
+                      {adj.status === 'PENDING' && <span className="badge badge-warning">Chờ duyệt</span>}
+                      {adj.status === 'APPROVED' && <span className="badge badge-success">Đã duyệt</span>}
+                      {adj.status === 'REJECTED' && <span className="badge badge-error">Từ chối</span>}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      {adj.status === 'PENDING' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                          <button className="btn btn-outline" style={{ padding: '0.3rem', border: 'none', color: 'var(--success)' }} title="Duyệt" onClick={() => handleUpdateStatus(adj.id, 'APPROVED')}>
+                            <CheckCircle size={18} />
+                          </button>
+                          <button className="btn btn-outline" style={{ padding: '0.3rem', border: 'none', color: 'var(--error)' }} title="Từ chối" onClick={() => handleUpdateStatus(adj.id, 'REJECTED')}>
+                            <XCircle size={18} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Đã xử lý</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

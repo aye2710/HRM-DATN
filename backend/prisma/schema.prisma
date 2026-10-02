@@ -146,6 +146,7 @@ model Employee {
   degrees        Degree[]
   certificates   Certificate[]
   employmentHistories EmploymentHistory[]
+  attendanceAdjustments AttendanceAdjustment[]
 }
 
 model Relative {
@@ -238,6 +239,9 @@ model Shift {
   name      String
   startTime String   // e.g. "08:00"
   endTime   String   // e.g. "17:30"
+  breakTime String?  // e.g. "12:00 - 13:30"
+  workHours Decimal  @default(8)
+  isActive  Boolean  @default(true)
 }
 
 model Holiday {
@@ -261,6 +265,19 @@ model Attendance {
   checkOut      DateTime?
   workingDay    Decimal          @default(0) 
   status        AttendanceStatus @default(NORMAL)
+}
+
+model AttendanceAdjustment {
+  id           String        @id @default(uuid())
+  employeeId   String
+  employee     Employee      @relation(fields: [employeeId], references: [id])
+  date         DateTime      @db.Date
+  type         String        // 'Thiếu Check-in', 'Thiếu Check-out', 'Sai giờ làm'
+  oldTime      String?
+  newTime      String
+  reason       String
+  status       RequestStatus @default(PENDING) // PENDING, APPROVED, REJECTED
+  createdAt    DateTime      @default(now())
 }
 
 // ==========================================
