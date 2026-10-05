@@ -1,82 +1,112 @@
 # TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE TUYỂN DỤNG (RECRUITMENT & ATS)
 
-## 1. Giới thiệu chung
-**Module Tuyển dụng** đóng vai trò là "Phễu lọc" đầu vào của toàn bộ doanh nghiệp. Nó kết nối chặt chẽ với **Module Tổ chức** (để biết phòng ban nào đang thiếu người ở vị trí nào) và cung cấp dữ liệu đầu ra cho **Module Hồ sơ Nhân sự (Core HR)** (khi ứng viên trúng tuyển và đi làm).
+## 1. Giới thiệu tổng quan Module
+**Module Tuyển dụng (Recruitment & ATS)** là cổng tiếp nhận và sàng lọc nhân sự đầu vào của toàn bộ doanh nghiệp. Được thiết kế theo chuẩn Enterprise HRM, module đóng vai trò cầu nối xuyên suốt giữa hai trụ cột:
+- **Module Tổ chức (Organization)**: Cung cấp thông tin định biên nhân sự, sơ đồ tổ chức, cơ cấu phòng ban và vị trí chức danh để xác lập đúng nhu cầu tuyển dụng.
+- **Module Hồ sơ Nhân sự (Core HR)**: Tiếp nhận dữ liệu ứng viên trúng tuyển qua cơ chế **Auto-provisioning (Tự động khởi tạo Hồ sơ Nhân viên & Hợp đồng)**, loại bỏ 100% việc nhập liệu thủ công dư thừa.
 
-**Đối tượng sử dụng chính:**
-- Trưởng phòng / Trưởng bộ phận: Người đề xuất nhu cầu tuyển dụng và tham gia phỏng vấn chuyên môn.
-- Chuyên viên Tuyển dụng (Recruiter / HR): Người vận hành chính, săn tìm CV, theo dõi trạng thái ứng viên và điều phối lịch phỏng vấn.
-
----
-
-## 2. Cấu trúc dữ liệu chính
-Module này được tái cấu trúc dựa trên quy chuẩn của các hệ thống HRM Enterprise, bao gồm 4 thực thể cốt lõi:
-1. **Yêu cầu tuyển dụng (Job Requisition):** Đơn xin cấp nhân sự từ các phòng ban, là cơ sở để đăng tin tuyển dụng.
-2. **Ứng viên (Candidate):** Hồ sơ người xin việc.
-3. **Vòng Phỏng vấn (Interview Round):** Lịch hẹn và kết quả đánh giá ứng viên.
-4. **Đề nghị nhận việc (Job Offer):** Bản thỏa thuận lương thưởng và ngày nhận việc chốt với ứng viên.
+### Đối tượng sử dụng (Actors):
+1. **Chuyên viên Tuyển dụng (Recruiter / HR)**: Quản lý chiến dịch, săn tìm và sàng lọc hồ sơ CV, điều phối lịch hẹn phỏng vấn, đàm phán mức lương đãi ngộ.
+2. **Người phỏng vấn / Trưởng bộ phận chuyên môn (Interviewer / Line Manager)**: Tham gia đánh giá năng lực, chấm điểm định lượng (1-10) và viết nhận xét chuyên môn.
+3. **Trưởng phòng Nhân sự / Ban Giám đốc (HR Manager / Director)**: Phê duyệt yêu cầu tuyển dụng, ký duyệt Job Offer và tiếp nhận nhân sự chính thức.
+4. **Quản trị viên hệ thống (Admin)**: Cấu hình quy trình, phân quyền và kiểm soát toàn vẹn dữ liệu.
 
 ---
 
-## 3. Phân tích Nghiệp vụ: Quản lý Yêu cầu Tuyển dụng (Job Requisitions)
+## 2. Kiến trúc Luồng Dữ liệu Phễu Tuyển dụng (Recruitment Pipeline Architecture)
 
-### 3.1. Mục đích
-Thay vì "đăng tin tuyển dụng" một cách bừa bãi, mọi chiến dịch tuyển dụng phải xuất phát từ một **Yêu cầu tuyển dụng (Requisition)** có chủ đích, gắn liền với định biên nhân sự của Phòng ban và Vị trí (Position) cụ thể.
+```mermaid
+flowchart TD
+    classDef startEnd fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef process fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef success fill:#059669,stroke:#34d399,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef reject fill:#dc2626,stroke:#f87171,stroke-width:2px,color:#ffffff,font-weight:bold;
 
-### 3.2. Các thông tin quản lý
-- Tiêu đề chiến dịch.
-- Phòng ban & Vị trí áp dụng (Liên kết chặt chẽ với Module Tổ chức).
-- Số lượng cần tuyển (Headcount).
-- Cấp bậc (Level) & Ngân sách lương (Salary Range).
-- Trạng thái: DRAFT (Nháp) -> PUBLISHED (Phát hành) -> CLOSED (Đóng).
+    A(["1. Tạo Yêu cầu Tuyển dụng (Job Requisition)"]):::startEnd
+    B(["2. Tiếp nhận CV (SOURCED)"]):::process
+    C(["3. Sàng lọc hồ sơ sơ bộ (SCREENING)"]):::process
+    D(["4. Phỏng vấn & Chấm điểm (INTERVIEWING)"]):::process
+    E(["5. Đàm phán & Gửi Offer (OFFERING)"]):::process
+    F(["6. Tiếp nhận & Auto-provision (HIRED)"]):::success
+    R(["Ứng viên bị Loại (REJECTED)"]):::reject
 
-### 3.3. Quy tắc nghiệp vụ (Business Rules) chuẩn Senior BA
-- **Nguyên tắc Toàn vẹn Dữ liệu:** Không cho phép tạo Job rác chỉ có Tiêu đề. Bắt buộc mỗi chiến dịch tuyển dụng phải tham chiếu đến một `PositionId` và `DepartmentId`. Điều này giúp hệ thống tự động đo lường tỷ lệ lấp đầy (Fill Rate) của từng phòng ban.
-- **Auto-fetch dữ liệu:** Khi chọn Vị trí (VD: Lập trình viên ReactJS), hệ thống phải tự động điền Phòng ban tương ứng (Khối Công nghệ) và Ngân sách lương chuẩn của vị trí đó.
-
----
-
-## 4. Phân tích Nghiệp vụ: Hệ thống Theo dõi Ứng viên (ATS Kanban Board)
-
-### 4.1. Mục đích
-Cung cấp màn hình tương tác trực quan (Kéo - Thả) tương tự Trello để chuyên viên nhân sự di chuyển hồ sơ ứng viên đi qua từng vòng trong phễu tuyển dụng.
-
-### 4.2. Quy tắc nghiệp vụ (Business Rules) chuẩn Senior BA
-Trong các hệ thống nghiệp vụ sơ sài, ứng viên nộp CV xong thường bị đẩy ngay vào vòng Phỏng vấn. Tại dự án này, luồng Kanban được thiết kế chuẩn mực với **5 Vòng (Stages)** bắt buộc:
-
-1. **SOURCED (Nguồn CV / Mới nộp):** Nơi tiếp nhận mọi CV đổ về.
-2. **SCREENING (Sàng lọc):** Bắt buộc phải có bước này. HR sẽ gọi điện (Phone screen) hoặc làm bài Test kỹ năng để loại các CV rác trước khi lôi Manager vào phỏng vấn.
-3. **INTERVIEWING (Phỏng vấn):** Có thể gồm nhiều vòng (HR, Technical, Culture Fit).
-4. **OFFERING (Thương lượng):** Ứng viên pass phỏng vấn sẽ được gửi Offer. Giai đoạn này chờ ứng viên phản hồi (Đồng ý/Từ chối).
-5. **HIRED (Đã nhận việc):** Ứng viên chính thức chốt ngày đi làm.
-
-*Lưu ý:* Trạng thái **REJECTED (Loại)** có thể xảy ra ở bất kỳ vòng nào và yêu cầu nhập lý do loại để phân tích nguồn dữ liệu sau này.
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    
+    C -.->|Không đạt| R
+    D -.->|Không đạt| R
+    E -.->|Từ chối Offer| R
+```
 
 ---
 
-## 5. Phân tích Nghiệp vụ: Chuyển đổi Dữ liệu (Candidate to Employee Conversion)
+## 3. Ma trận Phân rã Chức năng Chi tiết (Functional Breakdown Matrix)
 
-### 5.1. Mục đích
-Giải quyết điểm nghẽn (Bottleneck) lớn nhất của các hệ thống HRM nghiệp dư: Sự đứt gãy dữ liệu giữa Tuyển dụng và Quản lý nhân sự.
+Hệ thống Tuyển dụng bao gồm **4 nhóm chức năng lớn** với tổng cộng **20 Use Case con (Sub-Use Cases)** được chuẩn hóa toàn diện:
 
-### 5.2. Quy tắc nghiệp vụ (Business Rules) cốt lõi
-- **Không bao giờ nhập lại dữ liệu:** Khi một Ứng viên được kéo thẻ sang trạng thái **HIRED (Nhận việc)**, hệ thống KHÔNG chỉ dừng lại ở việc đổi màu thẻ.
-- **Trigger Tự động (Auto-provisioning):** Hệ thống phải hiển thị một hộp thoại xác nhận. Khi xác nhận, Backend sẽ thực hiện 1 transaction:
-  1. Tạo tự động một bản ghi `Employee` (Nhân viên mới) tại Module Core HR.
-  2. Map toàn bộ Tên, Số điện thoại, Email, CV từ `Candidate` sang `Employee`.
-  3. Map `Department` và `Position` từ `JobRequisition` sang `Employee`.
-  4. Gán trạng thái của Nhân viên mới là `ONBOARDING` (Chờ hội nhập).
-  
-Nhờ luồng này, HR không cần phải gõ lại thông tin ứng viên bằng tay thêm một lần nào nữa!
+| Nhóm chức năng (Epic) | Mã Use Case | Tên Chức năng Con (Sub-Use Case) | Actor chính | Endpoint Backend |
+|---|---|---|---|---|
+| **1. Yêu cầu Tuyển dụng**<br/>*(Job Requisition)* | `UC-REC-01-01` | Tạo mới Yêu cầu tuyển dụng (Create Requisition) | HR / Manager | `POST /api/job-postings` |
+| | `UC-REC-01-02` | Chỉnh sửa thông tin Yêu cầu tuyển dụng (Edit Requisition) | HR / Manager | `PUT /api/job-postings/:id` |
+| | `UC-REC-01-03` | Đóng / Mở lại chiến dịch tuyển dụng (Toggle Status) | HR / Manager | `PATCH /api/job-postings/:id/status` |
+| | `UC-REC-01-04` | Tra cứu & Thống kê Tỷ lệ lấp đầy (Fill Rate Metric) | Ban Giám đốc / HR | `GET /api/job-postings` |
+| | `UC-REC-01-05` | Xóa chiến dịch tuyển dụng (Delete Requisition) | HR / Admin | `DELETE /api/job-postings/:id` |
+| **2. Theo dõi Ứng viên ATS**<br/>*(ATS Kanban Board)* | `UC-REC-02-01` | Tiếp nhận & Thêm mới hồ sơ Ứng viên (Source Candidate) | HR / Recruiter | `POST /api/candidates` |
+| | `UC-REC-02-02` | Kéo thả chuyển trạng thái ứng viên (Kanban Stage Transition) | HR / Recruiter | `PUT /api/candidates/:id` |
+| | `UC-REC-02-03` | Đánh dấu Loại hồ sơ ứng viên kèm lý do (Reject Candidate) | HR / Recruiter | `PUT /api/candidates/:id` |
+| | `UC-REC-02-04` | Tìm kiếm & Lọc hồ sơ ứng viên trên Kanban | HR / Recruiter | `GET /api/candidates` |
+| | `UC-REC-02-05` | Chuyển đổi Ứng viên thành Nhân viên (Auto-provision Employee) | HR / Admin | `PUT /api/candidates/:id` (Transaction) |
+| **3. Lịch Phỏng vấn**<br/>*(Interview & Feedback)* | `UC-REC-03-01` | Lên lịch phỏng vấn mới (Schedule Interview) | HR / Recruiter | `POST /api/interviews` |
+| | `UC-REC-03-02` | Cập nhật & Dời lịch phỏng vấn (Reschedule Interview) | HR / Recruiter | `PUT /api/interviews/:id` |
+| | `UC-REC-03-03` | Đánh giá & Chấm điểm ứng viên (Submit Feedback & Score) | Interviewer / Manager | `POST /api/interviews/:id/feedback` |
+| | `UC-REC-03-04` | Phê duyệt kết quả sau phỏng vấn - Chốt Offer / Loại | HR / Recruiter | `PUT /api/candidates/:id` |
+| | `UC-REC-03-05` | Hủy lịch phỏng vấn (Cancel Interview Round) | HR / Admin | `DELETE /api/interviews/:id` |
+| **4. Quản lý Offer**<br/>*(Offer & Onboarding)* | `UC-REC-04-01` | Tra cứu danh sách ứng viên chờ Offer (View Offering Candidates) | HR / Recruiter | `GET /api/offers` |
+| | `UC-REC-04-02` | Thiết lập thông tin Tiếp nhận & Hợp đồng (Prepare Onboarding) | HR / Recruiter | Form Modal Onboarding |
+| | `UC-REC-04-03` | Tiếp nhận & Khởi tạo Nhân viên Core HR (Accept Offer) | HR / Admin | `POST /api/offers/accept` (Transaction) |
+| | `UC-REC-04-04` | Ghi nhận Ứng viên Từ chối Offer (Reject Offer) | HR / Recruiter | `POST /api/offers/:id/reject` |
+| | `UC-REC-04-05` | Toàn vẹn định danh & Tự động đóng Job khi đủ chỉ tiêu | Backend System | Prisma Transaction & Event Trigger |
 
 ---
 
-## 6. Phân tích Nghiệp vụ: Đánh giá Phỏng vấn (Interviews)
-- Khi ứng viên ở cột INTERVIEWING, HR có thể lên lịch nhiều vòng phỏng vấn.
-- Hệ thống gửi Email/Thông báo cho Người phỏng vấn (Interviewer).
-- Khi phỏng vấn kết thúc, Interviewer bắt buộc phải truy cập hệ thống để nhập **Điểm số (Score)** và **Nhận xét (Feedback)**. Báo cáo này là cơ sở duy nhất để Giám đốc duyệt gửi Job Offer.
+## 4. Danh mục Hồ sơ Phân tích Chi tiết (Detailed Specifications)
+
+Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
+
+1. [Đặc tả Chức năng Quản lý Yêu cầu Tuyển dụng](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Yeu-cau-Tuyen-dung.md)
+   - Đặc tả 5 Use Case con: Tạo yêu cầu, Sửa yêu cầu, Đóng/Mở chiến dịch, Thống kê Fill Rate, Xóa chiến dịch.
+   - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
+
+2. [Đặc tả Chức năng Hệ thống Theo dõi Ứng viên ATS Kanban](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Quan-ly-ATS.md)
+   - Đặc tả 5 Use Case con: Thêm ứng viên Sourced, Kéo thả Kanban, Loại ứng viên, Tìm kiếm lọc CV, Kích hoạt Auto-provisioning khi kéo vào cột HIRED.
+   - Sơ đồ tuần tự Transaction liên bảng và 5 kịch bản kiểm thử mẫu.
+
+3. [Đặc tả Chức năng Quản lý Lịch Phỏng vấn và Đánh giá](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Phong-van.md)
+   - Đặc tả 5 Use Case con: Lên lịch hẹn, Dời lịch, Chấm điểm Feedback định lượng (1-10) sau giờ hẹn, Phê duyệt nhanh kết quả (Chốt Offer / Từ chối), Hủy lịch.
+   - Sơ đồ tuần tự Feedback và 6 kịch bản kiểm thử mẫu.
+
+4. [Đặc tả Chức năng Quản lý Đề nghị nhận việc và Tiếp nhận Nhân sự](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Quan-ly-Offer.md)
+   - Đặc tả 5 Use Case con: Tra cứu danh sách Offer, Thiết lập điều khoản tiếp nhận, Tiếp nhận Onboarding sinh mã NV & hợp đồng tự động, Từ chối Offer, Ràng buộc Unique & Đồng bộ chỉ tiêu.
+   - Sơ đồ tuần tự Prisma $transaction Onboarding và 6 kịch bản kiểm thử mẫu.
 
 ---
 
-## 7. Tổng kết
-Module Tuyển dụng được tái cấu trúc không chỉ là một bảng lưu CV, mà là một cỗ máy tự động: Kiểm soát chặt ngân sách định biên (Requisitions) -> Lọc phễu chuẩn xác (ATS Kanban) -> Tự động hóa tạo Hồ sơ Nhân viên (Core HR Integration) giúp loại bỏ 100% các tác vụ nhập liệu thủ công dư thừa.
+## 5. Điểm nhấn Kỹ thuật & Nghiệp vụ (Key Business Highlights)
+
+1. **Auto-provisioning Nhân sự (Zero Duplicate Data Entry)**:
+   - Trong các hệ thống HRM thông thường, khi ứng viên trúng tuyển, phòng Nhân sự phải mở module Core HR để gõ lại toàn bộ Họ tên, Email, SĐT, Vị trí, Lương thỏa thuận và Ngày nhận việc.
+   - Trong hệ thống này, khi nhấn "Tiếp nhận / Tạo hồ sơ" hoặc kéo thẻ sang `HIRED`, hệ thống sử dụng một **Database Transaction** khép kín:
+     - Tạo bản ghi `Employee` với trạng thái `ONBOARDING`.
+     - Tự động liên kết `departmentId` và `positionId` từ chiến dịch tuyển dụng.
+     - Tạo bản ghi `Contract` với mức lương và loại hợp đồng đã thỏa thuận.
+     - Cập nhật trạng thái `Candidate` thành `HIRED`.
+
+2. **Cơ chế Khóa Đánh giá Phỏng vấn (Interview Feedback Immutability)**:
+   - Chỉ cho phép chấm điểm khi buổi phỏng vấn đã diễn ra trong thực tế (`scheduledAt < currentTime`).
+   - Kết quả chấm điểm (thang điểm 1-10 kèm bình luận) sau khi nộp sẽ được khóa cố định nhằm đảm bảo tính minh bạch, chống gian lận kết quả thi tuyển.
+
+3. **Tự động đóng chiến dịch khi đạt chỉ tiêu (Headcount Auto-closure)**:
+   - Mỗi khi một ứng viên được tiếp nhận thành công, hệ thống tính toán lại tỷ lệ lấp đầy (`Fill Rate`). Nếu số người được tuyển (`hiredCount`) đạt chỉ tiêu (`amount`), chiến dịch tự động chuyển sang trạng thái `CLOSED` để tránh tiếp nhận dư thừa nhân lực.

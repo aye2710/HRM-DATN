@@ -1,101 +1,104 @@
 # TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE QUẢN LÝ NHÂN SỰ (CORE HR)
 
-## 1. Tổng quan module
-- **Mục tiêu nghiệp vụ:** Trái tim của hệ thống HRM. Nơi lưu trữ Single Source of Truth (Nguồn dữ liệu thật duy nhất) về toàn bộ hồ sơ nhân viên, hợp đồng và quá trình hội nhập.
-- **Giá trị mang lại:** Xóa bỏ hồ sơ giấy, tự động hóa nhắc nhở, quản lý minh bạch lộ trình công danh và quy trình nghỉ việc chuyên nghiệp.
-- **Phạm vi (In-scope):** Quản lý Hồ sơ, Hợp đồng lao động, Lịch sử việc làm, Điều chuyển công tác, Quy trình Nghỉ việc.
-- **Các bên liên quan (Stakeholders):** C&B (Chuyên viên Lương thưởng), HR Admin, Nhân viên (Employee), Quản lý trực tiếp (Line Manager).
+## 1. Giới thiệu tổng quan Module
+**Module Quản lý Nhân sự (Core HR)** là "trái tim" và nền tảng dữ liệu cốt lõi của toàn bộ hệ thống HRM. Nơi đây đóng vai trò là **Nguồn dữ liệu thật duy nhất (Single Source of Truth - SSOT)**, lưu trữ toàn diện hồ sơ lý lịch, cơ cấu công tác, hồ sơ hợp đồng, các biến động việc làm và quy trình hội nhập của từng cá nhân trong tổ chức.
+
+Module Core HR đóng vai trò trung tâm điều phối thông tin:
+- **Tiếp nhận dữ liệu đầu vào**: Nhận thông tin ứng viên trúng tuyển tự động từ **Module Tuyển dụng (Recruitment & ATS)** thông qua cơ chế *Auto-provisioning*.
+- **Cung cấp dữ liệu gốc đầu ra**:
+  - Cung cấp danh sách nhân viên hoạt động (`ACTIVE`, `PROBATION`) cho **Module Chấm công** và **Module Nghỉ phép / OT**.
+  - Cung cấp Mức lương cơ bản (`baseSalary`) từ Hợp đồng lao động, thông tin Số tài khoản ngân hàng, Mã số thuế và Người phụ thuộc cho **Module Tiền lương (Payroll)**.
+  - Cung cấp cơ cấu chức danh và phòng ban cho **Module Đánh giá KPI & Performance**.
+
+### Đối tượng sử dụng (Actors):
+1. **Chuyên viên Nhân sự / C&B (HR Admin / C&B Specialist)**: Quản lý hồ sơ nhân viên, soạn thảo và ký kết hợp đồng lao động, theo dõi hạn hợp đồng, cấu hình bảo hiểm và thuế.
+2. **Kỹ thuật viên CNTT / Quản trị hệ thống (IT Support / Admin)**: Cấp phát trang thiết bị (Laptop, PC, Màn hình), khởi tạo hòm thư điện tử và phân quyền tài khoản phần mềm.
+3. **Trưởng phòng / Quản lý trực tiếp (Line Manager)**: Đề xuất điều chuyển công tác, thăng chức, đánh giá kết quả thử việc và hướng dẫn hội nhập cho nhân viên mới.
+4. **Nhân viên (Employee)**: Tra cứu hồ sơ cá nhân, tự cập nhật thông tin người thân/bằng cấp qua Cổng thông tin tự phục vụ (Self-Service Portal).
 
 ---
 
-## 2. Cấu trúc dữ liệu chính
-Module này bao gồm các thực thể (Entities) cốt lõi:
-1. **Employee (Nhân viên):** Hồ sơ thông tin cá nhân, phòng ban trực thuộc, vị trí công tác, lịch sử việc làm.
-2. **Contract (Hợp đồng):** Lưu trữ các loại hợp đồng (Thử việc, Chính thức, Thời vụ), mức lương cơ bản và thời hạn.
-3. **OnboardingTask (Nhiệm vụ hội nhập):** Các công việc cần chuẩn bị cho người mới.
-4. **Transfer (Điều chuyển):** Ghi nhận lịch sử thay đổi vị trí, phòng ban, hoặc thăng tiến của nhân viên.
-5. **Termination (Nghỉ việc):** Lưu trữ lý do nghỉ việc, ngày làm việc cuối cùng và quy trình bàn giao tài sản.
+## 2. Kiến trúc Luồng Vòng đời Nhân sự (Employee Lifecycle Architecture)
+
+```mermaid
+flowchart TD
+    classDef startEnd fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef process fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef active fill:#059669,stroke:#34d399,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef term fill:#dc2626,stroke:#f87171,stroke-width:2px,color:#ffffff,font-weight:bold;
+
+    A(["1. Tiếp nhận trúng tuyển (ONBOARDING)"]):::startEnd
+    B(["2. Chuẩn bị Checklist (Thiết bị, Email, Hợp đồng)"]):::process
+    C(["3. Thử việc (PROBATION / INTERNSHIP)"]):::process
+    D(["4. Ký HĐ chính thức & Kích hoạt (ACTIVE)"]):::active
+    E(["5. Điều chuyển & Thăng tiến (Transfer / Promotion)"]):::process
+    F(["6. Thôi việc & Thu hồi quyền (RESIGNED)"]):::term
+
+    A --> B
+    B -->|Hoàn tất Hội nhập| C
+    C -->|Đánh giá Đạt PASSED| D
+    D -->|Biến động công tác| E
+    E --> D
+    D -->|Thanh lý hợp đồng| F
+    C -->|Thử việc Không đạt| F
+```
 
 ---
 
-## 3. Luồng Nghiệp vụ Chi tiết (Business Flows)
+## 3. Ma trận Phân rã Chức năng Chi tiết (Functional Breakdown Matrix)
 
-### 3.1. Luồng Quy trình Tiếp nhận & Cập nhật Hồ sơ (HR-01 & HR-02)
+Hệ thống Quản lý Nhân sự (Core HR) bao gồm **3 nhóm chức năng trụ cột** với tổng cộng **15 Use Case con (Sub-Use Cases)** được chuẩn hóa toàn diện:
 
-Quy trình này áp dụng khi có một nhân sự mới chuẩn bị gia nhập công ty hoặc khi nhân viên tự cập nhật thông tin.
+| Nhóm chức năng (Epic) | Mã Use Case | Tên Chức năng Con (Sub-Use Case) | Actor chính | Endpoint Backend |
+|---|---|---|---|---|
+| **1. Quản lý Hồ sơ**<br/>*(Employee Profile)* | `UC-CHR-01-01` | Thêm mới hồ sơ Nhân viên (Add Employee Profile) | HR / Admin | `POST /api/employees` |
+| | `UC-CHR-01-02` | Cập nhật thông tin chi tiết Nhân viên (Update Profile) | HR / C&B | `PUT /api/employees/:id` |
+| | `UC-CHR-01-03` | Tra cứu, Tìm kiếm & Lọc danh bạ Nhân sự (Search & Filter) | Toàn hệ thống | `GET /api/employees` |
+| | `UC-CHR-01-04` | Điều chuyển công tác & Thăng chức (Transfer & Promotion) | HR Manager | `POST /api/employees/:id/transfer` |
+| | `UC-CHR-01-05` | Tiếp nhận thôi việc & Xử lý Nghỉ việc (Offboarding) | HR Manager | `POST /api/employees/:id/terminate` |
+| **2. Quản lý Hợp đồng**<br/>*(Labor Contracts)* | `UC-CHR-02-01` | Tạo mới Hợp đồng lao động (Create Labor Contract) | Chuyên viên C&B | `POST /api/contracts` |
+| | `UC-CHR-02-02` | Đánh giá Thử việc & Kích hoạt Chính thức (Active Transition)| Chuyên viên C&B | `POST /api/contracts` (PASSED) |
+| | `UC-CHR-02-03` | Tra cứu, Lọc & Theo dõi Hạn Hợp đồng (Track Expiry) | Chuyên viên C&B | `GET /api/contracts` |
+| | `UC-CHR-02-04` | Gia hạn Hợp đồng lao động (Contract Renewal) | Chuyên viên C&B | `POST /api/contracts` |
+| | `UC-CHR-02-05` | Chấm dứt & Xóa Hợp đồng lao động (Terminate/Delete) | Chuyên viên C&B | `DELETE /api/contracts/:id` |
+| **3. Quy trình Hội nhập**<br/>*(Onboarding Tasks)* | `UC-CHR-03-01` | Theo dõi Danh sách Nhân sự mới Onboarding (View Newbies) | HR / IT / Admin | `GET /api/onboarding/newbies` |
+| | `UC-CHR-03-02` | Cập nhật Tiến độ Nhiệm vụ Hội nhập (Toggle Tasks) | IT / HR / Admin | `POST /api/onboarding/task/toggle` |
+| | `UC-CHR-03-03` | Quản lý & Cấp phát Trang thiết bị (Equipment Provision) | IT Support | Checklist EQUIP |
+| | `UC-CHR-03-04` | Cấp phát Tài khoản Hệ thống (Accounts Provisioning) | IT / Admin | Checklist ACCOUNT |
+| | `UC-CHR-03-05` | Nghiệm thu & Hoàn tất Hội nhập (Complete Onboarding) | HR Manager | `POST /api/onboarding/complete` |
 
-```mermaid
-sequenceDiagram
-    actor Candidate as Ứng viên / Trúng tuyển
-    actor Employee as Nhân viên
-    participant Portal as Employee Portal
-    participant System as Core HR System
-    actor HR as HR Admin
+---
 
-    Candidate->>System: Chuyển dữ liệu từ Module Tuyển dụng
-    System-->>HR: Thông báo có nhân sự mới
-    HR->>System: "Thêm nhân viên mới" (Nhập thông tin cốt lõi)
-    System->>System: Tạo mã NV, Cấp tài khoản nội bộ
-    
-    System-->>Employee: Gửi Email Welcome & Tài khoản
-    Employee->>Portal: Đăng nhập lần đầu
-    Employee->>Portal: Tự điền chi tiết hồ sơ (Ngân hàng, Bằng cấp, Người thân)
-    Portal->>System: Đồng bộ dữ liệu vào Hồ sơ gốc
-    System-->>HR: Thông báo Hồ sơ đã được hoàn thiện
-```
+## 4. Danh mục Hồ sơ Phân tích Chi tiết (Detailed Specifications)
 
-### 3.2. Luồng Quy trình Ký kết Hợp đồng Lao động (HR-03)
+Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
 
-Quản lý vòng đời hợp đồng, từ thử việc đến chính thức, và tự động nhắc nhở khi sắp hết hạn.
+1. [Đặc tả Chức năng Quản lý Hồ sơ Nhân sự](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Core%20HR/Chuc-nang-Ho-so-Nhan-su.md)
+   - Đặc tả 5 Use Case con: Thêm nhân viên thủ công (tự sinh lịch sử tuyển mới), Cập nhật thông tin chuyên sâu (ngân hàng, thuế, bảo hiểm), Tìm kiếm lọc danh bạ đa chiều, Điều chuyển công tác thăng chức, và Quy trình Thôi việc nguyên tử (khóa tài khoản & đóng hợp đồng).
+   - Sơ đồ tuần tự và 6 kịch bản kiểm thử mẫu.
 
-```mermaid
-flowchart TD
-    A[Bắt đầu làm việc] --> B[Ký Hợp đồng Thử việc 2 tháng]
-    B --> C{Đánh giá Thử việc}
-    C -- "Không đạt" --> D[Thanh lý HĐ Thử việc / Nghỉ việc]
-    C -- "Đạt" --> E[Ký Hợp đồng Xác định thời hạn (1 năm)]
-    E --> F[Hệ thống đếm ngược thời gian]
-    F -- "Trước 30 ngày hết hạn" --> G[Gửi Cảnh báo cho HR & Quản lý]
-    G --> H{Gia hạn?}
-    H -- "Có" --> I[Ký Hợp đồng Mới (3 năm / Vô thời hạn)]
-    H -- "Không" --> J[Làm thủ tục Nghỉ việc]
-```
+2. [Đặc tả Chức năng Quản lý Hợp đồng Lao động](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Core%20HR/Chuc-nang-Hop-dong.md)
+   - Đặc tả 5 Use Case con: Ký hợp đồng lao động (thử việc, 1 năm, vô thời hạn, thực tập), Đánh giá thử việc đạt tự động đổi trạng thái nhân viên sang ACTIVE, Cảnh báo hạn hợp đồng $\le 15$ ngày, Gia hạn hợp đồng nối tiếp, và Hủy/xóa hợp đồng an toàn.
+   - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
-### 3.3. Luồng Quy trình Điều chuyển Công tác / Thăng tiến (HR-04)
+3. [Đặc tả Chức năng Quy trình Hội nhập Nhân sự (Onboarding)](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Core%20HR/Chuc-nang-Onboarding.md)
+   - Đặc tả 5 Use Case con: Theo dõi Newbies Pipeline, Đánh dấu tiến độ nhiệm vụ thời gian thực qua Checkbox (4 nhóm: Thiết bị, Tài khoản, Hợp đồng, Đào tạo), Cấp phát trang thiết bị (Laptop, Thẻ từ), Cấp phát tài khoản email/HRM, Nghiệm thu hoàn tất tự động phân loại trạng thái PROBATION hoặc INTERNSHIP.
+   - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
-Ghi nhận sự thay đổi về chức vụ hoặc phòng ban, có ảnh hưởng trực tiếp đến quyền truy cập và bảng lương.
+---
 
-```mermaid
-sequenceDiagram
-    actor Manager as Quản lý trực tiếp
-    actor HR as HR Admin
-    participant System as Core HR System
-    participant Payroll as Module Tính lương
+## 5. Điểm nhấn Kỹ thuật & Nghiệp vụ (Key Business Highlights)
 
-    Manager->>HR: Gửi Đề xuất Điều chuyển / Thăng chức (Kèm quyết định)
-    HR->>System: Tạo bản ghi "Điều chuyển" (Chọn NV, Vị trí mới, PB mới)
-    HR->>System: Cập nhật Ngày hiệu lực
-    System->>System: Lưu vào Lịch sử việc làm (Employment History)
-    System->>System: Cập nhật chức danh hiện tại của NV
-    System->>Payroll: Gửi tín hiệu thay đổi dải lương (Nếu có)
-    System-->>Manager: Gửi thông báo Hoàn tất Điều chuyển
-```
+1. **Giao dịch Cơ sở Dữ liệu Nguyên tử (Atomic Transactions)**:
+   - Các tác vụ phức tạp như *Tiếp nhận Thôi việc* (`/api/employees/:id/terminate`) và *Điều chuyển công tác* (`/api/employees/:id/transfer`) đều được thực thi trong một `prisma.$transaction`.
+   - Khi thôi việc: Hệ thống đồng thời đổi trạng thái `RESIGNED`, thu hồi phòng ban/vị trí, đóng toàn bộ hợp đồng `ACTIVE` thành `TERMINATED`, tạo bản ghi `EmploymentHistory` và khóa tài khoản `Account`. Nếu một bước thất bại, toàn bộ thao tác được khôi phục nguyên trạng (Rollback).
 
-### 3.4. Luồng Quy trình Báo giảm & Nghỉ việc (Offboarding) (HR-05)
+2. **Cơ chế Chuyển đổi Trạng thái Tự động & Thông minh (Smart State Progression)**:
+   - Khi tiếp nhận từ Tuyển dụng $\rightarrow$ Trạng thái là `ONBOARDING`.
+   - Khi hoàn tất Checklist Hội nhập $\rightarrow$ Hệ thống tự kiểm tra cấp bậc chức vụ: Nếu là `Intern` chuyển sang `INTERNSHIP`, các cấp bậc khác chuyển sang `PROBATION`.
+   - Khi ký Hợp đồng chính thức đạt yêu cầu (`PASSED`) $\rightarrow$ Tự động kích hoạt thành `ACTIVE`.
+   - Giúp chuyên viên C&B không bao giờ phải điều chỉnh trạng thái nhân sự bằng tay.
 
-Đảm bảo nhân sự rời đi một cách chuyên nghiệp, thu hồi đủ tài sản và chốt lương hợp lý.
-
-```mermaid
-flowchart TD
-    A[Nhân viên nộp Đơn xin nghỉ] --> B{Quản lý duyệt?}
-    B -- "Từ chối" --> C[Tiếp tục làm việc]
-    B -- "Đồng ý" --> D[Chuyển đến HR Admin]
-    D --> E[HR "Khởi tạo Nghỉ việc" trên hệ thống]
-    E --> F[Tạo Check-list Bàn giao]
-    F --> G[Bàn giao Tài sản & Tài liệu]
-    F --> H[IT Khóa tài khoản Email/Hệ thống]
-    G & H --> I{Hoàn tất Checklist?}
-    I -- "Chưa" --> J[Nhắc nhở tự động]
-    I -- "Rồi" --> K[Thanh lý Hợp đồng & Chốt lương tháng cuối]
-    K --> L((Chuyển trạng thái: ĐÃ NGHỈ VIỆC))
-```
+3. **Nguyên tắc Hợp đồng Độc quyền (Single Active Contract Constraint)**:
+   - Tại mọi thời điểm, một nhân sự chỉ được sở hữu tối đa 01 Hợp đồng có trạng thái `ACTIVE`.
+   - Ngăn chặn triệt để rủi ro xung đột dữ liệu lương cơ bản khi xuất bảng lương tự động hàng tháng.
