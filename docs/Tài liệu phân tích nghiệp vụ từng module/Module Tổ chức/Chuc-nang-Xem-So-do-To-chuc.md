@@ -1,72 +1,64 @@
-# Đặc tả chức năng: Sơ đồ Tổ chức (Org Chart)
+# Usecase: UC-ORG-03 - Xem Sơ đồ Tổ chức (Organization Chart)
 
 ## 1. Giới thiệu chức năng
-Cung cấp một góc nhìn trực quan hóa toàn bộ cơ cấu bộ máy của công ty dưới dạng Sơ đồ cây (Tree Diagram). Chức năng này đặc biệt hữu ích cho C-Level (Ban giám đốc) để theo dõi nhanh tình hình nhân sự của các khối.
+- **Mục đích**: Mang đến bức tranh toàn cảnh, trực quan nhất về cấu trúc phân quyền và bộ máy vận hành của công ty. Thay vì đọc những bảng biểu khô khan, người dùng có thể nhìn thấy sự liên kết giữa các phòng ban thông qua sơ đồ dạng cây.
+- **Actor (Tác nhân)**: Ban Lãnh đạo (Để hoạch định chiến lược), HR (Để kiểm tra định biên), Tất cả nhân viên (Để nắm rõ cấu trúc công ty).
+- **Điều kiện tiên quyết**: Công ty đã thiết lập danh sách phòng ban và mối quan hệ quản lý cấp trên - cấp dưới.
 
-## 2. Các quy tắc nghiệp vụ cốt lõi
-- **Thuật toán Đệ quy (Recursive Calculation):** Hệ thống không chỉ đếm số nhân viên gán trực tiếp vào phòng ban đó, mà tự động chạy đệ quy cộng dồn số lượng nhân sự của TẤT CẢ các phòng ban con, cháu trực thuộc nhánh đó.
-- **Tự động cấu trúc cây:** Dữ liệu trả về từ DB là mảng phẳng (Flat Array). Hệ thống (tại Backend hoặc Frontend) sẽ dựa vào thuộc tính `parentId` để lồng ghép chúng thành cấu trúc Tree.
+## 2. Dữ liệu nghiệp vụ đầu vào (Input Data)
+- Chức năng này mang tính chất "Báo cáo / Trực quan hóa" (Read-Only). Người dùng không cần nhập liệu.
+- Dữ liệu hoàn toàn được hệ thống tự động tổng hợp từ **Danh mục Phòng ban** (Sử dụng thông tin Phòng ban cha và số lượng nhân sự).
 
-## 3. Sơ đồ luồng chi tiết (Sequence Diagrams)
+## 3. Quy tắc nghiệp vụ (Business Rules)
+| Mã Quy tắc | Tình huống nghiệp vụ | Cách hệ thống xử lý | Thông báo cho người dùng |
+|---|---|---|---|
+| BR-ORG-03-01 | **Xác định Đỉnh chóp sơ đồ (Đơn vị cấp 1)** | Các đơn vị độc lập, không chịu sự quản lý của đơn vị nào khác (Tức là không chọn Phòng ban cha) sẽ được hệ thống đặt làm điểm xuất phát ở đỉnh sơ đồ (Ví dụ: Hội đồng Quản trị, Ban Giám đốc). | |
+| BR-ORG-03-02 | **Xác định Cấp dưới (Đơn vị nhánh)** | Bất kỳ phòng ban nào có thiết lập "Phòng ban cha" sẽ tự động được vẽ thành một nhánh cấp dưới, treo trực tiếp bằng một đường thẳng từ đơn vị cha tương ứng. | |
+| BR-ORG-03-03 | **Minh bạch thông tin vận hành** | Trên khung thông tin (Card) của mỗi phòng ban, hệ thống bắt buộc phải hiển thị **Chỉ số lấp đầy nhân sự**. (Công thức: Tổng số nhân viên đang làm / Tổng định biên tối đa được duyệt). | |
 
-### 3.1. Luồng Lấy dữ liệu và Chuyển đổi Cấu trúc (Build Tree)
-Mô tả quá trình Frontend yêu cầu dữ liệu và sử dụng thuật toán để cấu trúc lại mảng phẳng thành cây.
+## 4. Luồng xử lý nghiệp vụ
+1. Người dùng truy cập module Tổ chức và chọn menu "Sơ đồ Tổ chức".
+2. Hệ thống (Frontend) nhận lệnh và gọi API để lấy toàn bộ danh mục phòng ban hiện có.
+3. Backend tiến hành truy xuất CSDL, lấy ra toàn bộ phòng ban (kèm thống kê số nhân sự) và trả dữ liệu thô về cho Frontend.
+4. Giao diện (Frontend) phân tích dữ liệu:
+   - Các phòng ban cấp 1 (Không có phòng cha) được đặt làm Root (Đỉnh sơ đồ).
+   - Các phòng ban có khai báo phòng cha sẽ được ghép nối thành nhánh con bên dưới phòng cha đó.
+5. Giao diện vẽ ra sơ đồ tư duy dạng nhánh rễ cây và hiển thị lên màn hình cho người dùng.
+6. Người dùng có thể tương tác trực tiếp với giao diện: Kéo thả khung hình, phóng to/thu nhỏ (Zoom), hoặc bấm vào các nút [+] [-] để ẩn/hiện các phòng ban con ở cấp sâu hơn.
 
+## 5. Kết quả đầu ra
+- Giao diện đồ họa sinh động. Sơ đồ này phản ánh "thực tế thời gian thực (Real-time)". Nếu HR vừa thêm một phòng mới, sơ đồ sẽ tự động dài thêm một nhánh mà không cần vẽ tay.
+
+## 6. Sơ đồ tuần tự (Sequence Diagram) - Kịch bản Vẽ sơ đồ
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor BOD as Ban Giám Đốc (C-Level)
-    participant FE as Giao diện (OrgChart.jsx)
-    participant Logic as Client Logic (Hàm buildTree)
-    participant BE as Backend API
-    participant DB as Cơ sở dữ liệu
+    actor User as Giám đốc / HR
+    participant FE as Giao diện Phần mềm
+    participant API as Cổng Dữ liệu (API)
+    participant BE as Khối Nghiệp vụ (Backend)
+    participant DB as Cơ sở dữ liệu (Database)
 
-    BOD->>FE: Truy cập trang "Sơ đồ tổ chức"
-    FE->>BE: GET /api/departments
+    User->>FE: Bấm chọn menu "Sơ đồ Tổ chức"
+    FE->>API: Xin thông tin cấu trúc toàn bộ công ty
+    API->>BE: Bắt đầu xử lý
+    BE->>DB: Trích xuất toàn bộ danh mục phòng ban và Đếm nhân sự
+    DB-->>BE: Dữ liệu thô của các phòng ban
+    BE-->>API: Trả về danh sách
+    API-->>FE: Chuyển dữ liệu cho Giao diện
+    FE->>FE: Bắt đầu thuật toán ghép nối sơ đồ (Tìm cha, gán con)
+    FE->>FE: Dựng đồ họa (Render Org Chart Components)
+    FE-->>User: Hiển thị sơ đồ tư duy tương tác lên màn hình
     
-    BE->>DB: Lấy danh sách toàn bộ Department kèm Số lượng (employeeCount)
-    DB-->>BE: Flat Array (Danh sách mảng phẳng)
-    BE-->>FE: HTTP 200 OK (Danh sách mảng phẳng)
-    
-    rect rgb(255, 250, 240)
-        note right of Logic: Biến đổi Flat Array -> Tree
-        FE->>Logic: Gọi hàm buildTree(flatList)
-        Logic-->>Logic: Tạo Map lưu trữ theo id
-        Logic-->>Logic: Lặp mảng, nhét các node con vào thuộc tính 'children' của node cha
-        Logic-->>FE: Trả về cấu trúc cây (Mảng các Root Nodes)
-    end
+    User->>FE: Bấm nút [+] tại Phòng Kỹ Thuật
+    FE-->>User: Đổ xuống (Mở rộng) danh sách các phòng ban con của Kỹ Thuật
 ```
 
-### 3.2. Luồng Đệ quy Hiển thị & Tính toán Headcount
-Mô tả cách một `OrgNode` tự động render và cộng dồn số lượng nhân sự từ các nhánh con.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant FE as Giao diện (OrgChart.jsx)
-    participant Node as Thành phần OrgNode
-
-    FE->>Node: Render(rootNode)
-    
-    rect rgb(240, 255, 240)
-        note right of Node: Hàm calculateTotalEmployees(node)
-        Node->>Node: Lấy số lượng NV trực thuộc của node hiện tại
-        
-        loop Cho mỗi phòng ban con (child in node.children)
-            Node->>Node: Đệ quy gọi calculateTotalEmployees(child)
-            Node->>Node: Cộng dồn kết quả vào Tổng
-        end
-    end
-    
-    Node->>Node: Render UI Thẻ phòng ban (Hiện Tổng nhân sự nhánh)
-    
-    opt Nếu có phòng ban con
-        Node->>Node: Vẽ đường kẻ nối (Vạch nối cha-con)
-        loop Cho mỗi child
-            Node->>Node: Gọi đệ quy Render(child)
-        end
-    end
-    
-    Node-->>FE: Trả về giao diện cây hoàn chỉnh
-    FE->>BOD: Hiển thị Sơ đồ Tổ chức dạng Cây lên màn hình
-```
+## 7. Kịch bản nghiệm thu (Given / When / Then)
+- **Kịch bản 1: Cấu trúc đa cấp tự động**
+  - *Given*: Công ty có "Ban Giám Đốc". Dưới BGD có "Phòng Kỹ Thuật". Dưới Kỹ Thuật có "Nhóm Tester".
+  - *When*: Người dùng mở chức năng Sơ đồ.
+  - *Then*: Giao diện hiển thị đúng 3 tầng, đường nối từ BGD thả xuống Kỹ Thuật, và từ Kỹ Thuật thả xuống Tester.
+- **Kịch bản 2: Hiển thị thông số định biên (Quota)**
+  - *Given*: Phòng Hành chính được duyệt tối đa 5 người, hiện tại đang có 3 người đi làm.
+  - *When*: Giám đốc xem thông tin trên thẻ của phòng Hành chính.
+  - *Then*: Thẻ hiển thị dòng chỉ số "3/5" báo hiệu phòng vẫn còn được phép tuyển thêm 2 người nữa.

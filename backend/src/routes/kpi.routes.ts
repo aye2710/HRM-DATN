@@ -78,7 +78,7 @@ router.post('/templates', async (req: Request, res: Response): Promise<any> => {
 // Xóa mẫu KPI
 router.delete('/templates/:id', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     await prisma.kPITemplate.delete({ where: { id } });
     return res.json({ message: 'Đã xóa mẫu KPI' });
   } catch (error) {
@@ -159,7 +159,7 @@ router.post('/kpi', async (req: Request, res: Response): Promise<any> => {
 // Cập nhật tiến độ KPI (achieved)
 router.put('/kpi/:id', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { achieved, description, target } = req.body;
     const updatedKpi = await prisma.kPI.update({
       where: { id },
@@ -174,7 +174,7 @@ router.put('/kpi/:id', async (req: Request, res: Response): Promise<any> => {
 // Xóa KPI
 router.delete('/kpi/:id', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     await prisma.kPI.delete({ where: { id } });
     return res.json({ message: 'Đã xóa KPI' });
   } catch (error) {
@@ -189,7 +189,7 @@ router.delete('/kpi/:id', async (req: Request, res: Response): Promise<any> => {
 // Chấm điểm và cập nhật phiếu đánh giá
 router.put('/reviews/:id', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { score, comments } = req.body;
 
     // Lấy thông tin phiếu đánh giá và kỳ đánh giá
@@ -204,7 +204,7 @@ router.put('/reviews/:id', async (req: Request, res: Response): Promise<any> => 
 
     // Validate: Chỉ được chấm điểm nếu chưa quá hạn (endDate)
     const today = new Date();
-    const endDate = new Date(review.reviewCycle.endDate);
+    const endDate = new Date((review as any).reviewCycle.endDate);
     
     // Đặt thời gian của endDate về cuối ngày để tính chính xác
     endDate.setHours(23, 59, 59, 999);
