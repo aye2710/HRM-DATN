@@ -33,10 +33,16 @@ const TopHeader = ({ portalName }) => {
 };
 
 const NavItem = ({ item }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const isActive = location.pathname.startsWith(item.to);
   const isExactActive = location.pathname === item.to;
+  const [isOpen, setIsOpen] = useState(isActive);
+
+  React.useEffect(() => {
+    if (isActive) {
+      setIsOpen(true);
+    }
+  }, [isActive]);
 
   if (item.children) {
     return (

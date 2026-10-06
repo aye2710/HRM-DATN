@@ -216,6 +216,7 @@ function App() {
               <Route path="performance/assignments" element={<KPIAssignments />} />
               <Route path="performance/reviews" element={<Performance />} />
 
+              <Route path="payroll" element={<Navigate to="payroll/periods" replace />} />
               <Route path="payroll/periods" element={<PayrollPeriods />} />
               <Route path="payroll/payslips" element={<PayrollMgmt />} />
 

@@ -3,12 +3,99 @@ import { prisma } from '../db';
 
 const router = Router();
 
-// Lấy danh sách phiếu lương
-router.get('/', async (req: Request, res: Response) => {
+// 1. GET: Danh sách tất cả các Kỳ lương (Payroll Periods)
+router.get('/periods', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const periods = await prisma.payrollPeriod.findMany({
+      include: {
+        _count: { select: { payslips: true } },
+        payslips: {
+          select: { baseSalary: true, grossSalary: true, netSalary: true, insuranceDeduction: true, taxDeduction: true }
+        }
+      },
+      orderBy: { monthYear: 'desc' }
+    });
+
+    const formatted = periods.map(p => {
+      const totalBase = p.payslips.reduce((sum, item) => sum + Number(item.baseSalary || 0), 0);
+      const totalGross = p.payslips.reduce((sum, item) => sum + Number(item.grossSalary || 0), 0);
+      const totalNet = p.payslips.reduce((sum, item) => sum + Number(item.netSalary || 0), 0);
+      const [m, y] = p.monthYear.split('-');
+      return {
+        id: p.id,
+        monthYear: p.monthYear,
+        month: Number(m),
+        year: Number(y),
+        name: `Kỳ lương Tháng ${m}/${y}`,
+        standardWorkingDays: p.standardWorkingDays,
+        employees: p._count.payslips,
+        totalBase,
+        totalGross,
+        totalNet,
+        status: p.status
+      };
+    });
+
+    return res.json(formatted);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Lỗi khi lấy danh sách kỳ lương' });
+  }
+});
+
+// 2. POST: Khởi tạo Kỳ lương mới
+router.post('/periods', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { month, year, standardWorkingDays } = req.body;
+    if (!month || !year) return res.status(400).json({ error: 'Vui lòng chọn Tháng và Năm cho kỳ lương' });
+    const monthYear = `${month}-${year}`;
+
+    const existing = await prisma.payrollPeriod.findUnique({ where: { monthYear } });
+    if (existing) {
+      return res.status(400).json({ error: `Kỳ lương tháng ${month}/${year} đã tồn tại trong hệ thống!` });
+    }
+
+    const newPeriod = await prisma.payrollPeriod.create({
+      data: {
+        monthYear,
+        standardWorkingDays: standardWorkingDays ? parseInt(standardWorkingDays) : 22,
+        status: 'DRAFT'
+      }
+    });
+
+    return res.status(201).json(newPeriod);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Lỗi khi tạo kỳ lương' });
+  }
+});
+
+// 3. DELETE: Xóa Kỳ lương (chỉ khi đang ở trạng thái DRAFT)
+router.delete('/periods/:id', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const period = await prisma.payrollPeriod.findUnique({ where: { id } });
+    if (!period) return res.status(404).json({ error: 'Không tìm thấy kỳ lương' });
+    if (period.status === 'LOCKED') {
+      return res.status(400).json({ error: 'Kỳ lương đã khóa sổ, không thể xóa!' });
+    }
+
+    // Xóa các payslips liên quan trước
+    await prisma.payslip.deleteMany({ where: { payrollPeriodId: id } });
+    await prisma.payrollPeriod.delete({ where: { id } });
+
+    return res.json({ message: 'Xóa kỳ lương thành công' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Lỗi khi xóa kỳ lương' });
+  }
+});
+
+// 4. GET: Lấy danh sách phiếu lương theo tháng/năm
+router.get('/', async (req: Request, res: Response): Promise<any> => {
   try {
     const { month, year } = req.query;
     
-    let whereClause = {};
+    let whereClause: any = {};
     if (month && year) {
       whereClause = {
         payrollPeriod: {
@@ -21,18 +108,19 @@ router.get('/', async (req: Request, res: Response) => {
       where: whereClause,
       include: {
         employee: {
-          select: { fullName: true, code: true, department: true, position: true }
+          select: { id: true, fullName: true, code: true, department: true, position: true }
         },
         payrollPeriod: true
-      }
+      },
+      orderBy: { employee: { code: 'asc' } }
     });
-    res.json(records);
+    return res.json(records);
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi lấy dữ liệu bảng lương' });
+    return res.status(500).json({ error: 'Lỗi khi lấy dữ liệu bảng lương' });
   }
 });
 
-// Lấy danh sách phiếu lương của 1 nhân viên
+// 5. GET: Lấy danh sách phiếu lương của 1 nhân viên
 router.get('/employee/:employeeId', async (req: Request, res: Response): Promise<any> => {
   try {
     const employeeId = req.params.employeeId as string;
@@ -42,8 +130,10 @@ router.get('/employee/:employeeId', async (req: Request, res: Response): Promise
         employee: {
           select: { fullName: true, code: true, department: { select: { name: true } }, position: { select: { title: true } } }
         },
-        payrollPeriod: true
-      }
+        payrollPeriod: true,
+        details: true
+      },
+      orderBy: { payrollPeriod: { monthYear: 'desc' } }
     });
     return res.json(records);
   } catch (error) {
@@ -51,11 +141,35 @@ router.get('/employee/:employeeId', async (req: Request, res: Response): Promise
   }
 });
 
-// Chạy bảng lương (Generate Payroll)
+// 5b. GET: Chi tiết 1 phiếu lương theo ID
+router.get('/payslip/:id', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const payslip = await prisma.payslip.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          include: {
+            department: true,
+            position: true
+          }
+        },
+        payrollPeriod: true,
+        details: true
+      }
+    });
+    if (!payslip) return res.status(404).json({ error: 'Không tìm thấy phiếu lương' });
+    return res.json(payslip);
+  } catch (error) {
+    return res.status(500).json({ error: 'Lỗi khi lấy chi tiết phiếu lương' });
+  }
+});
+
+// 6. POST: Chạy bảng lương (Generate Payroll)
 router.post('/generate', async (req: Request, res: Response): Promise<any> => {
   try {
     const { month, year } = req.body;
-    if (!month || !year) return res.status(400).json({ error: 'Missing month or year' });
+    if (!month || !year) return res.status(400).json({ error: 'Thiếu tháng hoặc năm' });
 
     const monthYearStr = `${month}-${year}`;
 
@@ -80,7 +194,7 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // Lấy tất cả nhân viên đang ACTIVE
+    // Lấy tất cả nhân viên đang ACTIVE (kèm hợp đồng có hiệu lực)
     const employees = await prisma.employee.findMany({
       where: { status: { not: 'RESIGNED' } },
       include: { contracts: { where: { status: 'ACTIVE' } } }
@@ -89,9 +203,8 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
     let generatedCount = 0;
 
     for (const emp of employees) {
-      if (emp.contracts.length === 0) continue;
-
-      const baseSalary = emp.contracts[0].baseSalary;
+      // Nếu nhân viên chưa có hợp đồng chính thức, lấy mức lương mặc định 10.000.000 VNĐ
+      const baseSalary = emp.contracts.length > 0 ? Number(emp.contracts[0].baseSalary) : 10000000;
 
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
@@ -103,9 +216,28 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
         }
       });
 
-      const totalWorkingDays = attendances.reduce((sum, att) => sum + Number(att.workingDay), 0);
+      // Nếu có chấm công thì tính theo ngày công thực tế, nếu chưa chấm thì mặc định 22 ngày công chuẩn
+      let totalWorkingDays = attendances.reduce((sum, att) => sum + Number(att.workingDay), 0);
+      if (attendances.length === 0) {
+        totalWorkingDays = period.standardWorkingDays || 22;
+      }
+
+      const standardDays = period.standardWorkingDays || 22;
+      const grossSalary = (baseSalary / standardDays) * totalWorkingDays;
       
-      const netSalary = (Number(baseSalary) / 22) * totalWorkingDays;
+      // Khấu trừ BHXH, BHYT, BHTN (10.5% lương đóng BH)
+      const insuranceDeduction = grossSalary * 0.105;
+
+      // Giảm trừ gia cảnh bản thân (11 triệu/tháng)
+      const taxableIncome = Math.max(0, grossSalary - insuranceDeduction - 11000000);
+      let taxDeduction = 0;
+      if (taxableIncome > 0) {
+        if (taxableIncome <= 5000000) taxDeduction = taxableIncome * 0.05;
+        else if (taxableIncome <= 10000000) taxDeduction = taxableIncome * 0.1 - 250000;
+        else taxDeduction = taxableIncome * 0.15 - 750000;
+      }
+
+      const netSalary = Math.round(grossSalary - insuranceDeduction - taxDeduction);
 
       const existing = await prisma.payslip.findFirst({
         where: { employeeId: emp.id, payrollPeriodId: period.id }
@@ -117,8 +249,10 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
           data: {
             baseSalary,
             actualWorkingDays: totalWorkingDays,
-            grossSalary: netSalary, // simplified
-            netSalary: netSalary
+            grossSalary: Math.round(grossSalary),
+            insuranceDeduction: Math.round(insuranceDeduction),
+            taxDeduction: Math.round(taxDeduction),
+            netSalary
           }
         });
       } else {
@@ -128,22 +262,27 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
             payrollPeriodId: period.id,
             baseSalary,
             actualWorkingDays: totalWorkingDays,
-            grossSalary: netSalary, // simplified
-            netSalary: netSalary
+            grossSalary: Math.round(grossSalary),
+            insuranceDeduction: Math.round(insuranceDeduction),
+            taxDeduction: Math.round(taxDeduction),
+            netSalary
           }
         });
       }
       generatedCount++;
     }
 
-    return res.json({ message: `Đã tính toán xong bảng lương cho ${generatedCount} nhân sự` });
+    return res.json({ 
+      message: `Đã tính toán xong bảng lương tháng ${month}/${year} cho ${generatedCount} nhân sự!`,
+      period
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Lỗi server khi tính lương' });
   }
 });
 
-// Lấy thông tin trạng thái kỳ lương
+// 7. GET: Lấy thông tin trạng thái kỳ lương
 router.get('/period/info', async (req: Request, res: Response): Promise<any> => {
   try {
     const { month, year } = req.query;
@@ -152,13 +291,13 @@ router.get('/period/info', async (req: Request, res: Response): Promise<any> => 
     const period = await prisma.payrollPeriod.findUnique({
       where: { monthYear: monthYearStr }
     });
-    return res.json(period || { monthYear: monthYearStr, status: 'DRAFT' });
+    return res.json(period || { monthYear: monthYearStr, status: 'DRAFT', standardWorkingDays: 22 });
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi lấy thông tin kỳ lương' });
   }
 });
 
-// Khóa hoặc mở khóa kỳ lương
+// 8. POST: Khóa hoặc mở khóa kỳ lương
 router.post('/period/toggle-lock', async (req: Request, res: Response): Promise<any> => {
   try {
     const { month, year, status } = req.body;
@@ -191,21 +330,6 @@ router.post('/period/toggle-lock', async (req: Request, res: Response): Promise<
     });
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi cập nhật trạng thái khóa kỳ lương' });
-  }
-});
-
-// Cập nhật trạng thái
-router.put('/:id/status', async (req: Request, res: Response) => {
-  try {
-    const id = req.params.id as string;
-    const { status } = req.body;
-    const updated = await prisma.payrollPeriod.update({
-      where: { id },
-      data: { status }
-    });
-    res.json(updated);
-  } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi cập nhật trạng thái bảng lương' });
   }
 });
 
