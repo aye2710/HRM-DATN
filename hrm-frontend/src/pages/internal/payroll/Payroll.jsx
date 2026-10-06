@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { 
   Download, Calculator, Lock, Unlock, Banknote, ShieldAlert, 
   FileSignature, Search, Filter, Eye, X, ArrowLeft, Printer, 
-  CheckCircle, User, Briefcase, Calendar, RefreshCw
+  CheckCircle, User, Briefcase, Calendar, RefreshCw, ChevronLeft,
+  ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Users
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -20,13 +21,16 @@ export const PayrollMgmt = () => {
 
   const [payrolls, setPayrolls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [calculating, setCalculating] = useState(false);
   const [month, setMonth] = useState(initialMonth);
   const [year, setYear] = useState(initialYear);
   const [periodInfo, setPeriodInfo] = useState({ status: 'DRAFT', standardWorkingDays: 22 });
   
-  // Bộ lọc tìm kiếm
+  // Bộ lọc tìm kiếm & Phân trang
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Modal chi tiết phiếu lương nhân viên
   const [selectedPayslip, setSelectedPayslip] = useState(null);
@@ -38,8 +42,8 @@ export const PayrollMgmt = () => {
         axios.get(`http://localhost:5000/api/payroll?month=${month}&year=${year}`),
         axios.get(`http://localhost:5000/api/payroll/period/info?month=${month}&year=${year}`)
       ]);
-      setPayrolls(payrollRes.data);
-      setPeriodInfo(periodRes.data);
+      setPayrolls(payrollRes.data || []);
+      setPeriodInfo(periodRes.data || { status: 'DRAFT', standardWorkingDays: 22 });
     } catch (error) {
       console.error(error);
       toast.error('Lỗi khi tải bảng lương');
@@ -49,21 +53,29 @@ export const PayrollMgmt = () => {
   };
 
   useEffect(() => {
-    // Cập nhật URL params khi thay đổi month hoặc year
     setSearchParams({ month: String(month), year: String(year) });
+    setCurrentPage(1);
     fetchData();
   }, [month, year]);
+
+  // Reset trang về 1 khi người dùng đổi từ khóa hoặc phòng ban
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedDept]);
 
   const handleGenerate = async () => {
     if (periodInfo.status === 'LOCKED') {
       return toast.error(`Kỳ lương ${month}/${year} đã bị KHÓA SỔ. Cần mở khóa trước khi chạy lại!`);
     }
+    setCalculating(true);
     try {
       const res = await axios.post('http://localhost:5000/api/payroll/generate', { month, year });
       toast.success(res.data.message || `Đã tính toán xong bảng lương tháng ${month}/${year}`);
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Lỗi khi tính lương');
+    } finally {
+      setCalculating(false);
     }
   };
 
@@ -71,8 +83,8 @@ export const PayrollMgmt = () => {
     const isLocked = periodInfo.status === 'LOCKED';
     const actionText = isLocked ? 'MỞ KHÓA' : 'KHÓA SỔ';
     const confirmText = isLocked
-      ? `Bạn có chắc muốn MỞ KHÓA kỳ lương tháng ${month}/${year}? (Cho phép nhân sự điều chỉnh công và tính lại lương)`
-      : `Bạn có chắc muốn KHÓA SỔ kỳ lương tháng ${month}/${year}? (Sau khi khóa, dữ liệu công và lương sẽ chuyển sang Read-Only để phục vụ chi trả)`;
+      ? `Bạn có chắc muốn MỞ KHÓA kỳ lương tháng ${month}/${year}? (Cho phép điều chỉnh công và tính lại lương)`
+      : `Bạn có chắc muốn KHÓA SỔ kỳ lương tháng ${month}/${year}? (Sau khi khóa, dữ liệu sẽ chuyển sang Read-Only để chi trả ngân hàng)`;
 
     const result = await Swal.fire({
       title: `${actionText} Kỳ Lương Tháng ${month}/${year}?`,
@@ -146,238 +158,329 @@ export const PayrollMgmt = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount) || 0);
   };
 
-  // Tính tổng
-  const totalBase = payrolls.reduce((sum, p) => sum + Number(p.baseSalary || 0), 0);
-  const totalGross = payrolls.reduce((sum, p) => sum + Number(p.grossSalary || 0), 0);
-  const totalNet = payrolls.reduce((sum, p) => sum + Number(p.netSalary || 0), 0);
-  const totalInsurance = payrolls.reduce((sum, p) => sum + Number(p.insuranceDeduction || 0), 0);
-  const totalTax = payrolls.reduce((sum, p) => sum + Number(p.taxDeduction || 0), 0);
+  // Tính tổng chỉ số tài chính
+  const totalBase = useMemo(() => payrolls.reduce((sum, p) => sum + Number(p.baseSalary || 0), 0), [payrolls]);
+  const totalGross = useMemo(() => payrolls.reduce((sum, p) => sum + Number(p.grossSalary || 0), 0), [payrolls]);
+  const totalNet = useMemo(() => payrolls.reduce((sum, p) => sum + Number(p.netSalary || 0), 0), [payrolls]);
+  const totalInsurance = useMemo(() => payrolls.reduce((sum, p) => sum + Number(p.insuranceDeduction || 0), 0), [payrolls]);
+  const totalTax = useMemo(() => payrolls.reduce((sum, p) => sum + Number(p.taxDeduction || 0), 0), [payrolls]);
   const totalDeduction = totalInsurance + totalTax;
 
-  // Lấy danh sách phòng ban duy nhất để lọc
-  const departments = Array.from(new Set(payrolls.map(p => p.employee?.department?.name).filter(Boolean)));
+  // Danh sách phòng ban duy nhất
+  const departments = useMemo(() => {
+    return Array.from(new Set(payrolls.map(p => p.employee?.department?.name).filter(Boolean)));
+  }, [payrolls]);
 
-  // Lọc theo search và phòng ban
-  const filteredPayrolls = payrolls.filter(pr => {
-    const q = searchTerm.toLowerCase();
-    const matchSearch = (pr.employee?.fullName || '').toLowerCase().includes(q) ||
-                        (pr.employee?.code || '').toLowerCase().includes(q) ||
-                        (pr.employee?.department?.name || '').toLowerCase().includes(q);
-    const matchDept = selectedDept === 'ALL' || pr.employee?.department?.name === selectedDept;
-    return matchSearch && matchDept;
-  });
+  // Danh sách đã lọc theo tìm kiếm và phòng ban
+  const filteredPayrolls = useMemo(() => {
+    return payrolls.filter(pr => {
+      const q = searchTerm.toLowerCase().trim();
+      const matchSearch = !q || 
+        (pr.employee?.fullName || '').toLowerCase().includes(q) ||
+        (pr.employee?.code || '').toLowerCase().includes(q) ||
+        (pr.employee?.department?.name || '').toLowerCase().includes(q);
+      const matchDept = selectedDept === 'ALL' || pr.employee?.department?.name === selectedDept;
+      return matchSearch && matchDept;
+    });
+  }, [payrolls, searchTerm, selectedDept]);
+
+  // Phân trang dữ liệu
+  const totalRecords = filteredPayrolls.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalRecords);
+  const currentPayrolls = filteredPayrolls.slice(startIndex, endIndex);
+
+  // Tạo mảng số trang hiển thị
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 4) {
+        for (let i = 1; i <= 5; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        pages.push(currentPage - 1);
+        pages.push(currentPage);
+        pages.push(currentPage + 1);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '0 0.5rem' }}>
-      {/* Tiêu đề & Công cụ điều khiển */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <div>
+    <div className="animate-fade-in flex-col gap-6" style={{ padding: '0 0.5rem' }}>
+      {/* 1. Header Layout Độc Lập, Rộng Rãi, Không Bị Chèn Ép */}
+      <div className="card glass p-5 flex-col gap-4" style={{ borderRadius: '16px' }}>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          {/* Cụm Tiêu Đề Bên Trái */}
           <div className="flex items-center gap-3">
             <button 
               onClick={() => navigate('/internal/payroll/periods')}
               className="btn btn-outline" 
-              style={{ padding: '0.4rem 0.6rem', border: 'none', background: 'rgba(255, 255, 255, 0.05)' }}
+              style={{ width: 38, height: 38, padding: 0, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)' }}
               title="Quay lại danh sách kỳ lương"
             >
               <ArrowLeft size={18} />
             </button>
-            <h2 style={{ fontSize: '1.85rem', fontFamily: 'Outfit, sans-serif', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Bảng Lương Tháng {month}/{year}
-            </h2>
-            {periodInfo.status === 'LOCKED' ? (
-              <span className="badge badge-danger flex items-center gap-1 font-bold">
-                <Lock size={13} /> ĐÃ KHÓA SỔ
-              </span>
-            ) : (
-              <span className="badge badge-warning flex items-center gap-1 font-bold">
-                <Unlock size={13} /> BẢN NHÁP (MỞ)
-              </span>
-            )}
-          </div>
-          <p className="text-muted text-xs mt-1">
-            Động cơ tự động: Lương Gross theo ngày công thực tế, trừ 10.5% BHXH và Thuế TNCN lũy tiến từng phần
-          </p>
-        </div>
-
-        <div className="flex gap-2.5 items-center flex-wrap">
-          {/* Bộ chọn tháng và năm */}
-          <div className="flex gap-1.5 p-1 rounded-xl" style={{ backgroundColor: 'rgba(0, 0, 0, 0.25)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <select 
-              className="form-input" 
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.875rem', width: 'auto' }}
-              value={month} 
-              onChange={e => setMonth(Number(e.target.value))}
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                <option key={m} value={m}>Tháng {m}</option>
-              ))}
-            </select>
-            <select 
-              className="form-input" 
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.875rem', width: 'auto' }}
-              value={year} 
-              onChange={e => setYear(Number(e.target.value))}
-            >
-              <option value={2026}>2026</option>
-              <option value={2025}>2025</option>
-              <option value={2027}>2027</option>
-            </select>
-          </div>
-
-          <button
-            onClick={handleTogglePeriodLock}
-            className="btn btn-outline flex items-center gap-1.5"
-            style={periodInfo.status === 'LOCKED' ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : { borderColor: 'var(--error)', color: 'var(--error)' }}
-            title={periodInfo.status === 'LOCKED' ? "Mở khóa sổ" : "Khóa sổ kỳ lương"}
-          >
-            {periodInfo.status === 'LOCKED' ? <Unlock size={16} /> : <Lock size={16} />}
-            {periodInfo.status === 'LOCKED' ? 'Mở Khóa Sổ' : 'Khóa Sổ'}
-          </button>
-
-          <button 
-            onClick={handleGenerate} 
-            className="btn btn-primary flex items-center gap-1.5" 
-            disabled={periodInfo.status === 'LOCKED'}
-            title={periodInfo.status === 'LOCKED' ? 'Kỳ lương đã khóa, không thể chạy lại' : 'Tính toán lại bảng lương cho toàn bộ nhân sự'}
-          >
-            <Calculator size={16} /> Chạy Bảng Lương
-          </button>
-
-          <button 
-            onClick={handleExportExcel} 
-            className="btn btn-outline flex items-center gap-1.5" 
-            style={{ borderColor: 'var(--success)', color: 'var(--success)' }}
-          >
-            <Download size={16} /> Xuất Excel
-          </button>
-        </div>
-      </div>
-
-      {/* 4 Thẻ Tổng Quan Chỉ Số */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="card text-center flex-col items-center glass card-hover">
-          <Banknote size={22} className="mb-2" style={{ color: 'var(--text-muted)' }}/>
-          <span className="text-muted mb-1 text-xs uppercase tracking-wider font-bold">Tổng Quỹ Lương Cơ Bản</span>
-          <span className="money-text" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)' }}>
-            {formatCurrency(totalBase)}
-          </span>
-          <span className="text-xs text-muted mt-1">{payrolls.length} nhân sự</span>
-        </div>
-
-        <div className="card text-center flex-col items-center glass card-hover" style={{ borderColor: 'rgba(105, 108, 255, 0.3)' }}>
-          <Banknote size={22} className="mb-2" style={{ color: 'var(--primary)' }}/>
-          <span className="text-muted mb-1 text-xs uppercase tracking-wider font-bold">Tổng Lương Gross</span>
-          <span className="money-text" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>
-            {formatCurrency(totalGross)}
-          </span>
-          <span className="text-xs text-muted mt-1">Lương theo ngày công thực tế</span>
-        </div>
-
-        <div className="card text-center flex-col items-center glass card-hover" style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-          <ShieldAlert size={22} className="mb-2" style={{ color: 'var(--error)' }}/>
-          <span className="text-muted mb-1 text-xs uppercase tracking-wider font-bold">Tổng Khấu Trừ (BH & Thuế)</span>
-          <span className="money-text" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--error)' }}>
-            {formatCurrency(totalDeduction)}
-          </span>
-          <span className="text-xs text-muted mt-1">BHXH 10.5% & Thuế TNCN</span>
-        </div>
-
-        <div className="card text-center flex-col items-center glass card-hover" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-          <FileSignature size={22} className="mb-2" style={{ color: 'var(--success)' }}/>
-          <span className="text-muted mb-1 text-xs uppercase tracking-wider font-bold">Tổng Thực Lãnh (Net)</span>
-          <span className="money-text" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--success)' }}>
-            {formatCurrency(totalNet)}
-          </span>
-          <span className="text-xs text-muted mt-1">Kinh phí chi trả qua ngân hàng</span>
-        </div>
-      </div>
-
-      {/* Bảng Chi Tiết Phiếu Lương */}
-      <div className="card glass flex-col gap-4">
-        {/* Bộ lọc bảng */}
-        <div className="flex justify-between items-center gap-4 flex-wrap">
-          <div className="flex gap-3 items-center" style={{ flex: 1, maxWidth: '420px' }}>
-            <div style={{ position: 'relative', width: '100%' }}>
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
-              <input 
-                type="text" 
-                placeholder="Tìm mã NV, tên nhân sự..." 
-                className="form-input"
-                style={{ paddingLeft: '2.5rem' }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex-col">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+                  Bảng Lương Tháng {month}/{year}
+                </h1>
+                {periodInfo.status === 'LOCKED' ? (
+                  <span className="badge badge-danger flex items-center gap-1 font-bold" style={{ padding: '0.25rem 0.65rem' }}>
+                    <Lock size={12} /> ĐÃ KHÓA SỔ
+                  </span>
+                ) : (
+                  <span className="badge badge-warning flex items-center gap-1 font-bold" style={{ padding: '0.25rem 0.65rem' }}>
+                    <Unlock size={12} /> BẢN NHÁP (MỞ)
+                  </span>
+                )}
+              </div>
+              <p className="text-muted text-xs mt-1" style={{ margin: 0 }}>
+                Hệ thống tự động: Tính Gross theo ngày công thực tế, trừ 10.5% BHXH và Thuế TNCN lũy tiến từng phần
+              </p>
             </div>
           </div>
 
-          <div className="flex gap-2 items-center">
-            <span className="text-xs text-muted">Phòng ban:</span>
-            <select 
-              className="form-input" 
-              style={{ width: 'auto', padding: '0.45rem 0.75rem', fontSize: '0.85rem' }}
-              value={selectedDept}
-              onChange={e => setSelectedDept(e.target.value)}
+          {/* Cụm Thao Tác & Chọn Kỳ Lương Bên Phải */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Bộ Chọn Tháng & Năm Liền Kề Gọn Gàng */}
+            <div className="flex items-center bg-black/20 p-1 rounded-xl" style={{ border: '1px solid var(--border)' }}>
+              <select 
+                className="form-input" 
+                style={{ height: 32, padding: '0 0.5rem', fontSize: '0.85rem', width: 'auto', border: 'none', background: 'transparent' }}
+                value={month} 
+                onChange={e => setMonth(Number(e.target.value))}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                  <option key={m} value={m}>Tháng {m}</option>
+                ))}
+              </select>
+              <span className="text-muted text-xs">/</span>
+              <select 
+                className="form-input" 
+                style={{ height: 32, padding: '0 0.5rem', fontSize: '0.85rem', width: 'auto', border: 'none', background: 'transparent' }}
+                value={year} 
+                onChange={e => setYear(Number(e.target.value))}
+              >
+                <option value={2026}>2026</option>
+                <option value={2025}>2025</option>
+                <option value={2027}>2027</option>
+              </select>
+            </div>
+
+            {/* Nút Khóa Sổ / Mở Khóa */}
+            <button
+              onClick={handleTogglePeriodLock}
+              className="btn btn-outline flex items-center gap-1.5"
+              style={periodInfo.status === 'LOCKED' 
+                ? { borderColor: 'var(--primary)', color: 'var(--primary)', height: 36 } 
+                : { borderColor: 'var(--error)', color: 'var(--error)', height: 36 }}
+              title={periodInfo.status === 'LOCKED' ? "Mở khóa sổ" : "Khóa sổ kỳ lương"}
             >
-              <option value="ALL">Tất cả phòng ban</option>
-              {departments.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+              {periodInfo.status === 'LOCKED' ? <Unlock size={15} /> : <Lock size={15} />}
+              <span>{periodInfo.status === 'LOCKED' ? 'Mở Khóa Sổ' : 'Khóa Sổ'}</span>
+            </button>
+
+            {/* Nút Chạy Bảng Lương */}
+            <button 
+              onClick={handleGenerate} 
+              className="btn btn-primary flex items-center gap-1.5" 
+              disabled={periodInfo.status === 'LOCKED' || calculating}
+              style={{ height: 36 }}
+              title={periodInfo.status === 'LOCKED' ? 'Kỳ lương đã khóa' : 'Tính toán lại bảng lương toàn công ty'}
+            >
+              <Calculator size={15} className={calculating ? 'animate-spin' : ''} />
+              <span>{calculating ? 'Đang Tính...' : 'Chạy Bảng Lương'}</span>
+            </button>
+
+            {/* Nút Xuất Excel */}
+            <button 
+              onClick={handleExportExcel} 
+              className="btn btn-outline flex items-center gap-1.5" 
+              style={{ borderColor: 'var(--success)', color: 'var(--success)', height: 36 }}
+            >
+              <FileSpreadsheet size={15} />
+              <span>Xuất Excel</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Bốn Thẻ Tổng Quan Chỉ Số Tài Chính (Metrics Grid) */}
+      <div className="grid grid-cols-4 gap-4">
+        {/* Card 1: Base Salary */}
+        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px' }}>
+          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
+            <span>Tổng Lương Hợp Đồng</span>
+            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(255, 255, 255, 0.06)' }}>
+              <Banknote size={16} color="var(--text-muted)" />
+            </div>
+          </div>
+          <div className="money-text font-bold" style={{ fontSize: '1.45rem', color: 'var(--text-main)' }}>
+            {formatCurrency(totalBase)}
+          </div>
+          <span className="text-xs text-muted">{payrolls.length} nhân sự tham gia tính lương</span>
+        </div>
+
+        {/* Card 2: Gross */}
+        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(105, 108, 255, 0.25)' }}>
+          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
+            <span>Tổng Lương Gross</span>
+            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(105, 108, 255, 0.12)' }}>
+              <Banknote size={16} color="var(--primary)" />
+            </div>
+          </div>
+          <div className="money-text font-bold" style={{ fontSize: '1.45rem', color: 'var(--primary)' }}>
+            {formatCurrency(totalGross)}
+          </div>
+          <span className="text-xs text-muted">Tính theo ngày công thực tế / chuẩn 22 ngày</span>
+        </div>
+
+        {/* Card 3: Deductions */}
+        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(239, 68, 68, 0.25)' }}>
+          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
+            <span>Tổng Khấu Trừ (BH & Thuế)</span>
+            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(239, 68, 68, 0.12)' }}>
+              <ShieldAlert size={16} color="var(--error)" />
+            </div>
+          </div>
+          <div className="money-text font-bold" style={{ fontSize: '1.45rem', color: 'var(--error)' }}>
+            {formatCurrency(totalDeduction)}
+          </div>
+          <span className="text-xs text-muted">10.5% BHXH + Thuế TNCN lũy tiến</span>
+        </div>
+
+        {/* Card 4: Net Salary */}
+        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
+            <span>Tổng Thực Lãnh (NET)</span>
+            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(16, 185, 129, 0.12)' }}>
+              <FileSignature size={16} color="var(--success)" />
+            </div>
+          </div>
+          <div className="money-text font-bold" style={{ fontSize: '1.45rem', color: 'var(--success)' }}>
+            {formatCurrency(totalNet)}
+          </div>
+          <span className="text-xs text-muted">Tổng quỹ chi trả qua tài khoản ngân hàng</span>
+        </div>
+      </div>
+
+      {/* 3. Bảng Dữ Liệu Chi Tiết Kèm Bộ Lọc & Phân Trang Đầy Đủ */}
+      <div className="card glass flex-col gap-0" style={{ padding: 0, borderRadius: '16px', overflow: 'hidden' }}>
+        {/* Thanh Công Cụ Tìm Kiếm & Lọc */}
+        <div className="p-4 flex items-center justify-between gap-4 flex-wrap" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-3" style={{ flex: 1, minWidth: '280px', maxWidth: '420px' }}>
+            <div style={{ position: 'relative', width: '100%' }}>
+              <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <input 
+                type="text" 
+                placeholder="Tìm kiếm mã NV, họ tên nhân viên..." 
+                className="form-input"
+                style={{ paddingLeft: '2.4rem', height: 38 }}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted font-medium">Phòng ban:</span>
+              <select 
+                className="form-input" 
+                style={{ width: 'auto', height: 38, padding: '0 0.75rem', fontSize: '0.85rem' }}
+                value={selectedDept}
+                onChange={e => setSelectedDept(e.target.value)}
+              >
+                <option value="ALL">Tất cả phòng ban ({payrolls.length})</option>
+                {departments.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="badge badge-info" style={{ fontWeight: 600, padding: '0.4rem 0.8rem' }}>
+              Tìm thấy {totalRecords} nhân sự
+            </div>
           </div>
         </div>
 
-        <div className="table-container">
+        {/* Bảng Dữ Liệu */}
+        <div className="table-container" style={{ margin: 0, borderRadius: 0 }}>
           <table>
             <thead>
-              <tr>
-                <th>Mã NV</th>
-                <th>Nhân viên</th>
-                <th><div className="text-right">Lương Hợp Đồng</div></th>
-                <th><div className="text-right">Công thực tế</div></th>
-                <th><div className="text-right">Gross</div></th>
-                <th><div className="text-right" style={{ color: 'var(--error)' }}>BHXH (10.5%)</div></th>
-                <th><div className="text-right" style={{ color: 'var(--error)' }}>Thuế TNCN</div></th>
-                <th style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)' }}><div className="text-right">Thực lãnh (Net)</div></th>
-                <th className="text-center">Thao tác</th>
+              <tr style={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                <th style={{ width: '90px' }}>MÃ NV</th>
+                <th>NHÂN VIÊN</th>
+                <th className="text-right">LƯƠNG HỢP ĐỒNG</th>
+                <th className="text-right">CÔNG THỰC TẾ</th>
+                <th className="text-right">GROSS</th>
+                <th className="text-right" style={{ color: 'var(--error)' }}>BHXH (10.5%)</th>
+                <th className="text-right" style={{ color: 'var(--error)' }}>THUẾ TNCN</th>
+                <th className="text-right" style={{ backgroundColor: 'rgba(16, 185, 129, 0.06)' }}>THỰC LÃNH (NET)</th>
+                <th className="text-center" style={{ width: '100px' }}>THAO TÁC</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="text-center p-8 text-muted">
+                  <td colSpan="9" className="text-center p-12 text-muted">
                     <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
                     Đang tải dữ liệu bảng lương...
                   </td>
                 </tr>
-              ) : filteredPayrolls.length === 0 ? (
+              ) : currentPayrolls.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center p-8 text-muted">
+                  <td colSpan="9" className="text-center p-12 text-muted">
                     {payrolls.length === 0 
                       ? 'Chưa tính bảng lương cho tháng này. Hãy bấm "Chạy Bảng Lương" phía trên!' 
                       : 'Không tìm thấy nhân viên phù hợp với bộ lọc tìm kiếm.'}
                   </td>
                 </tr>
               ) : (
-                filteredPayrolls.map(pr => {
+                currentPayrolls.map((pr, idx) => {
                   const ins = Number(pr.insuranceDeduction) || 0;
                   const tax = Number(pr.taxDeduction) || 0;
                   return (
-                    <tr key={pr.id}>
-                      <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                        {pr.employee?.code}
+                    <tr key={pr.id || idx}>
+                      <td>
+                        <span className="badge badge-outline font-bold" style={{ color: 'var(--primary)', borderColor: 'rgba(105, 108, 255, 0.3)' }}>
+                          {pr.employee?.code || `NV${String(idx+1).padStart(3, '0')}`}
+                        </span>
                       </td>
 
                       <td>
                         <div className="flex items-center gap-3">
-                          <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.8rem', background: 'var(--primary)', color: 'white' }}>
-                            {pr.employee?.fullName?.charAt(0) || 'NV'}
+                          <div className="avatar" style={{ width: 34, height: 34, fontSize: '0.85rem', background: 'var(--primary)', color: 'white', fontWeight: 700 }}>
+                            {pr.employee?.fullName?.charAt(0) || 'U'}
                           </div>
                           <div className="flex-col">
                             <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
                               {pr.employee?.fullName}
                             </span>
                             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              {pr.employee?.department?.name || 'Chưa gán PB'} - {pr.employee?.position?.title || 'Nhân viên'}
+                              {pr.employee?.department?.name || 'Chưa gán PB'} • {pr.employee?.position?.title || 'Nhân viên'}
                             </span>
                           </div>
                         </div>
@@ -386,7 +489,7 @@ export const PayrollMgmt = () => {
                       <td className="text-right money-text font-medium">{formatCurrency(pr.baseSalary)}</td>
 
                       <td className="text-right">
-                        <span className="badge badge-warning font-bold">
+                        <span className="badge badge-warning font-bold" style={{ fontSize: '0.75rem' }}>
                           {Number(pr.actualWorkingDays || 22)} / {periodInfo.standardWorkingDays || 22} công
                         </span>
                       </td>
@@ -401,7 +504,7 @@ export const PayrollMgmt = () => {
                         -{formatCurrency(tax)}
                       </td>
 
-                      <td className="text-right money-text" style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1.05rem', backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>
+                      <td className="text-right money-text" style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1rem', backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>
                         {formatCurrency(pr.netSalary)}
                       </td>
 
@@ -412,7 +515,7 @@ export const PayrollMgmt = () => {
                           style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', color: 'var(--primary)', borderColor: 'rgba(105, 108, 255, 0.3)' }}
                           title="Xem chi tiết phiếu lương và in"
                         >
-                          <Eye size={14} /> Chi tiết
+                          <Eye size={13} /> Chi tiết
                         </button>
                       </td>
                     </tr>
@@ -422,9 +525,106 @@ export const PayrollMgmt = () => {
             </tbody>
           </table>
         </div>
+
+        {/* 4. Thanh Điều Khiển Phân Trang Toàn Diện (Full Pagination Controls) */}
+        <div className="p-4 flex items-center justify-between gap-4 flex-wrap" style={{ borderTop: '1px solid var(--border)', background: 'rgba(0, 0, 0, 0.1)' }}>
+          {/* Thông tin số lượng hiển thị & Chọn kích thước trang */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted">
+              Đang hiển thị <strong>{totalRecords === 0 ? 0 : startIndex + 1}</strong> - <strong>{endIndex}</strong> / <strong>{totalRecords}</strong> nhân sự
+            </span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-muted">| Hiển thị:</span>
+              <select 
+                className="form-input" 
+                style={{ width: 'auto', height: 30, padding: '0 0.5rem', fontSize: '0.8rem' }}
+                value={pageSize}
+                onChange={e => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+              >
+                <option value={10}>10 / trang</option>
+                <option value={20}>20 / trang</option>
+                <option value={50}>50 / trang</option>
+                <option value={100}>100 / trang</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Các nút bấm chuyển trang */}
+          <div className="flex items-center gap-1">
+            {/* Trang đầu */}
+            <button 
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+              className="btn btn-outline" 
+              style={{ width: 32, height: 32, padding: 0, opacity: currentPage === 1 ? 0.4 : 1 }}
+              title="Trang đầu"
+            >
+              <ChevronsLeft size={16} />
+            </button>
+
+            {/* Trang trước */}
+            <button 
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              className="btn btn-outline" 
+              style={{ width: 32, height: 32, padding: 0, opacity: currentPage === 1 ? 0.4 : 1 }}
+              title="Trang trước"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Các số trang */}
+            {getPageNumbers().map((num, i) => (
+              num === '...' ? (
+                <span key={`dots-${i}`} className="px-2 text-muted text-xs">...</span>
+              ) : (
+                <button
+                  key={`page-${num}`}
+                  onClick={() => setCurrentPage(num)}
+                  className={`btn ${currentPage === num ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ 
+                    minWidth: 32, 
+                    height: 32, 
+                    padding: '0 0.5rem', 
+                    fontSize: '0.8rem', 
+                    fontWeight: currentPage === num ? 700 : 500,
+                    borderRadius: '6px'
+                  }}
+                >
+                  {num}
+                </button>
+              )
+            ))}
+
+            {/* Trang sau */}
+            <button 
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              className="btn btn-outline" 
+              style={{ width: 32, height: 32, padding: 0, opacity: currentPage >= totalPages ? 0.4 : 1 }}
+              title="Trang tiếp theo"
+            >
+              <ChevronRight size={16} />
+            </button>
+
+            {/* Trang cuối */}
+            <button 
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              className="btn btn-outline" 
+              style={{ width: 32, height: 32, padding: 0, opacity: currentPage >= totalPages ? 0.4 : 1 }}
+              title="Trang cuối"
+            >
+              <ChevronsRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* MODAL CHI TIẾT PHIẾU LƯƠNG NHÂN VIÊN (React Portal) */}
+      {/* 5. MODAL CHI TIẾT PHIẾU LƯƠNG NHÂN VIÊN (React Portal) */}
       {selectedPayslip && createPortal(
         <div style={{
           position: 'fixed',

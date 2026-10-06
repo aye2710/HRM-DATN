@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { 
   CalendarClock, Search, Plus, Filter, Lock, Unlock, PlayCircle, 
-  Trash2, Eye, RefreshCw, Banknote, Users, X, Check, ArrowRight
+  Trash2, Eye, RefreshCw, Banknote, Users, X, Check, ArrowRight,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -17,6 +18,10 @@ export const PayrollPeriods = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [calculatingId, setCalculatingId] = useState(null);
 
+  // Phân trang
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Modal tạo kỳ lương
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newMonth, setNewMonth] = useState(new Date().getMonth() + 1);
@@ -29,7 +34,7 @@ export const PayrollPeriods = () => {
     setLoading(true);
     try {
       const res = await axios.get('http://localhost:5000/api/payroll/periods');
-      setPeriods(res.data);
+      setPeriods(res.data || []);
     } catch (error) {
       console.error(error);
       toast.error('Không thể tải danh sách kỳ lương');
@@ -41,6 +46,10 @@ export const PayrollPeriods = () => {
   useEffect(() => {
     fetchPeriods();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(val) || 0);
@@ -169,12 +178,21 @@ export const PayrollPeriods = () => {
   };
 
   // Lọc danh sách
-  const filteredPeriods = periods.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        p.monthYear.includes(searchTerm);
-    const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const filteredPeriods = useMemo(() => {
+    return periods.filter(p => {
+      const q = searchTerm.toLowerCase().trim();
+      const matchSearch = !q || p.name.toLowerCase().includes(q) || p.monthYear.includes(q);
+      const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [periods, searchTerm, statusFilter]);
+
+  // Phân trang
+  const totalRecords = filteredPeriods.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalRecords);
+  const currentPeriods = filteredPeriods.slice(startIndex, endIndex);
 
   // Số liệu tổng hợp
   const totalCount = periods.length;
@@ -184,137 +202,160 @@ export const PayrollPeriods = () => {
 
   return (
     <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
-      {/* Tiêu đề & Nút bấm */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
-              Quản Lý Kỳ Lương
-            </h1>
-            <span className="badge badge-info" style={{ fontWeight: 600 }}>Enterprise Payroll Lifecycle</span>
+      {/* 1. Header Layout Độc Lập */}
+      <div className="card glass p-5 flex-col gap-4" style={{ borderRadius: '16px' }}>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex-col">
+            <div className="flex items-center gap-2.5">
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+                Quản Lý Kỳ Lương
+              </h1>
+              <span className="badge badge-info" style={{ fontWeight: 600 }}>Enterprise Lifecycle</span>
+            </div>
+            <p className="text-muted text-xs mt-1" style={{ margin: 0 }}>
+              Khởi tạo chu kỳ tính lương, chốt công, phân bổ quỹ lương và khóa sổ kế toán
+            </p>
           </div>
-          <p className="text-muted text-sm">Khởi tạo chu kỳ tính lương, chốt công, phân bổ quỹ lương và khóa sổ kế toán</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={fetchPeriods} className="btn btn-outline" title="Làm mới">
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          </button>
-          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary flex items-center gap-2">
-            <Plus size={18} /> Tạo Kỳ Lương Mới
-          </button>
+
+          <div className="flex items-center gap-2.5">
+            <button onClick={fetchPeriods} className="btn btn-outline" style={{ height: 36 }} title="Làm mới">
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              <span>Làm mới</span>
+            </button>
+            <button onClick={() => setShowCreateModal(true)} className="btn btn-primary flex items-center gap-1.5" style={{ height: 36 }}>
+              <Plus size={16} />
+              <span>Tạo Kỳ Lương Mới</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 4 Thẻ Thống Kê Tổng Quan */}
+      {/* 2. 4 Thẻ Thống Kê Tổng Quan */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="card glass flex-col gap-1 card-hover">
-          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider">
+        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px' }}>
+          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
             <span>Tổng số kỳ lương</span>
-            <CalendarClock size={18} color="var(--primary)" />
+            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(255, 255, 255, 0.06)' }}>
+              <CalendarClock size={16} color="var(--primary)" />
+            </div>
           </div>
-          <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)' }}>{totalCount}</span>
+          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)' }}>{totalCount}</div>
           <span className="text-xs text-muted">Toàn bộ các chu kỳ đã lập</span>
         </div>
 
-        <div className="card glass flex-col gap-1 card-hover" style={{ borderColor: 'rgba(234, 179, 8, 0.3)' }}>
-          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider">
+        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(234, 179, 8, 0.25)' }}>
+          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
             <span>Kỳ đang mở (Draft)</span>
-            <PlayCircle size={18} color="var(--warning)" />
+            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(234, 179, 8, 0.12)' }}>
+              <PlayCircle size={16} color="var(--warning)" />
+            </div>
           </div>
-          <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--warning)' }}>{draftCount}</span>
+          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--warning)' }}>{draftCount}</div>
           <span className="text-xs text-muted">Có thể chỉnh sửa & tính lại công</span>
         </div>
 
-        <div className="card glass flex-col gap-1 card-hover" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider">
+        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(16, 185, 129, 0.25)' }}>
+          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
             <span>Kỳ đã khóa sổ (Locked)</span>
-            <Lock size={18} color="var(--success)" />
+            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(16, 185, 129, 0.12)' }}>
+              <Lock size={16} color="var(--success)" />
+            </div>
           </div>
-          <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--success)' }}>{lockedCount}</span>
+          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--success)' }}>{lockedCount}</div>
           <span className="text-xs text-muted">Dữ liệu Read-only để giải ngân</span>
         </div>
 
-        <div className="card glass flex-col gap-1 card-hover" style={{ borderColor: 'rgba(105, 108, 255, 0.3)' }}>
-          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider">
+        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(105, 108, 255, 0.25)' }}>
+          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
             <span>Thực chi kỳ gần nhất</span>
-            <Banknote size={18} color="var(--primary)" />
+            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(105, 108, 255, 0.12)' }}>
+              <Banknote size={16} color="var(--primary)" />
+            </div>
           </div>
-          <span className="money-text" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>
+          <div className="money-text font-bold" style={{ fontSize: '1.45rem', color: 'var(--primary)' }}>
             {formatCurrency(latestNet)}
-          </span>
+          </div>
           <span className="text-xs text-muted">Tổng lương Net chi trả nhân sự</span>
         </div>
       </div>
 
-      {/* Bảng Dữ Liệu & Bộ Lọc */}
-      <div className="card glass flex-col gap-4">
-        <div className="flex justify-between items-center gap-4">
-          <div className="flex gap-3 items-center" style={{ flex: 1, maxWidth: '400px' }}>
+      {/* 3. Bảng Dữ Liệu & Bộ Lọc Kèm Phân Trang */}
+      <div className="card glass flex-col gap-0" style={{ padding: 0, borderRadius: '16px', overflow: 'hidden' }}>
+        <div className="p-4 flex justify-between items-center gap-4 flex-wrap" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex gap-3 items-center" style={{ flex: 1, minWidth: '280px', maxWidth: '420px' }}>
             <div style={{ position: 'relative', width: '100%' }}>
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input 
                 type="text" 
                 placeholder="Tìm theo tên kỳ (VD: 10/2026)..." 
                 className="form-input"
-                style={{ paddingLeft: '2.5rem' }}
+                style={{ paddingLeft: '2.4rem', height: 38 }}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
 
           <div className="flex gap-2 items-center">
-            <span className="text-sm text-muted">Lọc trạng thái:</span>
+            <span className="text-xs text-muted font-medium">Trạng thái:</span>
             <select 
               className="form-input" 
-              style={{ width: 'auto' }}
+              style={{ width: 'auto', height: 38, padding: '0 0.75rem', fontSize: '0.85rem' }}
               value={statusFilter} 
               onChange={e => setStatusFilter(e.target.value)}
             >
-              <option value="ALL">Tất cả trạng thái</option>
+              <option value="ALL">Tất cả trạng thái ({periods.length})</option>
               <option value="DRAFT">Bản nháp (Đang mở)</option>
               <option value="LOCKED">Đã khóa sổ</option>
             </select>
           </div>
         </div>
 
-        <div className="table-container">
+        <div className="table-container" style={{ margin: 0, borderRadius: 0 }}>
           <table>
             <thead>
-              <tr>
-                <th>Kỳ tính lương</th>
-                <th>Công chuẩn</th>
-                <th>Số nhân sự</th>
-                <th>Tổng Quỹ Gross (VND)</th>
-                <th>Thực Lãnh Net (VND)</th>
-                <th>Trạng thái</th>
-                <th className="text-center">Thao tác xử lý</th>
+              <tr style={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                <th>KỲ TÍNH LƯƠNG</th>
+                <th>CÔNG CHUẨN</th>
+                <th>SỐ NHÂN SỰ</th>
+                <th>TỔNG QUỸ GROSS</th>
+                <th>THỰC LÃNH (NET)</th>
+                <th>TRẠNG THÁI</th>
+                <th className="text-center" style={{ width: '280px' }}>THAO TÁC XỬ LÝ</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="text-center p-8 text-muted">
+                  <td colSpan="7" className="text-center p-12 text-muted">
                     <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
                     Đang tải danh sách kỳ lương...
                   </td>
                 </tr>
-              ) : filteredPeriods.length === 0 ? (
+              ) : currentPeriods.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center p-8 text-muted">
+                  <td colSpan="7" className="text-center p-12 text-muted">
                     Không tìm thấy kỳ lương nào. Hãy bấm <strong>"+ Tạo Kỳ Lương Mới"</strong> để bắt đầu.
                   </td>
                 </tr>
               ) : (
-                filteredPeriods.map(period => (
+                currentPeriods.map(period => (
                   <tr key={period.id}>
                     <td>
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg" style={{ backgroundColor: period.status === 'LOCKED' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(234, 179, 8, 0.1)' }}>
-                          <CalendarClock size={20} color={period.status === 'LOCKED' ? 'var(--success)' : 'var(--warning)'} />
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: period.status === 'LOCKED' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(234, 179, 8, 0.12)' }}>
+                          <CalendarClock size={18} color={period.status === 'LOCKED' ? 'var(--success)' : 'var(--warning)'} />
                         </div>
                         <div className="flex-col">
-                          <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.9rem' }}>
                             {period.name}
                           </span>
                           <span className="text-xs text-muted">Tháng {period.month} Năm {period.year}</span>
@@ -328,7 +369,7 @@ export const PayrollPeriods = () => {
 
                     <td>
                       <div className="flex items-center gap-1.5 font-bold text-main">
-                        <Users size={15} color="var(--text-muted)" />
+                        <Users size={14} color="var(--text-muted)" />
                         <span>{period.employees}</span>
                         <span className="text-xs text-muted font-normal">nhân sự</span>
                       </div>
@@ -339,7 +380,7 @@ export const PayrollPeriods = () => {
                     </td>
 
                     <td>
-                      <span className="money-text font-bold" style={{ color: 'var(--success)', fontSize: '1rem' }}>
+                      <span className="money-text font-bold" style={{ color: 'var(--success)', fontSize: '0.95rem' }}>
                         {formatCurrency(period.totalNet)}
                       </span>
                     </td>
@@ -362,43 +403,45 @@ export const PayrollPeriods = () => {
                         <button 
                           onClick={() => handleViewPayslips(period)}
                           className="btn btn-outline flex items-center gap-1"
-                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem', color: 'var(--primary)', borderColor: 'rgba(105, 108, 255, 0.3)' }}
+                          style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', color: 'var(--primary)', borderColor: 'rgba(105, 108, 255, 0.3)', height: 32 }}
                           title="Xem chi tiết danh sách phiếu lương của kỳ này"
                         >
-                          <Eye size={15} /> Bảng Lương
+                          <Eye size={14} /> Bảng Lương
                         </button>
 
                         {/* Chạy / Tính toán lại lương */}
                         <button 
                           onClick={() => handleCalculate(period)}
                           disabled={period.status === 'LOCKED' || calculatingId === period.id}
-                          className="btn btn-outline"
+                          className="btn btn-outline flex items-center gap-1"
                           style={{ 
-                            padding: '0.4rem 0.6rem', 
+                            padding: '0.35rem 0.65rem', 
                             fontSize: '0.8rem',
+                            height: 32,
                             color: period.status === 'LOCKED' ? 'var(--text-muted)' : 'var(--warning)',
                             borderColor: period.status === 'LOCKED' ? 'transparent' : 'rgba(234, 179, 8, 0.4)'
                           }}
                           title={period.status === 'LOCKED' ? "Kỳ đã khóa sổ" : "Chạy tính toán lại lương toàn bộ nhân sự"}
                         >
-                          <PlayCircle size={15} className={calculatingId === period.id ? 'animate-spin' : ''} />
-                          {calculatingId === period.id ? 'Đang tính...' : 'Tính Lương'}
+                          <PlayCircle size={14} className={calculatingId === period.id ? 'animate-spin' : ''} />
+                          <span>{calculatingId === period.id ? 'Đang tính...' : 'Tính Lương'}</span>
                         </button>
 
                         {/* Khóa / Mở Khóa */}
                         <button 
                           onClick={() => handleToggleLock(period)}
-                          className="btn btn-outline"
+                          className="btn btn-outline flex items-center gap-1"
                           style={{ 
-                            padding: '0.4rem 0.6rem', 
+                            padding: '0.35rem 0.65rem', 
                             fontSize: '0.8rem',
+                            height: 32,
                             color: period.status === 'LOCKED' ? 'var(--primary)' : 'var(--error)',
                             borderColor: period.status === 'LOCKED' ? 'rgba(105, 108, 255, 0.3)' : 'rgba(239, 68, 68, 0.3)'
                           }}
                           title={period.status === 'LOCKED' ? "Mở khóa sổ" : "Khóa sổ kỳ lương"}
                         >
-                          {period.status === 'LOCKED' ? <Unlock size={15} /> : <Lock size={15} />}
-                          {period.status === 'LOCKED' ? 'Mở Khóa' : 'Khóa'}
+                          {period.status === 'LOCKED' ? <Unlock size={14} /> : <Lock size={14} />}
+                          <span>{period.status === 'LOCKED' ? 'Mở Khóa' : 'Khóa'}</span>
                         </button>
 
                         {/* Xóa (chỉ xóa khi DRAFT) */}
@@ -406,10 +449,10 @@ export const PayrollPeriods = () => {
                           <button 
                             onClick={() => handleDeletePeriod(period)}
                             className="btn btn-outline"
-                            style={{ padding: '0.4rem 0.5rem', border: 'none', color: 'var(--error)' }}
+                            style={{ width: 32, height: 32, padding: 0, border: 'none', color: 'var(--error)' }}
                             title="Xóa kỳ lương này"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={14} />
                           </button>
                         )}
                       </div>
@@ -420,9 +463,78 @@ export const PayrollPeriods = () => {
             </tbody>
           </table>
         </div>
+
+        {/* 4. Thanh Phân Trang */}
+        <div className="p-4 flex items-center justify-between gap-4 flex-wrap" style={{ borderTop: '1px solid var(--border)', background: 'rgba(0, 0, 0, 0.1)' }}>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted">
+              Đang hiển thị <strong>{totalRecords === 0 ? 0 : startIndex + 1}</strong> - <strong>{endIndex}</strong> / <strong>{totalRecords}</strong> kỳ lương
+            </span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-muted">| Hiển thị:</span>
+              <select 
+                className="form-input" 
+                style={{ width: 'auto', height: 30, padding: '0 0.5rem', fontSize: '0.8rem' }}
+                value={pageSize}
+                onChange={e => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+              >
+                <option value={10}>10 / trang</option>
+                <option value={20}>20 / trang</option>
+                <option value={50}>50 / trang</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button 
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+              className="btn btn-outline" 
+              style={{ width: 32, height: 32, padding: 0, opacity: currentPage === 1 ? 0.4 : 1 }}
+              title="Trang đầu"
+            >
+              <ChevronsLeft size={16} />
+            </button>
+            <button 
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              className="btn btn-outline" 
+              style={{ width: 32, height: 32, padding: 0, opacity: currentPage === 1 ? 0.4 : 1 }}
+              title="Trang trước"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            <span className="px-3 text-xs font-bold text-main">
+              Trang {currentPage} / {totalPages}
+            </span>
+
+            <button 
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              className="btn btn-outline" 
+              style={{ width: 32, height: 32, padding: 0, opacity: currentPage >= totalPages ? 0.4 : 1 }}
+              title="Trang tiếp theo"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button 
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              className="btn btn-outline" 
+              style={{ width: 32, height: 32, padding: 0, opacity: currentPage >= totalPages ? 0.4 : 1 }}
+              title="Trang cuối"
+            >
+              <ChevronsRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* MODAL TẠO KỲ LƯƠNG MỚI (React Portal Full Screen Backdrop) */}
+      {/* 5. MODAL TẠO KỲ LƯƠNG MỚI (React Portal Full Screen Backdrop) */}
       {showCreateModal && createPortal(
         <div style={{
           position: 'fixed',
