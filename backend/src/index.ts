@@ -17,6 +17,7 @@ import payrollRoutes from './routes/payroll.routes';
 import kpiRoutes from './routes/kpi.routes';
 import holidayRoutes from './routes/holiday.routes';
 import decisionRoutes from './routes/decision.routes';
+import reportRoutes from './routes/report.routes';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -37,6 +38,7 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/decisions', decisionRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/kpi', kpiRoutes);
 app.use('/api/holidays', holidayRoutes);
