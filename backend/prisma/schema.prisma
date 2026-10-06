@@ -74,6 +74,7 @@ model Department {
   positions    Position[]
   jobPostings  JobPosting[]
   employmentHistories EmploymentHistory[]
+  decisions    Decision[]
 }
 
 model Position {
@@ -92,6 +93,7 @@ model Position {
   employees    Employee[]
   jobPostings  JobPosting[]
   employmentHistories EmploymentHistory[]
+  decisions    Decision[]
 }
 
 enum EmployeeStatus {
@@ -147,6 +149,53 @@ model Employee {
   certificates   Certificate[]
   employmentHistories EmploymentHistory[]
   attendanceAdjustments AttendanceAdjustment[]
+  decisions           Decision[]
+}
+
+enum DecisionType {
+  SALARY_ADJUSTMENT
+  PROMOTION
+  TRANSFER
+  TERMINATION
+  REWARD
+  DISCIPLINE
+}
+
+enum DecisionStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Decision {
+  id              String         @id @default(uuid())
+  decisionNumber  String         @unique
+  title           String
+  type            DecisionType
+  employeeId      String
+  employee        Employee       @relation(fields: [employeeId], references: [id])
+  
+  oldSalary       Decimal?
+  newSalary       Decimal?
+  
+  oldDepartmentId String?
+  newDepartmentId String?
+  newDepartment   Department?    @relation(fields: [newDepartmentId], references: [id])
+  
+  oldPositionId   String?
+  newPositionId   String?
+  newPosition     Position?      @relation(fields: [newPositionId], references: [id])
+  
+  reason          String?        @db.Text
+  effectiveDate   DateTime       @default(now())
+  status          DecisionStatus @default(PENDING)
+  
+  signBy          String?
+  signDate        DateTime?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 model Relative {

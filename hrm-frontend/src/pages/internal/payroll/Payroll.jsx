@@ -11,11 +11,17 @@ export const PayrollMgmt = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
+  const [periodInfo, setPeriodInfo] = useState({ status: 'DRAFT' });
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/payroll?month=${month}&year=${year}`);
-      setPayrolls(res.data);
+      const [payrollRes, periodRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/payroll?month=${month}&year=${year}`),
+        axios.get(`http://localhost:5000/api/payroll/period/info?month=${month}&year=${year}`)
+      ]);
+      setPayrolls(payrollRes.data);
+      setPeriodInfo(periodRes.data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -28,12 +34,48 @@ export const PayrollMgmt = () => {
   }, [month, year]);
 
   const handleGenerate = async () => {
+    if (periodInfo.status === 'LOCKED') {
+      return toast.error(`Kỳ lương ${month}/${year} đã bị KHÓA SỔ. Cần mở khóa trước khi chạy lại!`);
+    }
     try {
       await axios.post('http://localhost:5000/api/payroll/generate', { month, year });
       toast.success(`Đã tính toán xong bảng lương tháng ${month}/${year}`);
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Lỗi khi tính lương');
+    }
+  };
+
+  const handleTogglePeriodLock = async () => {
+    const isLocked = periodInfo.status === 'LOCKED';
+    const actionText = isLocked ? 'MỞ KHÓA' : 'KHÓA SỔ';
+    const confirmText = isLocked
+      ? `Bạn có chắc muốn MỞ KHÓA kỳ lương tháng ${month}/${year}? (Cho phép nhân sự điều chỉnh công và tính lại lương)`
+      : `Bạn có chắc muốn KHÓA SỔ kỳ lương tháng ${month}/${year}? (Sau khi khóa, dữ liệu công và lương sẽ chuyển sang Read-Only để phục vụ chi trả)`;
+
+    const result = await Swal.fire({
+      title: `${actionText} Kỳ Lương?`,
+      text: confirmText,
+      icon: isLocked ? 'info' : 'warning',
+      showCancelButton: true,
+      confirmButtonText: `${actionText} ngay`,
+      cancelButtonText: 'Đóng',
+      confirmButtonColor: isLocked ? '#0284c7' : '#ef4444'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const nextStatus = isLocked ? 'DRAFT' : 'LOCKED';
+        await axios.post('http://localhost:5000/api/payroll/period/toggle-lock', {
+          month,
+          year,
+          status: nextStatus
+        });
+        toast.success(`Đã ${actionText} kỳ lương thành công!`);
+        fetchData();
+      } catch (err) {
+        toast.error('Lỗi khi đổi trạng thái khóa kỳ lương');
+      }
     }
   };
 
@@ -90,9 +132,20 @@ export const PayrollMgmt = () => {
     <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-             Bảng Lương Tháng {month}/{year}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+               Bảng Lương Tháng {month}/{year}
+            </h2>
+            {periodInfo.status === 'LOCKED' ? (
+              <span className="badge badge-danger flex items-center gap-1 font-bold">
+                <Lock size={12} /> ĐÃ KHÓA SỔ
+              </span>
+            ) : (
+              <span className="badge badge-warning flex items-center gap-1 font-bold">
+                BẢN NHÁP (MỞ)
+              </span>
+            )}
+          </div>
           <p className="text-muted mt-1">Động cơ tính lương tự động cào số công & hợp đồng</p>
         </div>
         <div className="flex gap-3 items-center">
@@ -105,7 +158,15 @@ export const PayrollMgmt = () => {
                 <option value={2025}>2025</option>
              </select>
           </div>
-          <button onClick={handleGenerate} className="btn btn-primary">
+          <button
+            onClick={handleTogglePeriodLock}
+            className="btn btn-outline"
+            style={periodInfo.status === 'LOCKED' ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : { borderColor: 'var(--danger)', color: 'var(--danger)' }}
+            title={periodInfo.status === 'LOCKED' ? "Mở khóa sổ" : "Khóa sổ kỳ lương"}
+          >
+            <Lock size={18} /> {periodInfo.status === 'LOCKED' ? 'Mở Khóa Sổ' : 'Khóa Sổ Kỳ Này'}
+          </button>
+          <button onClick={handleGenerate} className="btn btn-primary" disabled={periodInfo.status === 'LOCKED'}>
             <Calculator size={18} /> Chạy Bảng Lương
           </button>
           <button onClick={handleExportExcel} className="btn btn-outline" style={{ borderColor: 'var(--success)', color: 'var(--success)' }}>

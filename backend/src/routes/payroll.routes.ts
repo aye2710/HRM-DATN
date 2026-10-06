@@ -64,6 +64,12 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
       where: { monthYear: monthYearStr }
     });
 
+    if (period && period.status === 'LOCKED') {
+      return res.status(400).json({
+        error: `Kỳ lương tháng ${month}/${year} đã bị KHÓA SỔ (LOCKED). Không thể tính lại trừ khi Ban Giám Đốc mở khóa!`
+      });
+    }
+
     if (!period) {
       period = await prisma.payrollPeriod.create({
         data: {
@@ -134,6 +140,57 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Lỗi server khi tính lương' });
+  }
+});
+
+// Lấy thông tin trạng thái kỳ lương
+router.get('/period/info', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ error: 'Thiếu tháng hoặc năm' });
+    const monthYearStr = `${month}-${year}`;
+    const period = await prisma.payrollPeriod.findUnique({
+      where: { monthYear: monthYearStr }
+    });
+    return res.json(period || { monthYear: monthYearStr, status: 'DRAFT' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Lỗi khi lấy thông tin kỳ lương' });
+  }
+});
+
+// Khóa hoặc mở khóa kỳ lương
+router.post('/period/toggle-lock', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { month, year, status } = req.body;
+    if (!month || !year) return res.status(400).json({ error: 'Thiếu tháng hoặc năm' });
+    const monthYearStr = `${month}-${year}`;
+    const targetStatus = status || 'LOCKED';
+
+    let period = await prisma.payrollPeriod.findUnique({
+      where: { monthYear: monthYearStr }
+    });
+
+    if (!period) {
+      period = await prisma.payrollPeriod.create({
+        data: {
+          monthYear: monthYearStr,
+          standardWorkingDays: 22,
+          status: targetStatus
+        }
+      });
+    } else {
+      period = await prisma.payrollPeriod.update({
+        where: { id: period.id },
+        data: { status: targetStatus }
+      });
+    }
+
+    return res.json({
+      message: `Đã ${targetStatus === 'LOCKED' ? 'KHÓA SỔ' : 'MỞ KHÓA'} kỳ lương ${month}/${year} thành công`,
+      period
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Lỗi khi cập nhật trạng thái khóa kỳ lương' });
   }
 });
 

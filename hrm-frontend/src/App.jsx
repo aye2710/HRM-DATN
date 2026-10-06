@@ -30,6 +30,7 @@ import { SystemAccounts } from './pages/internal/onboarding/SystemAccounts';
 import { OnboardingProgress } from './pages/internal/onboarding/OnboardingProgress';
 
 import { EmploymentHistory } from './pages/internal/employees/EmploymentHistory';
+import { Decisions } from './pages/internal/employees/Decisions';
 import { Contracts } from './pages/internal/employees/Contracts';
 import { Transfers } from './pages/internal/employees/Transfers';
 import { Terminations } from './pages/internal/employees/Terminations';
@@ -91,6 +92,7 @@ const internalLinks = [
     to: '/internal/employees', label: 'Nhân sự', icon: <Users size={20} />,
     children: [
       { to: '/internal/employees/profiles', label: 'Hồ sơ cá nhân' },
+      { to: '/internal/employees/decisions', label: 'Quyết định nhân sự' },
       { to: '/internal/employees/jobs', label: 'Quản lý việc làm' },
       { to: '/internal/employees/contracts', label: 'Hợp đồng lao động' },
       { to: '/internal/employees/transfers', label: 'Điều chuyển' },
@@ -195,6 +197,7 @@ function App() {
 
               <Route path="employees/profiles" element={<EmployeeList />} />
               <Route path="employees/profiles/:id" element={<EmployeeDetail />} />
+              <Route path="employees/decisions" element={<Decisions />} />
               <Route path="employees/jobs" element={<EmploymentHistory />} />
               <Route path="employees/contracts" element={<Contracts />} />
               <Route path="employees/transfers" element={<Transfers />} />

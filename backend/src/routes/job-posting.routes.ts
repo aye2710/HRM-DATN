@@ -30,11 +30,39 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST: Tạo Job Posting
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response): Promise<any> => {
   try {
     const { title, description, status, amount, deadline, departmentId, positionId, salaryRange, jobType, level } = req.body;
     
     if (!title) return res.status(400).json({ error: 'Tiêu đề không được bỏ trống' });
+
+    // 1. Kiểm tra Định biên nhân sự (Quota) của phòng ban
+    if (departmentId) {
+      const dept = await prisma.department.findUnique({
+        where: { id: departmentId as string },
+        include: {
+          _count: {
+            select: {
+              employees: {
+                where: { status: { not: 'RESIGNED' } }
+              }
+            }
+          }
+        }
+      });
+
+      if (dept) {
+        const currentEmployees = dept._count.employees;
+        const requestedAmount = amount ? parseInt(amount as string) : 1;
+        const quota = dept.quota || 15;
+
+        if (currentEmployees + requestedAmount > quota) {
+          return res.status(400).json({
+            error: `Phòng ban "${dept.name}" đã vượt trần định biên nhân sự! (Hiện tại: ${currentEmployees}/${quota} nhân sự, đang yêu cầu tuyển thêm: ${requestedAmount}). Cần phê duyệt nâng định biên trước khi đăng tuyển.`
+          });
+        }
+      }
+    }
 
     const newJob = await prisma.jobPosting.create({
       data: { 
@@ -50,17 +78,45 @@ router.post('/', async (req: Request, res: Response) => {
         level: level ? (level as string) : null
       }
     });
-    res.status(201).json(newJob);
+    return res.status(201).json(newJob);
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi thêm tin tuyển dụng' });
+    return res.status(500).json({ error: 'Lỗi khi thêm tin tuyển dụng' });
   }
 });
 
 // PUT: Cập nhật Job Posting
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { title, description, status, amount, deadline, departmentId, positionId, salaryRange, jobType, level } = req.body;
+
+    // Kiểm tra định biên nếu có thay đổi số lượng hoặc phòng ban
+    if (departmentId && amount) {
+      const dept = await prisma.department.findUnique({
+        where: { id: departmentId as string },
+        include: {
+          _count: {
+            select: {
+              employees: {
+                where: { status: { not: 'RESIGNED' } }
+              }
+            }
+          }
+        }
+      });
+
+      if (dept) {
+        const currentEmployees = dept._count.employees;
+        const requestedAmount = parseInt(amount as string);
+        const quota = dept.quota || 15;
+
+        if (currentEmployees + requestedAmount > quota) {
+          return res.status(400).json({
+            error: `Phòng ban "${dept.name}" vượt trần định biên! (Hiện có: ${currentEmployees}/${quota}, yêu cầu tuyển: ${requestedAmount}).`
+          });
+        }
+      }
+    }
     
     const updatedJob = await prisma.jobPosting.update({
       where: { id },

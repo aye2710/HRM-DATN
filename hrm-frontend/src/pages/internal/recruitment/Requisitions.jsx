@@ -86,17 +86,37 @@ export const Requisitions = () => {
     if (modalMode === 'add') {
       axios.post('http://localhost:5000/api/job-postings', formData)
         .then(() => {
+          toast.success("Thêm yêu cầu tuyển dụng thành công!");
           fetchData();
           setShowModal(false);
         })
-        .catch(err => toast.error("Lỗi khi thêm yêu cầu"));
+        .catch(err => {
+          const errMsg = err.response?.data?.error || "Lỗi khi thêm yêu cầu";
+          Swal.fire({
+            title: 'Kiểm Soát Định Biên',
+            text: errMsg,
+            icon: 'warning',
+            confirmButtonText: 'Đã hiểu',
+            confirmButtonColor: '#7c3aed'
+          });
+        });
     } else {
       axios.put(`http://localhost:5000/api/job-postings/${editingId}`, formData)
         .then(() => {
+          toast.success("Cập nhật thành công!");
           fetchData();
           setShowModal(false);
         })
-        .catch(err => toast.error("Lỗi khi cập nhật"));
+        .catch(err => {
+          const errMsg = err.response?.data?.error || "Lỗi khi cập nhật";
+          Swal.fire({
+            title: 'Kiểm Soát Định Biên',
+            text: errMsg,
+            icon: 'warning',
+            confirmButtonText: 'Đã hiểu',
+            confirmButtonColor: '#7c3aed'
+          });
+        });
     }
   };
 
