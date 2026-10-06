@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileSignature, Search, Plus, Filter, CheckCircle2, XCircle, ArrowRight, ShieldCheck, AlertCircle, Eye, Calendar, DollarSign, Award, UserCheck, TrendingUp, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { 
+  FileSignature, Search, Plus, Filter, CheckCircle2, XCircle, ArrowRight, 
+  AlertCircle, Eye, Calendar, DollarSign, Award, TrendingUp, X, Trash2, Building, Briefcase 
+} from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -16,7 +20,7 @@ export const Decisions = () => {
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  // Modal
+  // Modals
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedDecision, setSelectedDecision] = useState(null);
@@ -106,7 +110,7 @@ export const Decisions = () => {
     const newType = e.target.value;
     let defaultTitle = '';
     if (newType === 'SALARY_ADJUSTMENT') defaultTitle = 'Quyết định điều chỉnh mức lương';
-    else if (newType === 'PROMOTION') defaultTitle = 'Quyết định bổ nhiệm chức danh mới';
+    else if (newType === 'PROMOTION') defaultTitle = 'Quyết định bổ nhiệm chức vụ mới';
     else if (newType === 'TRANSFER') defaultTitle = 'Quyết định điều chuyển đơn vị công tác';
     else if (newType === 'TERMINATION') defaultTitle = 'Quyết định chấm dứt hợp đồng lao động';
     else if (newType === 'REWARD') defaultTitle = 'Quyết định khen thưởng thành tích xuất sắc';
@@ -147,15 +151,15 @@ export const Decisions = () => {
   const handleApprove = async (dec) => {
     const result = await Swal.fire({
       title: 'Phê duyệt & Ban hành?',
-      html: `Bạn có chắc muốn ban hành <b>${dec.decisionNumber}</b>?<br/><br/>
-             <span style="font-size: 0.9rem; color: #64748b;">
-             Hệ thống sẽ <b>tự động đồng bộ</b> dữ liệu (mức lương / chức vụ / phòng ban) vào Hồ sơ nhân sự và lưu vào lịch sử biến động.
+      html: `Bạn có chắc muốn ban hành quyết định <b>${dec.decisionNumber}</b>?<br/><br/>
+             <span style="font-size: 0.85rem; color: #64748b;">
+             Hệ thống sẽ <b>tự động đồng bộ</b> mức lương / chức vụ vào Hồ sơ nhân sự và lưu vào lịch sử công tác.
              </span>`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Ban hành ngay',
       cancelButtonText: 'Đóng',
-      confirmButtonColor: '#7c3aed'
+      confirmButtonColor: '#2563eb'
     });
 
     if (result.isConfirmed) {
@@ -164,7 +168,8 @@ export const Decisions = () => {
         Swal.fire({
           title: 'Thành công!',
           text: res.data.message,
-          icon: 'success'
+          icon: 'success',
+          confirmButtonColor: '#2563eb'
         });
         fetchData();
       } catch (error) {
@@ -218,11 +223,11 @@ export const Decisions = () => {
     }
   };
 
-  // Lọc danh sách
+  // Filter
   const filteredDecisions = decisions.filter(d => {
     const matchSearch = d.decisionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        d.employee?.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+                        (d.employee?.fullName && d.employee.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchType = typeFilter ? d.type === typeFilter : true;
     const matchStatus = statusFilter ? d.status === statusFilter : true;
     return matchSearch && matchType && matchStatus;
@@ -231,15 +236,15 @@ export const Decisions = () => {
   const renderTypeBadge = (type) => {
     switch (type) {
       case 'SALARY_ADJUSTMENT':
-        return <span className="badge" style={{ backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.3)' }}><DollarSign size={12} className="inline mr-1" />Điều chỉnh lương</span>;
+        return <span className="badge" style={{ backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.25)' }}><DollarSign size={12} style={{ display: 'inline', marginRight: '4px' }} />Điều chỉnh lương</span>;
       case 'PROMOTION':
-        return <span className="badge" style={{ backgroundColor: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', border: '1px solid rgba(2, 132, 199, 0.3)' }}><TrendingUp size={12} className="inline mr-1" />Bổ nhiệm chức vụ</span>;
+        return <span className="badge" style={{ backgroundColor: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', border: '1px solid rgba(2, 132, 199, 0.25)' }}><TrendingUp size={12} style={{ display: 'inline', marginRight: '4px' }} />Bổ nhiệm chức vụ</span>;
       case 'TRANSFER':
-        return <span className="badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}><ArrowRight size={12} className="inline mr-1" />Điều chuyển</span>;
+        return <span className="badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)' }}><ArrowRight size={12} style={{ display: 'inline', marginRight: '4px' }} />Điều chuyển</span>;
       case 'TERMINATION':
-        return <span className="badge" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}><XCircle size={12} className="inline mr-1" />Thôi việc</span>;
+        return <span className="badge" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)' }}><XCircle size={12} style={{ display: 'inline', marginRight: '4px' }} />Thôi việc</span>;
       case 'REWARD':
-        return <span className="badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}><Award size={12} className="inline mr-1" />Khen thưởng</span>;
+        return <span className="badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.25)' }}><Award size={12} style={{ display: 'inline', marginRight: '4px' }} />Khen thưởng</span>;
       default:
         return <span className="badge badge-info">{type}</span>;
     }
@@ -248,116 +253,117 @@ export const Decisions = () => {
   const renderStatusBadge = (status) => {
     switch (status) {
       case 'APPROVED':
-        return <span className="badge badge-success"><CheckCircle2 size={12} className="inline mr-1" />Đã ban hành</span>;
+        return <span className="badge badge-success"><CheckCircle2 size={12} style={{ display: 'inline', marginRight: '4px' }} />Đã ban hành</span>;
       case 'PENDING':
-        return <span className="badge badge-warning"><AlertCircle size={12} className="inline mr-1" />Chờ phê duyệt</span>;
+        return <span className="badge badge-warning"><AlertCircle size={12} style={{ display: 'inline', marginRight: '4px' }} />Chờ phê duyệt</span>;
       case 'REJECTED':
-        return <span className="badge badge-danger"><XCircle size={12} className="inline mr-1" />Từ chối</span>;
+        return <span className="badge badge-danger"><XCircle size={12} style={{ display: 'inline', marginRight: '4px' }} />Từ chối</span>;
       default:
-        return <span className="badge badge-info">Nháp</span>;
+        return <span className="badge badge-info">Bản nháp</span>;
     }
   };
 
   return (
-    <div className="flex-col gap-6 animate-fade-in">
+    <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
             Quyết Định Nhân Sự
           </h1>
-          <p className="text-muted text-sm">
+          <p className="text-muted" style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem' }}>
             Quản trị các văn bản pháp lý biến động nhân sự (Bổ nhiệm, Điều chuyển, Tăng lương, Thôi việc)
           </p>
         </div>
-        <button onClick={handleOpenAdd} className="btn btn-primary">
+        <button onClick={handleOpenAdd} className="btn btn-primary" style={{ padding: '0.625rem 1.25rem', height: '40px' }}>
           <Plus size={18} /> Tạo Quyết Định Mới
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card glass p-4 flex items-center gap-4">
-          <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed' }}>
-            <FileSignature size={24} />
+      {/* 4 Stats Cards — Displayed in 1 clean horizontal row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+        <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: '#ffffff' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <FileSignature size={22} />
           </div>
-          <div>
-            <div className="text-xs text-muted font-medium">Tổng Quyết định</div>
-            <div className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{decisions.length}</div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Tổng Quyết định</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.2 }}>{decisions.length}</span>
           </div>
         </div>
 
-        <div className="card glass p-4 flex items-center gap-4">
-          <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
-            <AlertCircle size={24} />
+        <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: '#ffffff' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <AlertCircle size={22} />
           </div>
-          <div>
-            <div className="text-xs text-muted font-medium">Chờ duyệt ban hành</div>
-            <div className="text-2xl font-bold text-warning">
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Chờ duyệt ban hành</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f59e0b', lineHeight: 1.2 }}>
               {decisions.filter(d => d.status === 'PENDING').length}
-            </div>
+            </span>
           </div>
         </div>
 
-        <div className="card glass p-4 flex items-center gap-4">
-          <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
-            <CheckCircle2 size={24} />
+        <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: '#ffffff' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <CheckCircle2 size={22} />
           </div>
-          <div>
-            <div className="text-xs text-muted font-medium">Đã ban hành có hiệu lực</div>
-            <div className="text-2xl font-bold text-success">
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Đã ban hành</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#10b981', lineHeight: 1.2 }}>
               {decisions.filter(d => d.status === 'APPROVED').length}
-            </div>
+            </span>
           </div>
         </div>
 
-        <div className="card glass p-4 flex items-center gap-4">
-          <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(2, 132, 199, 0.1)', color: '#0284c7' }}>
-            <TrendingUp size={24} />
+        <div className="card" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: '#ffffff' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <TrendingUp size={22} />
           </div>
-          <div>
-            <div className="text-xs text-muted font-medium">Điều chỉnh lương / Vị trí</div>
-            <div className="text-2xl font-bold text-primary">
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Lương & Bổ nhiệm</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0284c7', lineHeight: 1.2 }}>
               {decisions.filter(d => d.type === 'SALARY_ADJUSTMENT' || d.type === 'PROMOTION').length}
-            </div>
+            </span>
           </div>
         </div>
       </div>
 
       {/* Main Table Card */}
-      <div className="card glass flex-col gap-4">
+      <div className="card" style={{ padding: '1.25rem', background: '#ffffff', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Filter Bar */}
-        <div className="flex flex-wrap justify-between items-center gap-4">
-          <div className="flex gap-3 items-center flex-1 max-w-md">
-            <div style={{ position: 'relative', width: '100%' }}>
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
-              <input
-                type="text"
-                placeholder="Tìm số QĐ, tên quyết định, nhân sự..."
-                className="form-input"
-                style={{ paddingLeft: '2.5rem' }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ position: 'relative', width: '350px' }}>
+            <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              placeholder="Tìm số QĐ, trích yếu, tên nhân sự..."
+              className="form-input"
+              style={{ paddingLeft: '2.5rem', height: '38px' }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          <div className="flex gap-3 items-center">
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <select
-              className="form-select text-sm"
+              className="form-select"
+              style={{ width: '190px', height: '38px' }}
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
             >
               <option value="">Tất cả loại quyết định</option>
               <option value="SALARY_ADJUSTMENT">Điều chỉnh lương</option>
               <option value="PROMOTION">Bổ nhiệm chức vụ</option>
-              <option value="TRANSFER">Điều chuyển công tác</option>
-              <option value="TERMINATION">Thôi việc</option>
+              <option value="TRANSFER">Điều chuyển phòng ban</option>
+              <option value="TERMINATION">Thôi việc / Chấm dứt HĐ</option>
               <option value="REWARD">Khen thưởng</option>
+              <option value="DISCIPLINE">Kỷ luật</option>
             </select>
 
             <select
-              className="form-select text-sm"
+              className="form-select"
+              style={{ width: '160px', height: '38px' }}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -374,13 +380,13 @@ export const Decisions = () => {
           <table>
             <thead>
               <tr>
-                <th>Số Quyết Định</th>
+                <th style={{ width: '140px' }}>Số Quyết Định</th>
                 <th>Trích yếu & Loại</th>
                 <th>Nhân sự áp dụng</th>
-                <th>Biến động nghiệp vụ</th>
-                <th>Ngày hiệu lực</th>
-                <th>Trạng thái</th>
-                <th className="text-center">Thao tác</th>
+                <th>Nội dung biến động</th>
+                <th style={{ width: '130px' }}>Ngày hiệu lực</th>
+                <th style={{ width: '130px' }}>Trạng thái</th>
+                <th style={{ width: '120px', textAlign: 'center' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -396,80 +402,80 @@ export const Decisions = () => {
                 filteredDecisions.map(dec => (
                   <tr key={dec.id}>
                     <td>
-                      <div className="flex items-center gap-2">
-                        <FileSignature size={16} color="var(--primary)" />
-                        <span className="font-bold text-primary">{dec.decisionNumber}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FileSignature size={15} color="var(--primary)" />
+                        <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{dec.decisionNumber}</span>
                       </div>
                     </td>
                     <td>
-                      <div className="flex-col gap-1">
-                        <span className="font-semibold text-main text-sm">{dec.title}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{dec.title}</span>
                         <div>{renderTypeBadge(dec.type)}</div>
                       </div>
                     </td>
                     <td>
-                      <div className="flex-col">
-                        <span className="font-medium text-main">{dec.employee?.fullName}</span>
-                        <span className="text-xs text-muted">
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{dec.employee?.fullName}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           {dec.employee?.code} • {dec.employee?.department?.name || 'Chưa gán PB'}
                         </span>
                       </div>
                     </td>
                     <td>
                       {dec.type === 'SALARY_ADJUSTMENT' && (
-                        <div className="text-sm">
-                          <span className="text-muted line-through">{Number(dec.oldSalary || 0).toLocaleString()}</span>
-                          <span className="mx-1 text-primary font-bold">➔</span>
-                          <span className="font-bold text-success">{Number(dec.newSalary || 0).toLocaleString()} VNĐ</span>
+                        <div style={{ fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)', textDecoration: 'line-through' }}>{Number(dec.oldSalary || 0).toLocaleString()}</span>
+                          <span style={{ margin: '0 6px', color: 'var(--primary)', fontWeight: 700 }}>➔</span>
+                          <span style={{ fontWeight: 700, color: '#10b981' }}>{Number(dec.newSalary || 0).toLocaleString()} VNĐ</span>
                         </div>
                       )}
                       {dec.type === 'PROMOTION' && (
-                        <div className="text-sm">
-                          <span className="text-muted">Chức vụ mới:</span>{' '}
-                          <span className="font-bold text-primary">{dec.newPosition?.title || 'Đang cập nhật'}</span>
+                        <div style={{ fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Chức vụ mới:</span>{' '}
+                          <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{dec.newPosition?.title || 'Đang cập nhật'}</span>
                         </div>
                       )}
                       {dec.type === 'TRANSFER' && (
-                        <div className="text-sm">
-                          <span className="text-muted">Đơn vị mới:</span>{' '}
-                          <span className="font-bold text-primary">{dec.newDepartment?.name || 'Đang cập nhật'}</span>
+                        <div style={{ fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Phòng ban mới:</span>{' '}
+                          <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{dec.newDepartment?.name || 'Đang cập nhật'}</span>
                         </div>
                       )}
                       {dec.type === 'TERMINATION' && (
-                        <div className="text-sm text-danger font-semibold">Chấm dứt HĐLĐ</div>
+                        <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600 }}>Chấm dứt HĐLĐ</span>
                       )}
                       {(dec.type === 'REWARD' || dec.type === 'DISCIPLINE') && (
-                        <div className="text-xs text-muted italic max-w-xs truncate">{dec.reason || 'Khen thưởng định kỳ'}</div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>{dec.reason || 'Khen thưởng định kỳ'}</span>
                       )}
                     </td>
                     <td>
-                      <div className="flex items-center gap-1 text-sm text-muted">
-                        <Calendar size={14} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        <Calendar size={13} />
                         {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
                       </div>
                     </td>
                     <td>
                       {renderStatusBadge(dec.status)}
                     </td>
-                    <td className="text-center">
-                      <div className="flex items-center justify-center gap-2">
+                    <td style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         {dec.status === 'PENDING' && (
                           <>
                             <button
                               onClick={() => handleApprove(dec)}
                               className="btn btn-outline"
-                              style={{ padding: '0.4rem', border: '1px solid var(--success)', color: 'var(--success)' }}
+                              style={{ padding: '0.35rem', height: '30px', width: '30px', borderColor: '#10b981', color: '#10b981' }}
                               title="Ban hành Quyết định"
                             >
-                              <CheckCircle2 size={16} />
+                              <CheckCircle2 size={15} />
                             </button>
                             <button
                               onClick={() => handleReject(dec)}
                               className="btn btn-outline"
-                              style={{ padding: '0.4rem', border: '1px solid var(--danger)', color: 'var(--danger)' }}
+                              style={{ padding: '0.35rem', height: '30px', width: '30px', borderColor: '#ef4444', color: '#ef4444' }}
                               title="Từ chối ban hành"
                             >
-                              <XCircle size={16} />
+                              <XCircle size={15} />
                             </button>
                           </>
                         )}
@@ -479,19 +485,19 @@ export const Decisions = () => {
                             setShowDetailModal(true);
                           }}
                           className="btn btn-outline"
-                          style={{ padding: '0.4rem' }}
+                          style={{ padding: '0.35rem', height: '30px', width: '30px' }}
                           title="Xem chi tiết"
                         >
-                          <Eye size={16} />
+                          <Eye size={15} />
                         </button>
                         {dec.status !== 'APPROVED' && (
                           <button
                             onClick={() => handleDelete(dec)}
                             className="btn btn-outline"
-                            style={{ padding: '0.4rem', color: 'var(--danger)' }}
+                            style={{ padding: '0.35rem', height: '30px', width: '30px', color: '#ef4444' }}
                             title="Xóa bản nháp"
                           >
-                            <X size={16} />
+                            <Trash2 size={15} />
                           </button>
                         )}
                       </div>
@@ -504,23 +510,64 @@ export const Decisions = () => {
         </div>
       </div>
 
-      {/* Modal Tạo Quyết Định Mới */}
-      {showModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content glass max-w-2xl animate-scale-up" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-border">
-              <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
-                <FileSignature className="text-primary" /> Soạn Thảo Quyết Định Nhân Sự
-              </h2>
-              <button onClick={() => setShowModal(false)} className="btn btn-ghost p-1">
-                <X size={20} />
+      {/* POPUP: Tạo Quyết Định Mới (Rendered via React Portal) */}
+      {showModal && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem'
+          }}
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="card flex-col animate-fade-in"
+            style={{
+              width: '680px',
+              maxWidth: '95vw',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              backgroundColor: '#ffffff',
+              borderRadius: '1rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              padding: 0
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileSignature size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-main)' }}>Soạn Thảo Quyết Định Nhân Sự</h3>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>Văn bản pháp lý điều chỉnh lương, chức vụ hoặc trạng thái nhân sự</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowModal(false)} 
+                className="btn btn-outline" 
+                style={{ padding: '0.25rem', width: '32px', height: '32px', borderRadius: '50%', border: '1px solid var(--border)' }}
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveDecision} className="flex-col gap-4">
-              <div className="grid grid-cols-2 gap-4">
+            {/* Modal Body */}
+            <form onSubmit={handleSaveDecision} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label className="text-xs font-semibold text-muted mb-1 block">Số hiệu văn bản</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Số hiệu văn bản *</label>
                   <input
                     type="text"
                     className="form-input"
@@ -530,7 +577,7 @@ export const Decisions = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted mb-1 block">Loại quyết định</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Loại quyết định *</label>
                   <select
                     className="form-select"
                     value={formData.type}
@@ -547,25 +594,26 @@ export const Decisions = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-muted mb-1 block">Trích yếu quyết định (Tiêu đề)</label>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Trích yếu quyết định (Tiêu đề) *</label>
                 <input
                   type="text"
                   className="form-input"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="VD: Quyết định điều chỉnh mức lương định kỳ 2026"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-muted mb-1 block">Nhân sự áp dụng</label>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nhân sự áp dụng *</label>
                 <select
                   className="form-select"
                   value={formData.employeeId}
                   onChange={handleEmployeeChange}
                   required
                 >
-                  <option value="">-- Chọn nhân viên --</option>
+                  <option value="">-- Chọn nhân viên áp dụng --</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>
                       {emp.fullName} ({emp.code}) - {emp.department?.name || 'Chưa gán PB'}
@@ -574,31 +622,32 @@ export const Decisions = () => {
                 </select>
               </div>
 
-              {/* Các trường biến động theo Loại Quyết Định */}
+              {/* Dynamic Content Based on Type */}
               {formData.type === 'SALARY_ADJUSTMENT' && (
-                <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-hover)', border: '1px dashed var(--primary)' }}>
-                  <div className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                <div style={{ padding: '1rem', borderRadius: '0.5rem', backgroundColor: '#f8fafc', border: '1px dashed var(--primary)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <DollarSign size={16} /> Biến động Thu nhập & Mức lương
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
-                      <label className="text-xs text-muted mb-1 block">Lương cơ bản hiện tại</label>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Lương cơ bản hiện tại</label>
                       <input
                         type="text"
                         className="form-input"
                         value={Number(formData.oldSalary || 0).toLocaleString('vi-VN') + ' VNĐ'}
                         disabled
-                        style={{ opacity: 0.7 }}
+                        style={{ backgroundColor: '#f1f5f9', color: '#64748b' }}
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted mb-1 block font-bold text-main">Mức lương mới (VNĐ) *</label>
+                      <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>Mức lương mới (VNĐ) *</label>
                       <input
                         type="number"
-                        className="form-input font-bold"
+                        className="form-input"
                         placeholder="VD: 15000000"
                         value={formData.newSalary}
                         onChange={(e) => setFormData({ ...formData, newSalary: e.target.value })}
+                        style={{ fontWeight: 700, borderColor: 'var(--primary)' }}
                         required
                       />
                     </div>
@@ -607,12 +656,12 @@ export const Decisions = () => {
               )}
 
               {formData.type === 'PROMOTION' && (
-                <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-hover)', border: '1px dashed var(--primary)' }}>
-                  <div className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                <div style={{ padding: '1rem', borderRadius: '0.5rem', backgroundColor: '#f8fafc', border: '1px dashed var(--primary)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <TrendingUp size={16} /> Bổ nhiệm Chức vụ mới
                   </div>
                   <div>
-                    <label className="text-xs text-muted mb-1 block">Vị trí / Chức danh mới *</label>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Vị trí / Chức danh mới *</label>
                     <select
                       className="form-select"
                       value={formData.newPositionId}
@@ -621,7 +670,7 @@ export const Decisions = () => {
                     >
                       <option value="">-- Chọn vị trí mới --</option>
                       {positions.map(p => (
-                        <option key={p.id} value={p.id}>{p.title} ({p.department?.name || 'Tất cả'})</option>
+                        <option key={p.id} value={p.id}>{p.title} ({p.department?.name || 'Tất cả PB'})</option>
                       ))}
                     </select>
                   </div>
@@ -629,13 +678,13 @@ export const Decisions = () => {
               )}
 
               {formData.type === 'TRANSFER' && (
-                <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-hover)', border: '1px dashed var(--primary)' }}>
-                  <div className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                <div style={{ padding: '1rem', borderRadius: '0.5rem', backgroundColor: '#f8fafc', border: '1px dashed var(--primary)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <ArrowRight size={16} /> Điều chuyển Đơn vị công tác
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
-                      <label className="text-xs text-muted mb-1 block">Phòng ban mới *</label>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Phòng ban mới *</label>
                       <select
                         className="form-select"
                         value={formData.newDepartmentId}
@@ -649,7 +698,7 @@ export const Decisions = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-muted mb-1 block">Vị trí tương ứng (Tùy chọn)</label>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Vị trí mới (Tùy chọn)</label>
                       <select
                         className="form-select"
                         value={formData.newPositionId}
@@ -665,9 +714,9 @@ export const Decisions = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label className="text-xs font-semibold text-muted mb-1 block">Ngày hiệu lực *</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Ngày hiệu lực *</label>
                   <input
                     type="date"
                     className="form-input"
@@ -677,7 +726,7 @@ export const Decisions = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted mb-1 block">Người ký phê duyệt</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Người ký duyệt</label>
                   <input
                     type="text"
                     className="form-input"
@@ -688,106 +737,141 @@ export const Decisions = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-muted mb-1 block">Căn cứ & Lý do ban hành</label>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Căn cứ & Lý do ban hành</label>
                 <textarea
                   className="form-textarea"
-                  rows="3"
+                  rows="2"
                   placeholder="Ghi rõ căn cứ tờ trình, biên bản họp hoặc lý do điều chỉnh..."
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 ></textarea>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-border">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline">
+              {/* Modal Footer */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline" style={{ minWidth: '90px' }}>
                   Hủy bỏ
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="btn btn-primary" style={{ minWidth: '160px' }}>
                   Lưu & Gửi Phê Duyệt
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Modal Chi tiết Quyết định */}
-      {showDetailModal && selectedDecision && (
-        <div className="modal-backdrop">
-          <div className="modal-content glass max-w-xl animate-scale-up">
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-border">
-              <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
-                <FileSignature className="text-primary" /> Chi Tiết Quyết Định
-              </h2>
-              <button onClick={() => setShowDetailModal(false)} className="btn btn-ghost p-1">
-                <X size={20} />
+      {/* POPUP: Chi tiết Quyết định (Rendered via React Portal) */}
+      {showDetailModal && selectedDecision && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem'
+          }}
+          onClick={() => setShowDetailModal(false)}
+        >
+          <div
+            className="card flex-col animate-fade-in"
+            style={{
+              width: '600px',
+              maxWidth: '95vw',
+              backgroundColor: '#ffffff',
+              borderRadius: '1rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              padding: 0
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileSignature size={20} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-main)' }}>Văn Bản Quyết Định Chi Tiết</h3>
+              </div>
+              <button 
+                onClick={() => setShowDetailModal(false)} 
+                className="btn btn-outline" 
+                style={{ padding: '0.25rem', width: '32px', height: '32px', borderRadius: '50%' }}
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <div className="flex-col gap-4 text-sm">
-              <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.875rem 1rem', borderRadius: '0.5rem', backgroundColor: '#f8fafc', border: '1px solid var(--border)' }}>
                 <div>
-                  <span className="text-xs text-muted block">Số Quyết Định</span>
-                  <span className="font-bold text-lg text-primary">{selectedDecision.decisionNumber}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Số hiệu văn bản</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.125rem', color: 'var(--primary)' }}>{selectedDecision.decisionNumber}</span>
                 </div>
-                <div>
-                  {renderStatusBadge(selectedDecision.status)}
-                </div>
+                <div>{renderStatusBadge(selectedDecision.status)}</div>
               </div>
 
               <div>
-                <span className="text-xs text-muted block mb-1">Trích yếu:</span>
-                <span className="font-bold text-main text-base">{selectedDecision.title}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Trích yếu:</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '1rem' }}>{selectedDecision.title}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <span className="text-xs text-muted block">Nhân sự áp dụng:</span>
-                  <span className="font-semibold text-main">{selectedDecision.employee?.fullName} ({selectedDecision.employee?.code})</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Nhân sự áp dụng:</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{selectedDecision.employee?.fullName} ({selectedDecision.employee?.code})</span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted block">Loại văn bản:</span>
-                  <div>{renderTypeBadge(selectedDecision.type)}</div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Loại quyết định:</span>
+                  <div style={{ marginTop: '2px' }}>{renderTypeBadge(selectedDecision.type)}</div>
                 </div>
               </div>
 
               {selectedDecision.type === 'SALARY_ADJUSTMENT' && (
-                <div className="p-3 rounded-lg border border-border">
-                  <span className="text-xs text-muted block mb-1">Chi tiết điều chỉnh mức lương:</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted line-through">{Number(selectedDecision.oldSalary || 0).toLocaleString()} VNĐ</span>
-                    <span className="text-primary font-bold">➔</span>
-                    <span className="font-bold text-success text-base">{Number(selectedDecision.newSalary || 0).toLocaleString()} VNĐ</span>
+                <div style={{ padding: '0.875rem 1rem', borderRadius: '0.5rem', backgroundColor: '#f8fafc', border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Chi tiết điều chỉnh mức lương:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: 'var(--text-muted)', textDecoration: 'line-through' }}>{Number(selectedDecision.oldSalary || 0).toLocaleString()} VNĐ</span>
+                    <span style={{ color: 'var(--primary)', fontWeight: 700 }}>➔</span>
+                    <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.05rem' }}>{Number(selectedDecision.newSalary || 0).toLocaleString()} VNĐ</span>
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <span className="text-xs text-muted block">Ngày có hiệu lực:</span>
-                  <span className="font-medium text-main">{new Date(selectedDecision.effectiveDate).toLocaleDateString('vi-VN')}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Ngày có hiệu lực:</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{new Date(selectedDecision.effectiveDate).toLocaleDateString('vi-VN')}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted block">Thẩm quyền ký:</span>
-                  <span className="font-medium text-main">{selectedDecision.signBy || 'Ban Giám Đốc'}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Thẩm quyền ký:</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{selectedDecision.signBy || 'Ban Giám Đốc'}</span>
                 </div>
               </div>
 
               <div>
-                <span className="text-xs text-muted block mb-1">Căn cứ & Ghi chú:</span>
-                <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Căn cứ & Ghi chú:</span>
+                <div style={{ padding: '0.75rem 1rem', borderRadius: '0.5rem', backgroundColor: '#f8fafc', border: '1px solid var(--border)', color: 'var(--text-main)', lineHeight: 1.5 }}>
                   {selectedDecision.reason || 'Không có ghi chú.'}
                 </div>
               </div>
-            </div>
 
-            <div className="flex justify-end pt-4 border-t border-border mt-4">
-              <button onClick={() => setShowDetailModal(false)} className="btn btn-outline">
-                Đóng
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                <button onClick={() => setShowDetailModal(false)} className="btn btn-primary" style={{ minWidth: '100px' }}>
+                  Đóng
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
