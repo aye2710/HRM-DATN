@@ -207,7 +207,7 @@ export const PayrollPeriods = () => {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex-col">
             <div className="flex items-center gap-2.5">
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+              <h1 className="page-title">
                 Quản Lý Kỳ Lương
               </h1>
               <span className="badge badge-info" style={{ fontWeight: 600 }}>Enterprise Lifecycle</span>

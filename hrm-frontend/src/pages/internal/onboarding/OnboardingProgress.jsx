@@ -14,7 +14,7 @@ export const OnboardingProgress = () => {
     <div className="flex-col gap-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Tiến độ Hội nhập</h1>
+          <h1 className="page-title">Tiến độ Hội nhập</h1>
           <p className="text-muted text-sm">Theo dõi mức độ hoàn thành các checklist của nhân viên mới</p>
         </div>
       </div>

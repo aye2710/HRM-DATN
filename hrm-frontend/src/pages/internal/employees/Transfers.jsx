@@ -61,7 +61,7 @@ export const Transfers = () => {
     <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)', margin: '0 0 0.25rem 0' }}>Điều chuyển Nhân sự</h1>
+          <h1 className="page-title">Điều chuyển Nhân sự</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Cập nhật phòng ban và vị trí mới cho nhân sự đang làm việc</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>

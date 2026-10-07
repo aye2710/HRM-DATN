@@ -91,9 +91,9 @@ export const Offers = () => {
     <div className="animate-fade-in" style={{ padding: '0 1rem', height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 style={{ fontSize: '2rem', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 className="page-title">
             Quản lý Offer & Tiếp nhận
-          </h2>
+          </h1>
           <p className="text-muted mt-2">Chốt Offer và khởi tạo hồ sơ nhân viên chính thức từ ứng viên đạt yêu cầu.</p>
         </div>
       </div>

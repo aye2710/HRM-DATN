@@ -235,7 +235,7 @@ export const PayrollMgmt = () => {
             </button>
             <div className="flex-col">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                <h1 className="page-title">
                   Bảng Lương Tháng {month}/{year}
                 </h1>
                 {periodInfo.status === 'LOCKED' ? (

@@ -268,7 +268,7 @@ export const Decisions = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+          <h1 className="page-title">
             Quyết Định Nhân Sự
           </h1>
           <p className="text-muted" style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem' }}>

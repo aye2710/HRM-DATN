@@ -97,7 +97,7 @@ export const Shifts = () => {
     <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflowY: 'auto', position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)', margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Clock size={24} color="var(--primary)" /> Ca làm việc
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Cấu hình thời gian làm việc và nghỉ ngơi theo từng ca</p>

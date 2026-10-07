@@ -233,7 +233,7 @@ export const SettingsRBAC = () => {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+              <h1 className="page-title">
                 Trung Tâm Phân Quyền Bảo Mật (Enterprise RBAC)
               </h1>
               <span className="badge badge-info font-bold">Role-Based Access Control</span>

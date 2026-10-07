@@ -137,7 +137,7 @@ export const OrgChart = () => {
     <div className="flex-col gap-6 animate-fade-in h-full">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Sơ đồ Tổ chức</h1>
+          <h1 className="page-title">Sơ đồ Tổ chức</h1>
           <p className="text-muted text-sm">Cấu trúc phân bổ phòng ban và số lượng nhân sự tự động từ Database</p>
         </div>
       </div>

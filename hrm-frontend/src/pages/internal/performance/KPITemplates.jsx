@@ -64,7 +64,7 @@ export const KPITemplates = () => {
       <div className="flex-col gap-6 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Mẫu đánh giá KPI</h1>
+            <h1 className="page-title">Mẫu đánh giá KPI</h1>
             <p className="text-muted text-sm">Quản lý các bộ tiêu chí và trọng số đánh giá hiệu suất nhân sự</p>
           </div>
           <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>

@@ -113,7 +113,7 @@ export const Positions = () => {
     <div className="flex-col gap-6 animate-fade-in relative">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Vị trí / Chức danh</h1>
+          <h1 className="page-title">Vị trí / Chức danh</h1>
           <p className="text-muted text-sm">Quản lý danh mục vị trí, cấp bậc và khung lương theo tiêu chuẩn</p>
         </div>
         <button onClick={handleOpenAdd} className="btn btn-primary">

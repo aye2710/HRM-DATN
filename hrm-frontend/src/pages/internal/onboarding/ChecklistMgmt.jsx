@@ -16,7 +16,7 @@ export const ChecklistMgmt = () => {
     <div className="flex-col gap-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Cấu hình Checklist Hội nhập</h1>
+          <h1 className="page-title">Cấu hình Checklist Hội nhập</h1>
           <p className="text-muted text-sm">Định nghĩa các nhiệm vụ bắt buộc phải thực hiện khi tiếp nhận nhân sự mới</p>
         </div>
         <button className="btn btn-primary">

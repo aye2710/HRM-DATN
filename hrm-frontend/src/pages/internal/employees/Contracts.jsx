@@ -109,7 +109,7 @@ export const Contracts = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Quản lý Hợp đồng</h1>
+          <h1 className="page-title">Quản lý Hợp đồng</h1>
           <p className="text-muted text-sm">Gom nhóm hợp đồng theo từng nhân viên, tích hợp Đánh giá Thử việc.</p>
         </div>
       </div>

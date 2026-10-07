@@ -136,11 +136,48 @@ h1, h2, h3, h4, h5, h6 {
 .text-muted { color: var(--text-muted); }
 .text-xs { font-size: 0.75rem; line-height: 1rem; }
 .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
 .text-xl { font-size: 1.25rem; line-height: 1.75rem; font-weight: 700; }
+.text-2xl { font-size: 1.625rem; line-height: 2rem; font-weight: 700; letter-spacing: -0.02em; }
 .font-semibold { font-weight: 600; }
 .font-bold { font-weight: 700; }
 .uppercase { text-transform: uppercase; }
 .tracking-wider { letter-spacing: 0.05em; }
+
+/* Page Header Standards */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-title {
+  font-size: 1.625rem !important; /* 26px */
+  font-weight: 700 !important;
+  color: var(--text-main) !important;
+  line-height: 1.25;
+  margin: 0 !important;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  font-size: 0.875rem !important; /* 14px */
+  color: var(--text-muted) !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0 !important;
+  line-height: 1.4;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
 
 /* Form Elements */
 .form-label {
