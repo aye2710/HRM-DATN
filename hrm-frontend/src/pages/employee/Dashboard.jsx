@@ -42,7 +42,7 @@ export const EmployeeDashboard = () => {
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
-      <h2 className="mb-6" style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif' }}>Xin chào, {fullName}!</h2>
+      <h2 className="mb-6" style={{ fontSize: '2rem' }}>Xin chào, {fullName}!</h2>
       
       <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="card text-center flex-col items-center justify-center glass shadow-lg relative overflow-hidden">

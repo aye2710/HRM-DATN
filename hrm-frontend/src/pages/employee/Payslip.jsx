@@ -37,7 +37,7 @@ export const EmployeePayslip = () => {
     <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif' }}>Phiếu Lương (Payslip)</h2>
+          <h2 style={{ fontSize: '2rem' }}>Phiếu Lương (Payslip)</h2>
           <p className="text-muted mt-1">Lịch sử nhận lương của bạn</p>
         </div>
         <div className="flex gap-2">
@@ -69,7 +69,7 @@ export const EmployeePayslip = () => {
 
           <div className="card glass print-area" style={{ padding: '2.5rem', borderTop: '5px solid var(--primary)' }}>
             <div className="text-center mb-8" style={{ borderBottom: '2px dashed var(--border)', paddingBottom: '2rem' }}>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.5rem', fontFamily: 'Outfit, sans-serif' }}>
+              <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.5rem' }}>
                 HRM ENTERPRISE
               </h1>
               <h3 className="text-muted" style={{ letterSpacing: '2px' }}>PHIẾU LƯƠNG NHÂN VIÊN</h3>

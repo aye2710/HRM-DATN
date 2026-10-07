@@ -102,7 +102,7 @@ export const SystemParameters = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>
             Cấu Hình Tham Số Nghiệp Vụ Động
           </h1>
           <p className="text-muted text-sm">

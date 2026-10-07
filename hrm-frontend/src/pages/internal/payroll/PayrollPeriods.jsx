@@ -207,7 +207,7 @@ export const PayrollPeriods = () => {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex-col">
             <div className="flex items-center gap-2.5">
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                 Quản Lý Kỳ Lương
               </h1>
               <span className="badge badge-info" style={{ fontWeight: 600 }}>Enterprise Lifecycle</span>
@@ -565,7 +565,7 @@ export const PayrollPeriods = () => {
                   <CalendarClock size={24} color="var(--primary)" />
                 </div>
                 <div>
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#fff', fontFamily: 'Outfit, sans-serif' }}>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#fff' }}>
                     Khởi Tạo Kỳ Lương Mới
                   </h2>
                   <p className="text-muted text-xs mt-0.5">Thiết lập chu kỳ tính công & trả lương doanh nghiệp</p>

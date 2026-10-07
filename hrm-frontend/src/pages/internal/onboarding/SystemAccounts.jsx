@@ -15,7 +15,7 @@ export const SystemAccounts = () => {
     <div className="flex-col gap-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Tài khoản Hệ thống</h1>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Tài khoản Hệ thống</h1>
           <p className="text-muted text-sm">Quản lý cấp phát và thu hồi quyền truy cập các phần mềm nội bộ</p>
         </div>
         <button className="btn btn-primary">

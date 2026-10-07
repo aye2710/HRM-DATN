@@ -43,7 +43,7 @@ export const InternalDashboard = () => {
     <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h2 style={{ fontSize: '2rem', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             System Dashboard
           </h2>
           <p className="text-muted mt-2">Tổng quan tình hình nhân sự và các cảnh báo hệ thống.</p>
@@ -62,7 +62,7 @@ export const InternalDashboard = () => {
             <div className="flex-col">
               <span className="text-muted mb-1" style={{ fontSize: '0.95rem', fontWeight: 500 }}>{stat.label}</span>
               <div className="flex items-end gap-3">
-                <span style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
+                <span style={{ fontSize: '2rem', fontWeight: 800 }}>
                    {loading ? '...' : stat.value}
                 </span>
                 <span style={{ fontSize: '0.85rem', color: stat.color, marginBottom: '0.5rem', fontWeight: 600 }}>{stat.trend}</span>
@@ -75,7 +75,7 @@ export const InternalDashboard = () => {
       <div className="grid grid-cols-2 gap-8">
         {/* Onboarding Table */}
         <div className="card glass">
-          <h3 className="mb-6" style={{ fontFamily: 'Outfit, sans-serif' }}>Nhân sự mới gia nhập</h3>
+          <h3 className="mb-6" style={{ }}>Nhân sự mới gia nhập</h3>
           <div className="table-container">
             <table>
               <thead>
@@ -112,7 +112,7 @@ export const InternalDashboard = () => {
 
         {/* To-Do List */}
         <div className="card glass">
-          <h3 className="mb-6" style={{ fontFamily: 'Outfit, sans-serif' }}>Cần xử lý (To-do)</h3>
+          <h3 className="mb-6" style={{ }}>Cần xử lý (To-do)</h3>
           <div className="flex-col gap-4">
             <div className="card" style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div className="flex items-center gap-4">

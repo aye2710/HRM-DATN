@@ -133,7 +133,7 @@ export const Notifications = () => {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+              <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                 Quản Lý Thông Báo & Cảnh Báo (Notifications)
               </h1>
               <span className="badge badge-info font-bold">Automation Engine</span>
@@ -323,7 +323,7 @@ export const Notifications = () => {
                   <BellRing size={22} color="var(--primary)" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#fff', fontFamily: 'Outfit, sans-serif' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#fff' }}>
                     {editingId ? 'Chỉnh Sửa Kịch Bản Thông Báo' : 'Tạo Kịch Bản Thông Báo Mới'}
                   </h3>
                   <p className="text-muted text-xs mt-0.5">Thiết lập sự kiện kích hoạt và đích gửi</p>

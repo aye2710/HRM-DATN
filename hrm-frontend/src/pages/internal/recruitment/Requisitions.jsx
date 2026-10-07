@@ -169,7 +169,7 @@ export const Requisitions = () => {
     <div className="flex-col gap-6 animate-fade-in relative">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Yêu cầu Tuyển dụng</h1>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Yêu cầu Tuyển dụng</h1>
           <p className="text-muted text-sm">Quản lý các chiến dịch tuyển dụng của các phòng ban</p>
         </div>
         <button onClick={handleOpenAdd} className="btn btn-primary">

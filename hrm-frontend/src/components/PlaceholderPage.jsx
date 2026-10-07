@@ -6,7 +6,7 @@ export const PlaceholderPage = ({ title, description }) => {
     <div className="flex-col gap-6 animate-fade-in" style={{ height: 'calc(100vh - 120px)' }}>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>{title}</h1>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>{title}</h1>
           <p className="text-muted text-sm">{description || 'Module đang được lên kế hoạch phát triển'}</p>
         </div>
       </div>

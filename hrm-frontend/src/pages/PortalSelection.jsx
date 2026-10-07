@@ -63,7 +63,7 @@ export const PortalSelection = () => {
           <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent))', color: 'white', boxShadow: '0 10px 20px rgba(105, 108, 255, 0.3)' }}>
             <Building2 size={32} />
           </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, fontFamily: 'Outfit, sans-serif', background: 'linear-gradient(to right, var(--primary), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, background: 'linear-gradient(to right, var(--primary), var(--accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             HRM Enterprise
           </h1>
           <p className="text-muted mt-2" style={{ fontSize: '0.9rem' }}>Đăng nhập vào Hệ thống Quản trị</p>

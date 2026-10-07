@@ -122,7 +122,7 @@ export const CandidateLandingPage = () => {
           <div style={{ width: 38, height: 38, background: 'linear-gradient(135deg, var(--primary), var(--accent))', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '1.2rem', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)' }}>
             L
           </div>
-          <span style={{ fontSize: '1.35rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+          <span style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
             LLA Careers
           </span>
         </div>
@@ -154,7 +154,7 @@ export const CandidateLandingPage = () => {
           <div className="badge badge-purple mb-4 animate-fade-in" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>
             ✨ Best IT Workplace 2026
           </div>
-          <h1 className="animate-fade-in" style={{ fontSize: '3.5rem', color: 'var(--text-main)', marginBottom: '1.25rem', lineHeight: 1.15, fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
+          <h1 className="animate-fade-in" style={{ fontSize: '3.5rem', color: 'var(--text-main)', marginBottom: '1.25rem', lineHeight: 1.15, fontWeight: 800 }}>
             Kiến tạo tương lai cùng <br/> <span className="text-gradient">Công ty TNHH LLA</span>
           </h1>
           <p className="animate-fade-in" style={{ fontSize: '1.15rem', color: 'var(--text-muted)', marginBottom: '2.25rem', maxWidth: '650px', lineHeight: 1.6 }}>
@@ -183,7 +183,7 @@ export const CandidateLandingPage = () => {
       <div id="workspace" style={{ padding: '4rem 2rem', position: 'relative', zIndex: 10 }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div className="text-center mb-12">
-            <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem', fontFamily: 'Outfit, sans-serif' }}>Không gian làm việc</h2>
+            <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem' }}>Không gian làm việc</h2>
             <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>Cơ sở vật chất hiện đại, truyền cảm hứng sáng tạo mỗi ngày</p>
           </div>
           <div className="grid grid-cols-2 gap-8">
@@ -201,7 +201,7 @@ export const CandidateLandingPage = () => {
       <div id="about" style={{ padding: '6rem 2rem', position: 'relative', zIndex: 10, backgroundColor: 'var(--bg-hover)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div className="text-center mb-12">
-            <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem', fontFamily: 'Outfit, sans-serif' }}>Đãi ngộ & Văn hóa</h2>
+            <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem' }}>Đãi ngộ & Văn hóa</h2>
             <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>Môi trường lý tưởng để bạn tỏa sáng và bứt phá giới hạn</p>
           </div>
           
@@ -235,7 +235,7 @@ export const CandidateLandingPage = () => {
       <div id="process" style={{ padding: '6rem 2rem' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div className="text-center mb-16">
-            <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem', fontFamily: 'Outfit, sans-serif' }}>Quy trình tuyển dụng tinh gọn</h2>
+            <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem' }}>Quy trình tuyển dụng tinh gọn</h2>
             <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>Chỉ mất 7-10 ngày từ lúc nộp CV đến khi nhận Offer</p>
           </div>
           
@@ -273,7 +273,7 @@ export const CandidateLandingPage = () => {
       <div style={{ padding: '6rem 2rem', backgroundColor: 'var(--bg-hover)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div className="text-center mb-12">
-            <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem', fontFamily: 'Outfit, sans-serif' }}>Lời chia sẻ từ đội ngũ</h2>
+            <h2 style={{ fontSize: '2.5rem', color: 'var(--text-main)', marginBottom: '1rem' }}>Lời chia sẻ từ đội ngũ</h2>
           </div>
           <div className="grid grid-cols-2 gap-8">
             <div className="card glass p-8">
@@ -310,7 +310,7 @@ export const CandidateLandingPage = () => {
       <div id="jobs" style={{ padding: '6rem 2rem' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div className="text-center mb-12">
-            <h2 style={{ fontSize: '3rem', color: 'var(--text-main)', marginBottom: '1rem', fontFamily: 'Outfit, sans-serif' }}>Vị trí đang mở</h2>
+            <h2 style={{ fontSize: '3rem', color: 'var(--text-main)', marginBottom: '1rem' }}>Vị trí đang mở</h2>
             <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)' }}>Tham gia vào các dự án trọng điểm toàn cầu</p>
           </div>
 
@@ -355,7 +355,7 @@ export const CandidateLandingPage = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
               <div style={{ width: 32, height: 32, background: 'linear-gradient(135deg, var(--primary), var(--accent))', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800 }}>L</div>
-              <span style={{ fontSize: '1.35rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'var(--text-main)' }}>Công ty TNHH LLA</span>
+              <span style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)' }}>Công ty TNHH LLA</span>
             </div>
             <p className="text-muted" style={{ maxWidth: '320px', lineHeight: 1.6, fontSize: '0.9rem' }}>Kiến tạo các giải pháp phần mềm đẳng cấp thế giới bằng sự đổi mới không ngừng.</p>
           </div>

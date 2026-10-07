@@ -112,7 +112,7 @@ export const Departments = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>Phòng ban</h1>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>Phòng ban</h1>
           <p className="text-muted text-sm">Quản lý cơ cấu phòng ban và số lượng nhân sự</p>
         </div>
         <button onClick={handleOpenAdd} className="btn btn-primary">

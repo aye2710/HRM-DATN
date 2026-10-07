@@ -235,7 +235,7 @@ export const PayrollMgmt = () => {
             </button>
             <div className="flex-col">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                   Bảng Lương Tháng {month}/{year}
                 </h1>
                 {periodInfo.status === 'LOCKED' ? (
@@ -655,7 +655,7 @@ export const PayrollMgmt = () => {
             <div className="flex justify-between items-center mb-6 pb-4" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
               <div>
                 <span className="badge badge-info mb-1" style={{ fontSize: '0.75rem' }}>PHIẾU LƯƠNG ĐIỆN TỬ</span>
-                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0, color: '#fff', fontFamily: 'Outfit, sans-serif' }}>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0, color: '#fff' }}>
                   Kỳ Lương Tháng {month}/{year}
                 </h2>
               </div>

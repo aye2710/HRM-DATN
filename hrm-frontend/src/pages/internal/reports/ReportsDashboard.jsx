@@ -106,7 +106,7 @@ export const ReportsDashboard = () => {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+              <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                 Báo Cáo Tổng Hợp & Phân Tích (HR Analytics)
               </h1>
               <span className="badge badge-info" style={{ fontWeight: 600 }}>Live Data</span>

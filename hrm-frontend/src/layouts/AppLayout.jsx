@@ -13,7 +13,7 @@ const TopHeader = ({ portalName }) => {
         <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', border: 'none', background: 'transparent' }}>
           <Menu size={20} color="var(--text-main)" />
         </button>
-        <h2 style={{ margin: 0, fontSize: '1.25rem', fontFamily: 'Outfit, sans-serif' }}>{portalName}</h2>
+        <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{portalName}</h2>
       </div>
       <div className="flex items-center gap-6">
         <div style={{ position: 'relative', cursor: 'pointer' }}>
@@ -101,7 +101,7 @@ const Sidebar = ({ links }) => {
   return (
     <div className="sidebar">
       <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <h1 style={{ margin: 0, color: '#fff', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'Outfit, sans-serif' }}>
+        <h1 style={{ margin: 0, color: '#fff', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div style={{ width: 32, height: 32, backgroundColor: 'var(--primary)', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '1rem' }}>
             <Shield size={18} />
           </div>

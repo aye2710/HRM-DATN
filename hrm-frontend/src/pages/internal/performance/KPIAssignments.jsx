@@ -76,7 +76,7 @@ export const KPIAssignments = () => {
       <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <h2 style={{ fontSize: '2rem', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               Quản lý Giao KPI (Assignments)
             </h2>
             <p className="text-muted mt-2">Giao mục tiêu chi tiết cho từng nhân viên.</p>

@@ -114,7 +114,7 @@ export const AuditLogs = () => {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)', fontFamily: 'Outfit, sans-serif' }}>
+              <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                 Nhật Ký Kiểm Toán & An Toàn Dữ Liệu (Audit Logs)
               </h1>
               <span className="badge badge-info font-bold">Immutable Trail</span>
@@ -347,7 +347,7 @@ export const AuditLogs = () => {
                   <ShieldAlert size={22} color="var(--warning)" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#fff', fontFamily: 'Outfit, sans-serif' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#fff' }}>
                     Chi Tiết Bản Ghi Kiểm Toán
                   </h3>
                   <p className="text-muted text-xs mt-0.5">Mã sự kiện: #{selectedLog.id}</p>
@@ -435,7 +435,7 @@ export const AuditLogs = () => {
                   <Shield size={22} color="var(--primary)" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#fff', fontFamily: 'Outfit, sans-serif' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#fff' }}>
                     Ghi Vết Kiểm Toán Thủ Công
                   </h3>
                   <p className="text-muted text-xs mt-0.5">Lưu nhật ký bảo mật hoặc kiểm toán tuân thủ</p>

@@ -75,7 +75,7 @@ export const Performance = () => {
       <div className="animate-fade-in" style={{ padding: '0 1rem' }}>
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 style={{ fontSize: '2rem', fontFamily: 'Outfit, sans-serif', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <h2 style={{ fontSize: '2rem', margin: 0, background: 'linear-gradient(to right, var(--text-main), var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               Đánh giá KPI (Performance Review)
             </h2>
             <p className="text-muted mt-2">Phân loại nhân sự theo đường cong chuẩn (Force Ranking 20-60-20).</p>
