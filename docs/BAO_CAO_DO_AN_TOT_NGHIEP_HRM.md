@@ -263,7 +263,7 @@ Hệ thống được thiết kế đáp ứng 12 nhóm chức năng nghiệp v�
 ## 2.2. Sơ đồ Ca sử dụng (Use Case Diagrams)
 
 ### 2.2.1. Sơ đồ Use Case tổng thể hệ thống
-Dưới đây là sơ đồ ca sử dụng tổng thể thể hiện tương tác giữa các tác nhân chính với các phân hệ chức năng:
+Sơ đồ ca sử dụng tổng thể thể hiện mối quan hệ giữa 5 nhóm tác nhân (Actors) chính với các phân hệ cốt lõi trong hệ thống:
 
 ```mermaid
 graph LR
@@ -274,7 +274,7 @@ graph LR
     Candidate((Ứng viên))
 
     subgraph HRM["HỆ THỐNG QUẢN TRỊ NGUỒN NHÂN LỰC (ENTERPRISE HRM)"]
-        UC_Org[Quản lý Tổ chức & Sơ đồ cây]
+        UC_Org[Quản lý Cơ cấu Tổ chức & Sơ đồ cây]
         UC_Recruit[Tuyển dụng ATS & Quản lý Offer]
         UC_Onboard[Quy trình Hội nhập Onboarding]
         UC_Profile[Quản lý Hồ sơ & Hợp đồng lao động]
@@ -284,12 +284,12 @@ graph LR
         UC_Payroll[Động cơ Tính Lương Động & Khóa sổ]
         UC_Asset[Quản lý Tài sản & Biên bản BM-01]
         UC_Param[Cấu hình Tham số Nghiệp vụ Động]
-        UC_System[Phân quyền RBAC & Audit Log]
+        UC_System[Phân quyền RBAC & Nhật ký Kiểm toán]
         UC_Report[Báo cáo & Phân tích HR Analytics]
         
         UC_CheckIn[Chấm công Check-in / Out cá nhân]
         UC_Payslip[Xem Phiếu lương cá nhân điện tử]
-        UC_Apply[Tra cứu việc làm & Ứng tuyển CV]
+        UC_Apply[Tra cứu việc làm & Nộp hồ sơ CV]
     end
 
     Admin --> UC_Param
@@ -320,36 +320,454 @@ graph LR
 
 ---
 
-## 2.3. Sơ đồ Hoạt động (Activity Diagrams)
-
-### 2.3.1. Luồng Tuyển dụng -> Onboarding -> Bàn giao Tài sản (BM-01)
-Quy trình khép kín từ lúc ứng viên nộp hồ sơ đến khi chính thức tiếp nhận trang thiết bị làm việc:
+### 2.2.2. Sơ đồ Use Case Phân hệ Cơ cấu Tổ chức & Sơ đồ Cây (Organization Sub-system)
+Phân hệ quản lý cấu trúc phòng ban phân cấp đa tầng, chức danh công tác, chỉ tiêu định biên nhân sự và trực quan hóa sơ đồ tổ chức hình cây:
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor C as Ứng viên
-    actor HR as Chuyên viên HR
-    actor IT as Bộ phận IT/Tài sản
-    participant SYS as Hệ thống HRM
-    participant DB as Cơ sở dữ liệu
+graph LR
+    Admin((Quản trị viên))
+    HR((Chuyên viên HR))
+    Manager((Trưởng phòng))
 
-    C->>SYS: Nộp hồ sơ ứng tuyển (CV) qua Cổng ứng viên
-    SYS->>DB: Lưu ứng viên trạng thái APPLIED
-    HR->>SYS: Sàng lọc CV & Lên lịch phỏng vấn
-    SYS->>DB: Cập nhật vòng phỏng vấn (INTERVIEWING)
-    HR->>SYS: Đánh giá Pass & Phát hành Offer Letter
-    C->>HR: Chấp nhận lời mời làm việc (ACCEPTED)
-    HR->>SYS: Chuyển đổi Ứng viên thành Nhân viên mới (Onboarding)
-    SYS->>DB: Tạo bản ghi Employee & Account hệ thống
-    SYS->>SYS: Kích hoạt Checklist hội nhập (Onboarding Tasks)
-    IT->>SYS: Chọn thiết bị sẵn sàng trong kho & Nhân viên tiếp nhận
-    IT->>SYS: Xác nhận bàn giao thiết bị
-    SYS->>DB: Tạo AssetAssignment (ACTIVE) & Cập nhật Asset (ASSIGNED)
-    SYS-->>IT: Xuất Biên bản bàn giao chuẩn BM-01 (In ấn / Ký kết)
+    subgraph Org_Sub["Phân hệ Cơ cấu Tổ chức (Organization)"]
+        UC_Dept_List[Xem danh mục Phòng ban]
+        UC_Dept_Add[Thêm mới Phòng ban]
+        UC_Dept_Edit[Sửa thông tin / Cập nhật Trưởng phòng]
+        UC_Dept_Delete[Xóa Phòng ban]
+        
+        UC_Pos_List[Xem danh sách Vị trí / Chức danh]
+        UC_Pos_Add[Thêm mới Vị trí công tác]
+        UC_Pos_Headcount[Cấu hình Định biên nhân sự]
+        
+        UC_Tree_View[Xem Sơ đồ Cây tổ chức tương tác]
+        UC_Tree_Filter[Lọc sơ đồ theo khối / phòng ban]
+    end
+
+    Admin --> UC_Dept_Add
+    Admin --> UC_Dept_Edit
+    Admin --> UC_Dept_Delete
+    Admin --> UC_Pos_Add
+    Admin --> UC_Pos_Headcount
+
+    HR --> UC_Dept_List
+    HR --> UC_Dept_Add
+    HR --> UC_Dept_Edit
+    HR --> UC_Pos_List
+    HR --> UC_Pos_Add
+    HR --> UC_Tree_View
+    HR --> UC_Tree_Filter
+
+    Manager --> UC_Tree_View
+    Manager --> UC_Dept_List
 ```
 
-### 2.3.2. Luồng Tính Lương Động & Khấu trừ Thuế / Bảo hiểm (Payroll Engine)
+* **Đặc tả kịch bản chính**:
+  * *Tác nhân*: HR Specialist, Admin.
+  * *Tiền điều kiện*: Đã đăng nhập vào hệ thống với vai trò có quyền quản trị tổ chức.
+  * *Luồng chính*: Người dùng chọn phòng ban cha $ightarrow$ Nhập mã phòng ban, tên phòng ban $ightarrow$ Hệ thống kiểm tra trùng lặp mã và kiểm tra giải thuật chống vòng lặp đệ quy (Cycle Detection) $ightarrow$ Lưu CSDL và cập nhật sơ đồ cây tức thời.
+
+---
+
+### 2.2.3. Sơ đồ Use Case Phân hệ Tuyển dụng nhân tài ATS & Offer (Recruitment Sub-system)
+Phân hệ quản lý toàn bộ phễu tuyển dụng ứng viên từ lúc tạo yêu cầu tuyển dụng đến khi phát hành thư mời nhận việc (Offer Letter):
+
+```mermaid
+graph LR
+    HR((Chuyên viên Tuyển dụng))
+    Manager((Trưởng phòng yêu cầu))
+    Candidate((Ứng viên))
+
+    subgraph ATS_Sub["Phân hệ Tuyển dụng ATS & Quản lý Offer"]
+        UC_Req_Create[Tạo Yêu cầu tuyển dụng mới]
+        UC_Req_Approve[Phê duyệt Yêu cầu tuyển dụng]
+        UC_Post_Job[Đăng tin tuyển dụng lên Portal]
+        
+        UC_CV_Apply[Ứng tuyển nộp CV trực tuyến]
+        UC_Kanban_View[Xem Phễu ứng viên Kanban ATS]
+        UC_Kanban_Drag[Kéo thả chuyển trạng thái ứng viên]
+        
+        UC_Interview_Schedule[Lên lịch phỏng vấn & Gửi email]
+        UC_Interview_Score[Chấm điểm đánh giá phỏng vấn]
+        
+        UC_Offer_Create[Lập Thư mời nhận việc Offer]
+        UC_Offer_Approve[Phê duyệt mức lương Offer]
+        UC_Offer_Accept[Ứng viên đồng ý Offer]
+        UC_Convert_Emp[Chuyển đổi ứng viên thành Nhân viên]
+    end
+
+    Candidate --> UC_CV_Apply
+    Candidate --> UC_Offer_Accept
+
+    Manager --> UC_Req_Create
+    Manager --> UC_Interview_Score
+
+    HR --> UC_Req_Create
+    HR --> UC_Post_Job
+    HR --> UC_Kanban_View
+    HR --> UC_Kanban_Drag
+    HR --> UC_Interview_Schedule
+    HR --> UC_Offer_Create
+    HR --> UC_Convert_Emp
+```
+
+---
+
+### 2.2.4. Sơ đồ Use Case Phân hệ Hội nhập Onboarding (Onboarding Sub-system)
+Quản lý lộ trình tiếp nhận nhân sự mới, cấu hình danh mục Checklist nhiệm vụ và theo dõi tiến độ hòa nhập:
+
+```mermaid
+graph LR
+    HR((Chuyên viên HR))
+    Buddy((Người hướng dẫn Buddy))
+    Newbie((Nhân sự mới))
+
+    subgraph Onboard_Sub["Phân hệ Hội nhập Onboarding"]
+        UC_Newbie_List[Xem danh sách nhân sự thử việc]
+        UC_Checklist_Cfg[Cấu hình Mẫu Checklist Hội nhập]
+        UC_Assign_Task[Giao nhiệm vụ & Phân công Buddy]
+        UC_Account_Create[Cấp phát Tài khoản phần mềm]
+        UC_Track_Progress[Theo dõi Tỷ lệ hoàn thành %]
+        UC_Complete_Task[Đánh dấu hoàn thành nhiệm vụ]
+        UC_Confirm_Probation[Đánh giá hết hạn Thử việc]
+    end
+
+    HR --> UC_Newbie_List
+    HR --> UC_Checklist_Cfg
+    HR --> UC_Assign_Task
+    HR --> UC_Account_Create
+    HR --> UC_Track_Progress
+    HR --> UC_Confirm_Probation
+
+    Buddy --> UC_Track_Progress
+    Buddy --> UC_Confirm_Probation
+
+    Newbie --> UC_Complete_Task
+    Newbie --> UC_Track_Progress
+```
+
+---
+
+### 2.2.5. Sơ đồ Use Case Phân hệ Hồ sơ Nhân sự, Hợp đồng & Quyết định (Core HR Sub-system)
+Quản lý toàn bộ thông tin lý lịch nhân sự, quá trình ký kết Hợp đồng lao động, tái ký, điều chuyển công tác và quyết định khen thưởng / kỷ luật:
+
+```mermaid
+graph LR
+    Admin((Quản trị viên))
+    HR((Chuyên viên HR))
+    Employee((Nhân viên))
+
+    subgraph CoreHR_Sub["Phân hệ Quản trị Hồ sơ & Hợp đồng (Core HR)"]
+        UC_Emp_View[Xem danh sách & Tìm kiếm nhân sự]
+        UC_Emp_Detail[Xem Chi tiết Hồ sơ 360 độ]
+        UC_Emp_Add[Thêm mới Hồ sơ nhân viên]
+        UC_Emp_Edit[Cập nhật Thông tin cá nhân & Bằng cấp]
+        
+        UC_Contract_Create[Ký mới Hợp đồng lao động]
+        UC_Contract_Alert[Cảnh báo HĐLĐ sắp hết hạn]
+        UC_Contract_Renew[Tái ký Hợp đồng lao động]
+        
+        UC_Decision_Reward[Ban hành Quyết định Khen thưởng / Tăng lương]
+        UC_Decision_Transfer[Quyết định Điều chuyển Phòng ban]
+        UC_Decision_Terminate[Quyết định Chấm dứt HĐLĐ Thôi việc]
+    end
+
+    Admin --> UC_Emp_View
+    Admin --> UC_Emp_Add
+    Admin --> UC_Decision_Terminate
+
+    HR --> UC_Emp_View
+    HR --> UC_Emp_Detail
+    HR --> UC_Emp_Add
+    HR --> UC_Emp_Edit
+    HR --> UC_Contract_Create
+    HR --> UC_Contract_Alert
+    HR --> UC_Contract_Renew
+    HR --> UC_Decision_Reward
+    HR --> UC_Decision_Transfer
+    HR --> UC_Decision_Terminate
+
+    Employee --> UC_Emp_Detail
+```
+
+---
+
+### 2.2.6. Sơ đồ Use Case Phân hệ Ca làm việc & Chấm công (Time & Attendance Sub-system)
+Quản lý cấu hình ca làm việc linh hoạt, ghi nhận lịch sử vào/ra và tổng hợp bảng chấm công tháng:
+
+```mermaid
+graph LR
+    HR((Chuyên viên C&B))
+    Manager((Trưởng phòng))
+    Employee((Nhân viên))
+
+    subgraph Att_Sub["Phân hệ Ca làm việc & Chấm công (Time & Attendance)"]
+        UC_Shift_Create[Cấu hình Ca làm việc: Giờ vào/ra, Giờ nghỉ]
+        UC_Shift_Assign[Phân ca làm việc cho nhân viên]
+        
+        UC_CheckIn_Do[Thực hiện Check-in vào ca]
+        UC_CheckOut_Do[Thực hiện Check-out ra ca]
+        UC_Auto_WorkDay[Tự động tính Ngày công chuẩn: 1.0, 0.5, 0.0]
+        
+        UC_Att_Board[Xem Bảng Chấm công Tổng hợp tháng]
+        UC_Adjust_Request[Gửi Đơn giải trình / Điều chỉnh công]
+        UC_Adjust_Approve[Phê duyệt Đơn điều chỉnh công]
+    end
+
+    Employee --> UC_CheckIn_Do
+    Employee --> UC_CheckOut_Do
+    Employee --> UC_Adjust_Request
+
+    Manager --> UC_Adjust_Approve
+    Manager --> UC_Att_Board
+
+    HR --> UC_Shift_Create
+    HR --> UC_Shift_Assign
+    HR --> UC_Auto_WorkDay
+    HR --> UC_Att_Board
+    HR --> UC_Adjust_Approve
+```
+
+---
+
+### 2.2.7. Sơ đồ Use Case Phân hệ Nghỉ phép & Lịch nghỉ Lễ (Leave & Holidays Sub-system)
+Quản lý các loại nghỉ phép (Phép năm, Ốm đau, Thai sản, Không lương), theo dõi quỹ phép và khai báo ngày lễ:
+
+```mermaid
+graph LR
+    HR((Chuyên viên HR))
+    Manager((Trưởng phòng duyệt))
+    Director((Tổng Giám đốc))
+    Employee((Nhân viên))
+
+    subgraph Leave_Sub["Phân hệ Quản lý Nghỉ phép & Ngày Lễ"]
+        UC_Leave_Apply[Tạo Đơn xin nghỉ phép trực tuyến]
+        UC_Balance_Check[Tra cứu Hạn mức Quỹ phép năm còn lại]
+        UC_Leave_Approve_L1[Trưởng phòng duyệt đơn cấp 1]
+        UC_Leave_Approve_L2[TGĐ duyệt đơn cấp 2 nếu > 2 ngày]
+        UC_Leave_Reject[Từ chối đơn kèm lý do giải trình]
+        
+        UC_Policy_Config[Cấu hình Chính sách & Loại phép]
+        UC_Holiday_Create[Khai báo Lịch nghỉ Lễ hưởng nguyên lương]
+        UC_Holiday_List[Xem Lịch các ngày nghỉ lễ trong năm]
+    end
+
+    Employee --> UC_Leave_Apply
+    Employee --> UC_Balance_Check
+
+    Manager --> UC_Leave_Approve_L1
+    Manager --> UC_Leave_Reject
+
+    Director --> UC_Leave_Approve_L2
+    Director --> UC_Leave_Reject
+
+    HR --> UC_Policy_Config
+    HR --> UC_Holiday_Create
+    HR --> UC_Holiday_List
+    HR --> UC_Balance_Check
+```
+
+---
+
+### 2.2.8. Sơ đồ Use Case Phân hệ Đánh giá Hiệu suất KPI (Performance & KPI Sub-system)
+Quản trị chu kỳ đánh giá hiệu suất, xây dựng bộ tiêu chí KPI chuẩn hóa, giao chỉ tiêu và đánh giá điểm số:
+
+```mermaid
+graph LR
+    HR((Chuyên viên HR))
+    Manager((Người đánh giá Manager))
+    Employee((Nhân viên))
+
+    subgraph KPI_Sub["Phân hệ Đánh giá Hiệu suất KPI"]
+        UC_Cycle_Create[Khởi tạo Chu kỳ đánh giá: Q1, Q2, Năm]
+        UC_Tpl_Create[Xây dựng Mẫu khung tiêu chí KPI theo phòng ban]
+        UC_KPI_Assign[Giao Chỉ tiêu & Trọng số KPI cho nhân viên]
+        
+        UC_Self_Review[Nhân viên Tự chấm điểm hiệu suất]
+        UC_Manager_Review[Quản lý Đánh giá & Chấm điểm phản hồi]
+        UC_Review_Summary[Tổng hợp Điểm số xếp loại ABC]
+    end
+
+    HR --> UC_Cycle_Create
+    HR --> UC_Tpl_Create
+    HR --> UC_KPI_Assign
+    HR --> UC_Review_Summary
+
+    Manager --> UC_KPI_Assign
+    Manager --> UC_Manager_Review
+
+    Employee --> UC_Self_Review
+```
+
+---
+
+### 2.2.9. Sơ đồ Use Case Phân hệ Tính Lương Động & Khóa Sổ (Dynamic Payroll Sub-system)
+Động cơ tính lương tự động nạp tham số từ CSDL, trích nộp bảo hiểm và thuế TNCN lũy tiến:
+
+```mermaid
+graph LR
+    HR((Chuyên viên C&B))
+    Director((Ban Giám Đốc))
+    Employee((Nhân viên))
+
+    subgraph Payroll_Sub["Phân hệ Tính Lương Động & Khóa Sổ (Payroll)"]
+        UC_Period_Create[Tạo Kỳ tính lương mới hàng tháng]
+        UC_Period_Calc[Chạy Động cơ tính lương tự động từ bảng công]
+        UC_Param_Load[Nạp động Tham số: Tỷ lệ BHXH, Giảm trừ gia cảnh]
+        UC_Deduct_Tax[Tự động tính Thuế TNCN lũy tiến & Khấu trừ BH]
+        UC_Payslip_List[Xem Bảng lương chi tiết toàn doanh nghiệp]
+        UC_Payslip_Print[In & Xuất Phiếu lương PDF/Excel]
+        UC_Period_Lock[Khóa sổ Kỳ lương LOCKED ngăn chỉnh sửa]
+        UC_Period_Unlock[Mở khóa sổ Kỳ lương khi có phê duyệt]
+        UC_View_MySlip[Nhân viên xem Phiếu lương cá nhân]
+    end
+
+    HR --> UC_Period_Create
+    HR --> UC_Period_Calc
+    HR --> UC_Param_Load
+    HR --> UC_Deduct_Tax
+    HR --> UC_Payslip_List
+    HR --> UC_Payslip_Print
+
+    Director --> UC_Period_Lock
+    Director --> UC_Period_Unlock
+
+    Employee --> UC_View_MySlip
+```
+
+---
+
+### 2.2.10. Sơ đồ Use Case Phân hệ Quản Lý Tài Sản & Thiết Bị (Asset Management Sub-system - BM-01)
+Quản trị danh mục trang thiết bị, quy trình bàn giao có biên bản chuẩn và thu hồi tài sản khi nghỉ việc:
+
+```mermaid
+graph LR
+    IT_Admin((Bộ phận IT / Hành chính))
+    HR((Chuyên viên HR))
+    Employee((Nhân viên nhận))
+
+    subgraph Asset_Sub["Phân hệ Quản Lý Tài Sản & Thiết Bị (BM-01)"]
+        UC_Asset_View[Tra cứu Kho tài sản & Số lượng sẵn sàng]
+        UC_Asset_Add[Nhập mới Thiết bị: Laptop, PC, Màn hình, Thẻ]
+        UC_Asset_Edit[Cập nhật Tình trạng bảo dưỡng / Sửa chữa]
+        UC_Asset_Delete[Xóa / Thanh lý tài sản]
+        
+        UC_Handover_Create[Lập Phiếu Bàn giao tài sản cho nhân sự mới]
+        UC_Handover_BM01[Xem & In Biên bản Bàn giao Chuẩn BM-01]
+        UC_Asset_Return[Lập Thủ tục Thu hồi tài sản khi Thôi việc]
+        UC_Asset_History[Xem Lịch sử luân chuyển thiết bị]
+    end
+
+    IT_Admin --> UC_Asset_View
+    IT_Admin --> UC_Asset_Add
+    IT_Admin --> UC_Asset_Edit
+    IT_Admin --> UC_Asset_Delete
+    IT_Admin --> UC_Handover_Create
+    IT_Admin --> UC_Handover_BM01
+    IT_Admin --> UC_Asset_Return
+    IT_Admin --> UC_Asset_History
+
+    HR --> UC_Handover_Create
+    HR --> UC_Asset_Return
+    HR --> UC_Handover_BM01
+
+    Employee --> UC_Handover_BM01
+```
+
+---
+
+### 2.2.11. Sơ đồ Use Case Phân hệ Quản trị Hệ thống, Tham số Động & RBAC (System Administration)
+Trung tâm điều phối toàn bộ các tham số định lượng, phê duyệt đa cấp và giám sát an toàn thông tin:
+
+```mermaid
+graph LR
+    Admin((Quản trị viên Tối cao))
+    HR_Manager((Trưởng phòng Nhân sự))
+
+    subgraph System_Sub["Phân hệ Quản trị Hệ thống & Bảo mật"]
+        UC_Param_View[Xem danh mục Tham số định lượng hệ thống]
+        UC_Param_Update[Cập nhật Tham số động: Thuế, BHXH, Công chuẩn]
+        UC_Param_Reset[Khôi phục Tham số về Mặc định chuẩn Luật định]
+        
+        UC_Workflow_Center[Trung tâm Phê duyệt Đa cấp tập trung]
+        UC_RBAC_Matrix[Ma trận Phân quyền Vai trò RBAC tương tác]
+        UC_Audit_Logs[Tra cứu Nhật ký Kiểm toán Audit Logs]
+        UC_Notify_Send[Gửi Thông báo Broadcast nội bộ doanh nghiệp]
+    end
+
+    Admin --> UC_Param_View
+    Admin --> UC_Param_Update
+    Admin --> UC_Param_Reset
+    Admin --> UC_Workflow_Center
+    Admin --> UC_RBAC_Matrix
+    Admin --> UC_Audit_Logs
+    Admin --> UC_Notify_Send
+
+    HR_Manager --> UC_Workflow_Center
+    HR_Manager --> UC_Param_View
+```
+
+---
+
+### 2.2.12. Sơ đồ Use Case Cổng Nhân viên Tự phục vụ (ESS) & Cổng Ứng viên (Portals)
+Hai cổng thông tin ngoại vi phục vụ nhu cầu tự phục vụ của cán bộ nhân viên và ứng tuyển bên ngoài:
+
+```mermaid
+graph LR
+    Employee((Nhân viên ESS))
+    Candidate((Ứng viên bên ngoài))
+
+    subgraph Portals_Sub["Cổng Nhân viên Tự phục vụ (ESS) & Cổng Ứng viên"]
+        UC_ESS_CheckIn[Chấm công Vào/Ra trực tuyến kèm đồng hồ số]
+        UC_ESS_Leave[Nộp Đơn xin nghỉ phép & Theo dõi trạng thái duyệt]
+        UC_ESS_Slip[Tra cứu & Tải Phiếu lương điện tử cá nhân]
+        UC_ESS_Profile[Xem Thông tin Hợp đồng & Hồ sơ nhân sự cá nhân]
+        
+        UC_Cand_Jobs[Xem Danh sách Vị trí Tuyển dụng đang mở]
+        UC_Cand_Culture[Tìm hiểu Môi trường làm việc & Đãi ngộ]
+        UC_Cand_Apply[Nộp Hồ sơ Ứng tuyển & Tải lên tệp CV]
+    end
+
+    Employee --> UC_ESS_CheckIn
+    Employee --> UC_ESS_Leave
+    Employee --> UC_ESS_Slip
+    Employee --> UC_ESS_Profile
+
+    Candidate --> UC_Cand_Jobs
+    Candidate --> UC_Cand_Culture
+    Candidate --> UC_Cand_Apply
+```
+
+---
+
+## 2.3. Sơ đồ Hoạt động (Activity Diagrams)
+
+### 2.3.1. Sơ đồ Hoạt động: Quy trình Tuyển dụng -> Onboarding -> Bàn giao Tài sản (BM-01)
+Quy trình khép kín từ lúc thu hút ứng viên đến khi hoàn tất bàn giao trang thiết bị làm việc:
+
+```mermaid
+flowchart TD
+    Start([Ứng viên nộp hồ sơ]) --> Step1[HR tiếp nhận & Sàng lọc CV trên Kanban ATS]
+    Step1 --> DecisionPass{Đạt tiêu chuẩn?}
+    DecisionPass -- Không --> RejectMail[Gửi email từ chối] --> EndFail([Kết thúc])
+    DecisionPass -- Đạt --> Step2[Lên lịch phỏng vấn chuyên môn]
+    Step2 --> Step3[Hội đồng chấm điểm phỏng vấn]
+    Step3 --> DecisionInterview{Kết quả phỏng vấn?}
+    DecisionInterview -- Trượt --> RejectMail
+    DecisionInterview -- Đạt --> Step4[Phát hành Thư mời nhận việc Offer Letter]
+    Step4 --> DecisionOffer{Ứng viên phản hồi?}
+    DecisionOffer -- Từ chối --> EndFail
+    DecisionOffer -- Đồng ý --> Step5[Chuyển đổi Ứng viên thành Nhân viên mới]
+    Step5 --> Step6[Khởi tạo Hồ sơ Employee & Tài khoản Account hệ thống]
+    Step6 --> Step7[Kích hoạt Checklist Hội nhập Onboarding & Gán Buddy]
+    Step7 --> Step8[Bộ phận IT chọn thiết bị Sẵn sàng trong kho]
+    Step8 --> Step9[Lập Phiếu bàn giao & Cập nhật trạng thái ASSIGNED]
+    Step9 --> Step10[Xuất & In Biên bản bàn giao chuẩn BM-01 cho 2 bên ký nhận]
+    Step10 --> EndSuccess([Hoàn tất tiếp nhận nhân sự])
+```
+
+---
+
+### 2.3.2. Sơ đồ Hoạt động: Quy trình Tính Lương Động & Khấu trừ Thuế / Bảo hiểm (Payroll Engine)
 Quy trình tự động hóa của Động cơ tính lương dựa trên tham số nạp từ CSDL:
 
 ```mermaid
@@ -357,7 +775,7 @@ flowchart TD
     Start([Bắt đầu kỳ tính lương]) --> Step1[HR chọn Tháng / Năm cần tính]
     Step1 --> Step2[Hệ thống kiểm tra trạng thái Kỳ lương PayrollPeriod]
     Step2 --> CondLock{Đã Khóa sổ LOCKED?}
-    CondLock -- Có --> ErrLock[Báo lỗi: Kỳ lương đã bị khóa sổ bởi BGĐ!] --> End([Kết thúc])
+    CondLock -- Có --> ErrLock[Báo lỗi: Kỳ lương đã bị khóa sổ bởi BGĐ!] --> EndFail([Kết thúc])
     CondLock -- Chưa --> Step3[Hệ thống truy vấn bảng SystemSetting lấy tham số nghiệp vụ]
     
     Step3 --> ReadParam[Nạp động: STANDARD_WORKING_DAYS = 22<br/>INSURANCE_RATE = 10.5%<br/>PERSONAL_DEDUCTION = 11.000.000 đ<br/>MAX_INSURANCE_SALARY = 46.800.000 đ]
@@ -384,7 +802,328 @@ flowchart TD
 
 ---
 
-## 2.4. Sơ đồ Thực thể - Quan hệ (Entity Relationship Diagram - ERD)
+### 2.3.3. Sơ đồ Hoạt động: Quy trình Đăng ký & Phê duyệt Nghỉ phép Đa cấp
+Phân luồng duyệt đơn thông minh dựa trên tham số ngưỡng ngày nghỉ phép (`LEAVE_APPROVAL_THRESHOLD`):
+
+```mermaid
+flowchart TD
+    Start([Nhân viên nộp Đơn xin nghỉ phép]) --> CheckBalance{Kiểm tra Quỹ phép năm?}
+    CheckBalance -- Hết phép --> ErrBalance[Thông báo: Không đủ số ngày phép năm còn lại] --> End([Kết thúc])
+    CheckBalance -- Đủ phép --> CreatePending[Tạo LeaveRequest trạng thái PENDING]
+    CreatePending --> RouteL1[Gửi thông báo đến Trưởng phòng ban quản lý trực tiếp]
+    RouteL1 --> L1Action{Trưởng phòng xem xét}
+    L1Action -- Từ chối --> RejectEnd[Cập nhật trạng thái REJECTED kèm lý do] --> End
+    L1Action -- Phê duyệt --> CheckThreshold{Số ngày nghỉ > Ngưỡng phân cấp 2 ngày?}
+    CheckThreshold -- Không <= 2 ngày --> FinalApprove[Phê duyệt hoàn tất APPROVED]
+    CheckThreshold -- Có > 2 ngày --> RouteL2[Chuyển tiếp Đơn lên Tổng Giám Đốc xem xét]
+    RouteL2 --> L2Action{TGĐ xem xét}
+    L2Action -- Từ chối --> RejectEnd
+    L2Action -- Phê duyệt --> FinalApprove
+    FinalApprove --> DeductLeave[Hệ thống tự động trừ Quỹ phép năm LeaveBalance]
+    DeductLeave --> NotifyEmp[Gửi thông báo thành công về Cổng nhân viên ESS] --> SuccessEnd([Hoàn tất])
+```
+
+---
+
+### 2.3.4. Sơ đồ Hoạt động: Quy trình Điểm danh Check-in/Check-out & Tính Ngày công chuẩn
+Luồng xử lý đối soát thời gian vào/ra với khung giờ ca làm việc:
+
+```mermaid
+flowchart TD
+    Start([Nhân viên bấm Check-in]) --> CheckDuplicate{Hôm nay đã Check-in chưa?}
+    CheckDuplicate -- Đã Check-in --> RejectDup[Báo lỗi: Hôm nay bạn đã Check-in rồi!] --> EndFail([Kết thúc])
+    CheckDuplicate -- Chưa Check-in --> CheckLeave{Có Đơn nghỉ phép duyệt hôm nay?}
+    CheckLeave -- Đang nghỉ phép --> RejectLeave[Báo lỗi: Bạn đang trong ngày nghỉ phép!] --> EndFail
+    CheckLeave -- Không --> FetchShift[Lấy khung giờ Ca làm việc chuẩn của nhân viên]
+    FetchShift --> CheckGrace{Thời gian quét thẻ <= Giờ ân hạn 08:45?}
+    CheckGrace -- Đúng giờ --> SetNormal[Ghi nhận CheckIn trạng thái NORMAL]
+    CheckGrace -- Trễ --> SetLate[Ghi nhận CheckIn trạng thái LATE đi muộn]
+    SetNormal --> WaitCheckout[Nhân viên làm việc trong ngày]
+    SetLate --> WaitCheckout
+    WaitCheckout --> DoCheckout([Nhân viên bấm Check-out lúc kết thúc ca])
+    DoCheckout --> CalcHours[Tính tổng số giờ làm việc thực tế WorkHours]
+    CalcHours --> EvalHours{Đánh giá thời lượng làm việc}
+    EvalHours -->|WorkHours >= 7.5h| FullDay[Gán Ngày công chuẩn workingDay = 1.0]
+    EvalHours -->|3.5h <= WorkHours < 7.5h| HalfDay[Gán Ngày công chuẩn workingDay = 0.5]
+    EvalHours -->|WorkHours < 3.5h| ZeroDay[Gán Ngày công chuẩn workingDay = 0.0]
+    FullDay --> SaveRecord[Lưu bản ghi Attendance hoàn chỉnh vào CSDL]
+    HalfDay --> SaveRecord
+    ZeroDay --> SaveRecord
+    SaveRecord --> EndSuccess([Hoàn tất ngày làm việc])
+```
+
+---
+
+## 2.4. Sơ đồ Tuần tự (Sequence Diagrams)
+
+### 2.4.1. Sequence Diagram: Xác thực Đăng nhập & Phân quyền qua JWT + RBAC Matrix
+Mô tả quy trình đăng nhập, mã hóa mật khẩu, cấp phát JSON Web Token và xác thực quyền hạn trên từng Route:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Người dùng (Client)
+    participant UI as Giao diện React SPA
+    participant Router as React ProtectedRoute
+    participant API as Auth Controller (Backend)
+    participant DB as PostgreSQL Database
+    participant JWT as JWT Service
+
+    U->>UI: Nhập Email và Mật khẩu đăng nhập
+    UI->>API: POST /api/auth/login { email, password }
+    API->>DB: prisma.account.findUnique({ where: { email } })
+    DB-->>API: Trả về bản ghi Account kèm mật khẩu băm
+    API->>API: bcrypt.compare(password, account.password)
+    alt Mật khẩu không chính xác
+        API-->>UI: HTTP 401 Unauthorized { error: 'Sai mật khẩu' }
+        UI-->>U: Hiển thị Toast cảnh báo lỗi
+    else Mật khẩu chính xác
+        API->>JWT: jwt.sign({ id, role, employeeId }, SECRET_KEY, { expiresIn: '7d' })
+        JWT-->>API: Chuỗi Token đã ký số
+        API-->>UI: HTTP 200 OK { token, role, employee }
+        UI->>UI: Lưu token và role vào localStorage
+        UI->>Router: Điều hướng tới /internal/dashboard
+        Router->>Router: Kiểm tra allowedRole === ADMIN && role === 'ADMIN'
+        Router-->>U: Hiển thị giao diện Quản trị tương ứng
+    end
+```
+
+---
+
+### 2.4.2. Sequence Diagram: Điểm danh Chấm công (Check-in/Check-out) & Tự động Tính Ngày công
+Mô tả chi tiết luồng gọi API chấm công và cơ chế bảo vệ ràng buộc toàn vẹn dữ liệu:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor E as Nhân viên
+    participant UI as Cổng ESS (React)
+    participant API as Attendance Routes
+    participant DB as PostgreSQL Database
+
+    E->>UI: Bấm nút "Điểm Danh Vào (Check-in)"
+    UI->>API: POST /api/attendance/check-in (Kèm Bearer Token)
+    API->>API: Lấy employeeId từ Token & Xác định ngày hiện tại today (00:00:00)
+    API->>DB: prisma.attendance.findUnique({ where: { employeeId_date } })
+    alt Đã tồn tại bản ghi Check-in hôm nay
+        DB-->>API: Trả về bản ghi đã có
+        API-->>UI: HTTP 400 Bad Request { error: 'Hôm nay bạn đã Check-in rồi!' }
+        UI-->>E: Hiển thị thông báo từ chối
+    else Chưa Check-in
+        API->>API: Đối soát thời gian máy chủ với mốc ân hạn 08:45
+        API->>DB: prisma.attendance.create({ employeeId, date: today, checkIn: now, status: 'NORMAL' })
+        DB-->>API: Bản ghi Attendance mới
+        API-->>UI: HTTP 201 Created { message: 'Điểm danh vào thành công' }
+        UI-->>E: Cập nhật giao diện: Đổi trạng thái nút sang "Điểm Danh Ra"
+    end
+
+    Note over E, DB: ... Nhân viên làm việc hết ca ...
+
+    E->>UI: Bấm nút "Điểm Danh Ra (Check-out)"
+    UI->>API: POST /api/attendance/check-out
+    API->>DB: prisma.attendance.findUnique({ where: { employeeId_date } })
+    API->>API: Tính duration = checkOut - checkIn (Đổi sang Giờ)
+    API->>API: Áp dụng quy tắc: duration >= 7.5h ? workingDay = 1.0 : (duration >= 3.5h ? 0.5 : 0)
+    API->>DB: prisma.attendance.update({ checkOut: now, workingDay })
+    DB-->>API: Cập nhật thành công
+    API-->>UI: HTTP 200 OK { workingDay: 1.0 }
+    UI-->>E: Hiển thị "Đã hoàn thành ngày công: 1.0 công"
+```
+
+---
+
+### 2.4.3. Sequence Diagram: Đăng ký & Phê duyệt Đơn Nghỉ phép Đa cấp
+Mô tả quy trình luân chuyển đơn từ, phân luồng theo ngưỡng số ngày nghỉ qua bảng tham số `SystemSetting`:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Emp as Nhân viên
+    participant UI as Cổng ESS
+    participant API as Leave Routes
+    participant Param as Setting Engine
+    participant DB as PostgreSQL Database
+    actor Mgr as Trưởng phòng
+    actor Dir as Tổng Giám Đốc
+
+    Emp->>UI: Nộp đơn xin nghỉ phép (Từ ngày, Đến ngày, 3 ngày)
+    UI->>API: POST /api/leaves/request { leaveTypeId, startDate, endDate, days: 3 }
+    API->>DB: prisma.leaveBalance.findUnique({ where: { employeeId_year } })
+    DB-->>API: Trả về số ngày phép còn lại (vd: 10 ngày)
+    API->>Param: getSettingValue('LEAVE_APPROVAL_THRESHOLD', 2)
+    Param-->>API: Ngưỡng phân cấp = 2 ngày
+    API->>DB: prisma.leaveRequest.create({ status: 'PENDING_L1', days: 3 })
+    DB-->>API: Tạo đơn thành công
+    API-->>UI: Thông báo đã gửi đơn thành công
+
+    Mgr->>API: PATCH /api/leaves/:id/approve (Trưởng phòng duyệt Cấp 1)
+    API->>API: Kiểm tra số ngày (3 ngày > Ngưỡng 2 ngày)
+    API->>DB: prisma.leaveRequest.update({ status: 'PENDING_L2' })
+    API-->>Mgr: Đã duyệt Cấp 1, chuyển tiếp Đơn lên Ban Giám Đốc
+
+    Dir->>API: PATCH /api/leaves/:id/approve (Tổng Giám Đốc duyệt Cấp 2)
+    API->>DB: prisma.leaveRequest.update({ status: 'APPROVED' })
+    API->>DB: prisma.leaveBalance.update({ usedDays: usedDays + 3, remainingDays: remainingDays - 3 })
+    API-->>Dir: Phê duyệt hoàn tất
+    API-->>UI: Gửi thông báo đến Nhân viên: "Đơn nghỉ phép của bạn đã được phê duyệt"
+```
+
+---
+
+### 2.4.4. Sequence Diagram: Động cơ Tính Lương Động (Payroll Engine) & Khóa Sổ Kỳ Lương
+Mô tả quy trình tính lương tự động đọc tham số từ CSDL và cơ chế khóa sổ kế toán:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor HR as Chuyên viên C&B
+    participant UI as Giao diện Payroll
+    participant API as Payroll Controller
+    participant Param as SystemSetting Service
+    participant DB as PostgreSQL Database
+    actor Dir as Ban Giám Đốc
+
+    HR->>UI: Chọn Tháng 10/2026 và nhấn "Tính Lại Toàn Bộ Bảng Lương"
+    UI->>API: POST /api/payroll/recalculate { month: 10, year: 2026 }
+    API->>DB: prisma.payrollPeriod.findUnique({ where: { monthYear: '10-2026' } })
+    alt Kỳ lương đã bị khóa sổ (status === 'LOCKED')
+        DB-->>API: Trả về kỳ lương LOCKED
+        API-->>UI: HTTP 400 Bad Request { error: 'Kỳ lương đã bị KHÓA SỔ!' }
+        UI-->>HR: Báo lỗi và dừng xử lý
+    else Kỳ lương hợp lệ (DRAFT)
+        API->>Param: getSettingValue('STANDARD_WORKING_DAYS', 22)
+        API->>Param: getSettingValue('INSURANCE_RATE', 10.5)
+        API->>Param: getSettingValue('PERSONAL_DEDUCTION', 11000000)
+        API->>Param: getSettingValue('MAX_INSURANCE_SALARY', 46800000)
+        Param-->>API: Trả về bộ tham số định lượng nạp động từ CSDL
+        
+        API->>DB: prisma.employee.findMany({ where: { status: 'ACTIVE' }, include: contracts })
+        API->>DB: prisma.attendance.findMany({ where: { month: 10, year: 2026 } })
+        API->>API: Tính Gross = (BaseSalary / 22) * ActualDays
+        API->>API: Tính BHXH = MIN(Gross, 46.8M) * 10.5%
+        API->>API: Tính Thuế TNCN lũy tiến = CalcTax(Gross - BHXH - 11M)
+        API->>API: Tính Net = Gross - BHXH - Thuế TNCN
+        API->>DB: prisma.payslip.upsert(...) cho toàn bộ nhân viên
+        DB-->>API: Hoàn tất lưu trữ
+        API-->>UI: HTTP 200 OK { message: 'Đã tính xong 100% bảng lương' }
+        UI-->>HR: Cập nhật giao diện bảng lương tức thời
+    end
+
+    Note over Dir, DB: ... Cuối tháng sau khi đối soát xong ...
+
+    Dir->>UI: Bấm nút "Khóa Sổ Kỳ Lương (Lock Period)"
+    UI->>API: PATCH /api/payroll/periods/:id/toggle-lock
+    API->>DB: prisma.payrollPeriod.update({ status: 'LOCKED' })
+    DB-->>API: Đã khóa sổ thành công
+    API-->>UI: Trạng thái kỳ lương chuyển sang LOCKED, vô hiệu hóa nút tính lại
+```
+
+---
+
+### 2.4.5. Sequence Diagram: Quy trình Bàn giao & Thu hồi Tài sản theo Biểu mẫu BM-01
+Mô tả quy trình cấp phát thiết bị cho nhân sự mới, xuất in biểu mẫu pháp lý và thu hồi tài sản khi nghỉ việc:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor IT as Quản trị Thiết bị / IT
+    participant UI as Giao diện Tài sản (React)
+    participant API as Asset Routes
+    participant DB as PostgreSQL Database
+    actor Emp as Nhân viên
+
+    IT->>UI: Chọn thiết bị Sẵn sàng (AVAILABLE) & Bấm "Bàn giao"
+    UI->>UI: Mở Modal Bàn giao, tự sinh mã biên bản BB-BG-2026-0812
+    IT->>UI: Chọn nhân viên tiếp nhận & Nhập tình trạng máy ban đầu
+    IT->>UI: Bấm "Xác nhận bàn giao & Xuất BM-01"
+    UI->>API: POST /api/assets/assign { assetId, employeeId, handoverDocCode, ... }
+    API->>DB: prisma.assetAssignment.create({ status: 'ACTIVE' })
+    API->>DB: prisma.asset.update({ where: { id: assetId }, data: { status: 'ASSIGNED' } })
+    DB-->>API: Lưu thành công
+    API-->>UI: HTTP 201 Created { assignment }
+    UI->>UI: Tự động mở Modal xem Biểu mẫu BM-01 chuẩn doanh nghiệp
+    IT->>UI: Bấm "In Biên bản" -> Trình duyệt mở cửa sổ in ấn
+    IT->>Emp: Ký nhận và bàn giao thiết bị thực tế
+
+    Note over IT, Emp: ... Nhân viên nghỉ việc sau 2 năm ...
+
+    IT->>UI: Tìm phiếu bàn giao của nhân viên & Bấm "Thu hồi"
+    IT->>UI: Nhập ngày hoàn trả, đánh giá tình trạng nhận lại, chọn kho AVAILABLE
+    UI->>API: POST /api/assets/assignments/:id/return { returnAssetStatus: 'AVAILABLE' }
+    API->>DB: prisma.assetAssignment.update({ status: 'RETURNED', returnedDate: now })
+    API->>DB: prisma.asset.update({ status: 'AVAILABLE', condition: conditionOnReturn })
+    DB-->>API: Cập nhật thành công
+    API-->>UI: Thông báo thu hồi và nhập lại kho thành công
+```
+
+---
+
+### 2.4.6. Sequence Diagram: Chuyển đổi Ứng viên Trúng tuyển sang Hồ sơ Nhân sự Onboarding
+Mô tả quy trình tuyển dụng chuyển tiếp tự động sang dữ liệu nhân sự chính thức:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor HR as Chuyên viên Tuyển dụng
+    participant UI as Giao diện Tuyển dụng ATS
+    participant ATS_API as Candidate Controller
+    participant EMP_API as Employee Controller
+    participant DB as PostgreSQL Database
+
+    HR->>UI: Kéo ứng viên sang cột "Đồng ý nhận việc (Accepted)"
+    UI->>ATS_API: PATCH /api/candidates/:id { status: 'OFFER_ACCEPTED' }
+    ATS_API->>DB: prisma.candidate.update(...)
+    DB-->>ATS_API: Cập nhật thành công
+    ATS_API-->>UI: Hiển thị nút "Chuyển thành Nhân viên mới"
+
+    HR->>UI: Nhấp "Chuyển thành Nhân viên mới"
+    UI->>EMP_API: POST /api/onboarding/convert-candidate { candidateId, departmentId, positionId, salary }
+    EMP_API->>DB: prisma.employee.create({ fullName, email, phone, joinDate, status: 'PROBATION' })
+    EMP_API->>DB: prisma.account.create({ email, password: DefaultHash, role: 'EMPLOYEE' })
+    EMP_API->>DB: prisma.contract.create({ contractType: 'PROBATION', baseSalary, status: 'ACTIVE' })
+    EMP_API->>DB: prisma.onboardingTask.createMany({ defaultTasks })
+    DB-->>EMP_API: Khởi tạo dữ liệu nhân sự hoàn tất
+    EMP_API-->>UI: HTTP 201 Created { employeeId, code: 'NV-2026-089' }
+    UI-->>HR: Thông báo chuyển đổi thành công, chuyển hướng sang Trung tâm Hội nhập
+```
+
+---
+
+### 2.4.7. Sequence Diagram: Cấu hình & Đồng bộ Tham số Nghiệp vụ Động (SystemSetting)
+Mô tả quy trình thay đổi tham số định lượng không hard-code và phản ánh tức thì vào hệ thống:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as Quản trị viên
+    participant UI as Giao diện Tham số Nghiệp vụ
+    participant API as Setting Routes
+    participant DB as PostgreSQL Database
+    participant Payroll as Payroll Engine
+
+    Admin->>UI: Thay đổi Mức giảm trừ gia cảnh từ 11 triệu lên 15.5 triệu VNĐ
+    Admin->>UI: Thay đổi Tỷ lệ trích BHXH từ 10.5% lên 10.0%
+    Admin->>UI: Nhấp "Lưu toàn bộ cấu hình"
+    UI->>API: PUT /api/settings/bulk { updates: [ { key: 'PERSONAL_DEDUCTION', value: '15500000' }, ... ] }
+    loop Từng tham số trong updates
+        API->>DB: prisma.systemSetting.upsert({ where: { key }, update: { value } })
+    end
+    DB-->>API: Đồng bộ CSDL thành công
+    API-->>UI: HTTP 200 OK { message: 'Lưu cấu hình tham số nghiệp vụ thành công' }
+    UI-->>Admin: Hiển thị Toast thông báo thành công
+
+    Note over Admin, Payroll: ... Khi HR bấm tính lương tháng tiếp theo ...
+
+    Payroll->>API: getSettingValue('PERSONAL_DEDUCTION', 11000000)
+    API->>DB: prisma.systemSetting.findUnique({ where: { key: 'PERSONAL_DEDUCTION' } })
+    DB-->>API: Trả về giá trị mới: 15500000
+    API-->>Payroll: Trả về giá trị 15.5 triệu
+    Payroll->>Payroll: Áp dụng trực tiếp 15.5M vào công thức tính thuế TNCN mà không cần sửa code!
+```
+
+---
+
+## 2.5. Sơ đồ Thực thể - Quan hệ (Entity Relationship Diagram - ERD)
 
 Dưới đây là sơ đồ cơ sở dữ liệu hoàn chỉnh của hệ thống được xây dựng trên PostgreSQL và Prisma ORM:
 
