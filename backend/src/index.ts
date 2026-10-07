@@ -18,6 +18,8 @@ import kpiRoutes from './routes/kpi.routes';
 import holidayRoutes from './routes/holiday.routes';
 import decisionRoutes from './routes/decision.routes';
 import reportRoutes from './routes/report.routes';
+import assetRoutes from './routes/asset.routes';
+import settingRoutes from './routes/setting.routes';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -42,6 +44,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/kpi', kpiRoutes);
 app.use('/api/holidays', holidayRoutes);
+app.use('/api/assets', assetRoutes);
+app.use('/api/settings', settingRoutes);
 app.use('/api/leave-config', require('./routes/leave-config.routes').default);
 
 // Dashboard Stats API

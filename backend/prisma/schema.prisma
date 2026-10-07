@@ -150,6 +150,7 @@ model Employee {
   employmentHistories EmploymentHistory[]
   attendanceAdjustments AttendanceAdjustment[]
   decisions           Decision[]
+  assetAssignments    AssetAssignment[]
 }
 
 enum DecisionType {
@@ -578,4 +579,83 @@ model KPITemplate {
   criteria    Int
   weight      String
   status      String   @default("Active")
+}
+
+// ==========================================
+// 9. ASSET MANAGEMENT (Quản lý tài sản & thiết bị)
+// ==========================================
+
+enum AssetCategory {
+  LAPTOP
+  DESKTOP
+  MONITOR
+  PHONE
+  ACCESS_CARD
+  OFFICE_EQUIPMENT
+  VEHICLE
+  OTHER
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  MAINTENANCE
+  DISPOSED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  RETURNED
+  DAMAGED
+}
+
+model Asset {
+  id              String            @id @default(uuid())
+  code            String            @unique
+  name            String
+  category        AssetCategory     @default(LAPTOP)
+  serialNumber    String?
+  price           Decimal           @default(0)
+  purchaseDate    DateTime?
+  supplier        String?
+  status          AssetStatus       @default(AVAILABLE)
+  condition       String?           @default("Mới 100%")
+  location        String?           @default("Kho CNTT - Tầng 5")
+  notes           String?           @db.Text
+  assignments     AssetAssignment[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model AssetAssignment {
+  id                 String           @id @default(uuid())
+  assetId            String
+  asset              Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employeeId         String
+  employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedDate       DateTime         @default(now())
+  returnedDate       DateTime?
+  status             AssignmentStatus @default(ACTIVE)
+  conditionOnAssign  String?          @default("Hoạt động tốt, nguyên tem bảo hành")
+  conditionOnReturn  String?
+  handoverDocCode    String?
+  notes              String?          @db.Text
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+}
+
+// ==========================================
+// 10. SYSTEM BUSINESS PARAMETERS (Tham số động)
+// ==========================================
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  category    String   // PAYROLL, ATTENDANCE, HR, GENERAL
+  key         String   @unique
+  name        String
+  value       String
+  dataType    String   @default("NUMBER") // NUMBER, STRING, BOOLEAN, PERCENT
+  description String?  @db.Text
+  unit        String?
+  updatedAt   DateTime @updatedAt
 }

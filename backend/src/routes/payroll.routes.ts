@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
+import { getSettingValue } from './setting.routes';
 
 const router = Router();
 
@@ -184,11 +185,17 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
+    // Lấy các tham số nghiệp vụ động từ Database (SystemSetting)
+    const dynamicStandardDays = await getSettingValue('STANDARD_WORKING_DAYS', 22);
+    const insuranceRatePercent = await getSettingValue('INSURANCE_RATE', 10.5);
+    const personalDeduction = await getSettingValue('PERSONAL_DEDUCTION', 11000000);
+    const maxInsuranceSalary = await getSettingValue('MAX_INSURANCE_SALARY', 46800000);
+
     if (!period) {
       period = await prisma.payrollPeriod.create({
         data: {
           monthYear: monthYearStr,
-          standardWorkingDays: 22,
+          standardWorkingDays: Number(dynamicStandardDays) || 22,
           status: 'DRAFT'
         }
       });
@@ -216,20 +223,21 @@ router.post('/generate', async (req: Request, res: Response): Promise<any> => {
         }
       });
 
-      // Nếu có chấm công thì tính theo ngày công thực tế, nếu chưa chấm thì mặc định 22 ngày công chuẩn
+      // Nếu có chấm công thì tính theo ngày công thực tế, nếu chưa chấm thì mặc định theo ngày công chuẩn của kỳ lương
+      const standardDays = period.standardWorkingDays || Number(dynamicStandardDays) || 22;
       let totalWorkingDays = attendances.reduce((sum, att) => sum + Number(att.workingDay), 0);
       if (attendances.length === 0) {
-        totalWorkingDays = period.standardWorkingDays || 22;
+        totalWorkingDays = standardDays;
       }
 
-      const standardDays = period.standardWorkingDays || 22;
       const grossSalary = (baseSalary / standardDays) * totalWorkingDays;
       
-      // Khấu trừ BHXH, BHYT, BHTN (10.5% lương đóng BH)
-      const insuranceDeduction = grossSalary * 0.105;
+      // Khấu trừ BHXH, BHYT, BHTN theo tỷ lệ động (mặc định 10.5%, có áp mức trần đóng BH)
+      const salaryForInsurance = Math.min(grossSalary, Number(maxInsuranceSalary) || 46800000);
+      const insuranceDeduction = salaryForInsurance * ((Number(insuranceRatePercent) || 10.5) / 100);
 
-      // Giảm trừ gia cảnh bản thân (11 triệu/tháng)
-      const taxableIncome = Math.max(0, grossSalary - insuranceDeduction - 11000000);
+      // Giảm trừ gia cảnh bản thân nạp động (mặc định 11 triệu/tháng)
+      const taxableIncome = Math.max(0, grossSalary - insuranceDeduction - Number(personalDeduction));
       let taxDeduction = 0;
       if (taxableIncome > 0) {
         if (taxableIncome <= 5000000) taxDeduction = taxableIncome * 0.05;

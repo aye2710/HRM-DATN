@@ -50,6 +50,8 @@ import { AuditLogs } from './pages/internal/system/AuditLogs';
 
 import { ReportsDashboard } from './pages/internal/reports/ReportsDashboard';
 import { KPITemplates } from './pages/internal/performance/KPITemplates';
+import { AssetManagement } from './pages/internal/assets/AssetManagement';
+import { SystemParameters } from './pages/internal/system/SystemParameters';
 
 import { PlaceholderPage } from './components/PlaceholderPage';
 
@@ -61,7 +63,7 @@ import { EmployeePayslip } from './pages/employee/Payslip';
 // Candidate Portal (Standalone)
 import { CandidateLandingPage } from './pages/candidate/LandingPage';
 
-import { LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, ShieldCheck, Target, Shield, Building, UserPlus, CheckSquare, DollarSign, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, ShieldCheck, Target, Shield, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop } from 'lucide-react';
 
 const internalLinks = [
   { to: '/internal/dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
@@ -131,10 +133,12 @@ const internalLinks = [
       { to: '/internal/payroll/payslips', label: 'Bảng lương' },
     ]
   },
+  { to: '/internal/assets', label: 'Tài sản & Thiết bị', icon: <Laptop size={20} /> },
   { to: '/internal/reports', label: 'Báo cáo', icon: <BarChart2 size={20} /> },
   {
     to: '/internal/system', label: 'Hệ thống', icon: <ShieldCheck size={20} />,
     children: [
+      { to: '/internal/system/parameters', label: 'Tham số nghiệp vụ' },
       { to: '/internal/system/workflows', label: 'Trung tâm phê duyệt' },
       { to: '/internal/system/notifications', label: 'Thông báo' },
       { to: '/internal/system/audit', label: 'Nhật ký kiểm toán' },
@@ -220,8 +224,10 @@ function App() {
               <Route path="payroll/periods" element={<PayrollPeriods />} />
               <Route path="payroll/payslips" element={<PayrollMgmt />} />
 
+              <Route path="assets" element={<AssetManagement />} />
               <Route path="reports" element={<ReportsDashboard />} />
 
+              <Route path="system/parameters" element={<SystemParameters />} />
               <Route path="system/workflows" element={<ApprovalWorkflows />} />
               <Route path="system/notifications" element={<Notifications />} />
               <Route path="system/audit" element={<AuditLogs />} />
