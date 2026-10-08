@@ -1,15 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { MapPin, Briefcase, Clock, ChevronRight, CheckCircle2, Rocket, Heart, Coffee, UserCircle, Users, Quote, CheckSquare, Search, FileText, X } from 'lucide-react';
+import { MapPin, Briefcase, Clock, ChevronRight, CheckCircle2, Rocket, Heart, Coffee, UserCircle, Users, Quote, CheckSquare, Search, FileText, X, Sparkles, LogOut } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { CandidateAuthModal } from './CandidateAuthModal';
+import { CandidateApplicationsModal } from './CandidateApplicationsModal';
 
 
 export const CandidateLandingPage = () => {
   const navigate = useNavigate();
   const [jobPostings, setJobPostings] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Candidate Auth State
+  const [candidateUser, setCandidateUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('candidateUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAppsModal, setShowAppsModal] = useState(false);
 
   // Application Modal State
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -30,6 +44,13 @@ export const CandidateLandingPage = () => {
     cvUrl: ''
   });
 
+  const handleCandidateLogout = () => {
+    localStorage.removeItem('candidateToken');
+    localStorage.removeItem('candidateUser');
+    setCandidateUser(null);
+    toast.success('Đã đăng xuất tài khoản ứng viên.');
+  };
+
   useEffect(() => {
     document.title = "Tuyển dụng | Công ty TNHH LLA";
     
@@ -46,7 +67,12 @@ export const CandidateLandingPage = () => {
 
   const handleApplyClick = (job) => {
     setSelectedJob(job);
-    setFormData({ name: '', email: '', phone: '', cvUrl: '' });
+    setFormData({
+      name: candidateUser ? candidateUser.name : '',
+      email: candidateUser ? candidateUser.email : '',
+      phone: candidateUser?.phone || '',
+      cvUrl: ''
+    });
     setApplySuccess(false);
     setShowApplyModal(true);
   };
@@ -64,7 +90,7 @@ export const CandidateLandingPage = () => {
     axios.post('http://localhost:5000/api/candidates', {
       ...formData,
       jobPostingId: selectedJob.id,
-      status: 'APPLIED' // Default status in Kanban ATS
+      status: 'SOURCED'
     })
     .then(() => {
       setApplySuccess(true);
@@ -126,18 +152,136 @@ export const CandidateLandingPage = () => {
             LLA Careers
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '1.75rem', alignItems: 'center' }}>
-          <a href="#about" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 500, fontSize: '0.9rem' }}>Về chúng tôi</a>
-          <a href="#jobs" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>Tuyển dụng</a>
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+          <a href="#about" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 500, fontSize: '0.875rem' }}>Về chúng tôi</a>
+          <a href="#jobs" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem' }}>Vị trí tuyển dụng</a>
+          
+          {candidateUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: '0.5rem' }}>
+              <button 
+                onClick={() => setShowAppsModal(true)} 
+                className="btn btn-outline"
+                style={{
+                  height: '36px',
+                  borderRadius: '9999px',
+                  padding: '0 1rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  color: 'var(--primary)',
+                  borderColor: 'rgba(37, 99, 235, 0.3)',
+                  backgroundColor: 'rgba(37, 99, 235, 0.04)'
+                }}
+              >
+                <Sparkles size={14} color="var(--primary)" /> Đơn ứng tuyển & Offer
+              </button>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '3px 8px 3px 4px',
+                  borderRadius: '9999px',
+                  backgroundColor: 'var(--bg-muted)',
+                  border: '1px solid var(--border)'
+                }}
+              >
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.75rem',
+                    fontWeight: 700
+                  }}
+                >
+                  {candidateUser.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {candidateUser.name}
+                </span>
+                <button
+                  onClick={handleCandidateLogout}
+                  title="Đăng xuất"
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '2px',
+                    marginLeft: '2px'
+                  }}
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginLeft: '0.5rem' }}>
+              <button 
+                onClick={() => { setTrackResults(null); setTrackEmail(''); setShowTrackModal(true); }} 
+                className="btn btn-outline"
+                style={{
+                  height: '36px',
+                  borderRadius: '9999px',
+                  padding: '0 0.875rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <Search size={14} /> Tra cứu nhanh
+              </button>
+              <button 
+                className="btn btn-primary" 
+                style={{
+                  height: '36px',
+                  borderRadius: '9999px',
+                  padding: '0 1.1rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+                }} 
+                onClick={() => setShowAuthModal(true)}
+              >
+                <UserCircle size={16} /> Đăng nhập Ứng viên
+              </button>
+            </div>
+          )}
+
+          <div style={{ height: '18px', width: '1px', backgroundColor: 'var(--border)', margin: '0 0.25rem' }}></div>
+
           <button 
-            onClick={() => { setTrackResults(null); setTrackEmail(''); setShowTrackModal(true); }} 
-            className="btn btn-outline"
-            style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '9999px', fontSize: '0.85rem', padding: '0.45rem 1.1rem' }}
+            onClick={() => navigate('/')}
+            title="Đến Cổng Quản trị Doanh nghiệp (Nội bộ)"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem'
+            }}
           >
-            <Search size={15} /> Tra cứu kết quả
-          </button>
-          <button className="btn btn-primary" style={{ borderRadius: '9999px', padding: '0.45rem 1.25rem', fontSize: '0.85rem' }} onClick={() => navigate('/')}>
-            <UserCircle size={16} /> Đăng nhập
+            Quản trị nội bộ ➔
           </button>
         </div>
       </nav>
@@ -512,6 +656,23 @@ export const CandidateLandingPage = () => {
         </div>,
         document.body
       )}
+
+      {/* Candidate Auth Modal */}
+      <CandidateAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={(user) => {
+          setCandidateUser(user);
+          setShowAppsModal(true);
+        }}
+      />
+
+      {/* Candidate Applications & Offer Modal */}
+      <CandidateApplicationsModal
+        isOpen={showAppsModal}
+        onClose={() => setShowAppsModal(false)}
+        candidateUser={candidateUser}
+      />
     </div>
   );
 };

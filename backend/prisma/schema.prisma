@@ -487,6 +487,7 @@ model JobPosting {
 
 enum CandidateStatus {
   SOURCED
+  APPLIED
   SCREENING
   INTERVIEWING
   OFFERING
@@ -495,16 +496,48 @@ enum CandidateStatus {
 }
 
 model Candidate {
-  id           String          @id @default(uuid())
-  name         String
-  email        String
-  phone        String?
-  cvUrl        String?
-  jobPostingId String
-  jobPosting   JobPosting      @relation(fields: [jobPostingId], references: [id])
-  status       CandidateStatus @default(SOURCED)
-  interviews   InterviewRound[]
-  offer        JobOffer?
+  id            String                 @id @default(uuid())
+  name          String
+  email         String
+  phone         String?
+  cvUrl         String?
+  jobPostingId  String
+  jobPosting    JobPosting             @relation(fields: [jobPostingId], references: [id])
+  status        CandidateStatus        @default(SOURCED)
+  interviews    InterviewRound[]
+  offer         JobOffer?
+  preOnboarding PreOnboardingProfile?
+}
+
+model CandidateUser {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PreOnboardingProfile {
+  id                       String    @id @default(uuid())
+  candidateId              String    @unique
+  candidate                Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  cccd                     String?
+  gender                   String?
+  dateOfBirth              DateTime?
+  address                  String?
+  nationality              String?   @default("Việt Nam")
+  maritalStatus            String?
+  taxCode                  String?
+  bankName                 String?
+  bankAccount              String?
+  socialInsurance          String?
+  healthInsurance          String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  submittedAt              DateTime  @default(now())
 }
 
 model InterviewRound {
@@ -538,6 +571,10 @@ model JobOffer {
   baseSalary    Decimal
   probationRate Int         @default(85)
   startDate     DateTime    @db.Date
+  contractType  String?     @default("PROBATION")
+  notes         String?
+  declineReason String?
+  respondedAt   DateTime?
   status        OfferStatus @default(PENDING)
 }
 

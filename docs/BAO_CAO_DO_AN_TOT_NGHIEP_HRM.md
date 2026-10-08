@@ -1309,11 +1309,12 @@ Hệ thống Tuyển dụng bao gồm **4 nhóm chức năng lớn** với tổn
 | | `UC-REC-03-03` | Đánh giá & Chấm điểm ứng viên (Submit Feedback & Score) | Interviewer / Manager | `POST /api/interviews/:id/feedback` |
 | | `UC-REC-03-04` | Phê duyệt kết quả sau phỏng vấn - Chốt Offer / Loại | HR / Recruiter | `PUT /api/candidates/:id` |
 | | `UC-REC-03-05` | Hủy lịch phỏng vấn (Cancel Interview Round) | HR / Admin | `DELETE /api/interviews/:id` |
-| **4. Quản lý Offer**<br/>*(Offer & Onboarding)* | `UC-REC-04-01` | Tra cứu danh sách ứng viên chờ Offer (View Offering Candidates) | HR / Recruiter | `GET /api/offers` |
-| | `UC-REC-04-02` | Thiết lập thông tin Tiếp nhận & Hợp đồng (Prepare Onboarding) | HR / Recruiter | Form Modal Onboarding |
-| | `UC-REC-04-03` | Tiếp nhận & Khởi tạo Nhân viên Core HR (Accept Offer) | HR / Admin | `POST /api/offers/accept` (Transaction) |
-| | `UC-REC-04-04` | Ghi nhận Ứng viên Từ chối Offer (Reject Offer) | HR / Recruiter | `POST /api/offers/:id/reject` |
-| | `UC-REC-04-05` | Toàn vẹn định danh & Tự động đóng Job khi đủ chỉ tiêu | Backend System | Prisma Transaction & Event Trigger |
+| **4. Quản lý Offer & Tiếp nhận**<br/>*(Offer & Collaborative Onboarding)* | `UC-REC-04-01` | Tra cứu danh sách ứng viên chờ Offer (View Offering Candidates) | HR / Recruiter | `GET /api/offers` |
+| | `UC-REC-04-02` | Thiết lập & Phát hành Thư mời nhận việc (Send Job Offer) | HR / Recruiter | `POST /api/offers/send` |
+| | `UC-REC-04-03` | Rà soát Hồ sơ Tiền Tiếp nhận tự khai (Review Pre-Onboarding Profile) | HR / Recruiter | Xem trước dữ liệu `PreOnboardingProfile` |
+| | `UC-REC-04-04` | Tiếp nhận Nhân sự & Khởi tạo Core HR (Accept Offer & Auto-provision) | HR / Admin | `POST /api/offers/accept` (Transaction) |
+| | `UC-REC-04-05` | Ghi nhận Ứng viên Từ chối Offer kèm lý do (Reject Offer) | HR / Recruiter | `POST /api/offers/:id/reject` |
+| | `UC-REC-04-06` | Toàn vẹn định danh & Tự động đóng Job khi đủ chỉ tiêu | Backend System | Prisma Transaction & Headcount Trigger |
 
 ---
 
@@ -1333,21 +1334,17 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
    - Đặc tả 5 Use Case con: Lên lịch hẹn, Dời lịch, Chấm điểm Feedback định lượng (1-10) sau giờ hẹn, Phê duyệt nhanh kết quả (Chốt Offer / Từ chối), Hủy lịch.
    - Sơ đồ tuần tự Feedback và 6 kịch bản kiểm thử mẫu.
 
-4. [Đặc tả Chức năng Quản lý Đề nghị nhận việc và Tiếp nhận Nhân sự](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Quan-ly-Offer.md)
-   - Đặc tả 5 Use Case con: Tra cứu danh sách Offer, Thiết lập điều khoản tiếp nhận, Tiếp nhận Onboarding sinh mã NV & hợp đồng tự động, Từ chối Offer, Ràng buộc Unique & Đồng bộ chỉ tiêu.
-   - Sơ đồ tuần tự Prisma $transaction Onboarding và 6 kịch bản kiểm thử mẫu.
+4. [Đặc tả Chức năng Quản lý Đề nghị nhận việc và Tiếp nhận Nhân sự 2 chiều](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Quan-ly-Offer.md)
+   - Đặc tả 6 Use Case con: Tra cứu danh sách Offer, Thiết lập & phát hành Offer trực tuyến, Rà soát hồ sơ Pre-Onboarding do ứng viên tự nộp, Tiếp nhận nhân sự khi ứng viên đến công ty (kế thừa tự động CCCD, MST, tài khoản ngân hàng, liên hệ khẩn cấp vào Employee & Contract), Ghi nhận từ chối kèm lý do, Ràng buộc Unique & Đồng bộ chỉ tiêu.
+   - Sơ đồ tuần tự Prisma $transaction Onboarding và 5 kịch bản kiểm thử mẫu.
 
 ---
 
 #### 5. Điểm nhấn Kỹ thuật & Nghiệp vụ (Key Business Highlights)
 
-1. **Auto-provisioning Nhân sự (Zero Duplicate Data Entry)**:
-   - Trong các hệ thống HRM thông thường, khi ứng viên trúng tuyển, phòng Nhân sự phải mở module Core HR để gõ lại toàn bộ Họ tên, Email, SĐT, Vị trí, Lương thỏa thuận và Ngày nhận việc.
-   - Trong hệ thống này, khi nhấn "Tiếp nhận / Tạo hồ sơ" hoặc kéo thẻ sang `HIRED`, hệ thống sử dụng một **Database Transaction** khép kín:
-     - Tạo bản ghi `Employee` với trạng thái `ONBOARDING`.
-     - Tự động liên kết `departmentId` và `positionId` từ chiến dịch tuyển dụng.
-     - Tạo bản ghi `Contract` với mức lương và loại hợp đồng đã thỏa thuận.
-     - Cập nhật trạng thái `Candidate` thành `HIRED`.
+1. **Quy trình Phối hợp 2 chiều & Tự phục vụ Tiền Tiếp nhận (Collaborative Pre-Onboarding)**:
+   - Thay vì nhân sự phải liên hệ qua email/điện thoại xin thông tin cá nhân rồi nhập thủ công, hệ thống cho phép ứng viên tự xem Thư mời nhận việc trên Cổng Tuyển dụng, chủ động bấm Chấp nhận và hoàn tất biểu mẫu Khai báo hồ sơ trực tuyến (`PreOnboardingProfile`).
+   - Vào ngày nhận việc, HR chỉ cần bấm Tiếp nhận; toàn bộ dữ liệu CCCD, mã số thuế, số tài khoản ngân hàng, người thân khẩn cấp được tự động chuyển giao vào bản ghi `Employee` và `Contract` mà không phát sinh sai sót do nhập liệu thủ công.
 
 2. **Cơ chế Khóa Đánh giá Phỏng vấn (Interview Feedback Immutability)**:
    - Chỉ cho phép chấm điểm khi buổi phỏng vấn đã diễn ra trong thực tế (`scheduledAt < currentTime`).
@@ -1356,6 +1353,7 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
 3. **Tự động đóng chiến dịch khi đạt chỉ tiêu (Headcount Auto-closure)**:
    - Mỗi khi một ứng viên được tiếp nhận thành công, hệ thống tính toán lại tỷ lệ lấp đầy (`Fill Rate`). Nếu số người được tuyển (`hiredCount`) đạt chỉ tiêu (`amount`), chiến dịch tự động chuyển sang trạng thái `CLOSED` để tránh tiếp nhận dư thừa nhân lực.
 
+---
 
 
 ### Usecase: UC-REC-01 - Quản lý Yêu cầu Tuyển dụng (Job Requisitions)
@@ -2338,33 +2336,63 @@ sequenceDiagram
 | **TC-REC-03-06** | UC-REC-03-05 | Xác nhận trước khi hủy lịch | Bấm icon Thùng rác tại một dòng lịch hẹn | Hiển thị SweetAlert cảnh báo, bấm "Hủy lịch" mới xóa khỏi CSDL. | **Pass** |
 
 
-### Usecase: UC-REC-04 - Quản lý Đề nghị nhận việc và Tiếp nhận Nhân sự (Job Offer & Onboarding Provisioning)
+### Usecase: UC-REC-04 - Quản lý Đề nghị nhận việc và Tiếp nhận Nhân sự 2 chiều (Job Offer & Collaborative Onboarding)
 
 #### 1. Giới thiệu chức năng
-- **Mục đích**: Quản lý giai đoạn kết thúc của quy trình tuyển dụng: Chốt điều kiện tuyển dụng với ứng viên (Mã nhân viên, CCCD, Lương cơ bản, Loại hợp đồng, Ngày nhận việc) và thực hiện **Tiếp nhận nhân sự (Onboarding)**. Khi ứng viên đồng ý nhận việc, hệ thống thực hiện một chu trình cơ sở dữ liệu nguyên tử (Database Transaction) tự động khởi tạo Hồ sơ Nhân viên (`Employee`), tạo Hợp đồng lao động (`Contract`), cập nhật trạng thái ứng viên thành `HIRED` và đồng bộ chỉ tiêu tuyển dụng vào Module Tổ chức.
-- **Actor (Tác nhân)**: Chuyên viên Tuyển dụng (Recruiter), Trưởng phòng Nhân sự (HR Manager), Quản trị viên (Admin).
-- **Điều kiện tiên quyết**: Người dùng đã đăng nhập và được cấp quyền quản lý tuyển dụng hoặc vai trò `ADMIN` / `HR_MANAGER`.
+- **Mục đích**: Quản lý giai đoạn kết thúc của quy trình tuyển dụng theo cơ chế phối hợp 2 chiều (Collaborative Onboarding Lifecycle):
+  1. Doanh nghiệp (HR) phát hành Thư mời nhận việc (**Job Offer**) với các điều khoản đãi ngộ chi tiết (Lương chính thức, Tỷ lệ lương thử việc, Ngày bắt đầu làm việc, Hạn phản hồi, Ghi chú phúc lợi).
+  2. Ứng viên (**Candidate**) xem thư mời trên Cổng Tuyển dụng và chủ động phản hồi (**Chấp nhận** hoặc **Từ chối kèm lý do**).
+  3. Khi Ứng viên chấp nhận Offer, hệ thống tự động mở giao diện **Khai báo Hồ sơ Tiền Tiếp nhận (Pre-Onboarding Profile)** để ứng viên tự cung cấp đầy đủ thông tin pháp lý, ngân hàng, gia đình và liên hệ khẩn cấp trước khi đi làm.
+  4. Vào ngày nhận việc, khi ứng viên đến công ty nhận bàn giao, HR thực hiện một chu trình cơ sở dữ liệu nguyên tử (**Database Transaction**) xác nhận tiếp nhận: Tự động kế thừa toàn bộ hồ sơ do ứng viên tự khai để tạo Hồ sơ Nhân viên chính thức (`Employee`), tạo Hợp đồng lao động (`Contract`), chuyển ứng viên thành `HIRED` và cập nhật chỉ tiêu tuyển dụng.
+- **Actor (Tác nhân)**: Chuyên viên Tuyển dụng (Recruiter), Trưởng phòng Nhân sự (HR Manager), Ứng viên (Candidate), Quản trị viên (Admin).
+- **Điều kiện tiên quyết**: Ứng viên đã vượt qua vòng phỏng vấn và chuyển sang trạng thái `OFFERING`.
 
 ##### Danh mục các chức năng con (Sub-features):
-1. **UC-REC-04-01: Tra cứu & Quản lý danh sách ứng viên chờ Offer (View & Search Offering Candidates)**: Theo dõi danh sách ứng viên đã vượt qua vòng phỏng vấn và đang ở trạng thái `OFFERING`, hỗ trợ tìm kiếm tức thời theo tên hoặc email.
-2. **UC-REC-04-02: Thiết lập thông tin Tiếp nhận & Hợp đồng (Prepare Onboarding Offer Terms)**: Nhập liệu các điều khoản tiếp nhận: Mã nhân viên, CCCD, Mức lương cơ bản, Loại hợp đồng (Thử việc/Chính thức) và Ngày bắt đầu làm việc.
-3. **UC-REC-04-03: Xác nhận Tiếp nhận & Tự động tạo Nhân viên Core HR (Accept Offer & Auto-provision Employee)**: Thực hiện Transaction tự động sinh bản ghi Nhân viên mới (`ONBOARDING`), bản ghi Hợp đồng và đánh dấu ứng viên `HIRED`.
-4. **UC-REC-04-04: Ghi nhận Ứng viên Từ chối Offer (Reject Offer)**: Cập nhật trạng thái ứng viên sang `REJECTED` khi ứng viên từ chối điều kiện làm việc hoặc không đến nhận việc.
-5. **UC-REC-04-05: Kiểm tra toàn vẹn định danh & Chỉ tiêu tuyển dụng (Integrity & Headcount Synchronization)**: Ngăn chặn trùng lặp Mã NV / CCCD và tự động đóng chiến dịch tuyển dụng khi số người nhận việc đạt đủ chỉ tiêu ban đầu.
+1. **UC-REC-04-01: Tra cứu & Quản lý danh sách ứng viên chờ Offer (View & Search Offering Candidates)**: Theo dõi danh sách ứng viên đang ở trạng thái `OFFERING` và trạng thái Thư mời (`Chờ gửi`, `Chờ phản hồi`, `Đã chấp nhận`, `Đã từ chối`).
+2. **UC-REC-04-02: Thiết lập & Phát hành Thư mời nhận việc (Create & Send Job Offer)**: Soạn thảo và gửi Thư mời nhận việc trực tuyến: Mức lương thỏa thuận, Tỷ lệ thử việc (85% - 100%), Ngày bắt đầu làm việc, Hạn phản hồi và Ghi chú đãi ngộ.
+3. **UC-REC-04-03: Xem xét Hồ sơ Tiền Tiếp nhận do Ứng viên tự khai (Review Pre-Onboarding Profile)**: Kiểm tra thông tin nhân thân (CCCD, MST, ngày sinh), tài khoản ngân hàng và liên hệ khẩn cấp do ứng viên nộp qua cổng tự phục vụ.
+4. **UC-REC-04-04: Tiếp nhận Nhân sự & Tự động tạo Hồ sơ Core HR (Accept Offer & Auto-provision Employee)**: Kích hoạt khi ứng viên có mặt tại công ty; chạy Transaction tạo `Employee`, tạo `Contract`, cập nhật ứng viên thành `HIRED` mà không cần nhập liệu thủ công lại.
+5. **UC-REC-04-05: Ghi nhận Ứng viên Từ chối Offer (Record Offer Rejection)**: Cập nhật lý do từ chối (mức lương chưa phù hợp, chọn cơ hội khác, v.v.), chuyển trạng thái ứng viên sang `REJECTED`.
+6. **UC-REC-04-06: Kiểm tra toàn vẹn định danh & Tự động đóng chỉ tiêu (Integrity & Headcount Synchronization)**: Ngăn chặn trùng lặp Mã NV / CCCD và tự động đóng chiến dịch tuyển dụng khi đã đạt đủ chỉ tiêu.
 
 ---
 
 #### 2. Dữ liệu nghiệp vụ đầu vào (Input Data & Parameters)
 
-##### 2.1. Biểu mẫu Tiếp nhận & Thiết lập Offer (Onboarding Terms Form)
-| Tên trường | Kiểu dữ liệu | Tính chất | Ý nghĩa nghiệp vụ & Ràng buộc |
+##### 2.1. Biểu mẫu Phát hành Thư mời Nhận việc (Job Offer Form)
+| Tên trường | Kiểu dữ liệu | Bắt buộc | Ý nghĩa nghiệp vụ & Ràng buộc |
+|---|---|:---:|---|
+| `candidateId` | UUID | Có | Định danh ứng viên nhận Offer (phải ở trạng thái `OFFERING`). |
+| `baseSalary` | Số (Number) | Có | Mức lương cơ bản thỏa thuận hàng tháng (VNĐ, tối thiểu > 0). |
+| `probationSalaryRate` | Số (%) | Có | Tỷ lệ hưởng lương thử việc (Mặc định 85% theo Luật Lao động, 85 - 100%). |
+| `joinDate` | Ngày (Date) | Có | Ngày dự kiến bắt đầu làm việc tại công ty. |
+| `expiresAt` | Ngày (Date) | Có | Thời hạn tối đa để ứng viên xác nhận đồng ý Offer. |
+| `notes` | Văn bản (Text) | Không | Ghi chú phúc lợi, chế độ thưởng, phụ cấp hoặc dặn dò trang phục ngày đầu đi làm. |
+
+##### 2.2. Dữ liệu Hồ sơ Tiền Tiếp nhận do Ứng viên tự khai (PreOnboardingProfile)
+| Nhóm dữ liệu | Tên trường | Kiểu dữ liệu | Ý nghĩa nghiệp vụ |
 |---|---|---|---|
-| `Mã ứng viên` (candidateId) | UUID / Chuỗi | Bắt buộc | ID định danh của ứng viên đang ở trạng thái `OFFERING`. |
-| `Mã nhân viên mới` (employeeCode) | Chuỗi (String) | Bắt buộc | Định danh duy nhất cho nhân viên mới (VD: `NV0142`). Hệ thống tự động gợi ý ngẫu nhiên, cho phép sửa đổi thủ công. |
-| `Số CCCD / CMND` (cccd) | Chuỗi (String) | Bắt buộc | Căn cước công dân của nhân viên mới (9 hoặc 12 số, duy nhất trong hệ thống). |
-| `Mức lương cơ bản` (baseSalary) | Số (Number) | Bắt buộc | Mức lương thỏa thuận hàng tháng (VNĐ), tối thiểu lớn hơn 0 (VD: `15000000`). |
-| `Loại hợp đồng` (contractType) | Enum/String | Bắt buộc | Loại hợp đồng ban đầu: `PROBATION` (Thử việc), `OFFICIAL` (Xác định thời hạn), `INDEFINITE` (Không thời hạn). Mặc định là `PROBATION`. |
-| `Ngày nhận việc` (joinDate) | Ngày (Date) | Bắt buộc | Ngày đầu tiên nhân viên đến công ty làm việc (Định dạng `YYYY-MM-DD`). |
+| **Định danh & Nhân thân** | `cccd` | String(12) | Số Căn cước công dân gắn chip (duy nhất trong toàn hệ thống). |
+| | `cccdDate` | Date | Ngày cấp CCCD. |
+| | `cccdPlace` | String(150) | Nơi cấp CCCD (Cục CSQLHC về TTXH). |
+| | `taxCode` | String(20) | Mã số thuế thu nhập cá nhân của ứng viên. |
+| | `dob` | Date | Ngày tháng năm sinh của ứng viên. |
+| | `gender` | Enum | Giới tính: `MALE`, `FEMALE`, `OTHER`. |
+| | `address` | String(255) | Địa chỉ thường trú / Nơi ở hiện tại. |
+| **Tài chính & Ngân hàng** | `bankAccount` | String(30) | Số tài khoản ngân hàng để nhận lương hàng tháng. |
+| | `bankName` | String(100) | Tên ngân hàng thụ hưởng (Vietcombank, MB, Techcombank, ...). |
+| | `bankBranch` | String(150) | Chi nhánh mở tài khoản ngân hàng. |
+| **Liên hệ Khẩn cấp** | `emergencyName` | String(100) | Họ tên người thân liên hệ trong trường hợp khẩn cấp. |
+| | `emergencyRel` | String(50) | Mối quan hệ với ứng viên (Bố, Mẹ, Vợ/Chồng, Anh/Chị/Em). |
+| | `emergencyPhone`| String(15) | Số điện thoại người liên hệ khẩn cấp. |
+
+##### 2.3. Trạng thái Vòng đời Thư mời Nhận việc (`JobOffer.status`)
+| Trạng thái | Nhãn hiển thị | Ý nghĩa nghiệp vụ |
+|---|---|---|
+| `PENDING` | Chờ ứng viên phản hồi | HR đã gửi Offer, đang chờ ứng viên mở cổng xác nhận trước thời hạn `expiresAt`. |
+| `ACCEPTED` | Đã chấp nhận | Ứng viên đã đồng ý nhận việc và đã hoàn tất khai báo Pre-onboarding. |
+| `REJECTED` | Đã từ chối | Ứng viên từ chối điều kiện làm việc (kèm lý do ghi nhận trong `declineReason`). |
+| `EXPIRED` | Hết hạn | Quá ngày `expiresAt` nhưng ứng viên không phản hồi, hệ thống hủy Offer. |
 
 ---
 
@@ -2372,272 +2400,122 @@ sequenceDiagram
 
 | Mã Quy tắc | Tình huống nghiệp vụ | Cách hệ thống xử lý | Thông báo hiển thị |
 |---|---|---|---|
-| **BR-REC-04-01** | **Điều kiện ứng viên được cấp Offer**: Truy cập danh sách Offer. | Chỉ những ứng viên đang ở trạng thái `OFFERING` mới xuất hiện trên giao diện. Các ứng viên ở trạng thái khác không được phép mở form tiếp nhận. | "Chỉ ứng viên ở giai đoạn Chốt Offer mới đủ điều kiện tạo hồ sơ!" |
-| **BR-REC-04-02** | **Tính nguyên tử của Tiếp nhận (Onboarding Transaction)**: Bấm "Tạo hồ sơ & Nhận việc". | Chạy trong một Transaction DB duy nhất: <br/>1. Kiểm tra tồn tại Candidate.<br/>2. Tạo mới `Employee` (status `ONBOARDING`, kế thừa `departmentId`, `positionId` từ Job).<br/>3. Tạo mới `Contract` (status `ACTIVE`, gắn với `employeeId`).<br/>4. Cập nhật `Candidate.status = 'HIRED'`. Nếu bất kỳ bước nào lỗi → Rollback toàn bộ. | "Tiếp nhận nhân viên thành công!" |
-| **BR-REC-04-03** | **Kiểm tra trùng lặp định danh (Uniqueness Validation)**: Trùng `employeeCode` hoặc `cccd`. | Backend bắt mã lỗi `P2002` từ Prisma và chặn giao dịch, trả về thông báo lỗi cụ thể cho người dùng. | "Mã nhân viên hoặc CCCD đã tồn tại trong hệ thống." |
-| **BR-REC-04-04** | **Từ chối Offer (Offer Rejection)**: Ứng viên từ chối đi làm hoặc không phản hồi. | Yêu cầu xác nhận cảnh báo. Khi đồng ý → Cập nhật `Candidate.status = 'REJECTED'`, chuyển thẻ trên Kanban sang cột Từ chối và loại khỏi danh sách chờ Offer. | "Bạn có chắc chắn muốn Từ chối Offer của ứng viên này?" |
-| **BR-REC-04-05** | **Khóa chỉnh sửa sau tiếp nhận (Immutability)**: Ứng viên đã trở thành `HIRED`. | Bản ghi ứng viên tự động rời khỏi màn hình Quản lý Offer. Mọi thông tin sau đó được quản lý tại Module Hồ sơ Nhân viên (Core HR). | "Ứng viên đã được tiếp nhận thành công sang Module Nhân sự." |
+| **BR-REC-04-01** | **Điều kiện cấp Offer**: HR phát hành Thư mời. | Chỉ ứng viên ở trạng thái `OFFERING` mới được cấp Offer. Nếu ứng viên đã có Offer ở trạng thái `ACCEPTED` hoặc đã `HIRED`, hệ thống chặn phát hành trùng lặp. | "Chỉ ứng viên ở giai đoạn Chốt Offer mới đủ điều kiện gửi Thư mời nhận việc!" |
+| **BR-REC-04-02** | **Nguyên tắc Tiếp nhận 2 chiều (Collaborative Onboarding)**: HR bấm Tiếp nhận. | HR chỉ được chuyển ứng viên thành Nhân viên chính thức khi ứng viên đã **Chấp nhận Offer** (`JobOffer.status = 'ACCEPTED'`) và ứng viên đã có mặt tại công ty nhận việc. Form tiếp nhận tự động điền các trường do ứng viên khai báo. | "Ứng viên đã xác nhận chấp nhận Offer và nộp hồ sơ Onboarding thành công." |
+| **BR-REC-04-03** | **Tính nguyên tử của Tiếp nhận (Onboarding Transaction)**: Bấm "Tiếp nhận nhân viên". | Chạy trong một Transaction DB duy nhất: <br/>1. Lấy thông tin Candidate + PreOnboardingProfile + JobPosting.<br/>2. Tạo mới `Employee` (kế thừa `cccd`, `address`, `bankAccount`, `taxCode`, `emergencyContact` từ hồ sơ tự khai; trạng thái `ONBOARDING`).<br/>3. Tạo mới `Contract` (loại `PROBATION`, lương từ Offer, `status = 'ACTIVE'`).<br/>4. Cập nhật `Candidate.status = 'HIRED'`. Nếu bất kỳ bước nào lỗi $\rightarrow$ Rollback toàn bộ. | "Tiếp nhận nhân viên thành công! Hồ sơ đã được đồng bộ vào Core HR." |
+| **BR-REC-04-04** | **Kiểm tra trùng lặp định danh (Uniqueness Validation)**: Trùng `employeeCode` hoặc `cccd`. | Backend bắt mã lỗi `P2002` từ Prisma và chặn giao dịch, trả về thông báo lỗi chi tiết cho HR. | "Mã nhân viên hoặc CCCD đã tồn tại trong hệ thống." |
+| **BR-REC-04-05** | **Ghi nhận Lý do Từ chối Offer**: Ứng viên từ chối Offer. | Lưu lý do vào `JobOffer.declineReason`, thời gian phản hồi vào `respondedAt`, cập nhật trạng thái Offer thành `REJECTED` và Candidate thành `REJECTED`. | "Đã ghi nhận phản hồi từ chối Offer của ứng viên." |
+| **BR-REC-04-06** | **Tự động đóng chiến dịch khi đạt chỉ tiêu**: Sau khi ứng viên thành `HIRED`. | Kiểm tra tổng số `HIRED` của `jobPostingId`. Nếu $\ge$ `amount` $\rightarrow$ Tự động đổi trạng thái Job sang `CLOSED`. | "Chiến dịch tuyển dụng đã hoàn thành đủ chỉ tiêu và tự động đóng tuyển dụng!" |
 
 ---
 
 #### 4. Đặc tả chi tiết các Use Case chức năng con (Sub-Use Cases Specification)
 
----
-
-##### 4.1. UC-REC-04-01: Tra cứu & Quản lý danh sách ứng viên chờ Offer (View & Search Offering Candidates)
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,stroke-dasharray: 4 4;
-
-    Actor(["👤 Chuyên viên HR / Recruiter"]):::actor
-    UC(["UC-REC-04-01: Quản lý & Tra cứu ứng viên Offer"]):::main
-    UC_Fetch(["Tải danh sách ứng viên status = OFFERING"]):::sub
-    UC_Search(["Lọc tức thời theo Tên và Email"]):::sub
-
-    Actor --> UC
-    UC -.->|include| UC_Fetch
-    UC -.->|extend| UC_Search
-```
+##### 4.1. UC-REC-04-01 & UC-REC-04-02: Thiết lập & Phát hành Thư mời nhận việc (Send Job Offer)
 
 ###### Bảng đặc tả nghiệp vụ:
-
 | STT | Hạng mục | Nội dung chi tiết |
 |:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-REC-04-01`<br/>- **UC Name**: Tra cứu & Quản lý danh sách ứng viên chờ Offer (View & Search Offering Candidates)<br/>- **Actor**: Chuyên viên Tuyển dụng (Recruiter), Trưởng phòng Nhân sự<br/>- **Mục tiêu**: Theo dõi và tra cứu toàn bộ ứng viên đã vượt qua phỏng vấn và đang trong giai đoạn thương lượng/chờ ký nhận việc.<br/>- **Mô tả**: Hiển thị bảng danh sách ứng viên `OFFERING` cùng thông tin vị trí, phòng ban ứng tuyển, và thanh tìm kiếm tức thời theo tên hoặc email.<br/>- **Priority**: High |
-| **2** | **Trigger** | Người dùng truy cập menu **"Quản lý Offer"** (`/internal/recruitment/offers`). |
-| **3** | **Pre-condition** | Người dùng đã đăng nhập với vai trò có quyền quản lý tuyển dụng. |
-| **4** | **Post-condition** | Danh sách ứng viên chờ Offer hiển thị đầy đủ, cho phép thao tác tiếp nhận hoặc từ chối. |
-| **5** | **Main Flow** | 1. Người dùng mở trang Quản lý Offer & Tiếp nhận.<br/>2. Hệ thống gọi API `GET /api/offers`.<br/>3. Backend truy vấn CSDL lấy tất cả các bản ghi `Candidate` có `status = 'OFFERING'` kèm thông tin phòng ban và vị trí từ `jobPosting`.<br/>4. Giao diện hiển thị danh sách dạng bảng gồm: Họ tên, Email, Số điện thoại, Vị trí ứng tuyển, Phòng ban, Trạng thái và Các nút hành động.<br/>5. Người dùng nhập từ khóa vào ô tìm kiếm → Danh sách được lọc tức thời theo thời gian thực (Client-side filtering). |
-| **6** | **Alternative / Exception Flow** | - **AF-01 (Chưa có ứng viên nào)**: Không có ứng viên ở giai đoạn OFFERING → Giao diện hiển thị thông báo *"Chưa có ứng viên nào đang ở giai đoạn chờ chốt Offer"*. |
-| **7** | **Business Rules & Validation** | - Chỉ nạp các ứng viên có trạng thái chính xác là `OFFERING` (BR-REC-04-01). |
-| **8** | **Acceptance Criteria** | - **AC-01**: Hiển thị đúng các ứng viên ở trạng thái OFFERING.<br/>- **AC-02**: Nhập từ khóa tìm kiếm lọc ngay lập tức theo tên hoặc email. |
-
----
-
-##### 4.2. UC-REC-04-02: Thiết lập thông tin Tiếp nhận & Hợp đồng (Prepare Onboarding Offer Terms)
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,stroke-dasharray: 4 4;
-
-    Actor(["👤 Chuyên viên HR / Recruiter"]):::actor
-    UC(["UC-REC-04-02: Thiết lập thông tin Tiếp nhận"]):::main
-    UC_GenCode(["Tự động sinh mã nhân viên gợi ý NVxxxx"]):::sub
-    UC_FillTerms(["Nhập CCCD, Lương, Ngày nhận việc, Hợp đồng"]):::sub
-
-    Actor --> UC
-    UC -.->|include| UC_GenCode
-    UC -.->|include| UC_FillTerms
-```
-
-###### Bảng đặc tả nghiệp vụ:
-
-| STT | Hạng mục | Nội dung chi tiết |
-|:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-REC-04-02`<br/>- **UC Name**: Thiết lập thông tin Tiếp nhận & Hợp đồng (Prepare Onboarding Offer Terms)<br/>- **Actor**: Chuyên viên Tuyển dụng (Recruiter), Trưởng phòng Nhân sự<br/>- **Mục tiêu**: Chuẩn bị đầy đủ các tham số pháp lý và đãi ngộ để khởi tạo hồ sơ nhân viên chính thức trong công ty.<br/>- **Mô tả**: Mở Modal Form tiếp nhận, hệ thống tự động sinh mã nhân viên gợi ý (`NVxxxx`), người dùng nhập CCCD, Mức lương cơ bản, Chọn loại hợp đồng và Ngày bắt đầu làm việc.<br/>- **Priority**: High |
-| **2** | **Trigger** | Người dùng bấm nút **"Tiếp nhận / Tạo hồ sơ"** tại dòng ứng viên trên bảng danh sách Offer. |
+| **1** | **Thông tin chung** | - **UC ID**: `UC-REC-04-02`<br/>- **UC Name**: Thiết lập & Phát hành Thư mời nhận việc (Create & Send Job Offer)<br/>- **Actor**: Chuyên viên Tuyển dụng (Recruiter), Trưởng phòng Nhân sự<br/>- **Mục tiêu**: Chuẩn hóa thông tin đãi ngộ và phát hành Thư mời nhận việc trực tuyến tới ứng viên.<br/>- **Priority**: High |
+| **2** | **Trigger** | HR nhấn nút **"Gửi Offer"** hoặc **"Chỉnh sửa Offer"** tại bảng danh sách ứng viên Offer. |
 | **3** | **Pre-condition** | Ứng viên đang ở trạng thái `OFFERING`. |
-| **4** | **Post-condition** | Modal tiếp nhận mở ra với đầy đủ thông tin định danh ứng viên và các trường dữ liệu sẵn sàng nhập. |
-| **5** | **Main Flow** | 1. Người dùng bấm **"Tiếp nhận / Tạo hồ sơ"** tại một ứng viên.<br/>2. Hệ thống mở Modal *Tiếp nhận Nhân viên & Tạo Hồ sơ* qua Portal DOM.<br/>3. Hệ thống tự sinh mã gợi ý (VD: `NV` + 4 chữ số ngẫu nhiên).<br/>4. Hệ thống điền sẵn ngày làm việc mặc định là ngày hôm nay và loại hợp đồng mặc định là `PROBATION` (Thử việc).<br/>5. Người dùng điền CCCD/CMND, điều chỉnh Mức lương cơ bản thỏa thuận và Ngày chính thức đi làm.<br/>6. Form sẵn sàng để xác nhận lưu. |
-| **6** | **Alternative / Exception Flow** | - **AF-01 (Đóng modal mà không lưu)**: Người dùng bấm icon X hoặc nút "Hủy" → Modal đóng lại, không có thay đổi nào được ghi vào CSDL. |
-| **7** | **Business Rules & Validation** | - Mã nhân viên không được để trống.<br/>- Mức lương cơ bản phải là số dương lớn hơn 0.<br/>- Ngày nhận việc phải hợp lệ. |
-| **8** | **Acceptance Criteria** | - **AC-01**: Bấm mở modal hiển thị chính xác tên ứng viên và vị trí tuyển dụng.<br/>- **AC-02**: Mã nhân viên tự động sinh tiền tố `NV` kèm 4 số. |
+| **4** | **Post-condition** | Bản ghi `JobOffer` được tạo hoặc cập nhật ở trạng thái `PENDING`, hiển thị trực tiếp trên tài khoản cổng ứng viên. |
+| **5** | **Main Flow** | 1. HR mở Modal Gửi Thư mời nhận việc.<br/>2. Hệ thống điền sẵn họ tên, email, vị trí tuyển dụng.<br/>3. HR nhập: Lương cơ bản, Tỷ lệ thử việc (85%), Ngày nhận việc, Hạn phản hồi (mặc định 5 ngày tới), Ghi chú phúc lợi.<br/>4. HR bấm "Phát hành Offer".<br/>5. Backend gọi `POST /api/offers/send` $\rightarrow$ tạo/cập nhật bản ghi `JobOffer` (`status = PENDING`).<br/>6. Giao diện báo Toast thành công và đổi badge của ứng viên sang "Đang chờ phản hồi". |
+| **6** | **Alternative Flow** | - **AF-01**: HR hủy modal $\rightarrow$ Không có dữ liệu nào thay đổi. |
+| **7** | **Acceptance Criteria** | - **AC-01**: Lương cơ bản và ngày nhận việc bắt buộc nhập.<br/>- **AC-02**: Sau khi phát hành, ứng viên đăng nhập Cổng Ứng viên lập tức xem được Thư mời. |
 
 ---
 
-##### 4.3. UC-REC-04-03: Xác nhận Tiếp nhận & Tự động tạo Nhân viên Core HR (Accept Offer & Auto-provision Employee)
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,stroke-dasharray: 4 4;
-
-    Actor(["👤 Chuyên viên HR / Recruiter"]):::actor
-    UC(["UC-REC-04-03: Xác nhận Tiếp nhận & Auto-provision"]):::main
-    UC_Tx(["Thực hiện DB Transaction liên bảng"]):::sub
-    UC_Emp(["Tạo Employee mới status = ONBOARDING"]):::sub
-    UC_Contract(["Tạo Contract mới status = ACTIVE"]):::sub
-    UC_Candidate(["Đổi Candidate status = HIRED"]):::sub
-
-    Actor --> UC
-    UC -.->|include| UC_Tx
-    UC_Tx -.->|include| UC_Emp
-    UC_Tx -.->|include| UC_Contract
-    UC_Tx -.->|include| UC_Candidate
-```
+##### 4.2. UC-REC-04-03: Xem xét Hồ sơ Pre-Onboarding do Ứng viên tự khai
 
 ###### Bảng đặc tả nghiệp vụ:
-
 | STT | Hạng mục | Nội dung chi tiết |
 |:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-REC-04-03`<br/>- **UC Name**: Xác nhận Tiếp nhận & Tự động tạo Nhân viên Core HR (Accept Offer & Auto-provision Employee)<br/>- **Actor**: Chuyên viên Tuyển dụng (Recruiter), Trưởng phòng Nhân sự<br/>- **Mục tiêu**: Chuyển giao thông suốt ứng viên từ phễu tuyển dụng sang hệ thống nhân sự chính thức chỉ với 1 cú click chuột, xóa bỏ 100% việc nhập liệu lại.<br/>- **Mô tả**: Gửi yêu cầu tiếp nhận qua API. Backend chạy Transaction tạo `Employee`, tạo `Contract`, chuyển `Candidate` thành `HIRED`.<br/>- **Priority**: High (Cốt lõi) |
-| **2** | **Trigger** | Người dùng nhấn nút **"Tạo hồ sơ & Nhận việc"** trên Modal Tiếp nhận Nhân viên. |
-| **3** | **Pre-condition** | Toàn bộ các trường trong form tiếp nhận đã được điền hợp lệ. |
-| **4** | **Post-condition** | 1. Một bản ghi `Employee` mới được tạo với trạng thái `ONBOARDING`.<br/>2. Một bản ghi `Contract` thử việc mới được tạo gắn liền với nhân viên vừa sinh.<br/>3. Trạng thái `Candidate` chuyển thành `HIRED`.<br/>4. Ứng viên rời khỏi danh sách Offer và xuất hiện tại cột HIRED trên bảng ATS.<br/>5. Nhân viên mới hiển thị trên Danh sách Nhân viên Module Hồ sơ. |
-| **5** | **Main Flow** | 1. Người dùng bấm **"Tạo hồ sơ & Nhận việc"**.<br/>2. Giao diện kiểm tra dữ liệu bắt buộc (`employeeCode`, `cccd`, `baseSalary`, `joinDate`, `contractType`).<br/>3. Hệ thống gửi request `POST /api/offers/accept` kèm toàn bộ payload.<br/>4. Backend mở `prisma.$transaction`:<br/>   a. Tìm bản ghi ứng viên theo `candidateId` kèm quan hệ `jobPosting`.<br/>   b. Tạo mới bản ghi `Employee` (`code`, `fullName`, `cccd`, `joinDate`, `status = 'ONBOARDING'`, kế thừa `departmentId`, `positionId`).<br/>   c. Tạo mới bản ghi `Contract` (`employeeId`, `contractType`, `baseSalary`, `startDate = joinDate`, `status = 'ACTIVE'`).<br/>   d. Cập nhật `Candidate.status = 'HIRED'`.<br/>   e. Commit Transaction.<br/>5. Backend trả về `HTTP 201 Created` kèm thông tin nhân viên mới.<br/>6. Giao diện đóng Modal, báo Toast: *"Tiếp nhận nhân viên thành công!"*, và nạp lại danh sách. |
-| **6** | **Alternative / Exception Flow** | - **EF-01 (Trùng mã NV hoặc CCCD)**: Database vi phạm ràng buộc UNIQUE → Backend bắt lỗi `P2002`, trả về `HTTP 400` với thông báo *"Mã nhân viên hoặc CCCD đã tồn tại trong hệ thống."* → Giữ nguyên Modal để người dùng đổi mã khác.<br/>- **EF-02 (Thiếu trường dữ liệu)**: Bỏ trống một trường bắt buộc → Báo Toast lỗi *"Vui lòng nhập đầy đủ thông tin."*, chặn gọi API. |
-| **7** | **Business Rules & Validation** | - Tính toàn vẹn dữ liệu: Bắt buộc dùng Database Transaction để không sinh dữ liệu rác (BR-REC-04-02).<br/>- Mã nhân viên và CCCD là duy nhất trên toàn hệ thống (BR-REC-04-03).<br/>- Lương cơ bản tự động chuyển đổi sang số nguyên hợp lệ. |
-| **8** | **Acceptance Criteria** | - **AC-01**: Bấm tiếp nhận thành công sinh đúng bản ghi Employee và Contract trong CSDL.<br/>- **AC-02**: Thẻ của ứng viên trên bảng ATS tự động chuyển sang cột HIRED.<br/>- **AC-03**: Nhập mã NV hoặc CCCD trùng lặp bị chặn và báo lỗi rõ ràng. |
+| **1** | **Thông tin chung** | - **UC ID**: `UC-REC-04-03`<br/>- **UC Name**: Xem xét Hồ sơ Tiền Tiếp nhận (Review Pre-Onboarding Profile)<br/>- **Actor**: Chuyên viên Tuyển dụng, HR Manager<br/>- **Mục tiêu**: Giúp HR nắm bắt đầy đủ thông tin chi tiết của nhân sự tương lai trước ngày tiếp nhận.<br/>- **Priority**: Medium |
+| **2** | **Trigger** | HR nhấn nút **"Xem hồ sơ tự khai"** tại dòng ứng viên đã có trạng thái Offer `ACCEPTED`. |
+| **3** | **Pre-condition** | Ứng viên đã hoàn tất gửi biểu mẫu Pre-Onboarding trên Cổng Ứng viên. |
+| **4** | **Post-condition** | Modal hiển thị đầy đủ CCCD, ngày cấp, nơi cấp, MST, ngân hàng, liên hệ khẩn cấp. |
+| **5** | **Main Flow** | 1. HR bấm xem hồ sơ.<br/>2. Giao diện hiển thị bảng tóm tắt 3 khối dữ liệu: Định danh cá nhân, Thông tin thanh toán lương, Thông tin liên hệ khẩn cấp.<br/>3. HR rà soát tính hợp lệ trước khi tiến hành thủ tục tiếp nhận ngày đầu tiên. |
 
 ---
 
-##### 4.4. UC-REC-04-04: Ghi nhận Ứng viên Từ chối Offer (Reject Offer)
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,stroke-dasharray: 4 4;
-
-    Actor(["👤 Chuyên viên HR / Recruiter"]):::actor
-    UC(["UC-REC-04-04: Ghi nhận Ứng viên Từ chối Offer"]):::main
-    UC_Confirm(["Hộp thoại xác nhận cảnh báo SweetAlert2"]):::sub
-    UC_RejectAPI(["Gọi API POST /api/offers/:id/reject"]):::sub
-    UC_Status(["Cập nhật Candidate status = REJECTED"]):::sub
-
-    Actor --> UC
-    UC -.->|include| UC_Confirm
-    UC -.->|include| UC_RejectAPI
-    UC_RejectAPI -.->|include| UC_Status
-```
+##### 4.3. UC-REC-04-04: Tiếp nhận Nhân sự & Tự động tạo Hồ sơ Core HR (Accept Offer & Auto-provision)
 
 ###### Bảng đặc tả nghiệp vụ:
-
 | STT | Hạng mục | Nội dung chi tiết |
 |:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-REC-04-04`<br/>- **UC Name**: Ghi nhận Ứng viên Từ chối Offer (Reject Offer)<br/>- **Actor**: Chuyên viên Tuyển dụng (Recruiter), Trưởng phòng Nhân sự<br/>- **Mục tiêu**: Đóng hồ sơ ứng viên khi ứng viên không đồng ý với mức đãi ngộ hoặc từ chối nhận việc.<br/>- **Mô tả**: Chuyển trạng thái ứng viên từ `OFFERING` sang `REJECTED`, đưa ứng viên vào danh sách bị loại trên hệ thống ATS.<br/>- **Priority**: Medium |
-| **2** | **Trigger** | Người dùng bấm nút **"Từ chối"** tại dòng ứng viên trên bảng danh sách Offer. |
-| **3** | **Pre-condition** | Ứng viên đang ở trạng thái `OFFERING`. |
-| **4** | **Post-condition** | 1. Trạng thái `Candidate.status` đổi thành `REJECTED`.<br/>2. Ứng viên biến mất khỏi danh sách chờ Offer.<br/>3. Thẻ ứng viên trên bảng ATS được chuyển sang cột REJECTED. |
-| **5** | **Main Flow** | 1. Người dùng bấm nút **"Từ chối"**.<br/>2. Hệ thống hiển thị hộp thoại xác nhận (SweetAlert2): *"Bạn có chắc chắn muốn Từ chối Offer của ứng viên này? Họ sẽ bị chuyển về trạng thái REJECTED."*<br/>3. Người dùng chọn **"Đồng ý"**.<br/>4. Hệ thống gửi request `POST /api/offers/:candidateId/reject`.<br/>5. Backend cập nhật `Candidate.status = 'REJECTED'`.<br/>6. Giao diện nạp lại danh sách, ứng viên không còn hiển thị trong bảng Offer. |
-| **6** | **Alternative / Exception Flow** | - **AF-01 (Người dùng bấm Hủy)**: Hộp thoại đóng lại, không có thay đổi nào diễn ra. |
-| **7** | **Business Rules & Validation** | - Ứng viên đã bị từ chối sẽ không thể tạo hồ sơ tiếp nhận trừ khi được chuyển trạng thái lại bởi quản trị viên. |
-| **8** | **Acceptance Criteria** | - **AC-01**: Phải có hộp thoại xác nhận trước khi từ chối.<br/>- **AC-02**: Từ chối thành công loại bỏ ứng viên khỏi danh sách Offer ngay lập tức. |
-
----
-
-##### 4.5. UC-REC-04-05: Kiểm tra toàn vẹn định danh & Chỉ tiêu tuyển dụng (Integrity & Headcount Synchronization)
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,stroke-dasharray: 4 4;
-
-    Actor(["⚙️ Hệ thống Backend / Database"]):::actor
-    UC(["UC-REC-04-05: Kiểm tra toàn vẹn & Đồng bộ chỉ tiêu"]):::main
-    UC_CheckUnique(["Kiểm tra ràng buộc UNIQUE Mã NV & CCCD"]):::sub
-    UC_CheckQuota(["Kiểm tra số người đã tuyển vs Chỉ tiêu Job"]):::sub
-    UC_CloseJob(["Tự động đóng chiến dịch khi đạt 100%"]):::sub
-
-    Actor --> UC
-    UC -.->|include| UC_CheckUnique
-    UC -.->|include| UC_CheckQuota
-    UC_CheckQuota -.->|extend| UC_CloseJob
-```
-
-###### Bảng đặc tả nghiệp vụ:
-
-| STT | Hạng mục | Nội dung chi tiết |
-|:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-REC-04-05`<br/>- **UC Name**: Kiểm tra toàn vẹn định danh & Chỉ tiêu tuyển dụng (Integrity & Headcount Synchronization)<br/>- **Actor**: Hệ thống Backend, Quản trị viên hệ thống<br/>- **Mục tiêu**: Đảm bảo dữ liệu nhân sự không bao giờ bị trùng lặp định danh pháp lý và tự động đóng chiến dịch tuyển dụng khi hoàn thành chỉ tiêu.<br/>- **Mô tả**: Tự động xác thực tính duy nhất của Mã NV/CCCD khi tiếp nhận, và tự động kiểm tra số lượng nhân viên đã tuyển so với chỉ tiêu tuyển dụng của chiến dịch.<br/>- **Priority**: High |
-| **2** | **Trigger** | Được kích hoạt tự động trong tiến trình xử lý request `POST /api/offers/accept`. |
-| **3** | **Pre-condition** | Có yêu cầu tiếp nhận nhân sự được gửi lên từ giao diện. |
-| **4** | **Post-condition** | Dữ liệu nhân sự được lưu toàn vẹn, chiến dịch tuyển dụng tự động chuyển `CLOSED` nếu đủ quân số. |
-| **5** | **Main Flow** | 1. Backend tiếp nhận dữ liệu tiếp nhận từ client.<br/>2. Kiểm tra tính duy nhất của `employeeCode` và `cccd` trong bảng `Employee`. Nếu trùng → Báo lỗi `P2002` và hủy transaction (EF-01).<br/>3. Sau khi commit tạo nhân viên và cập nhật `Candidate.status = 'HIRED'`, kiểm tra tổng số lượng ứng viên có `status = 'HIRED'` thuộc chiến dịch tuyển dụng này.<br/>4. Nếu `hiredCount >= jobPosting.amount` → Tự động cập nhật `JobPosting.status = 'CLOSED'`.<br/>5. Trả kết quả thành công về cho client. |
-| **6** | **Alternative / Exception Flow** | - **AF-01 (Chưa đủ chỉ tiêu)**: Số người tuyển vẫn nhỏ hơn chỉ tiêu → Chiến dịch tiếp tục duy trì trạng thái `PUBLISHED` để nhận thêm ứng viên. |
-| **7** | **Business Rules & Validation** | - Tính toàn vẹn CSDL (Referential Integrity): Gán đúng `departmentId` và `positionId` từ chiến dịch vào nhân viên.<br/>- Không cho phép tuyển vượt quá chỉ tiêu mà không có phê duyệt bổ sung. |
-| **8** | **Acceptance Criteria** | - **AC-01**: Nhập CCCD trùng với nhân viên hiện có trong công ty → Giao dịch bị hủy và báo lỗi chính xác.<br/>- **AC-02**: Tuyển người cuối cùng đủ chỉ tiêu chiến dịch → Chiến dịch tự động đóng tuyển dụng. |
+| **1** | **Thông tin chung** | - **UC ID**: `UC-REC-04-04`<br/>- **UC Name**: Tiếp nhận Nhân sự & Tự động tạo Hồ sơ Core HR (Accept Offer & Auto-provision Employee)<br/>- **Actor**: Chuyên viên Tuyển dụng (Recruiter), Trưởng phòng Nhân sự<br/>- **Mục tiêu**: Chuyển giao toàn bộ dữ liệu ứng viên + hồ sơ tự khai sang nhân viên chính thức trong Core HR mà không cần gõ lại bất kỳ trường thông tin nào.<br/>- **Priority**: Critical (Cốt lõi) |
+| **2** | **Trigger** | Ứng viên đến công ty làm việc ngày đầu tiên; HR bấm **"Tiếp nhận nhân viên"**. |
+| **3** | **Pre-condition** | Ứng viên đã có Offer trạng thái `ACCEPTED` và có hồ sơ `PreOnboardingProfile`. |
+| **4** | **Post-condition** | Bản ghi `Employee` và `Contract` được tạo mới; ứng viên chuyển thành `HIRED`. |
+| **5** | **Main Flow** | 1. HR nhấn **"Tiếp nhận nhân viên"**.<br/>2. Modal tiếp nhận mở ra: Hệ thống tự động sinh mã nhân viên gợi ý (`NVxxxx`) và tự động nạp sẵn CCCD, Lương cơ bản, Ngày nhận việc, Địa chỉ, Ngân hàng từ hồ sơ Pre-onboarding.<br/>3. HR kiểm tra lần cuối, điều chỉnh mã nhân viên hoặc phòng ban nếu cần.<br/>4. HR bấm "Xác nhận & Hoàn tất tiếp nhận".<br/>5. Backend thực thi Database Transaction (`prisma.$transaction`):<br/>   - Tạo `Employee` (gắn CCCD, địa chỉ, tài khoản ngân hàng, liên hệ khẩn cấp).<br/>   - Tạo `Contract` thử việc gắn với nhân viên.<br/>   - Đổi `Candidate.status = 'HIRED'`.<br/>6. Giao diện báo Toast: *"Tiếp nhận nhân viên thành công!"*, đóng modal và nạp lại bảng. |
+| **6** | **Exception Flow** | - **EF-01**: Trùng mã NV hoặc CCCD $\rightarrow$ Báo lỗi `400` rõ ràng, giữ nguyên form để sửa mã khác. |
+| **7** | **Acceptance Criteria** | - **AC-01**: Tự động điền 100% dữ liệu do ứng viên đã khai báo.<br/>- **AC-02**: Nhân viên mới lập tức xuất hiện trong danh sách Nhân sự Core HR. |
 
 ---
 
 #### 5. Sơ đồ tuần tự nghiệp vụ (Sequence Diagrams)
 
-##### 5.1. Luồng Tiếp nhận Nhân sự & Khởi tạo Core HR Tự động (UC-REC-04-02 & 03)
+##### 5.1. Luồng Phát hành Offer $\rightarrow$ Ứng viên Chấp nhận & Khai Pre-onboarding $\rightarrow$ HR Tiếp nhận
 ```mermaid
 sequenceDiagram
     autonumber
-    actor HR as Chuyên viên Tuyển dụng
-    participant FE as Giao diện (Offers.jsx)
-    participant BE as Backend API (/api/offers)
-    participant DB as Cơ sở dữ liệu (PostgreSQL)
+    actor HR as HR Tuyển dụng
+    actor UV as Ứng viên (Cổng Tuyển dụng)
+    participant FE_C as Candidate Portal
+    participant FE_HR as Admin Portal (Offers.jsx)
+    participant BE as Backend API
+    participant DB as PostgreSQL Database
 
-    HR->>FE: Bấm "Tiếp nhận / Tạo hồ sơ"
-    FE->>FE: Mở Modal tiếp nhận (Tự sinh mã NV gợi ý)
-    HR->>FE: Nhập CCCD, Lương cơ bản, Ngày đi làm
-    HR->>FE: Bấm "Tạo hồ sơ & Nhận việc"
-    
-    FE->>FE: Kiểm tra dữ liệu bắt buộc (Validation)
-    FE->>BE: POST /api/offers/accept { candidateId, employeeCode, cccd, baseSalary, joinDate, contractType }
+    Note over HR, DB: Bước 1: HR phát hành Thư mời nhận việc
+    HR->>FE_HR: Soạn điều khoản Offer (Lương, Ngày nhận việc, Phúc lợi)
+    FE_HR->>BE: POST /api/offers/send { candidateId, baseSalary, probationSalaryRate, joinDate, expiresAt }
+    BE->>DB: UPSERT JobOffer (status = 'PENDING')
+    DB-->>BE: Lưu Offer thành công
+    BE-->>FE_HR: HTTP 200 OK (Offer đã phát hành)
+
+    Note over UV, DB: Bước 2: Ứng viên xem Offer và nộp Hồ sơ Pre-Onboarding
+    UV->>FE_C: Đăng nhập Cổng Ứng viên -> Xem Thư mời nhận việc
+    UV->>FE_C: Bấm "Chấp nhận Offer"
+    FE_C->>UV: Mở Modal Wizard Pre-Onboarding (2 bước)
+    UV->>FE_C: Điền: CCCD, Nơi cấp, MST, Ngân hàng, Người liên hệ khẩn cấp
+    UV->>FE_C: Bấm "Hoàn tất & Xác nhận"
+    FE_C->>BE: POST /api/candidate-auth/accept-offer { candidateId, cccd, bankAccount, emergency... }
+    BE->>DB: UPDATE JobOffer SET status = 'ACCEPTED'
+    BE->>DB: UPSERT PreOnboardingProfile
+    DB-->>BE: Lưu thành công
+    BE-->>FE_C: HTTP 200 OK (Thành công)
+
+    Note over HR, DB: Bước 3: Ứng viên đến công ty -> HR kích hoạt tiếp nhận
+    HR->>FE_HR: Xem danh sách Offer (Thấy huy hiệu: Đã nộp hồ sơ Onboarding)
+    HR->>FE_HR: Bấm "Tiếp nhận nhân viên"
+    FE_HR->>FE_HR: Modal tự động pre-fill CCCD, Ngân hàng, Địa chỉ từ PreOnboardingProfile
+    HR->>FE_HR: Bấm "Xác nhận & Hoàn tất tiếp nhận"
+    FE_HR->>BE: POST /api/offers/accept { candidateId, employeeCode, baseSalary, joinDate... }
     
     rect rgb(240, 248, 255)
-        Note over BE, DB: Bắt đầu Transaction nguyên tử (Prisma $transaction)
-        BE->>DB: 1. SELECT * FROM Candidate WHERE id = candidateId
-        DB-->>BE: Candidate & JobPosting Data
-        
-        BE->>DB: 2. INSERT INTO Employee (code, fullName, cccd, status='ONBOARDING', joinDate, deptId, posId)
-        DB-->>BE: New Employee Created
-        
-        BE->>DB: 3. INSERT INTO Contract (employeeId, contractType, baseSalary, startDate, status='ACTIVE')
-        DB-->>BE: New Contract Created
-        
-        BE->>DB: 4. UPDATE Candidate SET status = 'HIRED' WHERE id = candidateId
-        DB-->>BE: Candidate Status Updated
-        Note over BE, DB: Commit Transaction thành công!
+        Note over BE, DB: Bắt đầu Transaction nguyên tử
+        BE->>DB: INSERT INTO Employee (code, fullName, cccd, bankAccount, status='ONBOARDING'...)
+        BE->>DB: INSERT INTO Contract (employeeId, contractType='PROBATION', baseSalary...)
+        BE->>DB: UPDATE Candidate SET status = 'HIRED'
     end
-    
-    BE-->>FE: HTTP 201 Created { message: 'Tiếp nhận thành công', employee }
-    FE->>FE: Đóng Modal, tải lại danh sách
-    FE->>HR: Hiển thị Toast "Tiếp nhận nhân viên thành công!"
-```
-
-##### 5.2. Luồng Từ chối Offer (UC-REC-04-04)
-```mermaid
-sequenceDiagram
-    autonumber
-    actor HR as Chuyên viên Tuyển dụng
-    participant FE as Giao diện (Offers.jsx)
-    participant BE as Backend API (/api/offers/:id/reject)
-    participant DB as Cơ sở dữ liệu (PostgreSQL)
-
-    HR->>FE: Bấm nút "Từ chối" tại dòng ứng viên
-    FE->>HR: Hiển thị Popup cảnh báo xác nhận (SweetAlert2)
-    HR->>FE: Bấm "Đồng ý"
-    
-    FE->>BE: POST /api/offers/:candidateId/reject
-    rect rgb(255, 245, 245)
-        BE->>DB: UPDATE Candidate SET status = 'REJECTED' WHERE id = candidateId
-        DB-->>BE: Updated OK
-    end
-    
-    BE-->>FE: HTTP 200 OK { message: 'Đã từ chối Offer' }
-    FE->>FE: Loại bỏ ứng viên khỏi danh sách hiển thị
-    FE->>HR: Bảng cập nhật, ứng viên chuyển sang trạng thái REJECTED
+    DB-->>BE: Commit Transaction thành công
+    BE-->>FE_HR: HTTP 201 Created
+    FE_HR-->>HR: Toast "Tiếp nhận nhân viên thành công!"
 ```
 
 ---
 
 #### 6. Ma trận kịch bản kiểm thử (Test Scenarios & Acceptance Matrix)
 
-| Mã kịch bản | Use Case liên quan | Điều kiện kiểm thử | Các bước thực hiện | Kết quả mong đợi (Expected Outcome) | Đánh giá |
+| Mã kịch bản | Use Case | Kịch bản kiểm thử | Dữ liệu đầu vào | Kết quả mong đợi | Đánh giá |
 |---|---|---|---|---|:---:|
-| **TC-REC-04-01** | UC-REC-04-01 | Tra cứu danh sách | Truy cập màn hình Quản lý Offer | Hiển thị chính xác các ứng viên ở trạng thái `OFFERING`, đầy đủ thông tin vị trí và phòng ban. | **Pass** |
-| **TC-REC-04-02** | UC-REC-04-01 | Tìm kiếm tức thời | Nhập tên ứng viên vào ô tìm kiếm | Bảng chỉ hiển thị dòng khớp với từ khóa tìm kiếm. | **Pass** |
-| **TC-REC-04-03** | UC-REC-04-03 | Tiếp nhận nhân sự thành công | Điền đầy đủ Mã NV, CCCD, Lương, Ngày nhận việc → Bấm Tiếp nhận | Tạo thành công Employee (`ONBOARDING`), tạo Contract (`ACTIVE`), Candidate chuyển sang `HIRED`. | **Pass** |
-| **TC-REC-04-04** | UC-REC-04-03 | Bỏ trống dữ liệu bắt buộc | Để trống ô CCCD hoặc Mức lương → Bấm Tiếp nhận | Báo Toast lỗi *"Vui lòng nhập đầy đủ thông tin."*, không gửi API. | **Pass** |
-| **TC-REC-04-05** | UC-REC-04-05 | Kiểm tra trùng lặp CCCD/Mã NV | Nhập Mã NV hoặc CCCD đã có trong CSDL → Bấm Tiếp nhận | Backend trả về lỗi 400 *"Mã nhân viên hoặc CCCD đã tồn tại trong hệ thống"*, giao diện giữ nguyên form để sửa. | **Pass** |
-| **TC-REC-04-06** | UC-REC-04-04 | Từ chối Offer | Bấm Từ chối → Xác nhận "Đồng ý" trên SweetAlert | Ứng viên chuyển sang trạng thái `REJECTED`, rời khỏi danh sách Offer. | **Pass** |
+| **TC-REC-04-01** | UC-REC-04-02 | Phát hành Offer thành công | Lương: 18.000.000, Ngày đi làm: 15/10, Tỷ lệ: 85% | Tạo bản ghi JobOffer (`PENDING`), bảng hiển thị trạng thái "Chờ phản hồi". | **Pass** |
+| **TC-REC-04-02** | UC-REC-04-03 | Ứng viên nộp Pre-onboarding | CCCD 12 số, Vietcombank, Mẹ 0912345678 | Lưu `PreOnboardingProfile`, JobOffer chuyển sang `ACCEPTED`. | **Pass** |
+| **TC-REC-04-03** | UC-REC-04-04 | Tiếp nhận tự động kế thừa hồ sơ | Bấm Tiếp nhận nhân sự khi đã có PreOnboarding | Modal tự điền đầy đủ CCCD và tài khoản ngân hàng; tạo Employee `ONBOARDING` thành công. | **Pass** |
+| **TC-REC-04-04** | UC-REC-04-05 | Ứng viên từ chối Offer | Bấm Từ chối kèm lý do "Đã nhận lời công ty khác" | JobOffer cập nhật `REJECTED`, lý do lưu vào `declineReason`. | **Pass** |
+| **TC-REC-04-05** | UC-REC-04-06 | Kiểm tra trùng lặp CCCD/Mã NV | Nhập trùng Mã NV hoặc CCCD đã có trong DB | Backend chặn giao dịch, trả về HTTP 400 kèm thông báo rõ ràng. | **Pass** |
+
 
 ---
 
@@ -8152,22 +8030,24 @@ sequenceDiagram
 ---
 
 ### 2.2.10. Module Cổng Tuyển dụng Ứng viên (Candidate Career Portal)
-### TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE CỔNG TUYỂN DỤNG ỨNG VIÊN (CANDIDATE CAREER PORTAL)
+#### TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE CỔNG TUYỂN DỤNG ỨNG VIÊN (CANDIDATE CAREER PORTAL)
 
-#### 1. Giới thiệu tổng quan Module
-**Cổng Tuyển dụng Ứng viên (Candidate Career Portal)** là trang web đối ngoại công khai (`/candidate`) - Mặt tiền số (Digital Storefront) của doanh nghiệp trong cuộc chiến thu hút nhân tài. Đây là điểm tiếp xúc đầu tiên (First Touchpoint) giữa ứng viên tiềm năng và công ty, hoạt động độc lập, không yêu cầu đăng nhập tài khoản nội bộ và được tối ưu hóa cho cả trình duyệt desktop lẫn mobile.
+##### 1. Giới thiệu tổng quan Module
+**Cổng Tuyển dụng Ứng viên (Candidate Career Portal)** là trang web đối ngoại công khai (`/candidate`) - Mặt tiền số (Digital Storefront) của doanh nghiệp trong cuộc chiến thu hút nhân tài. Đây là điểm tiếp xúc đầu tiên (First Touchpoint) giữa ứng viên tiềm năng và công ty, hoạt động độc lập với hệ thống nội bộ nhưng liên kết thông suốt về mặt dữ liệu qua hệ thống API RESTful.
 
-Cổng thực hiện **2 mục tiêu chiến lược**:
-1. **Xây dựng Thương hiệu Tuyển dụng (Employer Branding)**: Truyền tải văn hóa công ty, giá trị cốt lõi, môi trường làm việc và chế độ đãi ngộ hấp dẫn để thu hút đúng tập hồ sơ mục tiêu.
-2. **Đơn giản hóa Quy trình Ứng tuyển (Frictionless Application)**: Cho phép ứng viên tìm kiếm, xem mô tả công việc chi tiết (JD), nộp hồ sơ và theo dõi kết quả tất cả trong một hành trình liền mạch, dữ liệu tự động đồng bộ vào đường ống ATS của Admin.
+Cổng thực hiện **3 mục tiêu chiến lược**:
+1. **Xây dựng Thương hiệu Tuyển dụng (Employer Branding)**: Truyền tải văn hóa công ty, giá trị cốt lõi, môi trường làm việc và chế độ đãi ngộ hấp dẫn để thu hút nhân tài.
+2. **Đơn giản hóa Quy trình Ứng tuyển & Quản lý Đơn (Frictionless Application & Account Management)**: Cho phép ứng viên đăng ký/đăng nhập tài khoản cá nhân (`CandidateUser`), tìm kiếm và xem mô tả công việc (JD), nộp hồ sơ nhanh chóng và theo dõi trạng thái tất cả các đơn ứng tuyển theo thời gian thực.
+3. **Tương tác Tuyển dụng 2 chiều & Tự phục vụ Tiền Tiếp nhận (Collaborative Onboarding & Pre-Onboarding Self-service)**: Ứng viên nhận và phản hồi Thư mời nhận việc (**Job Offer**) trực tuyến (Đồng ý/Từ chối). Khi đồng ý, ứng viên chủ động hoàn tất **Hồ sơ Tiền Tiếp nhận (Pre-Onboarding Profile)** gồm CCCD, MST, thông tin ngân hàng và người liên hệ khẩn cấp trực tiếp trên cổng.
 
-##### Đối tượng sử dụng (Actors):
-1. **Ứng viên (Candidate)**: Người đang tìm kiếm việc làm, tham khảo văn hóa công ty và nộp hồ sơ ứng tuyển vị trí phù hợp.
-2. **Hệ thống Backend (Automated System)**: Tự động nhận hồ sơ, đưa ứng viên vào đường ống ATS Kanban (`status = APPLIED`) và ghi nhận thông tin liên lạc để theo dõi kết quả.
+###### Đối tượng sử dụng (Actors):
+1. **Ứng viên (Candidate)**: Tìm kiếm việc làm, nộp hồ sơ, đăng nhập theo dõi kết quả, phản hồi Offer và khai báo hồ sơ tiền tiếp nhận.
+2. **Hệ thống Backend (Automated System)**: Tự động tiếp nhận hồ sơ vào Kanban ATS (`status = APPLIED`), quản lý xác thực ứng viên và đồng bộ dữ liệu vào Core HR.
+3. **Bộ phận Tuyển dụng (Recruiter / HR)**: Đăng tin tuyển dụng, phát hành Thư mời nhận việc trực tuyến và tiếp nhận ứng viên thành nhân viên chính thức khi ứng viên có mặt tại công ty.
 
 ---
 
-#### 2. Kiến trúc Cổng Ứng viên & Hành trình Ứng tuyển (Candidate Journey Map)
+##### 2. Kiến trúc Cổng Ứng viên & Hành trình Ứng tuyển 2 chiều (Candidate Journey Map)
 
 ```mermaid
 flowchart TD
@@ -8178,28 +8058,29 @@ flowchart TD
 
     UV(["👤 Ứng viên truy cập /candidate"]):::landing
 
-    S1(["1. Trang chủ Tuyển dụng\n(LLA Careers Landing)"]):::section
-    S2(["2. Khám phá Văn hóa & Phúc lợi\n(Employer Branding)"]):::section
-    S3(["3. Xem Danh sách Việc làm\n(Job Listings)"]):::section
-    S4(["4. Nộp Hồ sơ Ứng tuyển\n(Apply Online)"]):::section
-    S5(["5. Tra cứu Kết quả Hồ sơ\n(Application Tracking)"]):::section
+    S1(["1. Trang chủ Tuyển dụng & Văn hóa\n(Employer Branding & Jobs)"]):::section
+    S2(["2. Đăng ký / Đăng nhập Tài khoản\n(Candidate Authentication)"]):::section
+    S3(["3. Nộp Hồ sơ Ứng tuyển\n(Online Application)"]):::section
+    S4(["4. Quản lý Đơn Tuyển dụng\n(My Applications Dashboard)"]):::section
+    S5(["5. Xem Thư mời Nhận việc\n(Review Job Offer Letter)"]):::section
+    S6(["6. Khai báo Pre-Onboarding 2 bước\n(CCCD, Ngân hàng, Khẩn cấp)"]):::action
+    S7(["7. HR Kích hoạt Tiếp nhận vào Core HR\n(Auto-provision Employee & Contract)"]):::result
 
     UV --> S1
     S1 --> S2
     S1 --> S3
-    S3 --> S4
-    S1 --> S5
-
-    ATS(["📊 ATS Admin Portal: Ứng viên vào Kanban với status=APPLIED"]):::result
-    S4 -->|POST /api/candidates| ATS
-    S5 -->|GET /api/candidates/track?email=| TrackResult(["Hiển thị Trạng thái Hồ sơ Cá nhân"]):::action
+    S2 --> S4
+    S3 -->|Đồng bộ vào ATS| S4
+    S4 --> S5
+    S5 -->|Chấp nhận Offer| S6
+    S6 -->|Dữ liệu sẵn sàng| S7
 ```
 
 ---
 
-#### 3. Ma trận Phân rã Chức năng Chi tiết (Functional Breakdown Matrix)
+##### 3. Ma trận Phân rã Chức năng Chi tiết (Functional Breakdown Matrix)
 
-Cổng Ứng viên bao gồm **4 phân khu nội dung** với tổng cộng **9 Use Case con (Sub-Use Cases)** được chuẩn hóa đầy đủ:
+Cổng Ứng viên bao gồm **4 phân khu nội dung** với tổng cộng **10 Use Case con (Sub-Use Cases)** được chuẩn hóa đầy đủ:
 
 | Phân khu (Section) | Mã Use Case | Tên Chức năng Con (Sub-Use Case) | Actor chính | Endpoint Backend |
 |---|---|---|---|---|
@@ -8207,33 +8088,32 @@ Cổng Ứng viên bao gồm **4 phân khu nội dung** với tổng cộng **9 
 | | `UC-CAN-01-02` | Khám phá Văn hóa Doanh nghiệp & Phúc lợi (Culture & Benefits) | Ứng viên | Static Content |
 | **2. Tìm kiếm Việc làm**<br/>*(Job Discovery)* | `UC-CAN-02-01` | Xem Danh sách Vị trí Tuyển dụng Đang mở (Job Listings) | Ứng viên | `GET /api/job-postings?status=PUBLISHED` |
 | | `UC-CAN-02-02` | Xem Mô tả Công việc Chi tiết (Job Detail & JD) | Ứng viên | Modal/Panel JD chi tiết |
-| **3. Nộp Hồ sơ Ứng tuyển**<br/>*(Application Submission)* | `UC-CAN-03-01` | Điền & Nộp Form Ứng tuyển Trực tuyến (Online Application Form) | Ứng viên | `POST /api/candidates` |
-| | `UC-CAN-03-02` | Nhận Xác nhận Đã tiếp nhận Hồ sơ (Application Confirmation) | Ứng viên / Hệ thống | Toast/Màn hình xác nhận |
-| **4. Tra cứu Kết quả**<br/>*(Application Tracking)* | `UC-CAN-04-01` | Tra cứu Trạng thái Hồ sơ theo Email (Self-service Tracking) | Ứng viên | `GET /api/candidates/track?email=` |
-| | `UC-CAN-04-02` | Xem Chi tiết Trạng thái Từng Hồ sơ Đã nộp (Application Status Detail) | Ứng viên | Kết quả trả về từ track API |
-| | `UC-CAN-04-03` | Nhận & Phản hồi Thư mời nhận việc trực tuyến (Offer Acceptance / Rejection) | Ứng viên | `PATCH /api/candidates/:id/respond-offer` |
+| **3. Nộp Hồ sơ & Xác thực**<br/>*(Application & Auth)* | `UC-CAN-03-01` | Điền & Nộp Form Ứng tuyển Trực tuyến (Online Application Form) | Ứng viên | `POST /api/candidates` |
+| | `UC-CAN-03-02` | Nhận Xác nhận Đã tiếp nhận Hồ sơ (Application Confirmation) | Ứng viên / Hệ thống | Modal xác nhận thành công |
+| | `UC-CAN-03-03` | Đăng ký & Đăng nhập Tài khoản Ứng viên (Candidate Authentication) | Ứng viên | `POST /api/candidate-auth/register`<br/>`POST /api/candidate-auth/login` |
+| **4. Theo dõi & Pre-Onboarding**<br/>*(Tracking & Pre-Onboarding)* | `UC-CAN-04-01` | Quản lý Danh sách Đơn ứng tuyển Cá nhân (My Applications) | Ứng viên | `GET /api/candidate-auth/my-applications` |
+| | `UC-CAN-04-02` | Xem Chi tiết Thư mời nhận việc trực tuyến (Online Job Offer) | Ứng viên | Trực tiếp trong đơn ứng tuyển |
+| | `UC-CAN-04-03` | Phản hồi Offer & Khai báo Hồ sơ Pre-Onboarding Wizard | Ứng viên | `POST /api/candidate-auth/accept-offer`<br/>`POST /api/candidate-auth/reject-offer` |
 
 ---
 
-#### 4. Danh mục Hồ sơ Phân tích Chi tiết (Detailed Specifications)
-
-Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
+##### 4. Danh mục Hồ sơ Phân tích Chi tiết (Detailed Specifications)
 
 1. [Đặc tả Chức năng Trang chủ, Thương hiệu Tuyển dụng & Tìm kiếm Việc làm](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Tuyển%20dụng%20Ứng%20viên/Chuc-nang-Trang-chu-Tuyen-dung.md) (UC-CAN-01-01 đến UC-CAN-02-02).
-2. [Đặc tả Chức năng Nộp Hồ sơ & Tra cứu Kết quả Ứng tuyển](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Tuyển%20dụng%20Ứng%20viên/Chuc-nang-Nop-Ho-so-Va-Theo-doi.md) (UC-CAN-03-01 đến UC-CAN-04-03).
+2. [Đặc tả Chức năng Nộp Hồ sơ, Tài khoản Ứng viên, Theo dõi & Pre-Onboarding](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Tuyển%20dụng%20Ứng%20viên/Chuc-nang-Nop-Ho-so-Va-Theo-doi.md) (UC-CAN-03-01 đến UC-CAN-04-03).
 
 ---
 
-#### 5. Bộ Quy chuẩn Nghiệp vụ Cổng Ứng viên (Candidate Portal Business Rules)
+##### 5. Bộ Quy chuẩn Nghiệp vụ Cổng Ứng viên (Candidate Portal Business Rules)
 
 | STT | Tên Quy tắc | Mô tả ngắn | Phạm vi áp dụng |
 |:---:|---|---|---|
 | **BR-CAN-01** | **Chỉ Hiển thị Việc làm Đang mở (Active Jobs Only)** | Cổng chỉ hiển thị tin tuyển dụng có `status = PUBLISHED`. Tin bị ẩn (`DRAFT`, `CLOSED`, `FILLED`) không xuất hiện. | UC-CAN-02-01 |
-| **BR-CAN-02** | **Hồ sơ Ứng tuyển Bắt buộc Email Hợp lệ (Valid Email Required)** | Trường email là định danh duy nhất để tra cứu kết quả hồ sơ sau này. Phải pass kiểm tra định dạng email chuẩn (`regex`). | UC-CAN-03-01 |
+| **BR-CAN-02** | **Xác thực & Mã hóa Mật khẩu Ứng viên (Secure Candidate Auth)** | Tài khoản ứng viên sử dụng mã hóa mật khẩu bcrypt, cấp JWT Token độc lập với tài khoản nội bộ công ty. | UC-CAN-03-03 |
 | **BR-CAN-03** | **Tự động Đưa vào Đường ống ATS (Auto ATS Ingestion)** | Mỗi hồ sơ nộp thành công tự động tạo bản ghi `Candidate` trong CSDL với `status = APPLIED`, xuất hiện ngay trong cột "Hồ sơ mới" của ATS Kanban trên Admin Portal. | UC-CAN-03-01, UC-CAN-03-02 |
 | **BR-CAN-04** | **Chính sách Nộp lại Hồ sơ (Re-application Policy)** | Cùng một địa chỉ email không được nộp hồ sơ cho cùng một vị trí tuyển dụng (`jobPostingId`) nhiều hơn 1 lần. Backend kiểm tra trùng lặp trước khi tạo bản ghi. | UC-CAN-03-01 |
-| **BR-CAN-05** | **Tra cứu Bảo mật theo Email (Email-based Tracking Only)** | Ứng viên chỉ tra cứu được kết quả bằng email đã nộp hồ sơ. Không cung cấp ID hồ sơ hay thông tin cá nhân ra ngoài. | UC-CAN-04-01, UC-CAN-04-02 |
-
+| **BR-CAN-05** | **Tự phục vụ Tiền Tiếp nhận (Pre-Onboarding Self-service)** | Khi chấp nhận Offer, ứng viên bắt buộc hoàn thành biểu mẫu khai báo CCCD, MST, ngân hàng và người thân khẩn cấp để HR sẵn sàng tiếp nhận vào ngày đầu tiên. | UC-CAN-04-03 |
+| **BR-CAN-06** | **Tính toàn vẹn Dữ liệu Tiếp nhận Core HR (Atomic Onboarding)** | HR chỉ thực hiện tiếp nhận chính thức vào ngày ứng viên đến công ty; dữ liệu từ `PreOnboardingProfile` tự động chuyển giao vào `Employee` và `Contract` qua Transaction nguyên tử. | UC-REC-04-04 |
 
 
 ### Usecase: UC-CAN-01 & UC-CAN-02 - Trang chủ Tuyển dụng, Thương hiệu Doanh nghiệp & Khám phá Việc làm (Career Landing, Employer Branding & Job Discovery)
@@ -8482,42 +8362,64 @@ sequenceDiagram
 | **TC-CAN-02-05** | UC-CAN-02-02 | Đóng modal JD bằng Escape | Modal JD đang mở | 1. Nhấn phím Escape. | Modal đóng, trở lại trang danh sách jobs. | P2 |
 
 
-### Usecase: UC-CAN-03 & UC-CAN-04 - Nộp Hồ sơ Ứng tuyển & Theo dõi Kết quả Hồ sơ (Application Submission & Self-service Tracking)
+### Usecase: UC-CAN-03 & UC-CAN-04 - Nộp Hồ sơ, Tài khoản Ứng viên & Theo dõi Tiến trình Tuyển dụng 2 chiều (Candidate Portal & Collaborative Application Lifecycle)
 
 #### 1. Giới thiệu chức năng
-- **Mục đích**: Hai chức năng này tạo thành một vòng phản hồi hoàn chỉnh (Complete Feedback Loop) cho ứng viên: Nộp hồ sơ dễ dàng trong vài bước → Tự tra cứu kết quả bất kỳ lúc nào mà không cần email hay điện thoại cho nhà tuyển dụng. Dữ liệu ứng viên tự động đồng bộ vào đường ống ATS Kanban của Admin để HR sàng lọc và xử lý.
-- **Actor (Tác nhân)**: Ứng viên (Candidate) - Người nộp và theo dõi hồ sơ; Hệ thống Backend - Tự động nhập vào ATS.
-- **Điều kiện tiên quyết**: Ứng viên đã xem JD chi tiết và quyết định ứng tuyển (UC-CAN-02-02).
+- **Mục đích**: Cung cấp một cổng tự phục vụ toàn diện (Candidate Self-service Experience) cho ứng viên:
+  1. Cho phép ứng viên nộp hồ sơ nhanh chóng hoặc đăng ký/đăng nhập tài khoản cá nhân (`CandidateUser`).
+  2. Tự động liên kết các đơn tuyển dụng theo email cá nhân, theo dõi tiến trình xét duyệt hồ sơ theo thời gian thực (Đang sàng lọc, Chờ phỏng vấn, Đã có Offer, Nhận việc thành công, Chưa phù hợp).
+  3. Tiếp nhận Thư mời nhận việc trực tuyến (**Job Offer**) với đầy đủ điều khoản đãi ngộ (Lương cơ bản, Tỷ lệ thử việc, Ngày nhận việc, Phúc lợi).
+  4. Trực tiếp phản hồi Offer 2 chiều: Từ chối kèm lý do hoặc Chấp nhận Offer.
+  5. Khi chấp nhận Offer, hệ thống kích hoạt **Biểu mẫu Khai báo Hồ sơ Tiền Tiếp nhận (Pre-Onboarding Profile Wizard)** 2 bước để ứng viên tự cung cấp thông tin CCCD, nơi cấp, MST cá nhân, tài khoản ngân hàng và liên hệ khẩn cấp nhằm chuẩn bị cho ngày đầu tiên gia nhập công ty.
+- **Actor (Tác nhân)**: Ứng viên (Candidate), Hệ thống Backend, Bộ phận Tuyển dụng (HR).
+- **Điều kiện tiên quyết**: Ứng viên truy cập Cổng Tuyển dụng công khai (`/candidate`).
 
 ##### Danh mục các chức năng con (Sub-features):
-1. **UC-CAN-03-01: Điền & Nộp Form Ứng tuyển Trực tuyến (Online Application Form)**: Ứng viên điền form gồm Họ tên, Email, SĐT và Link CV rồi nộp hồ sơ.
-2. **UC-CAN-03-02: Nhận Xác nhận Đã tiếp nhận Hồ sơ (Application Confirmation)**: Hiển thị màn hình xác nhận thành công với hướng dẫn tra cứu kết quả.
-3. **UC-CAN-04-01: Tra cứu Trạng thái Hồ sơ theo Email (Self-service Tracking)**: Ứng viên nhập email để tìm tất cả hồ sơ đã nộp.
-4. **UC-CAN-04-02: Xem Chi tiết Trạng thái Từng Hồ sơ (Application Status Detail)**: Xem trạng thái chi tiết từng vị trí đã nộp (Đang sàng lọc / Chờ phỏng vấn / Có kết quả Offer / Chưa phù hợp).
-5. **UC-CAN-04-03: Nhận & Phản hồi Thư mời nhận việc trực tuyến (Offer Response)**: Ứng viên nhận Offer và xác nhận Đồng ý hoặc Từ chối trực tiếp trên cổng.
+1. **UC-CAN-03-01: Điền & Nộp Form Ứng tuyển Trực tuyến (Online Application Form)**: Ứng viên nộp hồ sơ với Họ tên, Email, SĐT và Link CV.
+2. **UC-CAN-03-02: Nhận Xác nhận Tiếp nhận Hồ sơ (Application Confirmation)**: Màn hình xác nhận thành công và hướng dẫn theo dõi tiến trình.
+3. **UC-CAN-03-03: Đăng ký & Đăng nhập Tài khoản Ứng viên (Candidate Authentication)**: Quản lý tài khoản cá nhân bằng Email/Mật khẩu với cơ chế mã hóa mật khẩu bcrypt và cấp mã JWT riêng biệt (`CandidateUser`).
+4. **UC-CAN-04-01: Bảng Điều khiển Theo dõi Đơn Ứng tuyển (Self-service Application Dashboard)**: Xem toàn bộ các vị trí đã ứng tuyển, ngày nộp, trạng thái xử lý hiện tại và lịch sử xét duyệt.
+5. **UC-CAN-04-02: Xem Thư mời Nhận việc Trực tuyến (Online Job Offer Letter)**: Xem chi tiết các điều khoản việc làm, mức lương, ngày đi làm do HR phát hành.
+6. **UC-CAN-04-03: Phản hồi Offer & Khai báo Hồ sơ Tiền Tiếp nhận (Offer Response & Pre-Onboarding Wizard)**: Chấp nhận Offer và hoàn tất biểu mẫu khai báo thông tin pháp lý, ngân hàng, gia đình trực tuyến.
 
 ---
 
 #### 2. Dữ liệu nghiệp vụ đầu vào (Input Data & Parameters)
 
-##### 2.1. Form Nộp Hồ sơ Ứng tuyển (Application Form Fields)
-| Tên trường | Kiểu dữ liệu | Bắt buộc | Ràng buộc nghiệp vụ | Placeholder hiển thị |
-|---|---|:---:|---|---|
-| `name` | String(100) | Có | Không để trống, tối thiểu 2 từ | "Họ và Tên đầy đủ" |
-| `email` | String(150) | Có | Email hợp lệ (regex), là khóa tra cứu duy nhất | "email@congty.com" |
-| `phone` | String(15) | Không | 10-11 chữ số, không bắt buộc | "09xxxxxxxxx" |
-| `cvUrl` | String(500) | Có | URL hợp lệ trỏ đến Google Drive, Notion, LinkedIn hoặc file PDF | "Link Google Drive / Notion CV" |
-| `jobPostingId` | UUID | Có | Tự động từ `selectedJob.id`, không hiển thị với ứng viên | (Ẩn) |
-| `status` | Enum | Có | Mặc định `APPLIED` khi tạo | (Tự động) |
-
-##### 2.2. Trạng thái Vòng đời Hồ sơ Ứng viên (Candidate Status Lifecycle trong ATS)
-| Trạng thái Backend | Nhãn Hiển thị với Ứng viên | Màu sắc | Mô tả với Ứng viên |
+##### 2.1. Đăng ký & Đăng nhập Tài khoản Ứng viên (CandidateUser)
+| Tên trường | Kiểu dữ liệu | Bắt buộc | Ràng buộc nghiệp vụ |
 |---|---|:---:|---|
-| `APPLIED` | Đang sàng lọc hồ sơ | Tím xanh (`#6366f1`) | Hồ sơ đã tiếp nhận, đội HR đang xem xét. |
-| `INTERVIEWING` | Chờ lịch phỏng vấn | Vàng cam (`#f59e0b`) | Hồ sơ được chọn, HR sẽ liên hệ sắp xếp phỏng vấn. |
-| `OFFERED` | Đã có kết quả (Offer) | Xanh lá (`#10b981`) | Chúc mừng! Công ty đã ra quyết định gửi Thư mời nhận việc. |
-| `HIRED` | Nhận việc thành công | Xám sáng (`#e2e8f0`) | Ứng viên đã xác nhận nhận việc và sẽ gia nhập công ty. |
-| `REJECTED` | Chưa phù hợp lần này | Đỏ nhạt (`#ef4444`) | Hồ sơ không được chọn ở vòng này. Cảm ơn đã quan tâm. |
+| `email` | String(150) | Có | Định danh đăng nhập duy nhất, định dạng email chuẩn. |
+| `password` | String(100) | Có | Mật khẩu tối thiểu 6 ký tự, mã hóa một chiều bằng bcrypt salt 10. |
+| `name` | String(100) | Có | Họ và tên đầy đủ của ứng viên. |
+| `phone` | String(15) | Không | Số điện thoại liên hệ cá nhân. |
+
+##### 2.2. Biểu mẫu Khai báo Hồ sơ Tiền Tiếp nhận (Pre-Onboarding Wizard)
+| Bước | Nhóm dữ liệu | Tên trường | Kiểu dữ liệu | Bắt buộc | Ý nghĩa nghiệp vụ |
+|---|---|---|---|:---:|---|
+| **Bước 1** | **Thông tin Định danh & Pháp lý** | `cccd` | String(12) | Có | Số Căn cước công dân gắn chip (12 số). |
+| | | `cccdDate` | Date | Có | Ngày cấp CCCD ghi trên thẻ. |
+| | | `cccdPlace` | String(150) | Có | Nơi cấp (VD: Cục Cảnh sát QLHC về TTXH). |
+| | | `taxCode` | String(20) | Không | Mã số thuế thu nhập cá nhân (nếu đã có). |
+| | | `dob` | Date | Có | Ngày tháng năm sinh. |
+| | | `gender` | Enum | Có | Giới tính: `MALE`, `FEMALE`, `OTHER`. |
+| | | `address` | String(255) | Có | Địa chỉ thường trú hoặc nơi ở hiện tại. |
+| **Bước 2** | **Tài chính & Liên hệ Khẩn cấp** | `bankAccount` | String(30) | Có | Số tài khoản ngân hàng chính chủ để nhận lương. |
+| | | `bankName` | String(100) | Có | Tên ngân hàng (Vietcombank, MB, Techcombank...). |
+| | | `bankBranch` | String(150) | Không | Chi nhánh mở tài khoản. |
+| | | `emergencyName` | String(100) | Có | Họ tên người liên hệ khẩn cấp (bố mẹ/vợ chồng). |
+| | | `emergencyRel` | String(50) | Có | Mối quan hệ thân nhân. |
+| | | `emergencyPhone`| String(15) | Có | Số điện thoại người liên hệ khẩn cấp. |
+
+##### 2.3. Trạng thái Vòng đời Hồ sơ Ứng viên trên Cổng Ứng viên
+| Trạng thái ATS | Nhãn hiển thị | Màu sắc | Ý nghĩa với ứng viên | Hành động tương tác |
+|---|---|:---:|---|---|
+| `APPLIED` | Đang sàng lọc hồ sơ | Tím lam | Hồ sơ đã được ghi nhận, HR đang xem xét sơ bộ. | Theo dõi trạng thái |
+| `SCREENING` | Hồ sơ phù hợp | Xanh dương | Vượt qua sàng lọc ban đầu, chuẩn bị phỏng vấn. | Chờ thông báo lịch hẹn |
+| `INTERVIEWING` | Vòng phỏng vấn | Vàng cam | Đang trong giai đoạn phỏng vấn chuyên môn. | Xem thời gian phỏng vấn |
+| `OFFERING` | Đã nhận Thư mời nhận việc | Xanh ngọc | HR đã phát hành Offer Letter chính thức. | **Xem chi tiết & Phản hồi Offer** |
+| `HIRED` | Nhận việc thành công | Xanh lá | Đã hoàn tất tiếp nhận, chào đón thành viên mới! | Chuẩn bị ngày đi làm |
+| `REJECTED` | Chưa phù hợp đợt này | Xám/Đỏ | Hồ sơ chưa đáp ứng tiêu chí trong chiến dịch này. | Ứng tuyển vị trí khác |
 
 ---
 
@@ -8525,239 +8427,104 @@ sequenceDiagram
 
 | Mã Quy tắc | Tình huống nghiệp vụ | Cách hệ thống xử lý | Thông báo hiển thị |
 |---|---|---|---|
-| **BR-CAN-03-01** | **Chống Nộp Hồ sơ Trùng lặp (No Duplicate Application)**: Cùng email nộp cùng vị trí lần 2. | Backend kiểm tra `WHERE email = x AND jobPostingId = y`. Nếu đã tồn tại → Trả lỗi `409 Conflict`. | "Email của bạn đã nộp hồ sơ cho vị trí này rồi! Vui lòng tra cứu kết quả bằng chức năng 'Tra cứu hồ sơ'." |
-| **BR-CAN-03-02** | **Tự động Vào ATS (Auto ATS Ingestion)**: Hồ sơ được nộp thành công. | Backend tạo bản ghi `Candidate` với `status = APPLIED`. Hồ sơ xuất hiện ngay trong cột "Mới nộp" trên Kanban Board ATS của Admin Portal mà không cần thao tác thêm. | (Tự động, không thông báo với ứng viên) |
-| **BR-CAN-03-03** | **Bắt buộc Link CV Hợp lệ (Valid CV Link Required)**: Ứng viên nhập sai định dạng URL CV. | Kiểm tra URL phải bắt đầu bằng `https://` và hợp lệ về cú pháp. Không để ứng viên nhập text tùy ý vào trường CV. | "Vui lòng nhập Link CV hợp lệ (bắt đầu bằng https://)" |
-| **BR-CAN-04-01** | **Tra cứu Bảo mật theo Email (Email-based Tracking)**: Ứng viên nhập email để tra cứu. | API chỉ trả về các hồ sơ đúng email đó, không lộ ID ứng viên hay thông tin của người khác. | (Kết quả hiển thị chỉ của email đã nhập) |
-| **BR-CAN-04-02** | **Phản hồi Offer có Thời hạn (Offer Response Deadline)**: Ứng viên nhận Offer Letter. | Ứng viên có **5 ngày làm việc** kể từ ngày gửi Offer để xác nhận. Quá hạn → Offer tự động hủy và HR sẽ chuyển sang ứng viên dự phòng. | "Offer của bạn sẽ hết hiệu lực sau 5 ngày làm việc. Vui lòng xác nhận trước ngày DD/MM/YYYY." |
+| **BR-CAN-03-01** | **Chống nộp trùng lặp**: Cùng email nộp cùng vị trí lần 2. | Backend kiểm tra `email + jobPostingId`. Nếu đã tồn tại $\rightarrow$ Trả lỗi `409 Conflict`. | "Email của bạn đã nộp hồ sơ cho vị trí này rồi! Vui lòng theo dõi trong mục 'Hồ sơ của tôi'." |
+| **BR-CAN-03-02** | **Đồng bộ tự động vào ATS**: Nộp hồ sơ thành công. | Tạo bản ghi `Candidate` với trạng thái `APPLIED`. Thẻ ứng viên lập tức xuất hiện trong cột "Mới nộp" trên bảng Kanban ATS của HR. | "Hồ sơ của bạn đã được gửi thành công!" |
+| **BR-CAN-03-03** | **Bảo mật Tài khoản Ứng viên**: Đăng ký tài khoản `CandidateUser`. | Email không được trùng lặp; mật khẩu mã hóa an toàn bcrypt; cấp JWT Token có thời hạn 7 ngày. | "Đăng ký tài khoản ứng viên thành công!" |
+| **BR-CAN-04-01** | **Tự động liên kết đơn ứng tuyển**: Ứng viên đăng nhập. | Hệ thống truy vấn toàn bộ hồ sơ `Candidate` có `email` khớp với email của `CandidateUser`, hiển thị danh sách đầy đủ kèm thông tin vị trí và trạng thái Offer. | (Hiển thị danh sách hồ sơ cá nhân) |
+| **BR-CAN-04-02** | **Khai báo Hồ sơ Pre-Onboarding Bắt buộc khi Chấp nhận Offer**: Ứng viên bấm "Đồng ý Offer". | Hệ thống không chuyển ngay thành `HIRED` (vì chưa đến ngày nhận việc); mà yêu cầu ứng viên hoàn tất Wizard Pre-Onboarding để lưu vào bảng `PreOnboardingProfile`, đổi trạng thái Offer thành `ACCEPTED`. | "Vui lòng hoàn tất biểu mẫu thông tin tiếp nhận để xác nhận nhận việc!" |
+| **BR-CAN-04-03** | **Ghi nhận Lý do Từ chối Offer**: Ứng viên bấm "Từ chối". | Bắt buộc nhập lý do từ chối (ngắn gọn), cập nhật `JobOffer.status = 'REJECTED'`, `JobOffer.declineReason = [Lý do]`, chuyển trạng thái ứng viên thành `REJECTED`. | "Đã ghi nhận từ chối Thư mời nhận việc." |
 
 ---
 
-#### 4. Đặc tả chi tiết các Use Case chức năng con (Sub-Use Cases Specification)
+#### 4. Đặc tả chi tiết các Use Case chức năng con
 
----
-
-##### 4.1. UC-CAN-03-01: Điền & Nộp Form Ứng tuyển Trực tuyến (Online Application Form)
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,font-weight:bold;
-
-    Actor(["👤 Ứng viên (Candidate)"]):::actor
-    UC(["UC-CAN-03-01: Nộp Form Ứng tuyển"]):::main
-    UC_Validate(["Kiểm tra Định dạng Email & Link CV"]):::sub
-    UC_DupCheck(["Chống Trùng lặp: email+vị trí"]):::sub
-    UC_CreateCandidate(["Tạo bản ghi Candidate (status=APPLIED)"]):::sub
-
-    Actor --> UC
-    UC -.->|include| UC_Validate
-    UC -.->|include| UC_DupCheck
-    UC -.->|include| UC_CreateCandidate
-```
+##### 4.1. UC-CAN-03-03: Đăng ký & Đăng nhập Tài khoản Ứng viên (Candidate Authentication)
 
 ###### Bảng đặc tả nghiệp vụ:
-
 | STT | Hạng mục | Nội dung chi tiết |
 |:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-03-01`<br/>- **UC Name**: Điền & Nộp Form Ứng tuyển Trực tuyến (Online Application Form)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Thu thập thông tin liên lạc cơ bản và link CV để HR có đủ dữ liệu đánh giá sơ bộ hồ sơ ứng viên.<br/>- **Mô tả**: Ứng viên điền form 4 trường (Họ tên, Email, SĐT, Link CV), hệ thống kiểm tra hợp lệ và tạo ứng viên mới trong CSDL, đồng bộ vào ATS Kanban ngay lập tức.<br/>- **Priority**: High (Bắt buộc) |
-| **2** | **Trigger** | Ứng viên nhấp nút **"Ứng tuyển ngay"** từ Job Card hoặc từ Modal JD chi tiết. |
-| **3** | **Pre-condition** | Vị trí tuyển dụng có `status = PUBLISHED`. |
-| **4** | **Post-condition** | Bản ghi `Candidate` được tạo với `status = APPLIED`; Modal form đóng; Màn hình xác nhận thành công hiển thị. |
-| **5** | **Main Flow** | 1. Modal Form ứng tuyển mở ra với tiêu đề vị trí đã được điền sẵn.<br/>2. Ứng viên điền: Họ và tên, Email, Số điện thoại (tùy chọn), Link CV (Google Drive, Notion, LinkedIn).<br/>3. Ứng viên nhấn "Gửi hồ sơ".<br/>4. Frontend kiểm tra client-side: email hợp lệ, link CV bắt đầu `https://`, họ tên không rỗng.<br/>5. Gọi `POST /api/candidates` với payload: `{ name, email, phone, cvUrl, jobPostingId }`.<br/>6. Backend kiểm tra trùng lặp email + jobPostingId (BR-CAN-03-01).<br/>7. Tạo bản ghi Candidate với `status = APPLIED` trong CSDL.<br/>8. Trả về `HTTP 201 Created`.<br/>9. Giao diện chuyển sang màn hình xác nhận thành công (UC-CAN-03-02). |
-| **6** | **Alternative / Exception Flow** | - **EF-01 (Trùng lặp hồ sơ)**: Email đã ứng tuyển vị trí này → Toast lỗi: *"Email của bạn đã nộp hồ sơ cho vị trí này rồi!"* (BR-CAN-03-01).<br/>- **EF-02 (Email không hợp lệ)**: Sai định dạng email → Toast lỗi: *"Vui lòng nhập đúng định dạng Email!"*.<br/>- **EF-03 (Link CV không hợp lệ)**: URL không bắt đầu bằng `https://` → Toast lỗi: *"Link CV phải là URL hợp lệ!"* (BR-CAN-03-03). |
-| **7** | **Business Rules & Validation** | - Chống trùng lặp hồ sơ (BR-CAN-03-01).<br/>- Email là khóa tra cứu duy nhất, phải hợp lệ (BR-CAN-04-01). |
-| **8** | **Acceptance Criteria** | - **AC-01**: Hồ sơ nộp thành công xuất hiện ngay trong ATS Kanban của Admin dưới cột "Mới nộp".<br/>- **AC-02**: Ứng viên nhận được thông báo xác nhận với hướng dẫn tra cứu kết quả bằng email. |
+| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-03-03`<br/>- **UC Name**: Đăng ký & Đăng nhập Tài khoản Ứng viên (Candidate Authentication)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Cung cấp tài khoản độc lập giúp ứng viên quản lý nhiều lần ứng tuyển và bảo mật thông tin Offer.<br/>- **Priority**: High |
+| **2** | **Trigger** | Ứng viên nhấn nút **"Đăng nhập / Đăng ký"** trên thanh Header Cổng Tuyển dụng. |
+| **3** | **Pre-condition** | Ứng viên đang ở Cổng Tuyển dụng (`/candidate`). |
+| **4** | **Post-condition** | Đăng nhập thành công, lưu thông tin phiên và JWT Token trong localStorage; Header chuyển sang hiển thị tên ứng viên và nút "Hồ sơ của tôi". |
+| **5** | **Main Flow** | 1. Ứng viên mở Modal Tài khoản.<br/>2. Chọn tab "Đăng nhập" hoặc "Đăng ký tài khoản mới".<br/>3. Nhập Email, Mật khẩu (kèm Họ tên, SĐT nếu đăng ký).<br/>4. Gửi yêu cầu qua API `POST /api/candidate-auth/register` hoặc `POST /api/candidate-auth/login`.<br/>5. Backend kiểm tra tài khoản, đối soát mật khẩu bằng `bcrypt.compare`.<br/>6. Trả về mã JWT Token và đối tượng thông tin người dùng.<br/>7. Giao diện lưu trạng thái đăng nhập, đóng modal và kích hoạt menu cá nhân. |
 
 ---
 
-##### 4.2. UC-CAN-03-02: Nhận Xác nhận Đã tiếp nhận Hồ sơ (Application Confirmation)
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,font-weight:bold;
-
-    Actor(["👤 Ứng viên (Candidate)"]):::actor
-    UC(["UC-CAN-03-02: Xác nhận Tiếp nhận Hồ sơ"]):::main
-    UC_Success(["Màn hình Thành công kèm Icon Xanh lá"]):::sub
-    UC_GuideTrack(["Hướng dẫn Tra cứu Kết quả bằng Email"]):::sub
-
-    Actor --> UC
-    UC -.->|include| UC_Success
-    UC -.->|extend| UC_GuideTrack
-```
+##### 4.2. UC-CAN-04-01 & UC-CAN-04-02: Theo dõi Đơn Tuyển dụng & Xem Thư mời Nhận việc
 
 ###### Bảng đặc tả nghiệp vụ:
-
 | STT | Hạng mục | Nội dung chi tiết |
 |:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-03-02`<br/>- **UC Name**: Nhận Xác nhận Đã tiếp nhận Hồ sơ (Application Confirmation)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Tạo sự an tâm cho ứng viên rằng hồ sơ đã được hệ thống tiếp nhận thành công và hướng dẫn bước tiếp theo.<br/>- **Mô tả**: Ngay sau khi API tạo hồ sơ thành công, modal form ứng tuyển thay thế bằng màn hình xác nhận thành công (không đóng modal) với icon CheckCircle màu xanh lá, thông điệp chào mừng và hướng dẫn sử dụng chức năng tra cứu kết quả.<br/>- **Priority**: High (Bắt buộc) |
-| **2** | **Trigger** | API `POST /api/candidates` trả về `HTTP 201 Created`. |
-| **3** | **Pre-condition** | Hồ sơ đã được tạo thành công trong CSDL. |
-| **4** | **Post-condition** | Ứng viên biết chắc hồ sơ đã được tiếp nhận và biết cách tra cứu kết quả sau này. |
-| **5** | **Main Flow** | 1. Sau khi API trả 201, component chuyển `applySuccess = true`.<br/>2. Modal form ứng tuyển thay thế nội dung bằng màn hình thành công:<br/>   - Icon ✅ CheckCircle màu xanh lá, kích thước lớn (64px).<br/>   - Tiêu đề: "Hồ sơ đã được gửi thành công!"<br/>   - Nội dung: "Cảm ơn bạn đã quan tâm đến vị trí [Tên vị trí]. Đội ngũ HR của chúng tôi sẽ xem xét hồ sơ và liên hệ qua email [email ứng viên] trong thời gian sớm nhất."<br/>   - Hướng dẫn: "Bạn có thể theo dõi trạng thái hồ sơ bằng chức năng **Tra cứu kết quả** trên trang web."<br/>3. Nút "Đóng" để ứng viên trở lại trang việc làm. |
-| **6** | **Alternative / Exception Flow** | Không có exception; nếu API lỗi → Không hiển thị màn hình này, giữ nguyên form. |
-| **7** | **Business Rules & Validation** | - Màn hình xác nhận không được đóng tự động; phải chờ ứng viên chủ động nhấn "Đóng". |
-| **8** | **Acceptance Criteria** | - **AC-01**: Màn hình xác nhận hiển thị đúng email và tên vị trí ứng viên vừa nộp.<br/>- **AC-02**: Sau khi đóng, ứng viên được đưa trở lại trang danh sách việc làm. |
+| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-04-01` & `UC-CAN-04-02`<br/>- **UC Name**: Theo dõi Đơn Tuyển dụng & Xem Thư mời Nhận việc (Candidate Applications & Offer Letter)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Tự động hóa trải nghiệm theo dõi kết quả minh bạch, tức thời.<br/>- **Priority**: High |
+| **2** | **Trigger** | Ứng viên nhấn **"Hồ sơ của tôi"** trên thanh Header. |
+| **3** | **Pre-condition** | Ứng viên đã đăng nhập tài khoản. |
+| **4** | **Post-condition** | Danh sách tất cả các vị trí đã nộp hiển thị rõ ràng, bao gồm chi tiết Offer nếu có. |
+| **5** | **Main Flow** | 1. Hệ thống gọi `GET /api/candidate-auth/my-applications`.<br/>2. Backend truy vấn các hồ sơ ứng tuyển liên kết với email của tài khoản kèm quan hệ `jobPosting` và `offers`.<br/>3. Hiển thị danh sách thẻ đơn ứng tuyển gồm: Tên vị trí, Phòng ban, Ngày nộp, Badge trạng thái màu sắc.<br/>4. Với vị trí có Thư mời nhận việc (`OFFERING`), hệ thống hiển thị khối thông tin Thư mời nổi bật (Lương thỏa thuận, Ngày dự kiến nhận việc, Hạn phản hồi) cùng 2 nút: "Chấp nhận Offer" và "Từ chối". |
 
 ---
 
-##### 4.3. UC-CAN-04-01: Tra cứu Trạng thái Hồ sơ theo Email (Self-service Application Tracking)
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,font-weight:bold;
-
-    Actor(["👤 Ứng viên (Candidate)"]):::actor
-    UC(["UC-CAN-04-01: Tra cứu Hồ sơ theo Email"]):::main
-    UC_OpenModal(["Mở Modal Tra cứu (Navbar / CTA)"]):::sub
-    UC_InputEmail(["Nhập Email đã nộp hồ sơ"]):::sub
-    UC_FetchResults(["Gọi API GET /track?email="]):::sub
-
-    Actor --> UC
-    UC -.->|include| UC_OpenModal
-    UC -.->|include| UC_InputEmail
-    UC -.->|include| UC_FetchResults
-```
+##### 4.3. UC-CAN-04-03: Phản hồi Offer & Khai báo Hồ sơ Tiền Tiếp nhận (Pre-Onboarding Wizard)
 
 ###### Bảng đặc tả nghiệp vụ:
-
 | STT | Hạng mục | Nội dung chi tiết |
 |:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-04-01`<br/>- **UC Name**: Tra cứu Trạng thái Hồ sơ theo Email (Self-service Application Tracking)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Trao quyền tự chủ hoàn toàn cho ứng viên trong việc theo dõi tiến trình xét duyệt hồ sơ mà không cần liên hệ HR.<br/>- **Mô tả**: Ứng viên nhấp "Tra cứu kết quả" trên navbar hoặc Hero CTA, modal tra cứu mở ra với ô nhập email. Nhập email đã dùng khi nộp hồ sơ, hệ thống trả về tất cả hồ sơ liên kết với email đó cùng trạng thái hiện tại.<br/>- **Priority**: High (Bắt buộc) |
-| **2** | **Trigger** | Ứng viên nhấp nút **"Tra cứu kết quả"** trên navbar hoặc nút "Tra cứu hồ sơ" trên Hero Banner. |
-| **3** | **Pre-condition** | Không yêu cầu đăng nhập. Ứng viên đã nộp hồ sơ ít nhất 1 lần trước đó. |
-| **4** | **Post-condition** | Danh sách hồ sơ cùng trạng thái hiển thị trong modal. |
-| **5** | **Main Flow** | 1. Ứng viên nhấp "Tra cứu kết quả".<br/>2. Modal tra cứu mở ra với ô nhập email và nút "Tra cứu".<br/>3. Ứng viên nhập email đã dùng khi nộp hồ sơ.<br/>4. Nhấn "Tra cứu" hoặc Enter.<br/>5. Gọi `GET /api/candidates/track?email=xxx`.<br/>6. Backend tìm tất cả `Candidate` có `email = xxx`.<br/>7. Hiển thị danh sách kết quả (UC-CAN-04-02). |
-| **6** | **Alternative / Exception Flow** | - **EF-01 (Email không tìm thấy hồ sơ nào)**: API trả mảng rỗng → Hiển thị: *"Không tìm thấy hồ sơ nào với email này. Kiểm tra lại địa chỉ email hoặc nộp hồ sơ mới!"*. |
-| **7** | **Business Rules & Validation** | - Email nhập phải hợp lệ về định dạng trước khi gọi API.<br/>- API chỉ trả hồ sơ của email đó (BR-CAN-04-01). |
-| **8** | **Acceptance Criteria** | - **AC-01**: Kết quả tra cứu chỉ hiển thị hồ sơ của email đã nhập.<br/>- **AC-02**: Kết quả phản hồi trong vòng 1 giây. |
-
----
-
-##### 4.4. UC-CAN-04-02 & UC-CAN-04-03: Xem Chi tiết & Phản hồi Offer Letter
-
-###### Sơ đồ Use Case:
-```mermaid
-flowchart LR
-    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef main fill:#7c3aed,stroke:#c084fc,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef sub fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff,font-weight:bold;
-
-    Actor(["👤 Ứng viên (Candidate)"]):::actor
-    UC1(["UC-CAN-04-02: Xem Trạng thái Chi tiết Hồ sơ"]):::main
-    UC2(["UC-CAN-04-03: Phản hồi Offer Letter"]):::main
-    UC_Status(["Hiển thị Dòng trạng thái từng hồ sơ (Badge màu)"]):::sub
-    UC_OfferBtn(["Nút Xác nhận Nhận việc / Từ chối Offer"]):::sub
-
-    Actor --> UC1
-    Actor --> UC2
-    UC1 -.->|include| UC_Status
-    UC2 -.->|extend| UC_OfferBtn
-```
-
-###### Bảng đặc tả nghiệp vụ:
-
-| STT | Hạng mục | Nội dung chi tiết |
-|:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-04-02` & `UC-CAN-04-03`<br/>- **UC Name**: Xem Chi tiết Trạng thái & Phản hồi Offer Letter (Application Status Detail & Offer Response)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Cung cấp bức tranh toàn cảnh về tiến trình từng hồ sơ và cho phép ứng viên chủ động phản hồi Offer thay vì chỉ dùng email.<br/>- **Mô tả**: Sau khi tra cứu, danh sách hồ sơ hiển thị với badge trạng thái màu sắc trực quan. Hồ sơ ở trạng thái `OFFERED` xuất hiện 2 nút hành động: "✅ Xác nhận nhận việc" và "❌ Từ chối Offer".<br/>- **Priority**: Medium |
-| **2** | **Trigger** | Kết quả tra cứu trả về từ API (UC-CAN-04-01). |
-| **3** | **Pre-condition** | Email có ít nhất 1 hồ sơ trong CSDL. |
-| **4** | **Post-condition** | Ứng viên nắm rõ trạng thái từng hồ sơ; Offer được xác nhận/từ chối cập nhật vào CSDL. |
-| **5** | **Main Flow** | 1. Danh sách hồ sơ hiển thị sau khi tra cứu email.<br/>2. Mỗi dòng gồm: Tên vị trí đã nộp, Ngày nộp, Badge trạng thái với màu tương ứng.<br/>3. Nếu hồ sơ ở `OFFERED`:<br/>   - Hiển thị thông điệp: "🎉 Chúc mừng! Bạn đã nhận được thư mời nhận việc!"<br/>   - Nút "Xác nhận nhận việc" (xanh lá) và "Từ chối" (xám/đỏ).<br/>   - Thời hạn phản hồi Offer được hiển thị rõ ràng (BR-CAN-04-02).<br/>4. Ứng viên nhấn "Xác nhận nhận việc":<br/>   - Gọi `PATCH /api/candidates/:id/respond-offer { response: 'ACCEPT' }`.<br/>   - Backend cập nhật `status = HIRED`.<br/>   - Hiển thị thông báo: "Chúc mừng! Chúng tôi rất mong được đón nhận bạn vào đội ngũ!".<br/>5. Ứng viên nhấn "Từ chối":<br/>   - Gọi API với `{ response: 'REJECT' }`.<br/>   - Backend cập nhật `status = REJECTED`.<br/>   - Hiển thị thông báo lịch sự: "Cảm ơn bạn đã phản hồi. Chúc bạn tìm được cơ hội phù hợp hơn!" |
-| **6** | **Alternative / Exception Flow** | - **EF-01 (Offer hết thời hạn)**: Ứng viên cố phản hồi Offer đã quá 5 ngày → Backend từ chối và báo: *"Thời hạn phản hồi Offer đã qua. Vui lòng liên hệ HR!"* (BR-CAN-04-02). |
-| **7** | **Business Rules & Validation** | - Thời hạn phản hồi Offer tối đa 5 ngày làm việc (BR-CAN-04-02).<br/>- Sau khi phản hồi Offer, các nút không còn hoạt động (idempotent). |
-| **8** | **Acceptance Criteria** | - **AC-01**: Badge trạng thái hiển thị đúng màu sắc và nhãn theo bảng mapping.<br/>- **AC-02**: Sau khi xác nhận nhận việc, hồ sơ trên ATS Admin Portal cập nhật `status = HIRED` tức thì. |
+| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-04-03`<br/>- **UC Name**: Phản hồi Offer & Khai báo Hồ sơ Tiền Tiếp nhận (Pre-Onboarding Profile Wizard)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Thu thập đầy đủ hồ sơ pháp lý, ngân hàng, gia đình trực tuyến từ chính ứng viên trước ngày đi làm.<br/>- **Priority**: Critical (Cốt lõi) |
+| **2** | **Trigger** | Ứng viên bấm nút **"Chấp nhận Offer"** tại đơn ứng tuyển. |
+| **3** | **Pre-condition** | Vị trí đang ở trạng thái Offer hợp lệ và chưa quá hạn `expiresAt`. |
+| **4** | **Post-condition** | Bản ghi `PreOnboardingProfile` được lưu vào CSDL, Offer chuyển sang `ACCEPTED`, HR nhận được thông báo hồ sơ sẵn sàng. |
+| **5** | **Main Flow** | 1. Hệ thống mở Modal Wizard Khai báo Hồ sơ (2 bước).<br/>2. **Bước 1 (Nhân thân & Pháp lý)**: Ứng viên điền CCCD (12 số), Ngày cấp, Nơi cấp, Mã số thuế, Ngày sinh, Giới tính, Nơi ở hiện tại $\rightarrow$ Bấm "Tiếp theo".<br/>3. **Bước 2 (Tài chính & Liên hệ khẩn cấp)**: Ứng viên điền Số tài khoản ngân hàng, Tên ngân hàng, Họ tên người thân khẩn cấp, Mối quan hệ, Số điện thoại người thân $\rightarrow$ Bấm "Hoàn tất & Xác nhận nhận việc".<br/>4. Frontend gọi `POST /api/candidate-auth/accept-offer` kèm toàn bộ dữ liệu.<br/>5. Backend lưu thông tin vào bảng `PreOnboardingProfile` và cập nhật `JobOffer.status = 'ACCEPTED'`.<br/>6. Giao diện hiển thị thông báo chúc mừng thành công, cập nhật giao diện sang trạng thái "Đã nộp hồ sơ Onboarding - Sẵn sàng nhận việc". |
+| **6** | **Alternative Flow** | - **Từ chối Offer**: Ứng viên bấm "Từ chối" $\rightarrow$ Hiển thị popup nhập lý do $\rightarrow$ Gọi `POST /api/candidate-auth/reject-offer` $\rightarrow$ Trạng thái chuyển `REJECTED`. |
 
 ---
 
 #### 5. Sơ đồ tuần tự nghiệp vụ (Sequence Diagrams)
 
-##### 5.1. Luồng Nộp Hồ sơ Ứng tuyển Đầy đủ & Đồng bộ ATS
+##### 5.1. Luồng Ứng viên Đăng nhập, Xem Offer & Hoàn tất Pre-Onboarding
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor UV as Ứng viên
-    actor HR as HR Admin (Admin Portal)
-    participant FE as Candidate Portal
-    participant API as Candidate API
+    participant Portal as Cổng Ứng viên (/candidate)
+    participant AuthAPI as API /api/candidate-auth
     participant DB as PostgreSQL Database
 
-    UV->>FE: Bấm "Ứng tuyển ngay" vào vị trí "Frontend Engineer"
-    FE->>FE: Mở Modal Form Ứng tuyển (jobPostingId=xxx tự động)
-    UV->>FE: Điền: Nguyễn Văn A, nva@gmail.com, 0912xxx, Drive/cv_nva.pdf
-    UV->>FE: Bấm "Gửi hồ sơ"
-    FE->>API: POST /api/candidates { name, email, phone, cvUrl, jobPostingId }
+    UV->>Portal: Bấm "Hồ sơ của tôi"
+    Portal->>AuthAPI: GET /api/candidate-auth/my-applications (Bearer JWT)
+    AuthAPI->>DB: Query Candidate + JobPosting + JobOffer WHERE email = user.email
+    DB-->>AuthAPI: Trả về danh sách đơn ứng tuyển & Thư mời nhận việc
+    AuthAPI-->>Portal: HTTP 200 OK
+    Portal-->>UV: Hiển thị Thư mời: Lương 18.000.000 đ, Ngày đi làm 15/10
 
-    API->>DB: SELECT * FROM Candidate WHERE email=nva@gmail.com AND jobPostingId=xxx
-    DB-->>API: Trả về null (Chưa từng nộp)
-    API->>DB: INSERT INTO Candidate (name, email, phone, cvUrl, jobPostingId, status=APPLIED)
-    DB-->>API: Tạo thành công (candidateId = new-uuid)
-    API-->>FE: HTTP 201 Created
+    UV->>Portal: Nhấn "Chấp nhận Offer"
+    Portal-->>UV: Mở Modal Wizard Pre-Onboarding (Bước 1: CCCD, MST, Địa chỉ)
+    UV->>Portal: Điền Bước 1 -> Bấm "Tiếp tục"
+    Portal-->>UV: Hiển thị Bước 2: Tài khoản Ngân hàng, Người thân khẩn cấp
+    UV->>Portal: Điền Bước 2 -> Bấm "Hoàn tất & Xác nhận"
 
-    FE-->>UV: Modal chuyển sang Màn hình Xác nhận Thành công ✅
-    Note over UV, FE: "Hồ sơ đã gửi! Tra cứu kết quả bằng nva@gmail.com"
-
-    Note over HR, DB: Admin Portal: HR thấy hồ sơ mới trong ATS Kanban
-    HR->>API: GET /api/candidates?status=APPLIED
-    API-->>HR: Danh sách ứng viên mới gồm cả "Nguyễn Văn A"
-```
-
----
-
-##### 5.2. Luồng Ứng viên Tra cứu Kết quả & Phản hồi Offer Letter
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor UV as Ứng viên
-    participant FE as Candidate Portal
-    participant API as Candidate Track API
-    participant DB as PostgreSQL Database
-
-    UV->>FE: Bấm "Tra cứu kết quả" trên navbar
-    FE->>FE: Mở Modal Tra cứu Hồ sơ
-    UV->>FE: Nhập email: nva@gmail.com -> Bấm "Tra cứu"
-    FE->>API: GET /api/candidates/track?email=nva@gmail.com
-    API->>DB: SELECT c.*, jp.title FROM Candidate c JOIN JobPosting jp ON jp.id=c.jobPostingId WHERE c.email='nva@gmail.com'
-    DB-->>API: Trả về [ { id, title: 'Frontend Engineer', status: 'OFFERED', submittedAt: ... } ]
-    API-->>FE: HTTP 200 OK (danh sách hồ sơ)
-    FE-->>UV: Hiển thị: "Frontend Engineer - Đã có kết quả (Offer) 🎉" (Badge xanh lá)
-
-    Note over UV, FE: Ứng viên muốn xác nhận nhận việc
-    UV->>FE: Bấm nút "✅ Xác nhận nhận việc"
-    FE->>API: PATCH /api/candidates/:id/respond-offer { response: 'ACCEPT' }
-    API->>DB: UPDATE Candidate SET status='HIRED' WHERE id=:id
-    DB-->>API: Cập nhật thành công
-    API-->>FE: HTTP 200 OK
-    FE-->>UV: Toast "Chúc mừng! Chúng tôi rất mong chào đón bạn!" + Badge cập nhật "Nhận việc thành công"
+    Portal->>AuthAPI: POST /api/candidate-auth/accept-offer { candidateId, cccd, bankAccount... }
+    rect rgb(240, 248, 255)
+        AuthAPI->>DB: UPDATE JobOffer SET status='ACCEPTED', respondedAt=NOW()
+        AuthAPI->>DB: UPSERT PreOnboardingProfile (cccd, bankAccount, emergency...)
+    end
+    DB-->>AuthAPI: Lưu thành công
+    AuthAPI-->>Portal: HTTP 200 OK
+    Portal-->>UV: Modal Thành công: "Chúc mừng bạn đã gia nhập công ty! HR sẽ liên hệ ngày đầu đi làm."
 ```
 
 ---
 
 #### 6. Ma trận kịch bản kiểm thử (Test Scenarios & Acceptance Matrix)
 
-| Test ID | Chức năng con | Tiêu đề kịch bản | Dữ liệu đầu vào | Các bước | Kết quả kỳ vọng | Mức độ |
-|---|---|---|---|---|---|:---:|
-| **TC-CAN-03-01** | UC-CAN-03-01 | Nộp hồ sơ thành công hoàn chỉnh | Tên, email hợp lệ, link Drive, vị trí mở | 1. Mở form.<br/>2. Điền đủ.<br/>3. Bấm Gửi. | Màn hình xác nhận thành công. Candidate xuất hiện trong ATS Admin. | P0 |
-| **TC-CAN-03-02** | UC-CAN-03-01 | Chặn nộp hồ sơ trùng email+vị trí | Email cũ đã nộp vị trí này | 1. Nộp lần 2 cùng email cùng vị trí. | Toast lỗi "Đã nộp hồ sơ cho vị trí này rồi!". | P0 |
-| **TC-CAN-03-03** | UC-CAN-03-01 | Validate email sai định dạng | Email: "notvalid" | 1. Nhập email sai.<br/>2. Bấm Gửi. | Báo lỗi "Email không hợp lệ", không gọi API. | P0 |
-| **TC-CAN-03-04** | UC-CAN-03-01 | Validate Link CV không hợp lệ | cvUrl: "my cv link" (không có https://) | 1. Nhập link CV sai.<br/>2. Bấm Gửi. | Báo lỗi "Link CV phải là URL hợp lệ". | P1 |
-| **TC-CAN-03-05** | UC-CAN-03-02 | Màn hình xác nhận hiển thị đúng email | Nộp với nva@gmail.com | 1. Nộp hồ sơ thành công. | Màn hình hiển thị đúng email "nva@gmail.com". | P1 |
-| **TC-CAN-04-01** | UC-CAN-04-01 | Tra cứu hồ sơ theo email hợp lệ | Email đã nộp: nva@gmail.com | 1. Nhập email.<br/>2. Bấm Tra cứu. | Danh sách hồ sơ đã nộp của email đó hiển thị. | P0 |
-| **TC-CAN-04-02** | UC-CAN-04-01 | Email không tìm thấy hồ sơ | Email: noone@test.com (chưa nộp) | 1. Tra cứu email này. | Thông báo "Không tìm thấy hồ sơ nào với email này". | P1 |
-| **TC-CAN-04-03** | UC-CAN-04-02 | Badge màu đúng theo trạng thái | Hồ sơ OFFERED | 1. Tra cứu email.<br/>2. Quan sát badge. | Badge màu xanh lá "Đã có kết quả (Offer)". | P1 |
-| **TC-CAN-04-04** | UC-CAN-04-03 | Xác nhận Offer - cập nhật HIRED | Hồ sơ status=OFFERED | 1. Bấm "Xác nhận nhận việc".<br/>2. Kiểm tra ATS Admin. | Status = HIRED cả trên Candidate Portal và ATS Admin. | P0 |
-| **TC-CAN-04-05** | UC-CAN-04-03 | Từ chối Offer - cập nhật REJECTED | Hồ sơ status=OFFERED | 1. Bấm "Từ chối".<br/>2. Kiểm tra. | Status = REJECTED, hiển thị thông báo lịch sự. | P1 |
+| Mã kiểm thử | Chức năng | Tiêu đề kịch bản | Dữ liệu đầu vào | Kết quả mong đợi | Đánh giá |
+|---|---|---|---|---|:---:|
+| **TC-CAN-AUTH-01** | UC-CAN-03-03 | Đăng ký tài khoản ứng viên | Email hợp lệ, mật khẩu ≥ 6 ký tự | Tạo `CandidateUser`, cấp JWT token, đăng nhập thành công. | **Pass** |
+| **TC-CAN-AUTH-02** | UC-CAN-03-03 | Đăng nhập tài khoản ứng viên | Email & mật khẩu chính xác | Đăng nhập thành công, nạp thông tin cá nhân lên Header. | **Pass** |
+| **TC-CAN-TRACK-01** | UC-CAN-04-01 | Tự động đồng bộ hồ sơ đã nộp | Đăng nhập tài khoản đã có hồ sơ | Danh sách hiển thị đầy đủ các đơn tuyển dụng của email đó. | **Pass** |
+| **TC-CAN-OFFER-01** | UC-CAN-04-02 | Xem thư mời nhận việc | Đơn tuyển dụng có trạng thái OFFERING | Hiển thị chi tiết lương, ngày đi làm, ghi chú của HR. | **Pass** |
+| **TC-CAN-PREON-01** | UC-CAN-04-03 | Khai báo Pre-Onboarding 2 bước | Nhập đủ CCCD 12 số, Vietcombank, SĐT khẩn cấp | Lưu `PreOnboardingProfile`, Offer chuyển `ACCEPTED`. | **Pass** |
+| **TC-CAN-REJ-01** | UC-CAN-04-03 | Từ chối Offer kèm lý do | Nhập lý do từ chối | Offer cập nhật `REJECTED`, ghi nhận lý do vào hệ thống. | **Pass** |
 
 
 ---
@@ -8835,7 +8602,7 @@ Mọi thay đổi trên giao diện quản trị có hiệu lực ngay lập t�
 ## 2.3. Sơ đồ Hoạt động (Activity Diagrams)
 
 ### 2.3.1. Sơ đồ Hoạt động: Quy trình Tuyển dụng -> Onboarding -> Bàn giao Tài sản (BM-01)
-Quy trình khép kín từ lúc thu hút ứng viên đến khi hoàn tất bàn giao trang thiết bị làm việc:
+Quy trình khép kín phối hợp 2 chiều từ lúc thu hút ứng viên, phát hành Offer, ứng viên hoàn tất hồ sơ Pre-onboarding đến khi tiếp nhận tại công ty và bàn giao trang thiết bị làm việc:
 
 ```mermaid
 flowchart TD
@@ -8846,11 +8613,13 @@ flowchart TD
     Step2 --> Step3[Hội đồng chấm điểm phỏng vấn]
     Step3 --> DecisionInterview{Kết quả phỏng vấn?}
     DecisionInterview -- Trượt --> RejectMail
-    DecisionInterview -- Đạt --> Step4[Phát hành Thư mời nhận việc Offer Letter]
+    DecisionInterview -- Đạt --> Step4[HR phát hành Thư mời nhận việc Offer Letter]
     Step4 --> DecisionOffer{Ứng viên phản hồi?}
-    DecisionOffer -- Từ chối --> EndFail
-    DecisionOffer -- Đồng ý --> Step5[Chuyển đổi Ứng viên thành Nhân viên mới]
-    Step5 --> Step6[Khởi tạo Hồ sơ Employee & Tài khoản Account hệ thống]
+    DecisionOffer -- Từ chối --> RejectOffer[Ghi nhận lý do từ chối] --> EndFail
+    DecisionOffer -- Đồng ý --> StepPreOnboarding[Ứng viên tự khai Hồ sơ Tiền tiếp nhận: CCCD, MST, Ngân hàng, Khẩn cấp]
+    StepPreOnboarding --> StepArrive[Ứng viên đến công ty nhận việc ngày đầu tiên]
+    StepArrive --> Step5[HR bấm Tiếp nhận -> Tự động kế thừa hồ sơ vào Core HR]
+    Step5 --> Step6[Khởi tạo Hồ sơ Employee & Hợp đồng Contract & Tài khoản ESS]
     Step6 --> Step7[Kích hoạt Checklist Hội nhập Onboarding & Gán Buddy]
     Step7 --> Step8[Bộ phận IT chọn thiết bị Sẵn sàng trong kho]
     Step8 --> Step9[Lập Phiếu bàn giao & Cập nhật trạng thái ASSIGNED]
@@ -8859,6 +8628,7 @@ flowchart TD
 ```
 
 ---
+
 
 ### 2.3.2. Sơ đồ Hoạt động: Quy trình Tính Lương Động & Khấu trừ Thuế / Bảo hiểm (Payroll Engine)
 Quy trình tự động hóa của Động cơ tính lương dựa trên tham số nạp từ CSDL:
@@ -9530,19 +9300,20 @@ HRM-ĐATN/
   * Chống vòng lặp vô hạn (Infinite Loop Detection): Ngăn chặn việc người dùng chọn phòng ban con hoặc chính nó làm phòng ban cha khi điều chuyển cấp bậc.
   * Ràng buộc xóa cứng: Chỉ cho phép xóa khi phòng ban không còn nhân viên nào đang làm việc (`employee.count === 0`) và không có phòng con.
 
-### 3.2.2. Phân hệ Tuyển dụng & Phễu Kanban ATS Tương tác (`/internal/recruitment`)
-* **Kiến trúc giao diện & Tương tác**:
+### 3.2.2. Phân hệ Tuyển dụng, ATS Kanban & Quản lý Offer 2 chiều (`/internal/recruitment` & `/internal/recruitment/offers`)
+* **Kiến trúc giao diện & Tương tác Kanban**:
   * Bảng điều khiển Kanban 5 cột tương ứng 5 giai đoạn chuẩn: `SOURCED` (Mới nộp) → `SCREENING` (Sàng lọc) → `INTERVIEWING` (Phỏng vấn) → `OFFERING` (Đề nghị việc) → `HIRED` (Trúng tuyển).
   * Hỗ trợ kéo-thả (Drag & Drop) mượt mà bằng HTML5 Drag and Drop API, hiển thị hiệu ứng hover và badge thông tin ứng viên.
   * Bộ lọc đa chiều theo vị trí tuyển dụng, từ khóa tìm kiếm theo họ tên hoặc email ứng viên.
-* **Tính năng Auto-provisioning tinh hoa**:
-  * Khi kéo thẻ ứng viên thả vào cột `HIRED`, hệ thống tự động kích hoạt Modal xác nhận tuyển dụng.
-  * Khi HR đồng ý, Backend chạy một Database Transaction (`$transaction`):
-    1. Cập nhật trạng thái ứng viên thành `HIRED`.
-    2. Tự động sinh mã định danh nhân viên mới (`EMP-YYYY-XXX`).
-    3. Tạo bản ghi `Employee` với thông tin phòng ban, chức danh kế thừa từ chiến dịch tuyển dụng.
-    4. Tự động sinh Hợp đồng thử việc (`PROBATION`) và tạo tài khoản đăng nhập Cổng ESS.
-    5. Tự động đóng chiến dịch tuyển dụng nếu số lượng tuyển đã đạt chỉ tiêu (`hiredCount >= amount`).
+* **Quy trình Quản lý Offer 2 chiều & Tự động Tiếp nhận Core HR**:
+  * Chức năng **Phát hành Offer trực tuyến (`POST /api/offers/send`)**: HR soạn thảo mức lương cơ bản thỏa thuận, tỷ lệ lương thử việc (85%), ngày bắt đầu nhận việc, hạn phản hồi và ghi chú đãi ngộ.
+  * Theo dõi phản hồi thời gian thực: Hiển thị trạng thái phản hồi của ứng viên (`Chờ phản hồi`, `Đã chấp nhận`, `Đã từ chối kèm lý do`).
+  * Xem trước hồ sơ Pre-Onboarding do ứng viên tự khai: Giúp HR nắm bắt CCCD, MST, tài khoản ngân hàng và liên hệ khẩn cấp trước ngày đón tiếp.
+  * Chức năng **Tiếp nhận nhân sự thông minh (`POST /api/offers/accept`)**:
+    1. Khi ứng viên có mặt tại công ty, HR mở form tiếp nhận. Hệ thống tự động điền sẵn (pre-fill) toàn bộ thông tin cá nhân từ hồ sơ tự khai và mức lương từ Offer.
+    2. Backend thực thi Database Transaction nguyên tử: Tạo mới `Employee` (trạng thái `ONBOARDING`), tạo `Contract` thử việc (`ACTIVE`), chuyển `Candidate` thành `HIRED`.
+    3. Tự động kiểm tra và đóng chiến dịch tuyển dụng nếu số lượng tuyển đã đạt chỉ tiêu (`hiredCount >= amount`).
+
 
 ### 3.2.3. Phân hệ Hội nhập Onboarding & Quản lý Nhiệm vụ (`/internal/onboarding`)
 * **Quy trình hội nhập số hóa**:
@@ -9615,11 +9386,14 @@ HRM-ĐATN/
   * Trang chủ cá nhân hóa: Hiển thị lời chào, trạng thái làm việc hôm nay, nút điểm danh Check-in/Check-out một chạm.
   * Quản lý phép cá nhân: Xem số ngày phép còn lại, nộp đơn xin nghỉ, theo dõi lịch sử và tiến độ phê duyệt của cấp trên.
   * Tra cứu phiếu lương điện tử: Xem bảng lương chi tiết từng tháng, minh bạch các khoản phụ cấp, giảm trừ bảo hiểm và thuế TNCN có mã hóa bảo mật.
-* **Cổng Tuyển dụng Công khai (Candidate Career Portal)**:
-  * Giao diện giới thiệu thương hiệu tuyển dụng doanh nghiệp (Employer Branding).
+* **Cổng Tuyển dụng Ứng viên & Tự phục vụ Tiền Tiếp nhận (Candidate Career Portal)**:
+  * Giao diện giới thiệu thương hiệu tuyển dụng doanh nghiệp (Employer Branding) chuẩn phong cách hiện đại.
   * Danh sách các vị trí đang tuyển dụng với bộ lọc theo phòng ban, mức lương và địa điểm làm việc.
   * Mẫu ứng tuyển trực tuyến: Cho phép ứng viên nộp hồ sơ, đính kèm đường link CV và nhận thông báo xác nhận tự động.
-  * Tra cứu trạng thái hồ sơ ứng tuyển bằng email cá nhân.
+  * **Hệ thống Tài khoản Ứng viên Độc lập (`CandidateUser`)**: Đăng ký và đăng nhập bảo mật bằng JWT Token, theo dõi danh sách tất cả các đơn ứng tuyển cá nhân theo thời gian thực (`/candidate-auth/my-applications`).
+  * **Thư mời nhận việc Trực tuyến & Phản hồi 2 chiều**: Xem chi tiết mức lương, tỷ lệ thử việc, ngày nhận việc do HR gửi; cho phép bấm Chấp nhận hoặc Từ chối kèm lý do.
+  * **Wizard Khai báo Hồ sơ Pre-Onboarding 2 bước**: Khi đồng ý nhận việc, ứng viên tự cung cấp đầy đủ thông tin định danh (CCCD 12 số, ngày cấp, nơi cấp, MST cá nhân, ngày sinh, địa chỉ thường trú), tài chính ngân hàng (số tài khoản, ngân hàng) và người liên hệ khẩn cấp trước khi đi làm.
+
 
 ---
 
@@ -9629,6 +9403,14 @@ Bảng tổng hợp các API cốt lõi của hệ thống:
 | Phương thức | Endpoint | Mô Tả Chức Năng | Quyền Hạn |
 |---|---|---|---|
 | `POST` | `/api/auth/login` | Đăng nhập hệ thống, cấp mã JWT Token | Public |
+| `POST` | `/api/candidate-auth/register` | Đăng ký tài khoản ứng viên mới (CandidateUser) | Public |
+| `POST` | `/api/candidate-auth/login` | Đăng nhập tài khoản ứng viên, cấp mã JWT Token | Public |
+| `GET` | `/api/candidate-auth/my-applications` | Tra cứu danh sách đơn ứng tuyển & Thư mời nhận việc | Candidate |
+| `POST` | `/api/candidate-auth/accept-offer` | Ứng viên chấp nhận Offer & Nộp hồ sơ Pre-Onboarding | Candidate |
+| `POST` | `/api/candidate-auth/reject-offer` | Ứng viên từ chối Thư mời nhận việc kèm lý do | Candidate |
+| `POST` | `/api/offers/send` | HR thiết lập & Phát hành Thư mời nhận việc trực tuyến | Admin, HR |
+| `POST` | `/api/offers/accept` | Tiếp nhận nhân sự ngày đầu đi làm, kế thừa hồ sơ vào Core HR | Admin, HR |
+| `POST` | `/api/offers/:id/reject` | HR ghi nhận từ chối Thư mời nhận việc | Admin, HR |
 | `GET` | `/api/auth/me` | Lấy thông tin tài khoản và phân quyền người dùng hiện tại | Đã đăng nhập |
 | `GET` | `/api/dashboard/stats` | Thống kê số lượng nhân viên, đơn chờ duyệt, quỹ lương | Admin, HR |
 | `GET` | `/api/departments` | Lấy danh sách phòng ban và cây phân cấp tổ chức | Admin, HR, Manager |

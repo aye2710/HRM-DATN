@@ -20,6 +20,7 @@ import decisionRoutes from './routes/decision.routes';
 import reportRoutes from './routes/report.routes';
 import assetRoutes from './routes/asset.routes';
 import settingRoutes from './routes/setting.routes';
+import candidateAuthRoutes from './routes/candidate-auth.routes';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -32,6 +33,7 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/positions', positionRoutes);
 app.use('/api/job-postings', jobPostingRoutes);
 app.use('/api/candidates', candidateRoutes);
+app.use('/api/candidate-auth', candidateAuthRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/onboarding', onboardingRoutes);

@@ -77,6 +77,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     res.status(201).json(newCandidate);
   } catch (error) {
+    console.error("Lỗi khi thêm ứng viên:", error);
     res.status(500).json({ error: 'Lỗi khi thêm ứng viên' });
   }
 });

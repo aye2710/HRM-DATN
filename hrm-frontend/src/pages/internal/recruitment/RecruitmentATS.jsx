@@ -83,6 +83,7 @@ export const RecruitmentATS = () => {
 
   const validTransitions = {
     SOURCED: ['SCREENING', 'REJECTED'],
+    APPLIED: ['SCREENING', 'REJECTED', 'SOURCED'],
     SCREENING: ['INTERVIEWING', 'REJECTED'],
     INTERVIEWING: ['OFFERING', 'REJECTED'],
     OFFERING: ['HIRED', 'REJECTED'],
@@ -209,7 +210,11 @@ export const RecruitmentATS = () => {
         <div style={{ flex: 1, position: 'relative' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', gap: '1.5rem', overflowX: 'auto', paddingBottom: '1rem' }} className="custom-scrollbar">
             {statuses.map(statusCol => {
-              const columnCandidates = processedCandidates.filter(c => c.status === statusCol.id);
+              const columnCandidates = processedCandidates.filter(c => 
+                statusCol.id === 'SOURCED'
+                  ? (c.status === 'SOURCED' || c.status === 'APPLIED')
+                  : c.status === statusCol.id
+              );
               
               return (
                 <div 
