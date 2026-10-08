@@ -2,7 +2,7 @@
 
 ## 1. Giới thiệu chức năng
 - **Mục đích**: Đây là tầng đầu tiên trong phễu tuyển dụng (Recruitment Funnel) - nơi chuyển một người lạ thành ứng viên tiềm năng. Trang chủ phải trả lời được 3 câu hỏi cốt lõi trong vòng 10 giây đầu tiên: "Công ty này làm gì?", "Môi trường làm việc như thế nào?" và "Có vị trí nào phù hợp với mình không?".
-- **Actor (Tác nhân)**: Ứng viên (Candidate) - Bất kỳ người dùng nào truy cập `/candidate`, không yêu cầu đăng nhập.
+- **Actor (Tác nhân)**: Ứng viên (Candidate) - Bất kỳ người dùng nào truy cập đường dẫn gốc `/` (hoặc `/candidate`), không yêu cầu đăng nhập.
 - **Điều kiện tiên quyết**: Hệ thống backend đang hoạt động, đã có ít nhất 1 tin tuyển dụng với `status = PUBLISHED`.
 
 ### Danh mục các chức năng con (Sub-features):
@@ -77,14 +77,14 @@ flowchart LR
 
 | STT | Hạng mục | Nội dung chi tiết |
 |:---:|---|---|
-| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-01-01`<br/>- **UC Name**: Tiếp cận Trang chủ Tuyển dụng & Thương hiệu (Career Landing Page)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Tạo ấn tượng đầu tiên chuyên nghiệp và dẫn dắt ứng viên khám phá tiếp các nội dung tuyển dụng.<br/>- **Mô tả**: Ứng viên vào `/candidate`, thấy ngay Hero Banner toàn màn hình với logo, slogan tuyển dụng, background gradient và 2 nút CTA nổi bật. Navbar cố định ở đầu trang cho phép điều hướng nhanh.<br/>- **Priority**: High (Bắt buộc) |
-| **2** | **Trigger** | Ứng viên gõ URL `/candidate` hoặc nhấp vào link tuyển dụng được chia sẻ. |
+| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-01-01`<br/>- **UC Name**: Tiếp cận Trang chủ Tuyển dụng & Thương hiệu (Career Landing Page)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Tạo ấn tượng đầu tiên chuyên nghiệp và dẫn dắt ứng viên khám phá tiếp các nội dung tuyển dụng.<br/>- **Mô tả**: Ứng viên vào `/` (hoặc `/candidate`), thấy ngay Hero Banner toàn màn hình với logo, slogan tuyển dụng, background gradient và 2 nút CTA nổi bật. Navbar cố định ở đầu trang chỉ chứa các thao tác của Ứng viên (Tra cứu hồ sơ & Đăng nhập Ứng viên), tuyệt đối không phơi bày cổng Quản trị nội bộ.<br/>- **Priority**: High (Bắt buộc) |
+| **2** | **Trigger** | Ứng viên gõ URL `/` hoặc `/candidate` hoặc nhấp vào link tuyển dụng được chia sẻ. |
 | **3** | **Pre-condition** | Không yêu cầu đăng nhập. Trang tải được ngay cả khi Backend không phản hồi (nội dung tĩnh). |
 | **4** | **Post-condition** | Ứng viên có thể cuộn trang để khám phá các phần nội dung bên dưới hoặc nhấp CTA để đến thẳng danh sách việc làm. |
-| **5** | **Main Flow** | 1. Ứng viên truy cập `/candidate`.<br/>2. Trang tải với hiệu ứng `animate-fade-in` mượt mà.<br/>3. Hiển thị Navbar cố định: Logo "LLA Careers" + Menu "Về chúng tôi", "Tuyển dụng", nút "Tra cứu kết quả" + nút "Đăng nhập".<br/>4. Hero Banner: Slogan "Kiến tạo tương lai cùng Công ty TNHH LLA", mô tả ngắn về sứ mệnh.<br/>5. 2 nút CTA: "Khám phá cơ hội ngay" (scrolls to #jobs) và "Tra cứu hồ sơ" (mở modal tracking).<br/>6. Hiệu ứng Ambient Glow (ánh sáng nền gradient mờ) tạo chiều sâu thị giác. |
+| **5** | **Main Flow** | 1. Ứng viên truy cập `/`.<br/>2. Trang tải với hiệu ứng `animate-fade-in` mượt mà.<br/>3. Hiển thị Navbar cố định: Logo "LLA Careers" + Menu liên kết cuộn trang nhanh + nút "Tra cứu hồ sơ" + nút "Đăng nhập Ứng viên" (chuyển hướng sang `/candidate/login`). Không hiển thị nút đăng nhập Quản trị viên để đảm bảo an toàn bề mặt tấn công.<br/>4. Hero Banner: Slogan "Kiến tạo tương lai cùng Công ty TNHH LLA", mô tả ngắn về sứ mệnh.<br/>5. 2 nút CTA: "Khám phá cơ hội ngay" (scrolls to #jobs) và "Tra cứu hồ sơ" (mở modal tracking).<br/>6. Hiệu ứng Ambient Glow (ánh sáng nền gradient mờ) tạo chiều sâu thị giác. |
 | **6** | **Alternative / Exception Flow** | - **EF-01 (Backend offline)**: Nội dung tĩnh trang chủ vẫn hiển thị bình thường. Chỉ phần danh sách việc làm mới bị ảnh hưởng $\rightarrow$ Hiển thị trạng thái đang tải. |
-| **7** | **Business Rules & Validation** | - Trang phải tải xong (LCP) trong vòng 2.5 giây trên kết nối 4G chuẩn.<br/>- SEO: `<title>Tuyển dụng | LLA Enterprise</title>`, meta description hợp lệ. |
-| **8** | **Acceptance Criteria** | - **AC-01**: Ứng viên thấy rõ tên công ty và slogan tuyển dụng khi vào trang (không cần cuộn).<br/>- **AC-02**: Cả 2 nút CTA dẫn đúng đến section việc làm và modal tra cứu. |
+| **7** | **Business Rules & Validation** | - Trang phải tải xong (LCP) trong vòng 2.5 giây trên kết nối 4G chuẩn.<br/>- Tuân thủ quy tắc BR-CAN-07: Cách ly hoàn toàn cổng đối ngoại với cổng đăng nhập nội bộ của công ty.<br/>- SEO: `<title>Tuyển dụng | LLA Enterprise</title>`, meta description hợp lệ. |
+| **8** | **Acceptance Criteria** | - **AC-01**: Ứng viên thấy rõ tên công ty và slogan tuyển dụng khi vào trang (không cần cuộn).<br/>- **AC-02**: Nút "Đăng nhập Ứng viên" chuyển hướng vào trang xác thực ứng viên chuyên biệt `/candidate/login`. |
 
 ---
 

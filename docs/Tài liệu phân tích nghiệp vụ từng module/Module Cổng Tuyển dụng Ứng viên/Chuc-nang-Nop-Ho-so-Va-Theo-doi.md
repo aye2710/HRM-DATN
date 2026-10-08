@@ -80,10 +80,10 @@
 | STT | Hạng mục | Nội dung chi tiết |
 |:---:|---|---|
 | **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-03-03`<br/>- **UC Name**: Đăng ký & Đăng nhập Tài khoản Ứng viên (Candidate Authentication)<br/>- **Actor**: Ứng viên (Candidate)<br/>- **Mục tiêu**: Cung cấp tài khoản độc lập giúp ứng viên quản lý nhiều lần ứng tuyển và bảo mật thông tin Offer.<br/>- **Priority**: High |
-| **2** | **Trigger** | Ứng viên nhấn nút **"Đăng nhập / Đăng ký"** trên thanh Header Cổng Tuyển dụng. |
-| **3** | **Pre-condition** | Ứng viên đang ở Cổng Tuyển dụng (`/candidate`). |
-| **4** | **Post-condition** | Đăng nhập thành công, lưu thông tin phiên và JWT Token trong localStorage; Header chuyển sang hiển thị tên ứng viên và nút "Hồ sơ của tôi". |
-| **5** | **Main Flow** | 1. Ứng viên mở Modal Tài khoản.<br/>2. Chọn tab "Đăng nhập" hoặc "Đăng ký tài khoản mới".<br/>3. Nhập Email, Mật khẩu (kèm Họ tên, SĐT nếu đăng ký).<br/>4. Gửi yêu cầu qua API `POST /api/candidate-auth/register` hoặc `POST /api/candidate-auth/login`.<br/>5. Backend kiểm tra tài khoản, đối soát mật khẩu bằng `bcrypt.compare`.<br/>6. Trả về mã JWT Token và đối tượng thông tin người dùng.<br/>7. Giao diện lưu trạng thái đăng nhập, đóng modal và kích hoạt menu cá nhân. |
+| **2** | **Trigger** | Ứng viên nhấn nút **"Đăng nhập Ứng viên"** trên thanh Header Cổng Tuyển dụng. |
+| **3** | **Pre-condition** | Ứng viên đang ở Cổng Tuyển dụng (`/`). |
+| **4** | **Post-condition** | Đăng nhập thành công, lưu thông tin phiên và JWT Token trong localStorage; Header chuyển sang hiển thị tên ứng viên và nút "Đơn của tôi & Offer". |
+| **5** | **Main Flow** | 1. Ứng viên được chuyển hướng đến Trang Xác thực Chuyên biệt (`/candidate/login` hoặc `/candidate/register`).<br/>2. Giao diện Split-Screen hiện đại: Cột trái là Form thao tác kèm nút Điền mẫu demo; Cột phải là Banner giới thiệu 4 đặc quyền ứng viên.<br/>3. Nhập Email, Mật khẩu (kèm Họ tên, SĐT nếu đăng ký mới). Hỗ trợ nút xem/ẩn mật khẩu.<br/>4. Gửi yêu cầu qua API `POST /api/candidate-auth/register` hoặc `POST /api/candidate-auth/login`.<br/>5. Backend kiểm tra tài khoản, đối soát mật khẩu bằng `bcrypt.compare`.<br/>6. Trả về mã JWT Token và đối tượng thông tin người dùng.<br/>7. Giao diện lưu trạng thái đăng nhập và tự động đưa ứng viên về trang chủ mở danh sách đơn ứng tuyển (`/?view=apps`). |
 
 ---
 

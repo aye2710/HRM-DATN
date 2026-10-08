@@ -16,8 +16,9 @@ Hệ thống được thiết kế dựa trên các tiêu chuẩn quản trị n
 Màn hình đăng nhập là chốt chặn bảo mật đầu tiên. Hệ thống áp dụng cơ chế xác thực JWT (JSON Web Tokens) mã hóa mật khẩu một chiều, đảm bảo không ai có thể can thiệp vào tài khoản của Quản trị viên.
 
 **Các bước thao tác:**
-1. Mở trình duyệt web được khuyến nghị (Google Chrome, Microsoft Edge, Safari) và truy cập vào đường dẫn máy chủ hệ thống (Ví dụ: `http://localhost:5173/`).
-2. Màn hình "HRM Enterprise" sẽ xuất hiện. Tại đây, bạn cần nhập chính xác:
+1. Mở trình duyệt web được khuyến nghị (Google Chrome, Microsoft Edge, Safari) và truy cập vào đường dẫn đăng nhập nội bộ của hệ thống (Ví dụ: `http://localhost:5173/login` hoặc `http://localhost:5173/admin`).
+   *(Lưu ý: Đường dẫn gốc `http://localhost:5173/` được cấu hình là Cổng Tuyển dụng Ứng viên công khai đối ngoại của doanh nghiệp).*
+2. Màn hình "HRM Enterprise - Đăng nhập Quản trị & Nội bộ" sẽ xuất hiện. Tại đây, bạn cần nhập chính xác:
    - **Tài khoản (Username):** Do bộ phận IT cấp phát (Ví dụ: `admin`).
    - **Mật khẩu (Password):** Gõ chính xác mật khẩu, chú ý không bật CapsLock.
 3. Nhấp vào nút **"Đăng nhập hệ thống"**.

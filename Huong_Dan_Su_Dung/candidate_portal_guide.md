@@ -14,9 +14,12 @@ Cổng tuyển dụng đóng vai trò như "Mặt tiền" (Showroom) của công
 
 Cổng tuyển dụng được thiết kế theo xu hướng tối giản (Minimalism) để ứng viên không bị xao nhãng.
 
-### 1.1. Truy cập Trang Tuyển dụng
-- Ứng viên (hoặc bất kỳ ai trên Internet) đều có thể truy cập trang web này thông qua một đường dẫn công khai, ví dụ: `http://localhost:5173/candidate`.
-- **Lưu ý:** Không có nút Đăng nhập hay Đăng ký nào ở đây để tối ưu hóa tỷ lệ chuyển đổi (Conversion Rate) - ứng viên có thể nộp đơn ngay lập tức mà không gặp rào cản.
+### 1.1. Truy cập Trang Tuyển dụng & Điều hướng Bảo mật
+- Ứng viên (hoặc bất kỳ ai trên Internet) đều có thể truy cập trang web này thông qua đường dẫn công khai: `http://localhost:5173/` (hoặc alias `/candidate`).
+- **Thanh điều hướng chuyên biệt (Navbar Actions):**
+  - **Tra cứu hồ sơ**: Hỗ trợ ứng viên tra cứu tiến độ xét duyệt hồ sơ nhanh chóng qua Email và Mã hồ sơ bảo mật mà không cần đăng nhập.
+  - **Đăng nhập Ứng viên**: Dẫn vào trang đăng nhập/đăng ký tài khoản ứng viên độc lập (`http://localhost:5173/candidate/login`), cho phép ứng viên theo dõi các vòng phỏng vấn, nhận và xác nhận Thư mời nhận việc (Offer Letter) và làm khảo sát Pre-onboarding.
+  - **Quy chuẩn bảo mật**: Thanh điều hướng tuyệt đối không hiển thị cổng đăng nhập Quản trị nội bộ nhằm loại bỏ nguy cơ thăm dò, dò quét mật khẩu từ bên ngoài mạng.
 
 ### 1.2. Công cụ Tìm kiếm Việc làm (Job Search Engine)
 Ngay chính giữa trang chủ là khu vực Tìm kiếm:
