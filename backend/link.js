@@ -1,1 +1,0 @@
-const { prisma } = require('./src/db'); async function link() { const bod = await prisma.department.findUnique({where: {code: 'BOD'}}); if (bod) { await prisma.department.updateMany({ where: { code: { in: ['HR', 'IT'] } }, data: { parentId: bod.id } }); console.log('Linked'); } } link().finally(()=>prisma.$disconnect());

@@ -1,1 +1,0 @@
-const prisma = require('./src/db').prisma; async function check() { const pos = await prisma.position.findMany(); console.log('Positions count:', pos.length); } check().finally(() => prisma.$disconnect());
