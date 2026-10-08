@@ -95,7 +95,7 @@ const Sidebar = ({ links }) => {
   const handleLogout = (e) => {
     e.preventDefault();
     localStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   return (
@@ -106,8 +106,8 @@ const Sidebar = ({ links }) => {
             <Shield size={18} />
           </div>
           <div className="flex-col">
-            <span style={{ lineHeight: 1 }}>GHC HRM</span>
-            <span style={{ fontSize: '0.7rem', color: '#a1b0cb', fontWeight: 400 }}>Enterprise Portal</span>
+            <span style={{ lineHeight: 1, fontWeight: 800, letterSpacing: '-0.01em' }}>LLA HRM</span>
+            <span style={{ fontSize: '0.7rem', color: '#93C5FD', fontWeight: 500 }}>Enterprise Platform</span>
           </div>
         </h1>
       </div>

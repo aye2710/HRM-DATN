@@ -60,6 +60,7 @@ router.post('/login', async (req: Request, res: Response): Promise<any> => {
       message: 'Đăng nhập thành công',
       token,
       user: {
+        employeeId: account.employeeId,
         username: account.username,
         role: account.role.name,
         fullName: account.employee?.fullName,

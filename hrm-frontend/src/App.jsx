@@ -57,13 +57,16 @@ import { PlaceholderPage } from './components/PlaceholderPage';
 
 // Employee Portal
 import { EmployeeDashboard } from './pages/employee/Dashboard';
+import { EmployeeProfile } from './pages/employee/Profile';
 import { EmployeeLeave } from './pages/employee/Leave';
 import { EmployeePayslip } from './pages/employee/Payslip';
+import { EmployeeKPI } from './pages/employee/KPI';
 
 // Candidate Portal (Standalone)
 import { CandidateLandingPage } from './pages/candidate/LandingPage';
+import { CandidateAuthPage } from './pages/candidate/CandidateAuthPage';
 
-import { LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, ShieldCheck, Target, Shield, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, ShieldCheck, Target, Shield, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User } from 'lucide-react';
 
 const internalLinks = [
   { to: '/internal/dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
@@ -149,8 +152,10 @@ const internalLinks = [
 
 const employeeLinks = [
   { to: '/employee/dashboard', label: 'Tổng quan & Chấm công', icon: <LayoutDashboard size={20} /> },
-  { to: '/employee/leave', label: 'Xin nghỉ phép', icon: <CalendarRange size={20} /> },
-  { to: '/employee/payslip', label: 'Phiếu lương', icon: <FileText size={20} /> },
+  { to: '/employee/profile', label: 'Hồ sơ cá nhân', icon: <User size={20} /> },
+  { to: '/employee/leave', label: 'Quản lý nghỉ phép', icon: <CalendarRange size={20} /> },
+  { to: '/employee/payslip', label: 'Phiếu lương điện tử', icon: <FileText size={20} /> },
+  { to: '/employee/kpi', label: 'Mục tiêu & Đánh giá KPI', icon: <Target size={20} /> },
 ];
 
 const ProtectedRoute = ({ allowedRole }) => {
@@ -158,12 +163,12 @@ const ProtectedRoute = ({ allowedRole }) => {
   const role = localStorage.getItem('role');
 
   if (!token) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  // Admin có thể vào xem màn hình Employee nhưng Employee ko được vào màn hình Admin
+  // Nếu tài khoản nhân viên cố vào trang Quản trị Admin, đưa về trang đăng nhập để đăng nhập tài khoản Quản trị
   if (allowedRole === 'ADMIN' && role === 'EMPLOYEE') {
-    return <Navigate to="/employee" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <Outlet />;
@@ -175,7 +180,16 @@ function App() {
       <Toaster position="top-right" />
       <Router>
         <Routes>
-          <Route path="/" element={<PortalSelection />} />
+          {/* 1. Mặc định vào gốc website là Cổng Tuyển dụng Công khai */}
+          <Route path="/" element={<CandidateLandingPage />} />
+          <Route path="/candidate" element={<Navigate to="/" replace />} />
+          <Route path="/candidate/login" element={<CandidateAuthPage defaultTab="login" />} />
+          <Route path="/candidate/register" element={<CandidateAuthPage defaultTab="register" />} />
+          
+          {/* 2. Trang Đăng nhập Hệ thống Quản trị / Nhân sự */}
+          <Route path="/login" element={<PortalSelection />} />
+          <Route path="/admin" element={<PortalSelection />} />
+          <Route path="/admin/login" element={<PortalSelection />} />
           
           {/* Admin / Internal Portal */}
           <Route element={<ProtectedRoute allowedRole="ADMIN" />}>
@@ -242,13 +256,15 @@ function App() {
             <Route path="/employee" element={<AppLayout portalName="EMPLOYEE SELF-SERVICE" navLinks={employeeLinks} />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<EmployeeDashboard />} />
+              <Route path="profile" element={<EmployeeProfile />} />
               <Route path="leave" element={<EmployeeLeave />} />
               <Route path="payslip" element={<EmployeePayslip />} />
+              <Route path="kpi" element={<EmployeeKPI />} />
             </Route>
           </Route>
 
-          {/* Candidate Portal */}
-          <Route path="/candidate" element={<CandidateLandingPage />} />
+          {/* Fallback 404 về trang chủ */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </>

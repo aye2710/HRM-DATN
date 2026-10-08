@@ -22,16 +22,26 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// GET: Tra cứu trạng thái hồ sơ theo email
-router.get('/track', async (req: Request, res: Response) => {
+// GET: Tra cứu trạng thái hồ sơ theo email (kèm mã bảo mật hồ sơ hoặc SĐT để chống rò rỉ dữ liệu)
+router.get('/track', async (req: Request, res: Response): Promise<any> => {
   try {
-    const email = req.query.email as string;
+    const email = (req.query.email as string)?.trim();
+    const code = (req.query.code as string)?.trim();
+    
     if (!email) {
-      return res.status(400).json({ error: 'Vui lòng cung cấp email' });
+      return res.status(400).json({ error: 'Vui lòng cung cấp email ứng tuyển' });
     }
     
     const applications = await prisma.candidate.findMany({
-      where: { email },
+      where: { 
+        email: { equals: email, mode: 'insensitive' },
+        ...(code ? {
+          OR: [
+            { id: { contains: code.replace(/^LLA-/i, '').replace(/^APP-/i, ''), mode: 'insensitive' } },
+            { phone: { contains: code } }
+          ]
+        } : {})
+      },
       include: { 
         jobPosting: true,
         interviews: {
@@ -47,12 +57,13 @@ router.get('/track', async (req: Request, res: Response) => {
       id: app.id,
       jobTitle: app.jobPosting?.title || 'Không rõ',
       status: app.status,
+      appliedAt: (app as any).createdAt || null,
       latestInterview: app.interviews.length > 0 ? app.interviews[0] : null
     }));
     
-    res.json(safeData);
+    return res.json(safeData);
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi tra cứu hồ sơ' });
+    return res.status(500).json({ error: 'Lỗi khi tra cứu hồ sơ' });
   }
 });
 
