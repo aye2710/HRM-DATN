@@ -14,7 +14,7 @@ export const RecruitmentATS = () => {
   const [viewMode, setViewMode] = useState('table'); // Mở table luôn để kiểm tra
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
-  const [filterJobPosting, setFilterJobPosting] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const [departments, setDepartments] = useState([]);
@@ -144,10 +144,6 @@ export const RecruitmentATS = () => {
     { id: 'REJECTED', title: 'TỪ CHỐI', color: 'var(--error)', badgeColor: 'badge-error' }
   ];
 
-  const availableJobPostings = filterDepartment 
-    ? jobPostings.filter(j => j.departmentId === filterDepartment)
-    : jobPostings;
-
   const processedCandidates = candidates.filter(c => {
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch = !query || 
@@ -155,8 +151,10 @@ export const RecruitmentATS = () => {
       (c.email && c.email.toLowerCase().includes(query)) ||
       (c.phone && c.phone.includes(query));
     const matchesDept = filterDepartment ? c.jobPosting?.departmentId === filterDepartment : true;
-    const matchesJob = filterJobPosting ? c.jobPostingId === filterJobPosting : true;
-    return matchesSearch && matchesDept && matchesJob;
+    const matchesStatus = filterStatus 
+      ? (filterStatus === 'SOURCED' ? (c.status === 'SOURCED' || c.status === 'APPLIED') : c.status === filterStatus)
+      : true;
+    return matchesSearch && matchesDept && matchesStatus;
   });
 
   return (
@@ -206,7 +204,6 @@ export const RecruitmentATS = () => {
             value={filterDepartment} 
             onChange={e => { 
               setFilterDepartment(e.target.value); 
-              setFilterJobPosting(''); 
               setCurrentPage(1); 
             }}
           >
@@ -217,24 +214,24 @@ export const RecruitmentATS = () => {
           </select>
           <select 
             className="form-input bg-white" 
-            style={{ minWidth: '220px', maxWidth: '320px' }}
-            value={filterJobPosting} 
+            style={{ minWidth: '220px' }}
+            value={filterStatus} 
             onChange={e => { 
-              setFilterJobPosting(e.target.value); 
+              setFilterStatus(e.target.value); 
               setCurrentPage(1); 
             }}
           >
-            <option value="">Tất cả vị trí tuyển dụng</option>
-            {availableJobPostings.map(j => (
-              <option key={j.id} value={j.id}>{j.title}</option>
+            <option value="">Tất cả trạng thái</option>
+            {statuses.map(s => (
+              <option key={s.id} value={s.id}>{s.title}</option>
             ))}
           </select>
-          {(searchQuery || filterDepartment || filterJobPosting) && (
+          {(searchQuery || filterDepartment || filterStatus) && (
             <button
               onClick={() => {
                 setSearchQuery('');
                 setFilterDepartment('');
-                setFilterJobPosting('');
+                setFilterStatus('');
                 setCurrentPage(1);
               }}
               className="btn btn-outline text-xs"
