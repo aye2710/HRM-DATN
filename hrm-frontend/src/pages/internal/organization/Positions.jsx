@@ -91,6 +91,33 @@ const generatePositionCode = (title, deptCode = '') => {
   return `${prefix}-${roleCode}`;
 };
 
+// Danh mục chuẩn các cấp bậc thâm niên trong doanh nghiệp
+export const POSITION_LEVELS = [
+  { value: 'Intern', label: 'Intern (Thực tập sinh)' },
+  { value: 'Fresher', label: 'Fresher (Mới tốt nghiệp)' },
+  { value: 'Junior', label: 'Junior (Sơ cấp)' },
+  { value: 'Staff', label: 'Staff (Nhân viên chính thức)' },
+  { value: 'Mid', label: 'Mid-level (Trung cấp)' },
+  { value: 'Senior', label: 'Senior (Chuyên viên cao cấp)' },
+  { value: 'Lead', label: 'Team Lead (Trưởng nhóm)' },
+  { value: 'Manager', label: 'Manager (Quản lý / Trưởng phòng)' },
+  { value: 'Director', label: 'Director (Giám đốc khối)' }
+];
+
+// Hàm format số tiền sang định dạng tiếng Việt kèm phiên âm chữ
+const formatSalaryText = (amount) => {
+  if (!amount || amount === 0) return '0 đ (Thỏa thuận)';
+  const formatted = Number(amount).toLocaleString('vi-VN');
+  if (amount >= 1000000 && amount % 1000000 === 0) {
+    return `${formatted} đ (${amount / 1000000} triệu)`;
+  }
+  if (amount >= 1000000) {
+    const millions = (amount / 1000000).toFixed(1).replace('.0', '');
+    return `${formatted} đ (~${millions} triệu)`;
+  }
+  return `${formatted} đ`;
+};
+
 export const Positions = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [positions, setPositions] = useState([]);
@@ -325,8 +352,8 @@ export const Positions = () => {
               onChange={(e) => { setFilterLevel(e.target.value); setCurrentPage(1); }}
             >
               <option value="" className="text-black">-- Tất cả cấp bậc --</option>
-              {Array.from(new Set(positions.map(p => p.level))).filter(Boolean).map(lvl => (
-                <option key={lvl} value={lvl} className="text-black">{lvl}</option>
+              {POSITION_LEVELS.map(lvl => (
+                <option key={lvl.value} value={lvl.value} className="text-black">{lvl.label}</option>
               ))}
             </select>
           </div>
@@ -368,9 +395,11 @@ export const Positions = () => {
                       <span className="badge badge-info">{pos.level}</span>
                     </td>
                     <td>
-                      <span className="money-text">
+                      <span className="money-text font-medium">
                         {pos.minSalary === 0 && pos.maxSalary === 0 ? 'Thỏa thuận' :
-                          `${pos.minSalary.toLocaleString()} - ${pos.maxSalary.toLocaleString()}`}
+                          pos.minSalary === 0 ? `Đến ${pos.maxSalary.toLocaleString('vi-VN')} đ` :
+                          pos.maxSalary === 0 ? `Từ ${pos.minSalary.toLocaleString('vi-VN')} đ` :
+                          `${pos.minSalary.toLocaleString('vi-VN')} - ${pos.maxSalary.toLocaleString('vi-VN')} đ`}
                       </span>
                     </td>
                     <td>
@@ -512,35 +541,57 @@ export const Positions = () => {
                   value={formData.level}
                   onChange={e => setFormData({ ...formData, level: e.target.value })}
                 >
-                  <option value="Intern" className="text-black">Intern</option>
-                  <option value="Fresher" className="text-black">Fresher</option>
-                  <option value="Junior" className="text-black">Junior</option>
-                  <option value="Mid" className="text-black">Mid-level</option>
-                  <option value="Senior" className="text-black">Senior</option>
-                  <option value="Manager" className="text-black">Manager</option>
-                  <option value="Director" className="text-black">Director</option>
+                  {POSITION_LEVELS.map(lvl => (
+                    <option key={lvl.value} value={lvl.value} className="text-black">{lvl.label}</option>
+                  ))}
                 </select>
               </div>
 
               {/* Row 3: Lương tối thiểu & Lương tối đa */}
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Lương tối thiểu (VND)</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-[var(--text-muted)]">Lương tối thiểu (VNĐ)</label>
+                  {formData.minSalary > 0 && (
+                    <span className="text-xs font-semibold text-[var(--primary)]">
+                      {formatSalaryText(formData.minSalary)}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
-                  className="form-input w-full"
+                  step="500000"
+                  min="0"
+                  className="form-input w-full font-mono font-medium"
                   value={formData.minSalary}
-                  onChange={e => setFormData({ ...formData, minSalary: parseInt(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, minSalary: Math.max(0, parseInt(e.target.value) || 0) })}
+                  placeholder="0"
                 />
+                <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '0.75rem', marginTop: '-2px' }}>
+                  {formData.minSalary === 0 ? '💡 Nhập 0 = Mức lương thỏa thuận' : `💰 Quy đổi: ${formatSalaryText(formData.minSalary)}`}
+                </span>
               </div>
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Lương tối đa (VND)</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-[var(--text-muted)]">Lương tối đa (VNĐ)</label>
+                  {formData.maxSalary > 0 && (
+                    <span className="text-xs font-semibold text-[var(--primary)]">
+                      {formatSalaryText(formData.maxSalary)}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
-                  className="form-input w-full"
+                  step="500000"
+                  min="0"
+                  className="form-input w-full font-mono font-medium"
                   value={formData.maxSalary}
-                  onChange={e => setFormData({ ...formData, maxSalary: parseInt(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, maxSalary: Math.max(0, parseInt(e.target.value) || 0) })}
+                  placeholder="0"
                 />
+                <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '0.75rem', marginTop: '-2px' }}>
+                  {formData.maxSalary === 0 ? '💡 Nhập 0 = Không giới hạn trần' : `💰 Quy đổi: ${formatSalaryText(formData.maxSalary)}`}
+                </span>
               </div>
 
               {/* Row 4: Mô tả công việc */}
