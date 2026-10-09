@@ -147,21 +147,31 @@ export const Requisitions = () => {
         salaryText = `Lên đến ${selectedPos.maxSalary.toLocaleString('vi-VN')} VNĐ`;
       }
 
-      const newLevel = selectedPos.level || formData.level || 'Mid-level';
-      const autoTitle = (!formData.title || formData.title.startsWith('Tuyển dụng')) 
-        ? `Tuyển dụng ${formData.amount > 1 ? `${formData.amount} ` : ''}${selectedPos.title} (${newLevel})`
-        : formData.title;
+      const newLevel = selectedPos.level || 'Mid-level';
+      
+      // Khử trùng lặp cấp bậc nếu tên vị trí đã chứa cấp bậc (VD: "Chuyên viên DevOps (Junior)")
+      const titleBase = selectedPos.title.trim();
+      const hasLevel = new RegExp(`\\(${newLevel}\\)|\\b${newLevel}\\b`, 'i').test(titleBase);
+      const levelSuffix = hasLevel ? '' : ` (${newLevel})`;
+      const countPrefix = formData.amount > 1 ? `${formData.amount} ` : '';
+      const autoTitle = `Tuyển dụng ${countPrefix}${titleBase}${levelSuffix}`;
 
       setFormData({
         ...formData,
         positionId: posId,
-        departmentId: selectedPos.departmentId || formData.departmentId,
+        departmentId: selectedPos.departmentId || '',
         level: newLevel,
         salaryRange: salaryText,
         title: autoTitle
       });
     } else {
-      setFormData({ ...formData, positionId: posId });
+      setFormData({ 
+        ...formData, 
+        positionId: posId,
+        departmentId: '',
+        level: 'Mid-level',
+        salaryRange: ''
+      });
     }
   };
 
@@ -172,9 +182,12 @@ export const Requisitions = () => {
       toast('Vui lòng chọn Vị trí (Chức danh) trước khi tạo tiêu đề!', { icon: 'ℹ️' });
       return;
     }
-    const countStr = formData.amount > 1 ? `${formData.amount} ` : '';
-    const levelStr = formData.level ? ` (${formData.level})` : '';
-    const generated = `Tuyển dụng ${countStr}${selectedPos.title}${levelStr}`;
+    const countPrefix = formData.amount > 1 ? `${formData.amount} ` : '';
+    const titleBase = selectedPos.title.trim();
+    const currLevel = formData.level || selectedPos.level || '';
+    const hasLevel = currLevel && new RegExp(`\\(${currLevel}\\)|\\b${currLevel}\\b`, 'i').test(titleBase);
+    const levelSuffix = (!currLevel || hasLevel) ? '' : ` (${currLevel})`;
+    const generated = `Tuyển dụng ${countPrefix}${titleBase}${levelSuffix}`;
     setFormData(prev => ({ ...prev, title: generated }));
     toast.success('Đã cập nhật tiêu đề gợi ý!');
   };
@@ -528,7 +541,9 @@ export const Requisitions = () => {
 
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
                 <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-[var(--text-muted)]">Phòng ban phụ trách</label>
+                  <label className="text-sm font-medium text-[var(--text-muted)]">
+                    Phòng ban phụ trách <span className="text-xs text-[var(--text-muted)] font-normal">(Cố định theo vị trí)</span>
+                  </label>
                   {selectedDept && (
                     <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                       isOverQuota ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-600'
@@ -539,11 +554,11 @@ export const Requisitions = () => {
                 </div>
                 <select 
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
+                  style={{ padding: '0.55rem', opacity: 0.75, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }} 
                   value={formData.departmentId} 
-                  onChange={e => setFormData({ ...formData, departmentId: e.target.value })}
+                  disabled
                 >
-                  <option value="" className="text-black">-- Toàn công ty (Độc lập) --</option>
+                  <option value="" className="text-black">-- Tự động theo vị trí --</option>
                   {departments.map(d => (
                     <option key={d.id} value={d.id} className="text-black">{d.name} ({d.code})</option>
                   ))}
@@ -575,14 +590,16 @@ export const Requisitions = () => {
                 />
               </div>
 
-              {/* Row 3: Cấp bậc & Mức lương */}
+              {/* Row 3: Cấp bậc & Mức lương (Cố định theo vị trí đã chọn) */}
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Cấp bậc chuyên môn</label>
+                <label className="text-sm font-medium text-[var(--text-muted)]">
+                  Cấp bậc chuyên môn <span className="text-xs text-[var(--text-muted)] font-normal">(Cố định theo vị trí)</span>
+                </label>
                 <select 
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
+                  style={{ padding: '0.55rem', opacity: 0.75, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }} 
                   value={formData.level} 
-                  onChange={e => setFormData({...formData, level: e.target.value})}
+                  disabled
                 >
                   {REQUISITION_LEVELS.map(lvl => (
                     <option key={lvl} value={lvl} className="text-black">{lvl}</option>
@@ -591,13 +608,16 @@ export const Requisitions = () => {
               </div>
 
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Mức lương dự kiến</label>
+                <label className="text-sm font-medium text-[var(--text-muted)]">
+                  Mức lương dự kiến <span className="text-xs text-[var(--text-muted)] font-normal">(Cố định theo vị trí)</span>
+                </label>
                 <input 
                   type="text" 
                   className="form-input w-full font-medium" 
+                  style={{ opacity: 0.75, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }} 
                   value={formData.salaryRange} 
-                  onChange={e => setFormData({...formData, salaryRange: e.target.value})}
-                  placeholder="VD: 15.000.000 - 25.000.000 VNĐ hoặc Thỏa thuận" 
+                  disabled
+                  placeholder="Tự động theo vị trí..." 
                 />
               </div>
 
