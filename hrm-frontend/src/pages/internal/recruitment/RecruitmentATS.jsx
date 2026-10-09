@@ -14,6 +14,7 @@ export const RecruitmentATS = () => {
   const [viewMode, setViewMode] = useState('table'); // Mở table luôn để kiểm tra
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterJobPosting, setFilterJobPosting] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const [departments, setDepartments] = useState([]);
@@ -143,10 +144,19 @@ export const RecruitmentATS = () => {
     { id: 'REJECTED', title: 'TỪ CHỐI', color: 'var(--error)', badgeColor: 'badge-error' }
   ];
 
+  const availableJobPostings = filterDepartment 
+    ? jobPostings.filter(j => j.departmentId === filterDepartment)
+    : jobPostings;
+
   const processedCandidates = candidates.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch = !query || 
+      (c.name && c.name.toLowerCase().includes(query)) || 
+      (c.email && c.email.toLowerCase().includes(query)) ||
+      (c.phone && c.phone.includes(query));
     const matchesDept = filterDepartment ? c.jobPosting?.departmentId === filterDepartment : true;
-    return matchesSearch && matchesDept;
+    const matchesJob = filterJobPosting ? c.jobPostingId === filterJobPosting : true;
+    return matchesSearch && matchesDept && matchesJob;
   });
 
   return (
@@ -176,34 +186,66 @@ export const RecruitmentATS = () => {
         </div>
       </div>
 
-      {viewMode === 'table' && (
-        <div className="mb-4 flex justify-between items-center">
-          <div className="flex gap-4 items-center w-full">
-            <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
-              <input 
-                type="text" 
-                placeholder="Tìm kiếm ứng viên theo tên, email..." 
-                className="form-input w-full bg-white" 
-                style={{ paddingLeft: '2.5rem' }}
-                value={searchQuery} 
-                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
-              />
-            </div>
-            <select 
-              className="form-input bg-white" 
-              style={{ width: '200px' }}
-              value={filterDepartment} 
-              onChange={e => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="">Tất cả phòng ban</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+      {/* Filters Toolbar */}
+      <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex flex-wrap gap-4 items-center flex-1">
+          <div style={{ position: 'relative', flex: '1 1 280px', maxWidth: '380px' }}>
+            <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+            <input 
+              type="text" 
+              placeholder="Tìm kiếm ứng viên theo tên, email, SĐT..." 
+              className="form-input w-full bg-white" 
+              style={{ paddingLeft: '2.5rem' }}
+              value={searchQuery} 
+              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
+            />
           </div>
+          <select 
+            className="form-input bg-white" 
+            style={{ minWidth: '180px' }}
+            value={filterDepartment} 
+            onChange={e => { 
+              setFilterDepartment(e.target.value); 
+              setFilterJobPosting(''); 
+              setCurrentPage(1); 
+            }}
+          >
+            <option value="">Tất cả phòng ban</option>
+            {departments.map(d => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          <select 
+            className="form-input bg-white" 
+            style={{ minWidth: '220px', maxWidth: '320px' }}
+            value={filterJobPosting} 
+            onChange={e => { 
+              setFilterJobPosting(e.target.value); 
+              setCurrentPage(1); 
+            }}
+          >
+            <option value="">Tất cả vị trí tuyển dụng</option>
+            {availableJobPostings.map(j => (
+              <option key={j.id} value={j.id}>{j.title}</option>
+            ))}
+          </select>
+          {(searchQuery || filterDepartment || filterJobPosting) && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setFilterDepartment('');
+                setFilterJobPosting('');
+                setCurrentPage(1);
+              }}
+              className="btn btn-outline text-xs"
+              style={{ padding: '0.4rem 0.75rem' }}
+              title="Đặt lại bộ lọc"
+            >
+              Xóa bộ lọc
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Main Content Area */}
       {viewMode === 'kanban' ? (
