@@ -466,23 +466,29 @@ model TaxBracket {
 // ==========================================
 
 model JobPosting {
-  id           String      @id @default(uuid())
-  title        String
-  description  String      @db.Text
-  amount       Int         @default(1)
-  deadline     DateTime?
-  status       String      @default("DRAFT") // DRAFT, PUBLISHED, CLOSED
-  salaryRange  String?
-  jobType      String      @default("Full-time")
-  level        String?     // Intern, Fresher, Junior, Middle, Senior, Manager
+  id                String      @id @default(uuid())
+  title             String
+  description       String      @db.Text
+  amount            Int         @default(1)
+  deadline          DateTime?
+  status            String      @default("DRAFT") // DRAFT, PUBLISHED, CLOSED
+  salaryRange       String?
+  jobType           String      @default("Full-time")
+  level             String?     // Intern, Fresher, Junior, Middle, Senior, Manager
+  location          String?     @default("Hà Nội")
+  workplaceType     String?     @default("On-site") // On-site, Hybrid, Remote
+  experienceLevel   String?     @default("Không yêu cầu")
+  recruitmentReason String?     @default("EXPANSION") // EXPANSION, REPLACEMENT, PROJECT, CAMPUS
+  recruiterName     String?
+  targetStartDate   DateTime?
   
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId      String?
+  department        Department? @relation(fields: [departmentId], references: [id])
   
-  positionId   String?
-  position     Position?   @relation(fields: [positionId], references: [id])
+  positionId        String?
+  position          Position?   @relation(fields: [positionId], references: [id])
   
-  candidates   Candidate[]
+  candidates        Candidate[]
 }
 
 enum CandidateStatus {

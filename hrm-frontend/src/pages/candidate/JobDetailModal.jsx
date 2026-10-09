@@ -60,7 +60,7 @@ export const JobDetailModal = ({ isOpen, onClose, job, onApply }) => {
         >
           <div className="flex justify-between items-start gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="badge badge-primary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>
                   {job.department?.name || 'Công nghệ & Kỹ thuật'}
                 </span>
@@ -70,12 +70,19 @@ export const JobDetailModal = ({ isOpen, onClose, job, onApply }) => {
                 <span className="badge badge-warning" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>
                   {job.jobType || 'Full-time'}
                 </span>
+                {job.experienceLevel && (
+                  <span className="badge" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem', backgroundColor: 'var(--bg-hover)', color: 'var(--text-main)' }}>
+                    Kinh nghiệm: {job.experienceLevel}
+                  </span>
+                )}
               </div>
               <h2 style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 0.5rem 0', lineHeight: 1.25 }}>
                 {job.title}
               </h2>
               <div className="flex items-center gap-5 text-muted" style={{ fontSize: '0.875rem', flexWrap: 'wrap' }}>
-                <span className="flex items-center gap-1.5"><MapPin size={16} /> Hà Nội / TP. Hồ Chí Minh</span>
+                <span className="flex items-center gap-1.5">
+                  <MapPin size={16} /> {job.location || 'Hà Nội'} {job.workplaceType ? `(${job.workplaceType})` : ''}
+                </span>
                 <span className="flex items-center gap-1.5"><Building size={16} /> LLA Technology</span>
                 <span className="flex items-center gap-1.5" style={{ color: 'var(--success)', fontWeight: 700 }}>
                   <DollarSign size={16} /> {job.salaryRange || 'Thỏa thuận hấp dẫn'}
