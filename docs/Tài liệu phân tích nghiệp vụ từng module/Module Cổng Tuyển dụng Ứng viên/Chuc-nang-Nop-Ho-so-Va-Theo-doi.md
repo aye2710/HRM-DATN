@@ -114,6 +114,21 @@
 
 ---
 
+### 4.4. UC-CAN-04-04: Tiếp nhận Lời mời Phỏng vấn & Xác nhận Tham gia trong 24 Giờ (Interview Confirmation & 24h SLA)
+
+#### Bảng đặc tả nghiệp vụ:
+| STT | Hạng mục | Nội dung chi tiết |
+|:---:|---|---|
+| **1** | **Thông tin chung** | - **UC ID**: `UC-CAN-04-04`<br/>- **UC Name**: Tiếp nhận Lời mời Phỏng vấn & Xác nhận Tham gia trong 24 Giờ (Interview Confirmation & 24h SLA)<br/>- **Actor**: Ứng viên (Candidate), Hệ thống Tự động (Automated SLA)<br/>- **Mục tiêu**: Đảm bảo tính cam kết 2 chiều giữa nhà tuyển dụng và ứng viên; tự động giải phóng thời gian của người phỏng vấn nếu ứng viên bỏ lỡ lời mời.<br/>- **Priority**: Critical (Cốt lõi) |
+| **2** | **Trigger** | HR lên lịch phỏng vấn trên Cổng Quản trị hoặc Ứng viên mở danh sách đơn ứng tuyển (`/my-applications`). |
+| **3** | **Pre-condition** | Ứng viên đang ở vòng `INTERVIEWING` và có bản ghi `InterviewRound` được tạo. |
+| **4** | **Post-condition** | Lịch hẹn chuyển sang `CONFIRMED` (nếu ứng viên đồng ý), `DECLINED` (nếu từ chối), hoặc `CANCELLED` (nếu sau 24h không phản hồi). |
+| **5** | **Main Flow (Xác nhận)** | 1. Ứng viên mở danh sách đơn ứng tuyển tại Cổng Tuyển dụng.<br/>2. Thẻ Lịch phỏng vấn hiển thị nổi bật với: Tên vòng phỏng vấn, Thời gian hẹn, Hình thức/Link họp trực tuyến (Google Meet/Zoom), Người phỏng vấn.<br/>3. Hệ thống hiển thị thanh đếm ngược thời gian phản hồi: "Còn lại X giờ Y phút (Hạn chót 24h)".<br/>4. Ứng viên bấm **"✓ Xác nhận tham gia phỏng vấn"**.<br/>5. Hệ thống gọi `POST /api/candidate-auth/interviews/:id/confirm`.<br/>6. Backend cập nhật `InterviewRound.status = 'CONFIRMED'` và lưu thời điểm `respondedAt`.<br/>7. Thẻ giao diện đổi sang badge xanh lá "✓ Bạn đã xác nhận tham gia", gửi thông báo tức thì đến HR. |
+| **6** | **Alternative Flow 1 (Từ chối / Xin đổi lịch)** | 1. Ứng viên bấm **"✗ Báo bận / Xin đổi lịch"**.<br/>2. Nhập lý do (ví dụ: "Trùng lịch học / Xin dời sang buổi chiều").<br/>3. Gọi `POST /api/candidate-auth/interviews/:id/decline`.<br/>4. Trạng thái chuyển sang `DECLINED`, HR nhận được phản hồi để kịp thời sắp xếp lại. |
+| **7** | **Alternative Flow 2 (Tự động hủy sau 24h)** | 1. HR phát hành lịch hẹn nhưng ứng viên không phản hồi.<br/>2. Khi `now > expiresAt` (sau đúng 24 giờ kể từ khi tạo), API và hệ thống nền tự động chuyển trạng thái sang `CANCELLED`.<br/>3. Giao diện hiển thị nhãn: "⚠️ Đã hủy lịch do quá hạn 24 giờ không phản hồi". Nút xác nhận bị vô hiệu hóa hoàn toàn. |
+
+---
+
 ## 5. Sơ đồ tuần tự nghiệp vụ (Sequence Diagrams)
 
 ### 5.1. Luồng Ứng viên Đăng nhập, Xem Offer & Hoàn tất Pre-Onboarding

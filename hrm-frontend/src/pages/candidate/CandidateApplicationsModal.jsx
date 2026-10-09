@@ -78,6 +78,41 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
     }
   };
 
+  const handleConfirmInterview = async (interviewId) => {
+    const token = localStorage.getItem('candidateToken');
+    try {
+      const res = await axios.post(
+        `http://localhost:5000/api/candidate-auth/interviews/${interviewId}/confirm`,
+        { candidateNotes: 'Ứng viên xác nhận tham gia phỏng vấn đúng giờ' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success(res.data.message || 'Đã xác nhận tham gia phỏng vấn thành công!');
+      fetchApplications();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Có lỗi xảy ra khi xác nhận phỏng vấn.');
+      fetchApplications();
+    }
+  };
+
+  const handleDeclineInterview = async (interviewId) => {
+    const reason = window.prompt('Vui lòng cho biết lý do bạn từ chối hoặc xin đổi lịch hẹn khác:');
+    if (reason === null) return;
+
+    const token = localStorage.getItem('candidateToken');
+    try {
+      const res = await axios.post(
+        `http://localhost:5000/api/candidate-auth/interviews/${interviewId}/decline`,
+        { declineReason: reason },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success(res.data.message || 'Đã ghi nhận phản hồi từ chối lịch phỏng vấn.');
+      fetchApplications();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Có lỗi xảy ra khi từ chối lịch phỏng vấn.');
+      fetchApplications();
+    }
+  };
+
   const renderStatusBadge = (status) => {
     switch (status) {
       case 'SOURCED':
@@ -252,31 +287,173 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                         </div>
                       </div>
 
-                      {/* Lịch phỏng vấn (nếu có) */}
+                      {/* KHU VỰC LỊCH PHỎNG VẤN & XÁC NHẬN TRONG 24H */}
                       {app.interviews && app.interviews.length > 0 && (
-                        <div
-                          style={{
-                            padding: '0.75rem 1rem',
-                            backgroundColor: 'rgba(37, 99, 235, 0.05)',
-                            borderRadius: '0.5rem',
-                            border: '1px solid rgba(37, 99, 235, 0.15)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            fontSize: '0.8125rem',
-                            color: 'var(--text-main)'
-                          }}
-                        >
-                          <Calendar size={16} color="var(--primary)" />
-                          <span>
-                            <strong>Lịch hẹn phỏng vấn:</strong> {app.interviews[0].roundName} lúc{' '}
-                            <strong>
-                              {new Date(app.interviews[0].scheduledAt).toLocaleString('vi-VN', {
-                                dateStyle: 'medium',
-                                timeStyle: 'short'
-                              })}
-                            </strong>
-                          </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {app.interviews.map((inv) => {
+                            const isPending = !inv.status || inv.status === 'PENDING_CONFIRMATION';
+                            const isConfirmed = inv.status === 'CONFIRMED';
+                            const isDeclined = inv.status === 'DECLINED';
+                            const isCancelled = inv.status === 'CANCELLED';
+
+                            // Tính toán thời gian 24 giờ còn lại
+                            const expiresAt = inv.expiresAt 
+                              ? new Date(inv.expiresAt) 
+                              : new Date(new Date(inv.createdAt || inv.scheduledAt).getTime() + 24 * 60 * 60 * 1000);
+                            const remainingMs = expiresAt.getTime() - Date.now();
+                            const remainingHours = Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60)));
+                            const remainingMinutes = Math.max(0, Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60)));
+                            const isExpired = remainingMs <= 0 && isPending;
+
+                            return (
+                              <div
+                                key={inv.id}
+                                style={{
+                                  borderRadius: '0.75rem',
+                                  border: '1px solid',
+                                  borderColor: isConfirmed
+                                    ? 'rgba(34, 197, 94, 0.4)'
+                                    : isDeclined || isCancelled || isExpired
+                                    ? 'rgba(239, 68, 68, 0.3)'
+                                    : 'rgba(245, 158, 11, 0.5)',
+                                  backgroundColor: isConfirmed
+                                    ? 'rgba(34, 197, 94, 0.04)'
+                                    : isDeclined || isCancelled || isExpired
+                                    ? 'rgba(239, 68, 68, 0.04)'
+                                    : '#FFFBEB',
+                                  padding: '1.15rem',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '0.75rem'
+                                }}
+                              >
+                                {/* Header của Lịch phỏng vấn */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Calendar size={18} color={isConfirmed ? 'var(--success)' : isPending ? '#D97706' : 'var(--error)'} />
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                                      Lịch hẹn Phỏng vấn: {inv.roundName}
+                                    </span>
+                                  </div>
+
+                                  {/* Badge trạng thái */}
+                                  {isPending && !isExpired && (
+                                    <span className="badge badge-warning" style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                                      ⏳ Chờ bạn xác nhận (Hạn chót 24h)
+                                    </span>
+                                  )}
+                                  {isPending && isExpired && (
+                                    <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                                      ⚠️ Đã quá hạn 24h (Tự động hủy)
+                                    </span>
+                                  )}
+                                  {isConfirmed && (
+                                    <span className="badge badge-success" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                                      ✓ Bạn đã xác nhận tham gia
+                                    </span>
+                                  )}
+                                  {isDeclined && (
+                                    <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                                      ✗ Đã từ chối lịch hẹn
+                                    </span>
+                                  )}
+                                  {isCancelled && !isExpired && (
+                                    <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                                      Đã hủy lịch phỏng vấn
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Thông tin chi tiết lịch hẹn */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', fontSize: '0.8125rem' }}>
+                                  <div style={{ padding: '0.6rem 0.85rem', backgroundColor: '#FFFFFF', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block' }}>Thời gian phỏng vấn</span>
+                                    <strong style={{ color: 'var(--primary)', fontSize: '0.875rem' }}>
+                                      {new Date(inv.scheduledAt).toLocaleString('vi-VN', {
+                                        dateStyle: 'medium',
+                                        timeStyle: 'short'
+                                      })}
+                                    </strong>
+                                  </div>
+
+                                  <div style={{ padding: '0.6rem 0.85rem', backgroundColor: '#FFFFFF', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block' }}>Hình thức / Địa điểm</span>
+                                    <strong style={{ color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                      {inv.location || 'Online Meeting (Google Meet)'}
+                                    </strong>
+                                  </div>
+
+                                  <div style={{ padding: '0.6rem 0.85rem', backgroundColor: '#FFFFFF', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block' }}>Người phỏng vấn (HR/Lead)</span>
+                                    <strong style={{ color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                      {inv.interviewerId}
+                                    </strong>
+                                  </div>
+                                </div>
+
+                                {/* Cảnh báo đếm ngược 24h nếu đang chờ xác nhận */}
+                                {isPending && !isExpired && (
+                                  <div style={{
+                                    padding: '0.6rem 0.85rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: '#FFF7ED',
+                                    border: '1px dashed #FDBA74',
+                                    fontSize: '0.8rem',
+                                    color: '#C2410C',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: '0.5rem'
+                                  }}>
+                                    <span>
+                                      ⏰ <strong>Lưu ý:</strong> Vui lòng xác nhận tham gia. Nếu sau <strong>24 giờ</strong> không phản hồi, lịch hẹn sẽ tự động bị hủy (Còn lại: <strong>{remainingHours} giờ {remainingMinutes} phút</strong>).
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Ghi chú nếu đã xác nhận / từ chối / hủy */}
+                                {inv.candidateResponse && (
+                                  <div style={{ fontSize: '0.8rem', color: isConfirmed ? 'var(--success)' : 'var(--error)', fontStyle: 'italic' }}>
+                                    Phản hồi: "{inv.candidateResponse}"
+                                  </div>
+                                )}
+
+                                {/* Nút thao tác xác nhận / từ chối */}
+                                {isPending && !isExpired && (
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeclineInterview(inv.id)}
+                                      className="btn btn-outline"
+                                      style={{
+                                        fontSize: '0.8125rem',
+                                        color: 'var(--error)',
+                                        borderColor: 'rgba(239, 68, 68, 0.4)',
+                                        padding: '0.45rem 0.95rem'
+                                      }}
+                                    >
+                                      ✗ Báo bận / Xin đổi lịch
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleConfirmInterview(inv.id)}
+                                      className="btn btn-primary"
+                                      style={{
+                                        fontSize: '0.8125rem',
+                                        backgroundColor: '#16A34A',
+                                        borderColor: '#16A34A',
+                                        padding: '0.45rem 1.15rem'
+                                      }}
+                                    >
+                                      ✓ Xác nhận tham gia phỏng vấn
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 

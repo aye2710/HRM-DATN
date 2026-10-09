@@ -541,13 +541,19 @@ model PreOnboardingProfile {
 }
 
 model InterviewRound {
-  id            String   @id @default(uuid())
-  candidateId   String
-  candidate     Candidate @relation(fields: [candidateId], references: [id])
-  interviewerId String
-  roundName     String
-  scheduledAt   DateTime
-  feedbacks     CandidateFeedback[]
+  id                String   @id @default(uuid())
+  candidateId       String
+  candidate         Candidate @relation(fields: [candidateId], references: [id])
+  interviewerId     String
+  roundName         String
+  scheduledAt       DateTime
+  status            String   @default("PENDING_CONFIRMATION") // PENDING_CONFIRMATION, CONFIRMED, DECLINED, CANCELLED, COMPLETED
+  location          String?  // Offline address or Online Meeting link (Google Meet / Zoom)
+  candidateResponse String?  // Candidate notes or decline reason
+  respondedAt       DateTime?
+  createdAt         DateTime @default(now())
+  expiresAt         DateTime? // 24 hours after creation for auto-cancellation
+  feedbacks         CandidateFeedback[]
 }
 
 model CandidateFeedback {

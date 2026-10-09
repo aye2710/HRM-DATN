@@ -152,6 +152,21 @@ router.get('/my-applications', authenticateCandidateToken, async (req: any, res:
   try {
     const email = req.candidateUser.email;
 
+    // Tự động quét và hủy các lịch phỏng vấn đã quá 24h mà ứng viên chưa xác nhận
+    const now = new Date();
+    await prisma.interviewRound.updateMany({
+      where: {
+        status: 'PENDING_CONFIRMATION',
+        expiresAt: {
+          lte: now
+        }
+      },
+      data: {
+        status: 'CANCELLED',
+        candidateResponse: 'Hệ thống tự động hủy: Ứng viên không xác nhận trong vòng 24 giờ kể từ khi gửi lời mời.'
+      }
+    });
+
     const applications = await prisma.candidate.findMany({
       where: { email },
       include: {
@@ -318,6 +333,94 @@ router.post('/offers/:candidateId/reject', authenticateCandidateToken, async (re
   } catch (error: any) {
     console.error('Decline offer error:', error);
     return res.status(500).json({ error: 'Lỗi khi từ chối Offer.' });
+  }
+});
+
+// 7. Ứng viên Xác nhận tham gia Lịch phỏng vấn (trong hạn 24h)
+router.post('/interviews/:id/confirm', authenticateCandidateToken, async (req: any, res: Response): Promise<any> => {
+  try {
+    const interviewId = req.params.id as string;
+    const email = req.candidateUser.email;
+    const { candidateNotes } = req.body;
+
+    // Tìm lịch phỏng vấn kèm thông tin ứng viên
+    const interview = await prisma.interviewRound.findUnique({
+      where: { id: interviewId },
+      include: { candidate: true }
+    });
+
+    if (!interview || interview.candidate.email.toLowerCase() !== email.toLowerCase()) {
+      return res.status(403).json({ error: 'Bạn không có quyền thao tác trên lịch hẹn này.' });
+    }
+
+    if (interview.status !== 'PENDING_CONFIRMATION') {
+      return res.status(400).json({ error: `Lịch phỏng vấn hiện đang ở trạng thái "${interview.status}", không thể xác nhận lại.` });
+    }
+
+    const now = new Date();
+    // Kiểm tra quá hạn 24 giờ
+    if (interview.expiresAt && now > new Date(interview.expiresAt)) {
+      await prisma.interviewRound.update({
+        where: { id: interviewId },
+        data: {
+          status: 'CANCELLED',
+          candidateResponse: 'Đã quá hạn 24 giờ xác nhận. Hệ thống tự động hủy lịch.'
+        }
+      });
+      return res.status(400).json({ error: 'Lịch hẹn phỏng vấn đã quá hạn 24 giờ để xác nhận và đã tự động hủy.' });
+    }
+
+    const updated = await prisma.interviewRound.update({
+      where: { id: interviewId },
+      data: {
+        status: 'CONFIRMED',
+        respondedAt: now,
+        candidateResponse: candidateNotes || 'Ứng viên đã xác nhận tham gia đúng hẹn'
+      }
+    });
+
+    return res.json({
+      message: 'Bạn đã xác nhận tham gia phỏng vấn thành công! Hãy chuẩn bị tốt và có mặt đúng giờ nhé.',
+      data: updated
+    });
+  } catch (error: any) {
+    console.error('Confirm interview error:', error);
+    return res.status(500).json({ error: 'Lỗi server khi xác nhận lịch phỏng vấn.' });
+  }
+});
+
+// 8. Ứng viên Từ chối / Báo bận Lịch phỏng vấn
+router.post('/interviews/:id/decline', authenticateCandidateToken, async (req: any, res: Response): Promise<any> => {
+  try {
+    const interviewId = req.params.id as string;
+    const email = req.candidateUser.email;
+    const { declineReason } = req.body;
+
+    const interview = await prisma.interviewRound.findUnique({
+      where: { id: interviewId },
+      include: { candidate: true }
+    });
+
+    if (!interview || interview.candidate.email.toLowerCase() !== email.toLowerCase()) {
+      return res.status(403).json({ error: 'Bạn không có quyền thao tác trên lịch hẹn này.' });
+    }
+
+    const updated = await prisma.interviewRound.update({
+      where: { id: interviewId },
+      data: {
+        status: 'DECLINED',
+        respondedAt: new Date(),
+        candidateResponse: declineReason || 'Ứng viên báo bận / xin đổi lịch hẹn khác'
+      }
+    });
+
+    return res.json({
+      message: 'Đã ghi nhận phản hồi từ chối lịch phỏng vấn.',
+      data: updated
+    });
+  } catch (error: any) {
+    console.error('Decline interview error:', error);
+    return res.status(500).json({ error: 'Lỗi server khi từ chối lịch phỏng vấn.' });
   }
 });
 

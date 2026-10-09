@@ -23,6 +23,9 @@
 | `Người phỏng vấn` (interviewerId) | Chuỗi (String) | Bắt buộc | Tên hoặc Mã của chuyên gia/quản lý chuyên môn phụ trách phỏng vấn. |
 | `Tên vòng phỏng vấn` (roundName) | Chuỗi (String) | Bắt buộc | Tên vòng: "Phỏng vấn Nhân sự", "Phỏng vấn Kỹ thuật", "Phỏng vấn Văn hóa / Giám đốc". |
 | `Thời gian phỏng vấn` (scheduledAt) | DateTime | Bắt buộc | Mốc thời gian diễn ra phỏng vấn (Định dạng ISO `YYYY-MM-DDTHH:mm`). |
+| `Hình thức / Địa điểm` (location) | Chuỗi (String) | Tùy chọn | Đường dẫn phòng họp trực tuyến (Google Meet / Zoom) hoặc phòng họp trực tiếp (Tầng 3 - P.Họp A). |
+| `Trạng thái xác nhận` (status) | Chuỗi (Enum) | Hệ thống | `PENDING_CONFIRMATION` (Mặc định), `CONFIRMED`, `DECLINED`, `CANCELLED`, `COMPLETED`. |
+| `Thời hạn xác nhận` (expiresAt) | DateTime | Hệ thống | Mốc 24 giờ sau khi tạo lịch hẹn (`createdAt + 24h`). |
 
 ### 2.2. Biểu mẫu Đánh giá ứng viên (Candidate Feedback Form)
 | Tên trường | Kiểu dữ liệu | Tính chất | Ý nghĩa nghiệp vụ & Ràng buộc |
@@ -42,6 +45,7 @@
 | **BR-REC-03-03** | **Lưu vết đánh giá 1 lần (Feedback Immutability)**: Ứng viên đã có kết quả đánh giá (`feedbacks.length > 0`). | Hệ thống chuyển sang trạng thái "Đã đánh giá (Kèm điểm)", ẩn form nhập mới nhằm chống gian lận và sửa đổi kết quả phỏng vấn tùy tiện. | "Buổi phỏng vấn đã được ghi nhận đánh giá!" |
 | **BR-REC-03-04** | **Phê duyệt nhanh sau đánh giá**: Sau khi lưu Feedback thành công. | Hệ thống lập tức hiển thị Popup hành động nhanh (SweetAlert): "Chốt Offer", "Từ chối" hoặc "Để sau". Nếu chọn, tự động gọi API cập nhật trạng thái ứng viên tương ứng. | "Bạn có muốn quyết định ngay kết quả của ứng viên này không?" |
 | **BR-REC-03-05** | **Ràng buộc hủy lịch phỏng vấn**: Người dùng chọn xóa lịch phỏng vấn. | Cho phép hủy lịch nếu buổi phỏng vấn chưa diễn ra hoặc chưa có bản ghi Feedback. Yêu cầu hộp thoại xác nhận trước khi xóa vĩnh viễn khỏi CSDL. | "Bạn có chắc muốn hủy lịch phỏng vấn này?" |
+| **BR-REC-03-06** | **Xác nhận 2 Chiều & Hủy Tự Động Sau 24 Giờ (24-Hour SLA Confirmation & Auto-Cancellation)**: Khi HR lên lịch phỏng vấn. | Lịch hẹn khởi tạo ở trạng thái `PENDING_CONFIRMATION` kèm thời hạn 24 giờ (`expiresAt = createdAt + 24h`). Cổng Ứng viên hiển thị đếm ngược và 2 nút: "Xác nhận tham gia" / "Từ chối". Nếu trong vòng 24 giờ ứng viên không xác nhận, hệ thống tự động chuyển `status = CANCELLED` kèm ghi chú quá hạn để giải phóng lịch phỏng vấn. | "Hệ thống tự động hủy: Ứng viên không xác nhận trong vòng 24 giờ kể từ khi gửi lời mời." |
 
 ---
 

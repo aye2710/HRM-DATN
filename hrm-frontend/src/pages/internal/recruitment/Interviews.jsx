@@ -20,7 +20,8 @@ export const Interviews = () => {
     candidateId: '',
     interviewerId: '',
     roundName: 'Phỏng vấn Kỹ thuật',
-    scheduledAt: ''
+    scheduledAt: '',
+    location: 'Trực tuyến (Google Meet / Zoom)'
   });
 
   const [feedbackForm, setFeedbackForm] = useState({
@@ -45,7 +46,13 @@ export const Interviews = () => {
 
   const handleOpenAdd = () => {
     setModalMode('add');
-    setScheduleForm({ candidateId: '', interviewerId: '', roundName: 'Phỏng vấn Kỹ thuật', scheduledAt: '' });
+    setScheduleForm({ 
+      candidateId: '', 
+      interviewerId: '', 
+      roundName: 'Phỏng vấn Kỹ thuật', 
+      scheduledAt: '', 
+      location: 'Trực tuyến (Google Meet / Zoom)' 
+    });
     setShowScheduleModal(true);
   };
 
@@ -56,7 +63,8 @@ export const Interviews = () => {
       candidateId: inv.candidateId,
       interviewerId: inv.interviewerId,
       roundName: inv.roundName,
-      scheduledAt: new Date(inv.scheduledAt).toISOString().slice(0, 16)
+      scheduledAt: new Date(inv.scheduledAt).toISOString().slice(0, 16),
+      location: inv.location || 'Trực tuyến (Google Meet / Zoom)'
     });
     setShowScheduleModal(true);
   };
@@ -171,6 +179,7 @@ export const Interviews = () => {
                   <th className="p-4 text-sm font-semibold text-muted">Ứng viên</th>
                   <th className="p-4 text-sm font-semibold text-muted">Vòng / Vị trí</th>
                   <th className="p-4 text-sm font-semibold text-muted">Người phỏng vấn</th>
+                  <th className="p-4 text-sm font-semibold text-muted">Xác nhận Ứng viên (24h)</th>
                   <th className="p-4 text-sm font-semibold text-muted text-right">Đánh giá</th>
                   <th className="p-4 text-sm font-semibold text-muted text-center w-24">Thao tác</th>
                 </tr>
@@ -182,6 +191,16 @@ export const Interviews = () => {
                   const formattedDate = date.toLocaleDateString('vi-VN');
                   const formattedTime = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                   const isPast = date < new Date();
+
+                  const isPending = !inv.status || inv.status === 'PENDING_CONFIRMATION';
+                  const isConfirmed = inv.status === 'CONFIRMED';
+                  const isDeclined = inv.status === 'DECLINED';
+                  const isCancelled = inv.status === 'CANCELLED';
+
+                  const expiresAt = inv.expiresAt 
+                    ? new Date(inv.expiresAt) 
+                    : new Date(new Date(inv.createdAt || inv.scheduledAt).getTime() + 24 * 60 * 60 * 1000);
+                  const remainingHours = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / (3600 * 1000)));
 
                   return (
                     <tr key={inv.id} className="border-b border-[var(--border)] hover:bg-white transition-colors">
@@ -200,6 +219,48 @@ export const Interviews = () => {
                         <div className="text-xs text-muted">{inv.candidate?.jobPosting?.title}</div>
                       </td>
                       <td className="p-4 text-sm">{inv.interviewerId}</td>
+                      <td className="p-4">
+                        {isPending && (
+                          <div>
+                            <span className="badge badge-warning" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                              ⏳ Chờ ứng viên (còn {remainingHours}h)
+                            </span>
+                            <div className="text-xs text-muted mt-1">{inv.location || 'Online Meet'}</div>
+                          </div>
+                        )}
+                        {isConfirmed && (
+                          <div>
+                            <span className="badge badge-success" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                              ✓ Đã xác nhận tham gia
+                            </span>
+                            {inv.candidateResponse && (
+                              <div className="text-xs text-muted mt-1" title={inv.candidateResponse}>
+                                "{inv.candidateResponse}"
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {isDeclined && (
+                          <div>
+                            <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                              ✗ Ứng viên từ chối
+                            </span>
+                            {inv.candidateResponse && (
+                              <div className="text-xs text-muted mt-1" title={inv.candidateResponse}>
+                                "{inv.candidateResponse}"
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {isCancelled && (
+                          <div>
+                            <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+                              ⚠️ Đã hủy (quá 24h)
+                            </span>
+                            <div className="text-xs text-muted mt-1">Không xác nhận</div>
+                          </div>
+                        )}
+                      </td>
                       <td className="p-4 text-right">
                         {hasFeedback ? (
                           <div className="flex flex-col items-end gap-1.5">
@@ -314,6 +375,13 @@ export const Interviews = () => {
                 <div className="flex-col gap-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Người phỏng vấn (Tên)</label>
                   <input required type="text" className="form-input w-full" value={scheduleForm.interviewerId} onChange={e => setScheduleForm({...scheduleForm, interviewerId: e.target.value})} placeholder="VD: Anh Tuấn (Tech Lead)" />
+                </div>
+                <div className="flex-col gap-2">
+                  <label className="text-sm font-medium text-[var(--text-muted)]">Hình thức / Địa điểm / Link họp</label>
+                  <input type="text" className="form-input w-full" value={scheduleForm.location} onChange={e => setScheduleForm({...scheduleForm, location: e.target.value})} placeholder="VD: Google Meet: meet.google.com/xyz hoặc Phòng họp Tầng 3" />
+                </div>
+                <div style={{ padding: '0.85rem 1rem', borderRadius: '0.5rem', backgroundColor: '#FFF7ED', border: '1px dashed #FDBA74', fontSize: '0.8rem', color: '#C2410C', lineHeight: 1.45 }}>
+                  ⏰ <strong>Quy định nghiệp vụ 24h:</strong> Hệ thống sẽ phát thông báo đến Cổng Ứng viên và giới hạn thời gian phản hồi trong <strong>24 giờ</strong>. Nếu sau 24h ứng viên không bấm xác nhận tham gia, lịch hẹn sẽ <strong>tự động bị hủy</strong>.
                 </div>
               </div>
               <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
