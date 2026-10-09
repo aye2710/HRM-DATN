@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../db';
+import { checkAndExpireOffers } from '../recruitment/offer.routes';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_hrm_2026';
@@ -152,7 +153,7 @@ router.get('/my-applications', authenticateCandidateToken, async (req: any, res:
   try {
     const email = req.candidateUser.email;
 
-    // Tự động quét và hủy các lịch phỏng vấn đã quá 24h mà ứng viên chưa xác nhận
+    // Tự động quét và hủy các lịch phỏng vấn và Offer đã quá 24h mà ứng viên chưa xác nhận
     const now = new Date();
     await prisma.interviewRound.updateMany({
       where: {
@@ -166,6 +167,8 @@ router.get('/my-applications', authenticateCandidateToken, async (req: any, res:
         candidateResponse: 'Hệ thống tự động hủy: Ứng viên không xác nhận trong vòng 24 giờ kể từ khi gửi lời mời.'
       }
     });
+
+    await checkAndExpireOffers();
 
     const applications = await prisma.candidate.findMany({
       where: { email },
@@ -227,6 +230,10 @@ router.post('/offers/:candidateId/accept', authenticateCandidateToken, async (re
 
     if (candidate.offer.status === 'ACCEPTED') {
       return res.status(400).json({ error: 'Bạn đã xác nhận đồng ý Offer này trước đó rồi.' });
+    }
+
+    if (candidate.offer.status === 'REJECTED' || (candidate.offer.expiresAt && new Date() > new Date(candidate.offer.expiresAt))) {
+      return res.status(400).json({ error: 'Thư mời nhận việc (Offer) đã quá thời hạn 24 giờ phản hồi và đã bị tự động hủy.' });
     }
 
     // Thực hiện Transaction cập nhật Offer và lưu PreOnboardingProfile
@@ -311,6 +318,10 @@ router.post('/offers/:candidateId/reject', authenticateCandidateToken, async (re
 
     if (!candidate.offer) {
       return res.status(400).json({ error: 'Hồ sơ này chưa có Offer.' });
+    }
+
+    if (candidate.offer.status === 'REJECTED' || (candidate.offer.expiresAt && new Date() > new Date(candidate.offer.expiresAt))) {
+      return res.status(400).json({ error: 'Thư mời nhận việc (Offer) đã quá thời hạn 24 giờ phản hồi.' });
     }
 
     await prisma.$transaction(async (tx) => {

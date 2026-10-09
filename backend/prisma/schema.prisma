@@ -588,6 +588,8 @@ model JobOffer {
   declineReason String?
   respondedAt   DateTime?
   status        OfferStatus @default(PENDING)
+  createdAt     DateTime    @default(now())
+  expiresAt     DateTime?
 }
 
 // ==========================================

@@ -87,7 +87,14 @@ const ProfileHeader = ({ employee, isEditMode, onToggleEdit, onSave, onBack, cal
         <div style={{ fontSize: '0.95rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontWeight: '600', color: '#3b82f6' }}>{employee.code}</span>
           <span style={{ color: '#cbd5e1' }}>|</span>
-          <span style={{ fontWeight: '500' }}>{employee.position?.title || 'Chưa xếp chức danh'}</span>
+          <span style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {employee.position?.title || 'Chưa xếp chức danh'}
+            {employee.position?.level && (
+              <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', backgroundColor: '#f3e8ff', color: '#7e22ce' }}>
+                {employee.position.level}
+              </span>
+            )}
+          </span>
           <span style={{ color: '#cbd5e1' }}>|</span>
           <span>{employee.department?.name || 'Chưa xếp phòng ban'}</span>
         </div>
@@ -139,9 +146,16 @@ export const EmployeeDetail = () => {
         axios.get('http://localhost:5000/api/departments'),
         axios.get('http://localhost:5000/api/positions')
       ]);
+      const formattedPositions = (posRes.data || []).map(p => ({
+        id: p.id,
+        value: p.id,
+        label: `${p.title}${p.level ? ` (${p.level})` : ''}`,
+        title: p.title,
+        level: p.level
+      }));
       setEmployee(empRes.data);
       setDepartments(deptRes.data);
-      setPositions(posRes.data);
+      setPositions(formattedPositions);
     } catch (error) {
       toast.error('Không thể tải thông tin');
       navigate('/internal/employees/profiles');
@@ -277,9 +291,10 @@ export const EmployeeDetail = () => {
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>Thông tin công tác hiện tại</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                   <InfoField label="Mã Nhân Viên" value={employee.code} type="text" isEditMode={isEditMode} onChange={(v) => handleChange('code', v)} required />
-                  <InfoField label="Công ty / Pháp nhân" value="Công ty TNHH GHC" type="text" isEditMode={false} />
+                  <InfoField label="Công ty / Pháp nhân" value="Công ty TNHH LLA" type="text" isEditMode={false} />
                   <InfoField label="Phòng ban" value={employee.departmentId} type="select" isEditMode={isEditMode} onChange={(v) => handleChange('departmentId', v)} options={departments} />
                   <InfoField label="Vị trí / Chức danh" value={employee.positionId} type="select" isEditMode={isEditMode} onChange={(v) => handleChange('positionId', v)} options={positions} />
+                  <InfoField label="Cấp bậc chuyên môn (Level)" value={employee.position?.level || '—'} type="text" isEditMode={false} />
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

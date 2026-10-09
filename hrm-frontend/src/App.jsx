@@ -206,6 +206,7 @@ function App() {
               <Route path="recruitment/interviews" element={<Interviews />} />
               <Route path="recruitment/offers" element={<Offers />} />
 
+              <Route path="onboarding" element={<Navigate to="onboarding/newbies" replace />} />
               <Route path="onboarding/newbies" element={<OnboardingMgmt />} />
               <Route path="onboarding/checklist" element={<ChecklistMgmt />} />
               <Route path="onboarding/equipment" element={<EquipmentProvision />} />

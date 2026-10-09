@@ -29,24 +29,14 @@ export const Offers = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Modal Kích hoạt Nhân viên (Check-in Onboarding)
-  const [showOnboardModal, setShowOnboardModal] = useState(false);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [onboardForm, setOnboardForm] = useState({
-    employeeCode: '',
-    cccd: '',
-    baseSalary: '',
-    contractType: 'PROBATION',
-    joinDate: ''
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // 2. Modal Xem Hồ sơ Khai báo của Ứng viên (Pre-Onboarding Details)
+  // 1. Modal Xem Hồ sơ Khai báo của Ứng viên (Pre-Onboarding Details)
   const [showViewProfileModal, setShowViewProfileModal] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(null);
 
-  // 3. Modal Gửi / Cập nhật Offer
+  // 2. Modal Gửi / Cập nhật Offer
   const [showSendOfferModal, setShowSendOfferModal] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [offerForm, setOfferForm] = useState({
     candidateId: '',
     baseSalary: '15000000',
@@ -69,46 +59,51 @@ export const Offers = () => {
     fetchOffers();
   }, []);
 
-  // Mở modal kích hoạt nhân viên khi ứng viên đến nhận việc
-  const handleOpenOnboard = (candidate) => {
-    setSelectedCandidate(candidate);
-    const po = candidate.preOnboarding;
-    const offer = candidate.offer;
+  // Tiếp nhận nhân sự khi ứng viên đến nhận việc (1-click confirmation)
+  const handleOpenOnboard = async (candidate) => {
+    const isIntern =
+      candidate.jobPosting?.position?.level?.toLowerCase() === 'intern' ||
+      candidate.offer?.contractType === 'INTERNSHIP';
+    const contractLabel = isIntern ? 'Hợp đồng Thực tập sinh' : 'Hợp đồng Thử việc (85%)';
 
-    setOnboardForm({
-      employeeCode: `NV${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-      cccd: po?.cccd || '',
-      baseSalary: offer ? String(offer.baseSalary) : '15000000',
-      contractType: offer?.contractType || 'PROBATION',
-      joinDate: offer?.startDate
-        ? new Date(offer.startDate).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0]
+    const result = await Swal.fire({
+      title: 'Tiếp nhận Nhân sự Mới',
+      html: `
+        <div style="text-align: left; font-size: 0.9rem; line-height: 1.6; color: #334155;">
+          <p style="margin-bottom: 8px;">Xác nhận tiếp nhận ứng viên <strong>${candidate.name}</strong> vào làm việc tại công ty?</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin: 12px 0;">
+            <div>• Vị trí: <strong>${candidate.jobPosting?.title || 'Chưa rõ'}</strong></div>
+            <div>• Phòng ban: <strong>${candidate.jobPosting?.department?.name || 'Chưa rõ'}</strong></div>
+            <div>• Lương thỏa thuận: <strong>${candidate.offer ? Number(candidate.offer.baseSalary).toLocaleString('vi-VN') + ' đ' : 'Chưa có'}</strong></div>
+            <div>• Loại hợp đồng: <strong>${contractLabel}</strong></div>
+          </div>
+          <p style="font-size: 0.8rem; color: #64748b; margin: 0;">
+            ⚡ <em>Hệ thống sẽ tự động cấp Mã nhân sự mới, đồng bộ hồ sơ nhân thân đã khai và chuyển ngay vào phân hệ <strong>Hội nhập (Onboarding)</strong>.</em>
+          </p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: '✓ Tiếp nhận & Bắt đầu Onboarding',
+      cancelButtonText: 'Hủy',
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#94a3b8'
     });
-    setShowOnboardModal(true);
-  };
 
-  // Submit kích hoạt nhân viên chính thức
-  const handleOnboardSubmit = (e) => {
-    e.preventDefault();
-    if (!onboardForm.employeeCode || !onboardForm.joinDate) {
-      return toast.error('Vui lòng nhập đầy đủ Mã nhân viên và Ngày nhận việc.');
-    }
-
-    setIsSubmitting(true);
-    axios
-      .post('http://localhost:5000/api/offers/accept', {
-        candidateId: selectedCandidate.id,
-        ...onboardForm
-      })
-      .then(() => {
-        toast.success('Kích hoạt hồ sơ nhân viên thành công!');
-        setShowOnboardModal(false);
+    if (result.isConfirmed) {
+      const loadingToast = toast.loading('Đang khởi tạo hồ sơ nhân sự...');
+      try {
+        await axios.post('http://localhost:5000/api/offers/accept', {
+          candidateId: candidate.id
+        });
+        toast.dismiss(loadingToast);
+        toast.success(`Tiếp nhận nhân sự ${candidate.name} thành công! Đã chuyển sang phân hệ Hội nhập.`);
         fetchOffers();
-      })
-      .catch((err) => {
-        toast.error(err.response?.data?.error || 'Có lỗi xảy ra khi tạo hồ sơ.');
-      })
-      .finally(() => setIsSubmitting(false));
+      } catch (err) {
+        toast.dismiss(loadingToast);
+        toast.error(err.response?.data?.error || 'Có lỗi xảy ra khi tiếp nhận nhân sự.');
+      }
+    }
   };
 
   // Mở modal xem hồ sơ ứng viên tự khai
@@ -308,18 +303,25 @@ export const Offers = () => {
                       ) : isRejected ? (
                         <div>
                           <span className="badge badge-error" style={{ fontWeight: 600 }}>
-                            <XCircle size={12} style={{ marginRight: '4px' }} /> Ứng viên từ chối
+                            <XCircle size={12} style={{ marginRight: '4px' }} /> {offer?.declineReason?.includes('24') ? 'Quá hạn 24h (Tự hủy)' : 'Ứng viên từ chối'}
                           </span>
                           {offer?.declineReason && (
-                            <div style={{ fontSize: '0.7rem', color: 'var(--error)', marginTop: '0.2rem', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={offer.declineReason}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--error)', marginTop: '0.2rem', maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={offer.declineReason}>
                               {offer.declineReason}
                             </div>
                           )}
                         </div>
                       ) : isPending ? (
-                        <span className="badge badge-warning" style={{ fontWeight: 600 }}>
-                          <Clock size={12} style={{ marginRight: '4px' }} /> Chờ phản hồi
-                        </span>
+                        <div>
+                          <span className="badge badge-warning" style={{ fontWeight: 600 }}>
+                            <Clock size={12} style={{ marginRight: '4px' }} /> Chờ phản hồi (24h)
+                          </span>
+                          {offer?.expiresAt && (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                              Hạn: {new Date(offer.expiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} {new Date(offer.expiresAt).toLocaleDateString('vi-VN')}
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <span className="badge badge-gray">Chờ gửi thư</span>
                       )}
@@ -376,152 +378,7 @@ export const Offers = () => {
         )}
       </div>
 
-      {/* 1. Modal Kích hoạt Nhân viên */}
-      {showOnboardModal && selectedCandidate && createPortal(
-        <div
-          className="animate-fade-in"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1000,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowOnboardModal(false); }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '560px',
-              backgroundColor: '#FFFFFF',
-              borderRadius: '1.25rem',
-              boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
-              overflow: 'hidden'
-            }}
-          >
-            <div
-              style={{
-                padding: '1.25rem 1.5rem',
-                borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: 'linear-gradient(to right, rgba(34, 197, 94, 0.05), transparent)'
-              }}
-            >
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                  Xác nhận Nhận việc & Tạo Nhân sự
-                </h3>
-                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Ứng viên: <strong>{selectedCandidate.name}</strong> ({selectedCandidate.jobPosting?.title})
-                </p>
-              </div>
-              <button onClick={() => setShowOnboardModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                <X size={20} />
-              </button>
-            </div>
 
-            <form onSubmit={handleOnboardSubmit}>
-              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div
-                  style={{
-                    padding: '0.75rem 1rem',
-                    backgroundColor: 'rgba(34, 197, 94, 0.08)',
-                    borderRadius: '0.5rem',
-                    border: '1px solid rgba(34, 197, 94, 0.2)',
-                    fontSize: '0.8125rem',
-                    color: 'var(--text-main)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}
-                >
-                  <ShieldCheck size={18} color="var(--success)" style={{ flexShrink: 0 }} />
-                  <span>
-                    Toàn bộ hồ sơ nhân thân, tài khoản ngân hàng và người thân mà ứng viên tự khai sẽ được tự động tích hợp vào hồ sơ nhân viên.
-                  </span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Mã Nhân Viên *</label>
-                    <input
-                      type="text"
-                      required
-                      className="form-input"
-                      style={{ fontWeight: 700, fontFamily: 'monospace' }}
-                      value={onboardForm.employeeCode}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, employeeCode: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Số CCCD / CMND</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={onboardForm.cccd}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, cccd: e.target.value })}
-                      placeholder="Lấy từ hồ sơ ứng viên"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Mức lương cơ bản (VNĐ) *</label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      step="100000"
-                      className="form-input"
-                      value={onboardForm.baseSalary}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, baseSalary: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Loại Hợp đồng *</label>
-                    <select
-                      className="form-select"
-                      value={onboardForm.contractType}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, contractType: e.target.value })}
-                    >
-                      <option value="PROBATION">Thử việc (Probation)</option>
-                      <option value="INTERNSHIP">Thực tập sinh</option>
-                      <option value="OFFICIAL_1Y">Chính thức 1 năm</option>
-                      <option value="INDEFINITE">Không xác định thời hạn</option>
-                    </select>
-                  </div>
-
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Ngày chính thức nhận việc *</label>
-                    <input
-                      type="date"
-                      required
-                      className="form-input"
-                      value={onboardForm.joinDate}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, joinDate: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', backgroundColor: 'var(--bg-muted)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                <button type="button" onClick={() => setShowOnboardModal(false)} className="btn btn-outline" disabled={isSubmitting}>Hủy</button>
-                <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--success)', borderColor: 'var(--success)', fontWeight: 600 }} disabled={isSubmitting}>
-                  <UserCheck size={16} /> {isSubmitting ? 'Đang tạo...' : 'Kích hoạt Nhân viên'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* 2. Modal Xem Hồ sơ tự khai Pre-Onboarding */}
       {showViewProfileModal && viewingProfile && createPortal(
@@ -659,6 +516,25 @@ export const Offers = () => {
 
             <form onSubmit={handleSendOfferSubmit}>
               <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    backgroundColor: '#FFF7ED',
+                    borderRadius: '0.5rem',
+                    border: '1px dashed #FDBA74',
+                    fontSize: '0.8rem',
+                    color: '#C2410C',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <Clock size={18} style={{ flexShrink: 0 }} />
+                  <span>
+                    ⏰ <strong>Thời hạn phản hồi 24h:</strong> Hệ thống giới hạn thời gian phản hồi Offer trong <strong>24 giờ</strong> kể từ thời điểm gửi. Nếu sau 24h ứng viên không phản hồi, thư mời sẽ tự động bị hủy.
+                  </span>
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
                     <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Lương thỏa thuận (VNĐ) *</label>

@@ -18,6 +18,7 @@ export const EmployeeList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [levelFilter, setLevelFilter] = useState('');
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -61,7 +62,8 @@ export const EmployeeList = () => {
                         emp.code.toLowerCase().includes(searchTerm.toLowerCase());
     const matchDept = deptFilter ? emp.departmentId === deptFilter : true;
     const matchStatus = statusFilter ? emp.status === statusFilter : true;
-    return matchSearch && matchDept && matchStatus;
+    const matchLevel = levelFilter ? emp.position?.level?.toLowerCase() === levelFilter.toLowerCase() : true;
+    return matchSearch && matchDept && matchStatus && matchLevel;
   });
 
   const getStatusBadge = (status) => {
@@ -205,7 +207,7 @@ export const EmployeeList = () => {
               ))}
             </select>
           </div>
-          <div className="flex-col" style={{ width: '250px' }}>
+          <div className="flex-col" style={{ width: '220px' }}>
             <label className="form-label text-muted">Trạng thái nhân sự</label>
             <select className="form-input w-full" style={{ background: 'rgba(255,255,255,0.02)' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái</option>
@@ -214,6 +216,19 @@ export const EmployeeList = () => {
               <option value="INTERNSHIP" className="text-black">Thực tập (Internship)</option>
               <option value="ONBOARDING" className="text-black">Đang hội nhập</option>
               <option value="RESIGNED" className="text-black">Đã nghỉ việc</option>
+            </select>
+          </div>
+          <div className="flex-col" style={{ width: '200px' }}>
+            <label className="form-label text-muted">Cấp bậc (Level)</label>
+            <select className="form-input w-full" style={{ background: 'rgba(255,255,255,0.02)' }} value={levelFilter} onChange={e => setLevelFilter(e.target.value)}>
+              <option value="">Tất cả cấp bậc</option>
+              <option value="Intern" className="text-black">Intern (Thực tập)</option>
+              <option value="Fresher" className="text-black">Fresher</option>
+              <option value="Junior" className="text-black">Junior</option>
+              <option value="Middle" className="text-black">Middle</option>
+              <option value="Senior" className="text-black">Senior</option>
+              <option value="Lead" className="text-black">Lead</option>
+              <option value="Manager" className="text-black">Manager</option>
             </select>
           </div>
         </div>
@@ -253,7 +268,14 @@ export const EmployeeList = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <div className="font-medium">{emp.position?.title || 'Chưa xếp chức vụ'}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-[var(--text-heading)]">{emp.position?.title || 'Chưa xếp chức vụ'}</span>
+                        {emp.position?.level && (
+                          <span className="badge badge-purple" style={{ fontSize: '0.75rem', padding: '2px 8px' }}>
+                            {emp.position.level}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted mt-1">{emp.department?.name || 'Chưa xếp phòng ban'}</div>
                     </td>
                     <td className="p-4">{new Date(emp.joinDate).toLocaleDateString('vi-VN')}</td>
@@ -286,7 +308,14 @@ export const EmployeeList = () => {
                     </div>
                     <div className="employee-info-col">
                       <span className="employee-name">{emp.fullName}</span>
-                      <span className="employee-position">{emp.position?.title || 'Chưa xếp chức vụ'}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="employee-position">{emp.position?.title || 'Chưa xếp chức vụ'}</span>
+                        {emp.position?.level && (
+                          <span className="badge badge-purple" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
+                            {emp.position.level}
+                          </span>
+                        )}
+                      </div>
                       <span className="employee-code">{emp.code}</span>
                     </div>
                   </div>
@@ -387,10 +416,14 @@ export const EmployeeList = () => {
                     </div>
 
                     <div className="flex-col gap-2">
-                      <label className="text-sm font-medium text-[var(--text-muted)]">Chức vụ (Vị trí)</label>
+                      <label className="text-sm font-medium text-[var(--text-muted)]">Chức vụ & Cấp bậc</label>
                       <select className="form-input w-full" value={formData.positionId} onChange={e => setFormData({...formData, positionId: e.target.value})}>
-                        <option value="">-- Chọn chức vụ --</option>
-                        {positions.map(p => <option key={p.id} value={p.id} className="text-black">{p.title}</option>)}
+                        <option value="">-- Chọn chức vụ & cấp bậc --</option>
+                        {positions.map(p => (
+                          <option key={p.id} value={p.id} className="text-black">
+                            {p.title} {p.level ? `(${p.level})` : ''}
+                          </option>
+                        ))}
                       </select>
                     </div>
 

@@ -148,10 +148,15 @@ export const OnboardingMgmt = () => {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-semibold text-lg text-[var(--text-heading)] mb-1">{emp.fullName}</div>
-                      <div className="text-xs text-muted flex items-center gap-2">
+                      <div className="text-xs text-muted flex items-center gap-2 flex-wrap">
                         <span>{emp.code}</span>
                         <span>•</span>
                         <span>{emp.position?.title || 'Chưa rõ'}</span>
+                        {emp.position?.level && (
+                          <span className="badge badge-purple" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
+                            {emp.position.level}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="avatar" style={{ width: '2.5rem', height: '2.5rem', background: 'rgba(99, 102, 241, 0.2)', color: 'var(--primary)', fontWeight: 'bold' }}>
@@ -187,7 +192,14 @@ export const OnboardingMgmt = () => {
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-hover)', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '0.25rem' }}>Checklist Hội nhập</h3>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Nhân viên: <strong style={{ color: 'var(--primary)' }}>{selectedEmp.fullName}</strong></p>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                  Nhân viên: <strong style={{ color: 'var(--primary)' }}>{selectedEmp.fullName}</strong> • {selectedEmp.position?.title || 'Chưa rõ'}
+                  {selectedEmp.position?.level && (
+                    <span className="badge badge-purple" style={{ marginLeft: '6px', fontSize: '0.75rem', padding: '1px 6px' }}>
+                      {selectedEmp.position.level}
+                    </span>
+                  )}
+                </p>
               </div>
               <button onClick={handleClosePanel} style={{ padding: '0.5rem', borderRadius: '50%', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}><X size={20}/></button>
             </div>

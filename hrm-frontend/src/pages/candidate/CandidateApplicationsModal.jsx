@@ -582,172 +582,222 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                       )}
 
                       {/* KHU VỰC THƯ MỜI NHẬN VIỆC (OFFER LETTER) */}
-                      {hasOffer && (
-                        <div
-                          style={{
-                            borderRadius: '0.75rem',
-                            border: '1px solid',
-                            borderColor:
-                              offer.status === 'ACCEPTED'
-                                ? 'rgba(34, 197, 94, 0.3)'
-                                : offer.status === 'REJECTED'
-                                ? 'rgba(239, 68, 68, 0.3)'
-                                : 'rgba(245, 158, 11, 0.4)',
-                            backgroundColor:
-                              offer.status === 'ACCEPTED'
-                                ? 'rgba(34, 197, 94, 0.03)'
-                                : offer.status === 'REJECTED'
-                                ? 'rgba(239, 68, 68, 0.03)'
-                                : 'rgba(245, 158, 11, 0.03)',
-                            padding: '1.25rem',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.875rem'
-                          }}
-                        >
-                          {/* Banner Header */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <Award size={18} color={offer.status === 'ACCEPTED' ? 'var(--success)' : 'var(--warning)'} />
-                              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                                Thư mời nhận việc chính thức (Job Offer Letter)
-                              </span>
-                            </div>
+                      {hasOffer && (() => {
+                        const isOfferPending = offer.status === 'PENDING';
+                        const offerExpiresAt = offer.expiresAt
+                          ? new Date(offer.expiresAt)
+                          : new Date(new Date(offer.createdAt || app.updatedAt || Date.now()).getTime() + 24 * 60 * 60 * 1000);
+                        const offerRemainingMs = offerExpiresAt.getTime() - Date.now();
+                        const offerRemainingHours = Math.max(0, Math.floor(offerRemainingMs / (1000 * 60 * 60)));
+                        const offerRemainingMinutes = Math.max(0, Math.floor((offerRemainingMs % (1000 * 60 * 60)) / (1000 * 60)));
+                        const isOfferExpired = (offerRemainingMs <= 0 && isOfferPending) || (offer.status === 'REJECTED' && offer.declineReason?.includes('24'));
 
-                            {offer.status === 'PENDING' && (
-                              <span className="badge badge-warning" style={{ fontWeight: 600 }}>
-                                Đang chờ bạn phản hồi
-                              </span>
-                            )}
-                            {offer.status === 'ACCEPTED' && (
-                              <span className="badge badge-success" style={{ fontWeight: 600 }}>
-                                ✓ Bạn đã chấp nhận Offer
-                              </span>
-                            )}
-                            {offer.status === 'REJECTED' && (
-                              <span className="badge badge-error" style={{ fontWeight: 600 }}>
-                                Đã từ chối
-                              </span>
-                            )}
-                          </div>
-
-                          {/* 3 Metric Cards */}
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                            <div
-                              style={{
-                                padding: '0.75rem',
-                                backgroundColor: '#FFFFFF',
-                                borderRadius: '0.5rem',
-                                border: '1px solid var(--border)'
-                              }}
-                            >
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Lương thỏa thuận
-                              </span>
-                              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.15rem' }}>
-                                {Number(offer.baseSalary).toLocaleString('vi-VN')} đ
+                        return (
+                          <div
+                            style={{
+                              borderRadius: '0.75rem',
+                              border: '1px solid',
+                              borderColor:
+                                offer.status === 'ACCEPTED'
+                                  ? 'rgba(34, 197, 94, 0.3)'
+                                  : isOfferExpired || offer.status === 'REJECTED'
+                                  ? 'rgba(239, 68, 68, 0.3)'
+                                  : 'rgba(245, 158, 11, 0.4)',
+                              backgroundColor:
+                                offer.status === 'ACCEPTED'
+                                  ? 'rgba(34, 197, 94, 0.03)'
+                                  : isOfferExpired || offer.status === 'REJECTED'
+                                  ? 'rgba(239, 68, 68, 0.03)'
+                                  : '#FFFBEB',
+                              padding: '1.25rem',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.875rem'
+                            }}
+                          >
+                            {/* Banner Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Award size={18} color={offer.status === 'ACCEPTED' ? 'var(--success)' : isOfferPending && !isOfferExpired ? '#D97706' : 'var(--error)'} />
+                                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                                  Thư mời nhận việc chính thức (Job Offer Letter)
+                                </span>
                               </div>
+
+                              {isOfferPending && !isOfferExpired && (
+                                <span className="badge badge-warning" style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                                  ⏳ Chờ bạn phản hồi (Hạn chót 24h)
+                                </span>
+                              )}
+                              {isOfferExpired && (
+                                <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                                  ⚠️ Đã quá hạn 24h (Tự động hủy)
+                                </span>
+                              )}
+                              {offer.status === 'ACCEPTED' && (
+                                <span className="badge badge-success" style={{ fontWeight: 600 }}>
+                                  ✓ Bạn đã chấp nhận Offer
+                                </span>
+                              )}
+                              {offer.status === 'REJECTED' && !isOfferExpired && (
+                                <span className="badge badge-error" style={{ fontWeight: 600 }}>
+                                  Đã từ chối
+                                </span>
+                              )}
                             </div>
 
-                            <div
-                              style={{
-                                padding: '0.75rem',
-                                backgroundColor: '#FFFFFF',
-                                borderRadius: '0.5rem',
-                                border: '1px solid var(--border)'
-                              }}
-                            >
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Ngày nhận việc
-                              </span>
-                              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>
-                                {offer.startDate ? new Date(offer.startDate).toLocaleDateString('vi-VN') : 'Thỏa thuận'}
-                              </div>
-                            </div>
-
-                            <div
-                              style={{
-                                padding: '0.75rem',
-                                backgroundColor: '#FFFFFF',
-                                borderRadius: '0.5rem',
-                                border: '1px solid var(--border)'
-                              }}
-                            >
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Loại hợp đồng
-                              </span>
-                              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>
-                                {offer.contractType === 'PROBATION' ? 'Thử việc (85%)' : offer.contractType || 'Thử việc'}
-                              </div>
-                            </div>
-                          </div>
-
-                          {offer.notes && (
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                              "{offer.notes}"
-                            </div>
-                          )}
-
-                          {/* ACTION BUTTONS */}
-                          {offer.status === 'PENDING' && (
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRejectOffer(app)}
-                                className="btn btn-outline"
+                            {/* 3 Metric Cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                              <div
                                 style={{
-                                  fontSize: '0.8125rem',
-                                  color: 'var(--error)',
-                                  borderColor: 'rgba(239, 68, 68, 0.4)'
+                                  padding: '0.75rem',
+                                  backgroundColor: '#FFFFFF',
+                                  borderRadius: '0.5rem',
+                                  border: '1px solid var(--border)'
                                 }}
                               >
-                                Từ chối Offer
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenAcceptOffer(app)}
-                                className="btn btn-primary"
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                  Lương thỏa thuận
+                                </span>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.15rem' }}>
+                                  {Number(offer.baseSalary).toLocaleString('vi-VN')} đ
+                                </div>
+                              </div>
+
+                              <div
                                 style={{
-                                  fontSize: '0.8125rem',
-                                  fontWeight: 600,
-                                  backgroundColor: 'var(--success)',
-                                  borderColor: 'var(--success)',
-                                  boxShadow: '0 2px 8px rgba(34, 197, 94, 0.25)'
+                                  padding: '0.75rem',
+                                  backgroundColor: '#FFFFFF',
+                                  borderRadius: '0.5rem',
+                                  border: '1px solid var(--border)'
                                 }}
                               >
-                                <CheckCircle2 size={16} /> Chấp nhận Offer & Khai báo thông tin nhận việc
-                              </button>
-                            </div>
-                          )}
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                  Ngày nhận việc
+                                </span>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>
+                                  {offer.startDate ? new Date(offer.startDate).toLocaleDateString('vi-VN') : 'Thỏa thuận'}
+                                </div>
+                              </div>
 
-                          {offer.status === 'ACCEPTED' && (
-                            <div
-                              style={{
-                                padding: '0.75rem 1rem',
-                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                              <div
+                                style={{
+                                  padding: '0.75rem',
+                                  backgroundColor: '#FFFFFF',
+                                  borderRadius: '0.5rem',
+                                  border: '1px solid var(--border)'
+                                }}
+                              >
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                  Loại hợp đồng
+                                </span>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>
+                                  {offer.contractType === 'PROBATION' ? 'Thử việc (85%)' : offer.contractType || 'Thử việc'}
+                                </div>
+                              </div>
+                            </div>
+
+                            {offer.notes && (
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                "{offer.notes}"
+                              </div>
+                            )}
+
+                            {/* Cảnh báo đếm ngược 24h nếu đang chờ xác nhận */}
+                            {isOfferPending && !isOfferExpired && (
+                              <div style={{
+                                padding: '0.65rem 0.95rem',
                                 borderRadius: '0.5rem',
+                                backgroundColor: '#FFF7ED',
+                                border: '1px dashed #FDBA74',
                                 fontSize: '0.8rem',
-                                color: 'var(--success-fg)',
+                                color: '#C2410C',
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
                                 gap: '0.5rem'
-                              }}
-                            >
-                              <ShieldCheck size={18} />
-                              <span>
-                                <strong>Hồ sơ tiếp nhận đã gửi thành công!</strong> Vui lòng có mặt tại văn phòng vào{' '}
-                                <strong>{new Date(offer.startDate).toLocaleDateString('vi-VN')}</strong> để hoàn tất thủ tục bàn giao.
-                              </span>
-                            </div>
-                          )}
+                              }}>
+                                <span>
+                                  ⏰ <strong>Quy định 24h:</strong> Vui lòng xem xét và phản hồi Offer trong vòng <strong>24 giờ</strong>. Nếu sau 24h không phản hồi, thư mời sẽ tự động bị hủy (Còn lại: <strong>{offerRemainingHours} giờ {offerRemainingMinutes} phút</strong>).
+                                </span>
+                              </div>
+                            )}
 
-                          {offer.status === 'REJECTED' && offer.declineReason && (
-                            <div style={{ fontSize: '0.8rem', color: 'var(--error)' }}>
-                              Lý do bạn từ chối: {offer.declineReason}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            {isOfferExpired && (
+                              <div style={{
+                                padding: '0.65rem 0.95rem',
+                                borderRadius: '0.5rem',
+                                backgroundColor: '#FEF2F2',
+                                border: '1px solid #FECACA',
+                                fontSize: '0.8rem',
+                                color: '#991B1B'
+                              }}>
+                                ⚠️ <strong>Đã quá hạn phản hồi:</strong> Thư mời nhận việc đã hết thời hạn 24 giờ phản hồi và đã bị hệ thống tự động hủy.
+                              </div>
+                            )}
+
+                            {/* ACTION BUTTONS */}
+                            {isOfferPending && !isOfferExpired && (
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRejectOffer(app)}
+                                  className="btn btn-outline"
+                                  style={{
+                                    fontSize: '0.8125rem',
+                                    color: 'var(--error)',
+                                    borderColor: 'rgba(239, 68, 68, 0.4)'
+                                  }}
+                                >
+                                  Từ chối Offer
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAcceptOffer(app)}
+                                  className="btn btn-primary"
+                                  style={{
+                                    fontSize: '0.8125rem',
+                                    fontWeight: 600,
+                                    backgroundColor: 'var(--success)',
+                                    borderColor: 'var(--success)',
+                                    boxShadow: '0 2px 8px rgba(34, 197, 94, 0.25)'
+                                  }}
+                                >
+                                  <CheckCircle2 size={16} /> Chấp nhận Offer & Khai báo thông tin nhận việc
+                                </button>
+                              </div>
+                            )}
+
+                            {offer.status === 'ACCEPTED' && (
+                              <div
+                                style={{
+                                  padding: '0.75rem 1rem',
+                                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                  borderRadius: '0.5rem',
+                                  fontSize: '0.8rem',
+                                  color: 'var(--success-fg)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem'
+                                }}
+                              >
+                                <ShieldCheck size={18} />
+                                <span>
+                                  <strong>Hồ sơ tiếp nhận đã gửi thành công!</strong> Vui lòng có mặt tại văn phòng vào{' '}
+                                  <strong>{new Date(offer.startDate).toLocaleDateString('vi-VN')}</strong> để hoàn tất thủ tục bàn giao.
+                                </span>
+                              </div>
+                            )}
+
+                            {offer.status === 'REJECTED' && offer.declineReason && (
+                              <div style={{ fontSize: '0.8rem', color: 'var(--error)' }}>
+                                Lý do bạn từ chối: {offer.declineReason}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })
