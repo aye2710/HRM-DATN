@@ -1,9 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Building, Users, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
+import { Building, Users, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock, Sparkles } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+// Hàm loại bỏ dấu tiếng Việt
+const removeVietnameseTones = (str) => {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+};
+
+// Hàm sinh mã phòng ban thông minh theo chuẩn doanh nghiệp
+const generateDeptCode = (deptName) => {
+  if (!deptName || !deptName.trim()) return '';
+
+  const clean = removeVietnameseTones(deptName.trim().toLowerCase());
+
+  // 1. Đối chiếu từ điển quy ước doanh nghiệp phổ biến
+  const keywordMap = [
+    { regex: /nhan\s*su|tuyen\s*dung|hr/i, code: 'HR' },
+    { regex: /tai\s*chinh|ke\s*toan|finance/i, code: 'TCKT' },
+    { regex: /phat\s*trien|phan\s*mem|lap\s*trinh|dev|software/i, code: 'DEV' },
+    { regex: /kiem\s*thu|tester|qa|qc/i, code: 'TEST' },
+    { regex: /phan\s*tich|business\s*analyst|ba/i, code: 'BA' },
+    { regex: /giam\s*doc|ban\s*giam\s*doc|board/i, code: 'BGD' },
+    { regex: /marketing|truyen\s*thong|mkt/i, code: 'MKT' },
+    { regex: /kinh\s*doanh|ban\s*hang|sales/i, code: 'KD' },
+    { regex: /ky\s*thuat|cong\s*nghe|it/i, code: 'IT' },
+    { regex: /van\s*hanh|operations|ops/i, code: 'OPS' },
+    { regex: /hanh\s*chinh|admin/i, code: 'HC' },
+    { regex: /phap\s*che|legal/i, code: 'LEGAL' },
+    { regex: /cham\s*soc\s*khach\s*hang|cskh/i, code: 'CSKH' },
+    { regex: /an\s*ninh|bao\s*mat|security/i, code: 'SEC' }
+  ];
+
+  for (const item of keywordMap) {
+    if (item.regex.test(clean)) {
+      return item.code;
+    }
+  }
+
+  // 2. Nếu không khớp từ điển: Lược bỏ hư từ tiền tố ('phong', 'ban', 'to', 'khoi', 'trung tam') và lấy chữ cái đầu
+  const words = clean
+    .split(/[\s\-_]+/)
+    .filter(w => !['phong', 'ban', 'to', 'khoi', 'trung', 'tam', 'bo', 'phan'].includes(w));
+
+  const targetWords = words.length > 0 ? words : clean.split(/[\s\-_]+/);
+  const initials = targetWords.map(w => w[0]?.toUpperCase()).join('');
+
+  return initials.slice(0, 6);
+};
 
 export const Departments = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,6 +68,7 @@ export const Departments = () => {
   const [modalMode, setModalMode] = useState('add');
   const [editingId, setEditingId] = useState('');
   const [formData, setFormData] = useState({ code: '', name: '', managerName: '', quota: 15, parentId: '', status: 'ACTIVE' });
+  const [isManualCode, setIsManualCode] = useState(false);
 
   // Delete confirm state
   const [deleteId, setDeleteId] = useState(null);
@@ -36,6 +87,7 @@ export const Departments = () => {
 
   const handleOpenAdd = () => {
     setModalMode('add');
+    setIsManualCode(false);
     setFormData({ code: '', name: '', managerName: '', quota: 15, parentId: '', status: 'ACTIVE' });
     setShowModal(true);
   };
@@ -43,6 +95,7 @@ export const Departments = () => {
   const handleOpenEdit = (dept) => {
     setModalMode('edit');
     setEditingId(dept.id);
+    setIsManualCode(true);
     setFormData({
       code: dept.code,
       name: dept.name,
@@ -54,21 +107,79 @@ export const Departments = () => {
     setShowModal(true);
   };
 
-  const handleSave = () => {
-    if (!formData.code || !formData.name) {
-      toast.error('Vui lòng nhập đủ Mã và Tên phòng ban!');
+  // Tự động sinh mã khi nhập Tên phòng ban
+  const handleNameChange = (e) => {
+    const newName = e.target.value;
+    const updated = { ...formData, name: newName };
+    if (!isManualCode && modalMode === 'add') {
+      updated.code = generateDeptCode(newName);
+    }
+    setFormData(updated);
+  };
+
+  // Người dùng tùy chỉnh mã: Cưỡng chế in hoa, lọc ký tự hợp lệ
+  const handleCodeChange = (e) => {
+    const raw = e.target.value;
+    const sanitized = removeVietnameseTones(raw)
+      .toUpperCase()
+      .replace(/[^A-Z0-9_\-]/g, '');
+    setFormData({ ...formData, code: sanitized });
+    setIsManualCode(true);
+  };
+
+  // Nút chủ động sinh lại mã gợi ý
+  const handleRegenerateCode = () => {
+    if (!formData.name.trim()) {
+      toast('Vui lòng nhập tên phòng ban trước khi sinh mã!', { icon: 'ℹ️' });
       return;
     }
+    const autoCode = generateDeptCode(formData.name);
+    setFormData(prev => ({ ...prev, code: autoCode }));
+    setIsManualCode(false);
+    toast.success(`Đã sinh mã gợi ý: ${autoCode}`);
+  };
+
+  const handleSave = () => {
+    const cleanName = formData.name.trim();
+    const cleanCode = formData.code.trim().toUpperCase();
+
+    if (!cleanName) {
+      toast.error('Vui lòng nhập Tên phòng ban!');
+      return;
+    }
+
+    if (!cleanCode || cleanCode.length < 2) {
+      toast.error('Mã phòng ban phải có tối thiểu 2 ký tự (Ví dụ: HR, IT, MKT)!');
+      return;
+    }
+
+    // Kiểm tra trùng lặp mã phòng ban
+    const isDuplicate = departments.some(
+      d => d.code.toUpperCase() === cleanCode && d.id !== editingId
+    );
+    if (isDuplicate) {
+      toast.error(`Mã phòng ban "${cleanCode}" đã được sử dụng! Vui lòng chọn mã khác.`);
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      name: cleanName,
+      code: cleanCode
+    };
+
     if (modalMode === 'add') {
-      axios.post('http://localhost:5000/api/departments', formData)
+      axios.post('http://localhost:5000/api/departments', payload)
         .then(() => {
+          toast.success('Đã thêm phòng ban thành công!');
           fetchDepartments();
           setShowModal(false);
         })
         .catch(err => toast.error(err.response?.data?.error || 'Lỗi thêm phòng ban'));
     } else {
-      axios.put(`http://localhost:5000/api/departments/${editingId}`, formData)
+      axios.put(`http://localhost:5000/api/departments/${editingId}`, payload)
         .then(() => {
+          toast.success('Đã cập nhật phòng ban!');
           fetchDepartments();
           setShowModal(false);
         })
@@ -285,25 +396,47 @@ export const Departments = () => {
 
             <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Mã phòng ban (Ví dụ: IT, MKT)</label>
-                <input
-                  type="text"
-                  className="form-input w-full"
-                  value={formData.code}
-                  onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  placeholder="Nhập mã PB..."
-                />
-              </div>
-              <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Tên phòng ban</label>
+                <label className="text-sm font-medium text-[var(--text-muted)]">
+                  Tên phòng ban <span style={{ color: 'var(--error)' }}>*</span>
+                </label>
                 <input
                   type="text"
                   className="form-input w-full"
                   value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Nhập tên phòng ban..."
+                  onChange={handleNameChange}
+                  placeholder="Ví dụ: Phòng Nhân sự, Tổ Phát triển..."
                 />
               </div>
+
+              <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-[var(--text-muted)]">
+                    Mã phòng ban <span style={{ color: 'var(--error)' }}>*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateCode}
+                    className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                    title="Gợi ý mã chuẩn theo tên phòng ban"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    <Sparkles size={13} />
+                    <span>Sinh mã gợi ý</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  className="form-input w-full font-mono font-semibold"
+                  value={formData.code}
+                  onChange={handleCodeChange}
+                  placeholder="Ví dụ: HR, DEV, BGD, TCKT..."
+                  style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
+                />
+                <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '0.75rem', marginTop: '-2px' }}>
+                  💡 Tự động in hoa, không dấu (Tối thiểu 2 ký tự: A-Z, 0-9)
+                </span>
+              </div>
+
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Người đại diện</label>
                 <input
@@ -314,6 +447,7 @@ export const Departments = () => {
                   placeholder="Họ tên người đại diện..."
                 />
               </div>
+
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Phòng ban trực thuộc (Cấp cha)</label>
                 <select
