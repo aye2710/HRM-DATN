@@ -39,9 +39,21 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
   const handleFillDemoCandidate = () => {
     setLoginData({
       email: 'candidate@example.com',
-      password: 'password123'
+      password: 'admin123'
     });
-    toast.success('Đã điền tài khoản ứng viên mẫu!');
+    toast.success('Đã điền tài khoản ứng viên mẫu: candidate@example.com / admin123');
+  };
+
+  const handleFillDemoRegister = () => {
+    const randomId = Math.floor(100 + Math.random() * 900);
+    setRegisterData({
+      name: `Ứng Viên Demo ${randomId}`,
+      email: `ungvien${randomId}@example.com`,
+      phone: '0988123456',
+      password: 'admin123',
+      confirmPassword: 'admin123'
+    });
+    toast.success('Đã điền thông tin đăng ký mẫu!');
   };
 
   const handleLoginSubmit = async (e) => {
@@ -602,28 +614,32 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
                 <div style={{
                   marginTop: '0.5rem',
                   padding: '0.75rem 1rem',
-                  backgroundColor: '#F0F9FF',
+                  backgroundColor: '#EFF6FF',
                   borderRadius: '0.5rem',
-                  border: '1px dashed #7DD3FC',
+                  border: '1px dashed #60A5FA',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between'
+                  justifyContent: 'space-between',
+                  gap: '0.75rem'
                 }}>
-                  <div style={{ fontSize: '0.75rem', color: '#0369A1', lineHeight: 1.4 }}>
-                    💡 <strong>Tài khoản Demo:</strong> Điền nhanh để kiểm tra hệ thống
+                  <div style={{ fontSize: '0.78rem', color: '#1E40AF', lineHeight: 1.4 }}>
+                    💡 <strong>Tài khoản Demo:</strong> <code style={{ backgroundColor: '#DBEAFE', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>candidate@example.com</code> / <code style={{ backgroundColor: '#DBEAFE', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>admin123</code>
                   </div>
                   <button
                     type="button"
                     onClick={handleFillDemoCandidate}
                     style={{
                       border: 'none',
-                      backgroundColor: '#0284C7',
+                      backgroundColor: '#2563EB',
                       color: '#FFFFFF',
                       fontSize: '0.75rem',
                       fontWeight: 700,
-                      padding: '5px 10px',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
                     }}
                   >
                     Điền mẫu
@@ -836,6 +852,42 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
                 >
                   {loading ? 'Đang tạo tài khoản...' : 'Hoàn tất Đăng ký'} <Sparkles size={17} />
                 </button>
+
+                {/* Nút Demo Autofill Nhanh cho Đăng ký */}
+                <div style={{
+                  marginTop: '0.35rem',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: '#EFF6FF',
+                  borderRadius: '0.5rem',
+                  border: '1px dashed #60A5FA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem'
+                }}>
+                  <div style={{ fontSize: '0.78rem', color: '#1E40AF', lineHeight: 1.4 }}>
+                    💡 <strong>Điền nhanh thông tin đăng ký mẫu</strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFillDemoRegister}
+                    style={{
+                      border: 'none',
+                      backgroundColor: '#2563EB',
+                      color: '#FFFFFF',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
+                    }}
+                  >
+                    Điền mẫu
+                  </button>
+                </div>
               </form>
             )}
 
