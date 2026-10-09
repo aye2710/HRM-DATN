@@ -140,14 +140,18 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { interviewerId, roundName, scheduledAt, location, status } = req.body;
+    const now = new Date();
     const updated = await prisma.interviewRound.update({
       where: { id },
       data: {
         interviewerId,
         roundName,
         location,
-        status,
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined
+        status: status || 'PENDING_CONFIRMATION',
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+        expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+        candidateResponse: null,
+        respondedAt: null
       }
     });
     res.json(updated);

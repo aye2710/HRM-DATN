@@ -14,6 +14,7 @@ export const Interviews = () => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedInterviewId, setSelectedInterviewId] = useState(null);
+  const [selectedInterview, setSelectedInterview] = useState(null);
   const [modalMode, setModalMode] = useState('add');
 
   const [scheduleForm, setScheduleForm] = useState({
@@ -46,6 +47,7 @@ export const Interviews = () => {
 
   const handleOpenAdd = () => {
     setModalMode('add');
+    setSelectedInterview(null);
     setScheduleForm({ 
       candidateId: '', 
       interviewerId: '', 
@@ -59,6 +61,7 @@ export const Interviews = () => {
   const handleOpenEdit = (inv) => {
     setModalMode('edit');
     setSelectedInterviewId(inv.id);
+    setSelectedInterview(inv);
     setScheduleForm({
       candidateId: inv.candidateId,
       interviewerId: inv.interviewerId,
@@ -242,11 +245,27 @@ export const Interviews = () => {
                         )}
                         {isDeclined && (
                           <div>
-                            <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                              ✗ Ứng viên từ chối
-                            </span>
+                            {inv.candidateResponse?.includes('[XIN ĐỔI LỊCH]') ? (
+                              <div>
+                                <span className="badge badge-warning" style={{ fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#D97706' }}>
+                                  🔄 Đề xuất đổi lịch
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(inv)}
+                                  className="text-xs text-[var(--primary)] hover:underline block mt-1 font-medium"
+                                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                >
+                                  Sắp xếp lại lịch hẹn →
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                                ✗ Ứng viên từ chối
+                              </span>
+                            )}
                             {inv.candidateResponse && (
-                              <div className="text-xs text-muted mt-1" title={inv.candidateResponse}>
+                              <div className="text-xs text-muted mt-1" style={{ maxWidth: '250px', wordBreak: 'break-word' }} title={inv.candidateResponse}>
                                 "{inv.candidateResponse}"
                               </div>
                             )}
@@ -350,6 +369,24 @@ export const Interviews = () => {
             </div>
             <form onSubmit={handleScheduleSubmit}>
               <div className="flex-col gap-4" style={{ padding: '1.5rem' }}>
+                {modalMode === 'edit' && selectedInterview?.candidateResponse && (
+                  <div style={{
+                    padding: '0.85rem 1rem',
+                    borderRadius: '0.5rem',
+                    backgroundColor: selectedInterview.candidateResponse.includes('[XIN ĐỔI LỊCH]') ? '#FFFBEB' : '#FEF2F2',
+                    border: '1px solid',
+                    borderColor: selectedInterview.candidateResponse.includes('[XIN ĐỔI LỊCH]') ? '#FCD34D' : '#FECACA',
+                    fontSize: '0.8125rem',
+                    color: selectedInterview.candidateResponse.includes('[XIN ĐỔI LỊCH]') ? '#92400E' : '#991B1B'
+                  }}>
+                    <strong style={{ display: 'block', marginBottom: '0.25rem' }}>
+                      {selectedInterview.candidateResponse.includes('[XIN ĐỔI LỊCH]') ? '🗓️ Ứng viên xin đổi lịch hẹn:' : 'Phản hồi từ Ứng viên:'}
+                    </strong>
+                    <div style={{ fontSize: '0.78rem', lineHeight: '1.45' }}>
+                      {selectedInterview.candidateResponse}
+                    </div>
+                  </div>
+                )}
                 <div className="flex-col gap-2">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Ứng viên (Đang chờ phỏng vấn)</label>
                   <select required disabled={modalMode === 'edit'} className="form-input w-full bg-white disabled:opacity-50" value={scheduleForm.candidateId} onChange={e => setScheduleForm({...scheduleForm, candidateId: e.target.value})}>
