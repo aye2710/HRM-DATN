@@ -14,7 +14,10 @@ import {
   Building,
   Award,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  AlertTriangle,
+  RotateCcw,
+  Send
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -27,6 +30,28 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [showPreOnboard, setShowPreOnboard] = useState(false);
+
+  // Modal Báo bận / Xin đổi lịch phỏng vấn
+  const [interviewDeclineModal, setInterviewDeclineModal] = useState({
+    isOpen: false,
+    interview: null,
+    app: null,
+    actionType: 'RESCHEDULE', // 'RESCHEDULE' | 'DECLINE'
+    quickReason: 'Trùng lịch làm việc / công tác đột xuất',
+    proposedDate: '',
+    proposedTimeSlot: 'AFTERNOON',
+    notes: 'Kính gửi Quý công ty, do trùng lịch làm việc / công tác đột xuất vào khung giờ trên, em xin phép kính đề xuất dời buổi phỏng vấn sang thời gian khác để chuẩn bị tốt nhất. Rất mong Quý công ty thông cảm và tạo điều kiện hỗ trợ.',
+    submitting: false
+  });
+
+  // Modal Từ chối Offer
+  const [offerRejectModal, setOfferRejectModal] = useState({
+    isOpen: false,
+    app: null,
+    quickReason: 'Đã nhận được lời mời làm việc phù hợp hơn',
+    notes: 'Kính gửi Quý công ty, em chân thành cảm ơn cơ hội và thư mời nhận việc. Sau khi cân nhắc kỹ, em xin phép từ chối cơ hội này do định hướng công việc cá nhân. Chúc Quý công ty ngày càng phát triển.',
+    submitting: false
+  });
 
   const fetchApplications = async () => {
     const token = localStorage.getItem('candidateToken');
@@ -60,21 +85,41 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
     setShowPreOnboard(true);
   };
 
-  const handleRejectOffer = async (app) => {
-    const reason = window.prompt('Vui lòng cho biết lý do bạn từ chối thư mời nhận việc này (nếu có):');
-    if (reason === null) return;
+  const handleOpenRejectOffer = (app) => {
+    setOfferRejectModal({
+      isOpen: true,
+      app,
+      quickReason: 'Đã nhận được lời mời làm việc phù hợp hơn',
+      notes: 'Kính gửi Quý công ty, em chân thành cảm ơn cơ hội và thư mời nhận việc. Sau khi cân nhắc kỹ, em xin phép từ chối cơ hội này do định hướng công việc cá nhân. Chúc Quý công ty ngày càng phát triển.',
+      submitting: false
+    });
+  };
 
+  const handleSubmitRejectOffer = async () => {
+    const { app, quickReason, notes } = offerRejectModal;
+    if (!app) return;
+
+    const finalReason = `Lý do: ${quickReason}. Lời nhắn: ${notes}`.trim();
+    setOfferRejectModal(prev => ({ ...prev, submitting: true }));
     const token = localStorage.getItem('candidateToken');
     try {
       await axios.post(
         `http://localhost:5000/api/candidate-auth/offers/${app.id}/reject`,
-        { declineReason: reason },
+        { declineReason: finalReason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success('Đã ghi nhận phản hồi từ chối Offer.');
+      setOfferRejectModal({
+        isOpen: false,
+        app: null,
+        quickReason: '',
+        notes: '',
+        submitting: false
+      });
       fetchApplications();
     } catch (err) {
       toast.error('Có lỗi xảy ra khi từ chối Offer.');
+      setOfferRejectModal(prev => ({ ...prev, submitting: false }));
     }
   };
 
@@ -94,22 +139,101 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
     }
   };
 
-  const handleDeclineInterview = async (interviewId) => {
-    const reason = window.prompt('Vui lòng cho biết lý do bạn từ chối hoặc xin đổi lịch hẹn khác:');
-    if (reason === null) return;
+  const handleOpenDeclineModal = (inv, app) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
+    setInterviewDeclineModal({
+      isOpen: true,
+      interview: inv,
+      app: app,
+      actionType: 'RESCHEDULE',
+      quickReason: 'Trùng lịch làm việc / công tác đột xuất',
+      proposedDate: tomorrowStr,
+      proposedTimeSlot: 'AFTERNOON',
+      notes: 'Kính gửi Quý công ty, do trùng lịch làm việc / công tác đột xuất vào khung giờ trên, em xin phép kính đề xuất dời buổi phỏng vấn sang thời gian khác để chuẩn bị tốt nhất. Rất mong Quý công ty thông cảm và tạo điều kiện hỗ trợ.',
+      submitting: false
+    });
+  };
+
+  const handleSelectDeclineActionType = (type) => {
+    if (type === 'RESCHEDULE') {
+      setInterviewDeclineModal(prev => ({
+        ...prev,
+        actionType: 'RESCHEDULE',
+        quickReason: 'Trùng lịch làm việc / công tác đột xuất',
+        notes: 'Kính gửi Quý công ty, do trùng lịch làm việc / công tác đột xuất vào khung giờ trên, em xin phép kính đề xuất dời buổi phỏng vấn sang thời gian khác để chuẩn bị tốt nhất. Rất mong Quý công ty thông cảm và tạo điều kiện hỗ trợ.'
+      }));
+    } else {
+      setInterviewDeclineModal(prev => ({
+        ...prev,
+        actionType: 'DECLINE',
+        quickReason: 'Đã nhận được offer phù hợp từ công ty khác',
+        notes: 'Kính gửi Quý công ty, em chân thành cảm ơn cơ hội phỏng vấn. Tuy nhiên do kế hoạch công việc mới, em xin phép từ chối tham gia buổi phỏng vấn này. Chúc Quý công ty sớm tìm được ứng viên phù hợp.'
+      }));
+    }
+  };
+
+  const handleSelectQuickReason = (reason) => {
+    setInterviewDeclineModal(prev => {
+      let template = prev.notes;
+      if (prev.actionType === 'RESCHEDULE') {
+        template = `Kính gửi Quý công ty, do ${reason.toLowerCase()} vào khung giờ trên, em xin phép kính đề xuất dời lịch phỏng vấn sang thời gian khác để có thể chuẩn bị tốt nhất. Rất mong Quý công ty thông cảm và hỗ trợ sắp xếp.`;
+      } else {
+        template = `Kính gửi Quý công ty, em chân thành cảm ơn cơ hội phỏng vấn. Do ${reason.toLowerCase()}, em xin phép từ chối tham gia vòng phỏng vấn này. Chúc Quý công ty sớm tìm được ứng viên phù hợp.`;
+      }
+      return {
+        ...prev,
+        quickReason: reason,
+        notes: template
+      };
+    });
+  };
+
+  const handleSubmitDeclineInterview = async () => {
+    const { interview, actionType, quickReason, proposedDate, proposedTimeSlot, notes } = interviewDeclineModal;
+    if (!interview) return;
+
+    let finalReason = '';
+    if (actionType === 'RESCHEDULE') {
+      const timeSlotMap = {
+        MORNING: 'Buổi sáng (09:00 - 11:30)',
+        AFTERNOON: 'Buổi chiều (14:00 - 17:30)',
+        AFTER_HOURS: 'Sau giờ hành chính (Sau 17:30)',
+        ANY: 'Linh hoạt theo lịch sắp xếp của HR'
+      };
+      const timeSlotText = timeSlotMap[proposedTimeSlot] || proposedTimeSlot;
+      const dateText = proposedDate ? ` ngày ${new Date(proposedDate).toLocaleDateString('vi-VN')}` : '';
+      finalReason = `[XIN ĐỔI LỊCH] Lý do: ${quickReason}. Đề xuất dời sang:${dateText} - ${timeSlotText}. Lời nhắn: ${notes}`.trim();
+    } else {
+      finalReason = `[TỪ CHỐI PHỎNG VẤN] Lý do: ${quickReason}. Lời nhắn: ${notes}`.trim();
+    }
+
+    setInterviewDeclineModal(prev => ({ ...prev, submitting: true }));
     const token = localStorage.getItem('candidateToken');
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/candidate-auth/interviews/${interviewId}/decline`,
-        { declineReason: reason },
+        `http://localhost:5000/api/candidate-auth/interviews/${interview.id}/decline`,
+        { declineReason: finalReason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success(res.data.message || 'Đã ghi nhận phản hồi từ chối lịch phỏng vấn.');
+      toast.success(res.data.message || (actionType === 'RESCHEDULE' ? 'Đã gửi đề xuất dời lịch phỏng vấn đến HR thành công!' : 'Đã ghi nhận phản hồi từ chối lịch phỏng vấn.'));
+      setInterviewDeclineModal({
+        isOpen: false,
+        interview: null,
+        app: null,
+        actionType: 'RESCHEDULE',
+        quickReason: '',
+        proposedDate: '',
+        proposedTimeSlot: 'AFTERNOON',
+        notes: '',
+        submitting: false
+      });
       fetchApplications();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Có lỗi xảy ra khi từ chối lịch phỏng vấn.');
-      fetchApplications();
+      toast.error(err.response?.data?.error || 'Có lỗi xảy ra khi gửi phản hồi.');
+      setInterviewDeclineModal(prev => ({ ...prev, submitting: false }));
     }
   };
 
@@ -424,7 +548,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
                                     <button
                                       type="button"
-                                      onClick={() => handleDeclineInterview(inv.id)}
+                                      onClick={() => handleOpenDeclineModal(inv, app)}
                                       className="btn btn-outline"
                                       style={{
                                         fontSize: '0.8125rem',
@@ -569,7 +693,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
                               <button
                                 type="button"
-                                onClick={() => handleRejectOffer(app)}
+                                onClick={() => handleOpenRejectOffer(app)}
                                 className="btn btn-outline"
                                 style={{
                                   fontSize: '0.8125rem',
@@ -628,6 +752,540 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Báo bận / Xin đổi lịch phỏng vấn */}
+      {interviewDeclineModal.isOpen && createPortal(
+        <div
+          className="animate-fade-in"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1100,
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !interviewDeclineModal.submitting) {
+              setInterviewDeclineModal(prev => ({ ...prev, isOpen: false }));
+            }
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '1rem',
+              boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.35)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '92vh'
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'linear-gradient(to right, #FFFBEB, #FFFFFF)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    backgroundColor: '#FEF3C7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#D97706',
+                    flexShrink: 0
+                  }}
+                >
+                  <RotateCcw size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Báo bận & Đề xuất đổi lịch phỏng vấn
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Gửi phản hồi đến Hội đồng tuyển dụng để sắp xếp lại thời gian
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInterviewDeclineModal(prev => ({ ...prev, isOpen: false }))}
+                disabled={interviewDeclineModal.submitting}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  padding: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div
+              className="custom-scrollbar"
+              style={{
+                padding: '1.25rem 1.5rem',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem'
+              }}
+            >
+              {/* Thẻ tóm tắt lịch hẹn hiện tại */}
+              <div
+                style={{
+                  padding: '0.85rem 1rem',
+                  borderRadius: '0.75rem',
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  fontSize: '0.8125rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                    {interviewDeclineModal.interview?.name || 'Vòng phỏng vấn'}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                    {interviewDeclineModal.app?.jobPosting?.title}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', color: 'var(--text-muted)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Calendar size={14} color="var(--primary)" />
+                    <span>
+                      {interviewDeclineModal.interview?.scheduledAt
+                        ? new Date(interviewDeclineModal.interview.scheduledAt).toLocaleString('vi-VN', {
+                            dateStyle: 'short',
+                            timeStyle: 'short'
+                          })
+                        : '--'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Building size={14} />
+                    <span>{interviewDeclineModal.interview?.location || 'Google Meet'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lựa chọn loại yêu cầu */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                  Bạn muốn phản hồi như thế nào?
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectDeclineActionType('RESCHEDULE')}
+                    style={{
+                      padding: '0.75rem 0.85rem',
+                      borderRadius: '0.625rem',
+                      border: '2px solid',
+                      borderColor: interviewDeclineModal.actionType === 'RESCHEDULE' ? 'var(--primary)' : 'var(--border)',
+                      backgroundColor: interviewDeclineModal.actionType === 'RESCHEDULE' ? 'rgba(37, 99, 235, 0.05)' : '#FFFFFF',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <RotateCcw size={16} color={interviewDeclineModal.actionType === 'RESCHEDULE' ? 'var(--primary)' : 'var(--text-muted)'} />
+                      <strong style={{ fontSize: '0.8125rem', color: interviewDeclineModal.actionType === 'RESCHEDULE' ? 'var(--primary)' : 'var(--text-main)' }}>
+                        Xin dời sang lịch khác
+                      </strong>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
+                      (Đề xuất thời gian rảnh để giữ cơ hội)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectDeclineActionType('DECLINE')}
+                    style={{
+                      padding: '0.75rem 0.85rem',
+                      borderRadius: '0.625rem',
+                      border: '2px solid',
+                      borderColor: interviewDeclineModal.actionType === 'DECLINE' ? 'var(--error)' : 'var(--border)',
+                      backgroundColor: interviewDeclineModal.actionType === 'DECLINE' ? 'rgba(239, 68, 68, 0.05)' : '#FFFFFF',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <XCircle size={16} color={interviewDeclineModal.actionType === 'DECLINE' ? 'var(--error)' : 'var(--text-muted)'} />
+                      <strong style={{ fontSize: '0.8125rem', color: interviewDeclineModal.actionType === 'DECLINE' ? 'var(--error)' : 'var(--text-main)' }}>
+                        Từ chối tham gia
+                      </strong>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
+                      (Hủy bỏ vòng phỏng vấn này)
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Gợi ý lý do nhanh (Quick chips) */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+                  Lý do chính (chọn nhanh):
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {(interviewDeclineModal.actionType === 'RESCHEDULE'
+                    ? [
+                        'Trùng lịch làm việc / công tác đột xuất',
+                        'Trùng lịch thi cử / bảo vệ đồ án',
+                        'Có việc gia đình đột xuất',
+                        'Sức khỏe không đảm bảo'
+                      ]
+                    : [
+                        'Đã nhận offer phù hợp từ công ty khác',
+                        'Định hướng công việc cá nhân thay đổi',
+                        'Khoảng cách địa lý không phù hợp',
+                        'Không thể sắp xếp thời gian tham gia'
+                      ]
+                  ).map(reason => {
+                    const isSelected = interviewDeclineModal.quickReason === reason;
+                    return (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => handleSelectQuickReason(reason)}
+                        style={{
+                          padding: '0.35rem 0.65rem',
+                          borderRadius: '9999px',
+                          fontSize: '0.75rem',
+                          border: '1px solid',
+                          borderColor: isSelected ? 'var(--primary)' : '#CBD5E1',
+                          backgroundColor: isSelected ? 'var(--primary)' : '#F1F5F9',
+                          color: isSelected ? '#FFFFFF' : 'var(--text-main)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        {isSelected && '✓ '}
+                        {reason}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Nếu là XIN DỜI LỊCH: Nhập ngày & khung giờ đề xuất */}
+              {interviewDeclineModal.actionType === 'RESCHEDULE' && (
+                <div
+                  style={{
+                    padding: '0.85rem',
+                    borderRadius: '0.75rem',
+                    backgroundColor: '#F8FAFC',
+                    border: '1px dashed #CBD5E1',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}
+                >
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                    🗓️ Thời gian bạn có thể tham gia (Đề xuất):
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                        Ngày đề xuất
+                      </label>
+                      <input
+                        type="date"
+                        min={new Date().toISOString().split('T')[0]}
+                        className="form-input w-full bg-white"
+                        style={{ padding: '0.45rem 0.65rem', fontSize: '0.8125rem' }}
+                        value={interviewDeclineModal.proposedDate}
+                        onChange={e => setInterviewDeclineModal(prev => ({ ...prev, proposedDate: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                        Khung giờ thuận tiện
+                      </label>
+                      <select
+                        className="form-input w-full bg-white"
+                        style={{ padding: '0.45rem 0.65rem', fontSize: '0.8125rem' }}
+                        value={interviewDeclineModal.proposedTimeSlot}
+                        onChange={e => setInterviewDeclineModal(prev => ({ ...prev, proposedTimeSlot: e.target.value }))}
+                      >
+                        <option value="MORNING">Buổi sáng (09:00 - 11:30)</option>
+                        <option value="AFTERNOON">Buổi chiều (14:00 - 17:30)</option>
+                        <option value="AFTER_HOURS">Sau giờ hành chính (Sau 17:30)</option>
+                        <option value="ANY">Linh hoạt theo lịch của HR</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Lời nhắn gửi HR / Hội đồng phỏng vấn */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.35rem' }}>
+                  Lời nhắn gửi Hội đồng tuyển dụng:
+                </label>
+                <textarea
+                  className="form-input w-full bg-white"
+                  rows={3}
+                  style={{ fontSize: '0.8125rem', resize: 'vertical' }}
+                  placeholder="Nhập thêm chi tiết hoặc lời nhắn để HR tiện sắp xếp..."
+                  value={interviewDeclineModal.notes}
+                  onChange={e => setInterviewDeclineModal(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: '1rem 1.5rem',
+                borderTop: '1px solid var(--border)',
+                backgroundColor: '#F8FAFC',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.75rem'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setInterviewDeclineModal(prev => ({ ...prev, isOpen: false }))}
+                className="btn btn-outline"
+                disabled={interviewDeclineModal.submitting}
+                style={{ fontSize: '0.8125rem', padding: '0.5rem 1rem' }}
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitDeclineInterview}
+                className="btn btn-primary"
+                disabled={interviewDeclineModal.submitting}
+                style={{
+                  fontSize: '0.8125rem',
+                  padding: '0.5rem 1.25rem',
+                  backgroundColor: interviewDeclineModal.actionType === 'RESCHEDULE' ? '#D97706' : 'var(--error)',
+                  borderColor: interviewDeclineModal.actionType === 'RESCHEDULE' ? '#D97706' : 'var(--error)'
+                }}
+              >
+                {interviewDeclineModal.submitting ? (
+                  'Đang gửi...'
+                ) : (
+                  <>
+                    <Send size={15} />
+                    {interviewDeclineModal.actionType === 'RESCHEDULE' ? 'Gửi đề xuất dời lịch' : 'Xác nhận từ chối'}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Từ chối Offer */}
+      {offerRejectModal.isOpen && createPortal(
+        <div
+          className="animate-fade-in"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1100,
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !offerRejectModal.submitting) {
+              setOfferRejectModal(prev => ({ ...prev, isOpen: false }));
+            }
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '1rem',
+              boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.35)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <div
+              style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'linear-gradient(to right, #FEF2F2, #FFFFFF)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    backgroundColor: '#FEE2E2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--error)'
+                  }}
+                >
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Từ chối Thư mời nhận việc (Offer)
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {offerRejectModal.app?.jobPosting?.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOfferRejectModal(prev => ({ ...prev, isOpen: false }))}
+                disabled={offerRejectModal.submitting}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: '0.5rem',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  fontSize: '0.8rem',
+                  color: '#991B1B'
+                }}
+              >
+                ⚠️ <strong>Lưu ý:</strong> Quyết định từ chối Offer là cuối cùng và không thể hoàn tác. Quá trình ứng tuyển cho vị trí này sẽ kết thúc.
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+                  Lý do chính (chọn nhanh):
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {[
+                    'Đã nhận được lời mời làm việc phù hợp hơn',
+                    'Chế độ đãi ngộ chưa đạt kỳ vọng',
+                    'Thời gian bắt đầu làm việc chưa phù hợp',
+                    'Định hướng công việc cá nhân thay đổi'
+                  ].map(reason => {
+                    const isSelected = offerRejectModal.quickReason === reason;
+                    return (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => setOfferRejectModal(prev => ({ ...prev, quickReason: reason }))}
+                        style={{
+                          padding: '0.35rem 0.65rem',
+                          borderRadius: '9999px',
+                          fontSize: '0.75rem',
+                          border: '1px solid',
+                          borderColor: isSelected ? 'var(--error)' : '#CBD5E1',
+                          backgroundColor: isSelected ? 'var(--error)' : '#F1F5F9',
+                          color: isSelected ? '#FFFFFF' : 'var(--text-main)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {isSelected && '✓ '}
+                        {reason}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.35rem' }}>
+                  Lời nhắn gửi Quý công ty:
+                </label>
+                <textarea
+                  className="form-input w-full bg-white"
+                  rows={3}
+                  style={{ fontSize: '0.8125rem' }}
+                  value={offerRejectModal.notes}
+                  onChange={e => setOfferRejectModal(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '1rem 1.5rem',
+                borderTop: '1px solid var(--border)',
+                backgroundColor: '#F8FAFC',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.75rem'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setOfferRejectModal(prev => ({ ...prev, isOpen: false }))}
+                className="btn btn-outline"
+                disabled={offerRejectModal.submitting}
+                style={{ fontSize: '0.8125rem', padding: '0.5rem 1rem' }}
+              >
+                Suy nghĩ lại
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitRejectOffer}
+                className="btn btn-primary"
+                disabled={offerRejectModal.submitting}
+                style={{
+                  fontSize: '0.8125rem',
+                  padding: '0.5rem 1.25rem',
+                  backgroundColor: 'var(--error)',
+                  borderColor: 'var(--error)'
+                }}
+              >
+                {offerRejectModal.submitting ? 'Đang xử lý...' : 'Xác nhận từ chối Offer'}
+              </button>
             </div>
           </div>
         </div>,
