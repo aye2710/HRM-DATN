@@ -1,9 +1,95 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Search, Plus, Filter, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
+import { Briefcase, Search, Plus, Filter, Edit2, Trash2, X, AlertTriangle, Lock, Unlock, Sparkles } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+// Hàm loại bỏ dấu tiếng Việt
+const removeVietnameseTones = (str) => {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+};
+
+// Hàm sinh mã vị trí thông minh theo chuẩn doanh nghiệp [PB]-[VỊ_TRÍ]
+const generatePositionCode = (title, deptCode = '') => {
+  if (!title || !title.trim()) return '';
+
+  const cleanTitle = removeVietnameseTones(title.trim().toLowerCase());
+
+  // 1. Từ điển quy ước chức danh phổ biến
+  const roleMap = [
+    { regex: /front\s*end|frontend|\bfe\b/i, code: 'FE' },
+    { regex: /back\s*end|backend|\bbe\b/i, code: 'BE' },
+    { regex: /full\s*stack|fullstack|\bfs\b/i, code: 'FS' },
+    { regex: /mobile|android|ios|flutter|react\s*native/i, code: 'MOB' },
+    { regex: /devops|cloud|sre|ha\s*tang/i, code: 'DEVOPS' },
+    { regex: /tester|kiem\s*thu|\bqa\b|\bqc\b/i, code: 'QA' },
+    { regex: /data\s*engineer|data\s*analyst|ky\s*su\s*du\s*lieu|khoa\s*hoc\s*du\s*lieu/i, code: 'DATA' },
+    { regex: /ui\s*\/\s*ux|uiux|designer|thiet\s*ke|do\s*hoa/i, code: 'UIUX' },
+    { regex: /product\s*manager|product\s*owner|\bpm\b|\bpo\b/i, code: 'PM' },
+    { regex: /scrum\s*master/i, code: 'SM' },
+    { regex: /business\s*analyst|phan\s*tich\s*nghiep\s*vu|\bba\b/i, code: 'BA' },
+    { regex: /tuyen\s*dung|recruiter|recruitment/i, code: 'REC' },
+    { regex: /c&b|tien\s*luong|dai\s*ngo|compensation/i, code: 'CNB' },
+    { regex: /nhan\s*su\s*tong\s*hop|hr\s*generalist|hrbp/i, code: 'HRBP' },
+    { regex: /dao\s*tao|training|l&d/i, code: 'LND' },
+    { regex: /ke\s*toan\s*thue|thue/i, code: 'TAX' },
+    { regex: /ke\s*toan\s*tong\s*hop/i, code: 'KTTH' },
+    { regex: /ke\s*toan\s*kho|kho/i, code: 'KHO' },
+    { regex: /ke\s*toan\s*thanh\s*toan/i, code: 'KTTT' },
+    { regex: /ke\s*toan/i, code: 'KT' },
+    { regex: /thu\s*quy|treasury/i, code: 'TREAS' },
+    { regex: /kiem\s*toan/i, code: 'AUDIT' },
+    { regex: /content|bien\s*tap|copywriter/i, code: 'CONTENT' },
+    { regex: /seo|digital\s*marketing/i, code: 'SEO' },
+    { regex: /media|video|editor/i, code: 'MEDIA' },
+    { regex: /kinh\s*doanh|ban\s*hang|sales/i, code: 'SALES' },
+    { regex: /cham\s*soc\s*khach\s*hang|cskh|support/i, code: 'CSKH' },
+    { regex: /phap\s*che|legal/i, code: 'LEGAL' },
+    { regex: /an\s*ninh|bao\s*mat|security/i, code: 'SEC' },
+    { regex: /hanh\s*chinh|admin/i, code: 'ADMIN' },
+    { regex: /giam\s*doc\s*dieu\s*hanh|\bceo\b/i, code: 'CEO' },
+    { regex: /giam\s*doc\s*cong\s*nghe|\bcto\b/i, code: 'CTO' },
+    { regex: /giam\s*doc\s*tai\s*chinh|\bcfo\b/i, code: 'CFO' },
+    { regex: /giam\s*doc\s*nhan\s*su|\bchro\b/i, code: 'CHRO' },
+    { regex: /giam\s*doc\s*van\s*hanh|\bcoo\b/i, code: 'COO' },
+    { regex: /giam\s*doc|director/i, code: 'DIR' },
+    { regex: /truong\s*phong|lead/i, code: 'LEAD' }
+  ];
+
+  let roleCode = '';
+  for (const item of roleMap) {
+    if (item.regex.test(cleanTitle)) {
+      roleCode = item.code;
+      break;
+    }
+  }
+
+  // 2. Nếu không khớp từ điển: lược bỏ hư từ và lấy các chữ cái đầu
+  if (!roleCode) {
+    const words = cleanTitle
+      .split(/[\s\-_/]+/)
+      .filter(w => !['nhan', 'vien', 'chuyen', 'to', 'truong', 'pho', 'can', 'bo', 'chuc', 'danh', 'vi', 'tri'].includes(w));
+    const targetWords = words.length > 0 ? words : cleanTitle.split(/[\s\-_/]+/);
+    roleCode = targetWords.map(w => w[0]?.toUpperCase()).join('').slice(0, 5);
+  }
+
+  const prefix = (deptCode || '').trim().toUpperCase();
+  if (!prefix) {
+    return roleCode;
+  }
+
+  // Tránh lặp tiền tố nếu roleCode đã trùng tiền tố phòng ban (VD: HR-HR -> HR)
+  if (roleCode === prefix || roleCode.startsWith(`${prefix}-`)) {
+    return roleCode;
+  }
+
+  return `${prefix}-${roleCode}`;
+};
 
 export const Positions = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,6 +105,7 @@ export const Positions = () => {
   const [modalMode, setModalMode] = useState('add');
   const [editingId, setEditingId] = useState('');
   const [formData, setFormData] = useState({ code: '', title: '', description: '', level: 'Staff', minSalary: 0, maxSalary: 0, departmentId: '', status: 'ACTIVE' });
+  const [isManualCode, setIsManualCode] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
@@ -38,8 +125,14 @@ export const Positions = () => {
       .catch(err => console.error(err));
   };
 
+  const getDeptCode = (deptId) => {
+    const dept = departments.find(d => d.id === deptId);
+    return dept ? dept.code : '';
+  };
+
   const handleOpenAdd = () => {
     setModalMode('add');
+    setIsManualCode(false);
     setFormData({ code: '', title: '', description: '', level: 'Staff', minSalary: 0, maxSalary: 0, departmentId: '', status: 'ACTIVE' });
     setShowModal(true);
   };
@@ -47,6 +140,7 @@ export const Positions = () => {
   const handleOpenEdit = (pos) => {
     setModalMode('edit');
     setEditingId(pos.id);
+    setIsManualCode(true);
     setFormData({
       code: pos.code || '',
       title: pos.title || '',
@@ -60,21 +154,97 @@ export const Positions = () => {
     setShowModal(true);
   };
 
-  const handleSave = () => {
-    if (!formData.code || !formData.title) {
-      toast.error('Vui lòng nhập đủ Mã và Tên vị trí!');
+  // Tự động sinh mã khi nhập Tên vị trí
+  const handleTitleChange = (e) => {
+    const newTitle = e.target.value;
+    const updated = { ...formData, title: newTitle };
+    if (!isManualCode && modalMode === 'add') {
+      const deptCode = getDeptCode(formData.departmentId);
+      updated.code = generatePositionCode(newTitle, deptCode);
+    }
+    setFormData(updated);
+  };
+
+  // Cập nhật lại mã nếu đổi Phòng ban trực thuộc (khi chưa sửa tay)
+  const handleDepartmentChange = (e) => {
+    const newDeptId = e.target.value;
+    const updated = { ...formData, departmentId: newDeptId };
+    if (!isManualCode && modalMode === 'add') {
+      const deptCode = getDeptCode(newDeptId);
+      updated.code = generatePositionCode(formData.title, deptCode);
+    }
+    setFormData(updated);
+  };
+
+  // Người dùng tùy chỉnh mã: Cưỡng chế in hoa, lọc ký tự hợp lệ
+  const handleCodeChange = (e) => {
+    const raw = e.target.value;
+    const sanitized = removeVietnameseTones(raw)
+      .toUpperCase()
+      .replace(/[^A-Z0-9_\-]/g, '');
+    setFormData({ ...formData, code: sanitized });
+    setIsManualCode(true);
+  };
+
+  // Nút chủ động sinh lại mã gợi ý
+  const handleRegenerateCode = () => {
+    if (!formData.title.trim()) {
+      toast('Vui lòng nhập Tên vị trí trước khi sinh mã!', { icon: 'ℹ️' });
       return;
     }
+    const deptCode = getDeptCode(formData.departmentId);
+    const autoCode = generatePositionCode(formData.title, deptCode);
+    setFormData(prev => ({ ...prev, code: autoCode }));
+    setIsManualCode(false);
+    toast.success(`Đã sinh mã gợi ý: ${autoCode}`);
+  };
+
+  const handleSave = () => {
+    const cleanTitle = formData.title.trim();
+    const cleanCode = formData.code.trim().toUpperCase();
+
+    if (!cleanTitle) {
+      toast.error('Vui lòng nhập Tên vị trí / Chức danh!');
+      return;
+    }
+
+    if (!cleanCode || cleanCode.length < 2) {
+      toast.error('Mã vị trí phải có tối thiểu 2 ký tự (Ví dụ: DEV-FE, HR-REC)!');
+      return;
+    }
+
+    // Kiểm tra trùng lặp mã vị trí
+    const isDuplicate = positions.some(
+      p => p.code.toUpperCase() === cleanCode && p.id !== editingId
+    );
+    if (isDuplicate) {
+      toast.error(`Mã vị trí "${cleanCode}" đã tồn tại! Vui lòng chọn mã khác.`);
+      return;
+    }
+
+    if (formData.minSalary > 0 && formData.maxSalary > 0 && formData.minSalary > formData.maxSalary) {
+      toast.error('Lương tối thiểu không được lớn hơn lương tối đa!');
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      title: cleanTitle,
+      code: cleanCode
+    };
+
     if (modalMode === 'add') {
-      axios.post('http://localhost:5000/api/positions', formData)
+      axios.post('http://localhost:5000/api/positions', payload)
         .then(() => {
+          toast.success('Đã thêm vị trí thành công!');
           fetchPositions();
           setShowModal(false);
         })
         .catch(err => toast.error(err.response?.data?.error || 'Lỗi thêm vị trí'));
     } else {
-      axios.put(`http://localhost:5000/api/positions/${editingId}`, formData)
+      axios.put(`http://localhost:5000/api/positions/${editingId}`, payload)
         .then(() => {
+          toast.success('Đã cập nhật vị trí!');
           fetchPositions();
           setShowModal(false);
         })
@@ -275,40 +445,65 @@ export const Positions = () => {
             </div>
 
             <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+              {/* Row 1: Tên vị trí & Phòng ban trực thuộc */}
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Mã vị trí</label>
-                <input
-                  type="text"
-                  className="form-input w-full"
-                  value={formData.code}
-                  onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  placeholder="Ví dụ: DEV-FE, HR-EXE..."
-                />
-              </div>
-              <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Tên vị trí / Chức danh</label>
+                <label className="text-sm font-medium text-[var(--text-muted)]">
+                  Tên vị trí / Chức danh <span style={{ color: 'var(--error)' }}>*</span>
+                </label>
                 <input
                   type="text"
                   className="form-input w-full"
                   value={formData.title}
-                  onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Ví dụ: Frontend Developer..."
+                  onChange={handleTitleChange}
+                  placeholder="Ví dụ: Frontend Developer, Chuyên viên Tuyển dụng..."
                 />
               </div>
+
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Phòng ban trực thuộc</label>
                 <select
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)] rounded-lg outline-none"
                   style={{ padding: '0.5rem' }}
                   value={formData.departmentId}
-                  onChange={e => setFormData({ ...formData, departmentId: e.target.value })}
+                  onChange={handleDepartmentChange}
                 >
                   <option value="" className="text-black">-- Toàn công ty (Không thuộc PB nào) --</option>
                   {departments.map(d => (
-                    <option key={d.id} value={d.id} className="text-black">{d.name}</option>
+                    <option key={d.id} value={d.id} className="text-black">{d.name} ({d.code})</option>
                   ))}
                 </select>
               </div>
+
+              {/* Row 2: Mã vị trí (với nút Gợi ý) & Cấp bậc */}
+              <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-[var(--text-muted)]">
+                    Mã vị trí <span style={{ color: 'var(--error)' }}>*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateCode}
+                    className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                    title="Gợi ý mã chuẩn theo tên vị trí và phòng ban"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    <Sparkles size={13} />
+                    <span>Sinh mã gợi ý</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  className="form-input w-full font-mono font-semibold"
+                  value={formData.code}
+                  onChange={handleCodeChange}
+                  placeholder="Ví dụ: DEV-FE, HR-REC..."
+                  style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
+                />
+                <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '0.75rem', marginTop: '-2px' }}>
+                  💡 Tự động in hoa, không dấu (Cấu trúc: [PB]-[VỊ_TRÍ])
+                </span>
+              </div>
+
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Cấp bậc</label>
                 <select
@@ -326,6 +521,8 @@ export const Positions = () => {
                   <option value="Director" className="text-black">Director</option>
                 </select>
               </div>
+
+              {/* Row 3: Lương tối thiểu & Lương tối đa */}
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Lương tối thiểu (VND)</label>
                 <input
@@ -335,6 +532,7 @@ export const Positions = () => {
                   onChange={e => setFormData({ ...formData, minSalary: parseInt(e.target.value) || 0 })}
                 />
               </div>
+
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Lương tối đa (VND)</label>
                 <input
@@ -344,6 +542,8 @@ export const Positions = () => {
                   onChange={e => setFormData({ ...formData, maxSalary: parseInt(e.target.value) || 0 })}
                 />
               </div>
+
+              {/* Row 4: Mô tả công việc */}
               <div className="flex-col gap-2" style={{ gridColumn: 'span 2' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Mô tả công việc</label>
                 <textarea
