@@ -1,18 +1,21 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../../db';
 import { AssetCategory, AssetStatus, AssignmentStatus } from '@prisma/client';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
 
 const router = express.Router();
+
+// Áp dụng xác thực cho toàn bộ phân hệ Quản lý Tài sản
+router.use(authenticateToken);
+
+const itOrHrOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF', 'IT_SUPPORT');
 
 // Helper to seed demo assets if empty
 const seedDemoAssets = async () => {
   const count = await prisma.asset.count();
   if (count > 0) return;
 
-  const employees = await prisma.employee.findMany({ take: 5 });
-  
   const demoAssets = [
     {
       code: 'TS-LAP-001',
@@ -35,23 +38,10 @@ const seedDemoAssets = async () => {
       price: 42500000,
       purchaseDate: new Date('2025-10-01'),
       supplier: 'Hapro Distribution',
-      status: AssetStatus.ASSIGNED,
-      condition: 'Hoạt động tốt 99%, có dán màn hình',
-      location: 'Bàn làm việc - Tầng 4',
-      notes: 'Bàn giao cho Trưởng phòng Kỹ thuật'
-    },
-    {
-      code: 'TS-LAP-003',
-      name: 'Lenovo ThinkPad T14 Gen 4 Ryzen 7 16GB',
-      category: AssetCategory.LAPTOP,
-      serialNumber: 'PF-4KN892',
-      price: 26800000,
-      purchaseDate: new Date('2025-12-05'),
-      supplier: 'Phong Vũ Computer',
       status: AssetStatus.AVAILABLE,
-      condition: 'Mới 100%, kèm sạc 65W Type-C',
-      location: 'Kho CNTT - Tủ A2',
-      notes: 'Dành cho nhân sự Onboarding mới'
+      condition: 'Hoạt động tốt 99%, có dán màn hình',
+      location: 'Kho CNTT - Tủ A1',
+      notes: 'Thiết bị đồ họa / kỹ thuật'
     },
     {
       code: 'TS-MON-001',
@@ -61,74 +51,19 @@ const seedDemoAssets = async () => {
       price: 10490000,
       purchaseDate: new Date('2025-11-20'),
       supplier: 'Hapro Distribution',
-      status: AssetStatus.ASSIGNED,
-      condition: 'Hoạt động hoàn hảo, không điểm chết',
-      location: 'Bàn làm việc - Tầng 4',
-      notes: 'Màn hình đồ họa / code'
-    },
-    {
-      code: 'TS-MON-002',
-      name: 'LG 27UP850N-W 27" 4K UHD Type-C 90W HDR400',
-      category: AssetCategory.MONITOR,
-      serialNumber: '309NTAK7Y211',
-      price: 8900000,
-      purchaseDate: new Date('2025-12-10'),
-      supplier: 'Phúc Anh Smart World',
       status: AssetStatus.AVAILABLE,
-      condition: 'Mới 100%',
+      condition: 'Hoạt động hoàn hảo, không điểm chết',
       location: 'Kho CNTT - Kệ Màn Hình',
-      notes: 'Cấp phát cho Developer'
-    },
-    {
-      code: 'TS-CRD-001',
-      name: 'Thẻ từ thang máy & Ra vào văn phòng tòa nhà P.402',
-      category: AssetCategory.ACCESS_CARD,
-      serialNumber: 'RFID-HEX-99812',
-      price: 150000,
-      purchaseDate: new Date('2026-01-05'),
-      supplier: 'Ban Quản Lý Tòa Nhà',
-      status: AssetStatus.ASSIGNED,
-      condition: 'Nguyên vẹn kèm dây đeo nhận diện',
-      location: 'Văn phòng chính',
-      notes: 'Thẻ gửi xe + vào cửa tầng 4'
-    },
-    {
-      code: 'TS-PHN-001',
-      name: 'Apple iPhone 15 128GB Black (Test Device)',
-      category: AssetCategory.PHONE,
-      serialNumber: 'FK2910MQL2',
-      price: 19500000,
-      purchaseDate: new Date('2025-09-12'),
-      supplier: 'Viettel Store',
-      status: AssetStatus.MAINTENANCE,
-      condition: 'Đang bảo hành pin tại Apple Care+',
-      location: 'Phòng Lab QA/QC',
-      notes: 'Thiết bị test kiểm thử ứng dụng di động'
+      notes: 'Màn hình đồ họa / code'
     }
   ];
 
-  for (const item of demoAssets) {
-    const created = await prisma.asset.create({ data: item });
-
-    // If marked ASSIGNED and we have an employee, create assignment record
-    if (item.status === AssetStatus.ASSIGNED && employees.length > 0) {
-      const emp = employees[item.code === 'TS-LAP-002' ? 0 : (employees.length > 1 ? 1 : 0)];
-      await prisma.assetAssignment.create({
-        data: {
-          assetId: created.id,
-          employeeId: emp.id,
-          assignedDate: new Date('2026-01-15'),
-          status: AssignmentStatus.ACTIVE,
-          conditionOnAssign: 'Máy nguyên tem, bàn phím gõ tốt, sạc cáp đầy đủ',
-          handoverDocCode: `BB-BG-2026-${Math.floor(100 + Math.random() * 900)}`,
-          notes: 'Biên bản bàn giao thiết bị làm việc chính thức theo biểu mẫu BM-01'
-        }
-      });
-    }
+  for (const a of demoAssets) {
+    await prisma.asset.create({ data: a });
   }
 };
 
-// GET /api/assets/stats - Thống kê tài sản
+// 1. GET /api/assets/stats - Thống kê tài sản kho
 router.get('/stats', async (req: Request, res: Response) => {
   try {
     await seedDemoAssets();
@@ -158,7 +93,7 @@ router.get('/stats', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/assets - Danh sách tài sản (kèm tìm kiếm và lọc)
+// 2. GET /api/assets - Danh sách danh mục tài sản (kèm tìm kiếm và lọc)
 router.get('/', async (req: Request, res: Response) => {
   try {
     await seedDemoAssets();
@@ -210,10 +145,18 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/assets/assignments - Danh sách lịch sử bàn giao & thu hồi
-router.get('/assignments', async (req: Request, res: Response) => {
+// 3. GET /api/assets/assignments - Danh sách lịch sử bàn giao & thu hồi (Chống IDOR: Nhân viên chỉ xem tài sản của mình)
+router.get('/assignments', async (req: any, res: Response): Promise<any> => {
   try {
-    const { status, employeeId } = req.query;
+    const { status } = req.query;
+    let employeeId = req.query.employeeId as string;
+    const userRole = req.user?.role?.toUpperCase();
+
+    // Chặn IDOR: Nhân viên thường chỉ được xem các lượt bàn giao tài sản của chính mình
+    if (userRole === 'EMPLOYEE') {
+      employeeId = req.user.employeeId;
+    }
+
     const where: any = {};
     if (status && status !== 'ALL') {
       where.status = status as AssignmentStatus;
@@ -240,90 +183,116 @@ router.get('/assignments', async (req: Request, res: Response) => {
       }
     });
 
-    res.json(assignments);
+    return res.json(assignments);
   } catch (error: any) {
     console.error('Error fetching assignments:', error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
-// POST /api/assets - Thêm mới tài sản vào kho
-router.post('/', async (req: Request, res: Response) => {
+// 4. POST /api/assets - Thêm mới tài sản vào kho (IT/HR Only)
+router.post('/', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { code, name, category, serialNumber, price, purchaseDate, supplier, condition, location, notes } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ error: 'Tên thiết bị không được để trống' });
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'Tên thiết bị không được để trống.' });
     }
 
     // Auto generate code if empty
-    let assetCode = code;
+    let assetCode = code ? String(code).trim().toUpperCase() : null;
     if (!assetCode) {
       const prefix = category ? String(category).slice(0, 3) : 'GEN';
       const count = await prisma.asset.count();
       assetCode = `TS-${prefix}-${String(count + 1).padStart(3, '0')}`;
     }
 
+    const existing = await prisma.asset.findUnique({ where: { code: assetCode } });
+    if (existing) {
+      return res.status(400).json({ error: `Mã tài sản "${assetCode}" đã tồn tại trong hệ thống.` });
+    }
+
     const asset = await prisma.asset.create({
       data: {
         code: assetCode,
-        name,
+        name: String(name).trim(),
         category: category || AssetCategory.LAPTOP,
-        serialNumber: serialNumber || null,
-        price: price ? Number(price) : 0,
+        serialNumber: serialNumber ? String(serialNumber).trim() : null,
+        price: price !== undefined ? Number(price) : 0,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
-        supplier: supplier || null,
-        condition: condition || 'Mới 100%',
-        location: location || 'Kho CNTT',
-        notes: notes || null,
+        supplier: supplier ? String(supplier).trim() : null,
+        condition: condition ? String(condition).trim() : 'Mới 100%',
+        location: location ? String(location).trim() : 'Kho CNTT',
+        notes: notes ? String(notes).trim() : null,
         status: AssetStatus.AVAILABLE
       }
     });
 
-    res.status(201).json(asset);
+    await createAuditLog({
+      action: 'CREATE_ASSET',
+      tableName: 'Asset',
+      recordId: asset.id,
+      accountId: req.user?.accountId,
+      details: `Nhập kho tài sản mới: [${asset.code}] ${asset.name}`
+    });
+
+    return res.status(201).json(asset);
   } catch (error: any) {
     console.error('Error creating asset:', error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message || 'Lỗi khi nhập kho tài sản' });
   }
 });
 
-// PUT /api/assets/:id - Sửa thông tin tài sản
-router.put('/:id', async (req: Request, res: Response) => {
+// 5. PUT /api/assets/:id - Sửa thông tin tài sản (IT/HR Only)
+router.put('/:id', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { name, category, serialNumber, price, purchaseDate, supplier, status, condition, location, notes } = req.body;
 
+    const existing = await prisma.asset.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Không tìm thấy tài sản để cập nhật.' });
+    }
+
     const updated = await prisma.asset.update({
       where: { id },
       data: {
-        ...(name && { name }),
+        ...(name && { name: String(name).trim() }),
         ...(category && { category }),
-        ...(serialNumber !== undefined && { serialNumber }),
+        ...(serialNumber !== undefined && { serialNumber: serialNumber ? String(serialNumber).trim() : null }),
         ...(price !== undefined && { price: Number(price) }),
         ...(purchaseDate !== undefined && { purchaseDate: purchaseDate ? new Date(purchaseDate) : null }),
-        ...(supplier !== undefined && { supplier }),
+        ...(supplier !== undefined && { supplier: supplier ? String(supplier).trim() : null }),
         ...(status && { status }),
-        ...(condition !== undefined && { condition }),
-        ...(location !== undefined && { location }),
-        ...(notes !== undefined && { notes })
+        ...(condition !== undefined && { condition: condition ? String(condition).trim() : null }),
+        ...(location !== undefined && { location: location ? String(location).trim() : null }),
+        ...(notes !== undefined && { notes: notes ? String(notes).trim() : null })
       }
     });
 
-    res.json(updated);
+    await createAuditLog({
+      action: 'UPDATE_ASSET',
+      tableName: 'Asset',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Cập nhật thông tin tài sản [${updated.code}]`
+    });
+
+    return res.json(updated);
   } catch (error: any) {
     console.error('Error updating asset:', error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
-// DELETE /api/assets/:id - Xóa tài sản
-router.delete('/:id', async (req: Request, res: Response) => {
+// 6. DELETE /api/assets/:id - Xóa tài sản (IT/HR Only - Chặn xóa nếu đang được bàn giao)
+router.delete('/:id', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const asset = await prisma.asset.findUnique({
       where: { id },
       include: { assignments: { where: { status: AssignmentStatus.ACTIVE } } }
-    }) as any;
+    });
 
     if (!asset) {
       return res.status(404).json({ error: 'Không tìm thấy tài sản' });
@@ -333,21 +302,42 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Tài sản đang được nhân viên sử dụng. Hãy làm thủ tục thu hồi trước khi xóa!' });
     }
 
-    await prisma.asset.delete({ where: { id } });
-    res.json({ message: 'Xóa tài sản thành công' });
+    await prisma.$transaction(async (tx) => {
+      await tx.assetAssignment.deleteMany({ where: { assetId: id } });
+      await tx.asset.delete({ where: { id } });
+    });
+
+    await createAuditLog({
+      action: 'DELETE_ASSET',
+      tableName: 'Asset',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Xóa tài sản khỏi danh mục kho: [${asset.code}] ${asset.name}`
+    });
+
+    return res.json({ message: 'Xóa tài sản thành công' });
   } catch (error: any) {
     console.error('Error deleting asset:', error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
-// POST /api/assets/assign - Bàn giao tài sản cho nhân sự (Biểu mẫu BM01)
-router.post('/assign', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// 7. POST /api/assets/assign - Bàn giao tài sản cho nhân sự (Biểu mẫu BM01 - IT/HR Only)
+router.post('/assign', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { assetId, employeeId, assignedDate, conditionOnAssign, handoverDocCode, notes } = req.body;
 
     if (!assetId || !employeeId) {
       return res.status(400).json({ error: 'Vui lòng chọn tài sản và nhân viên nhận bàn giao' });
+    }
+
+    // Kiểm tra nhân viên còn đang làm việc
+    const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
+    if (!emp) {
+      return res.status(404).json({ error: 'Không tìm thấy thông tin nhân viên nhận bàn giao' });
+    }
+    if (emp.status === 'RESIGNED') {
+      return res.status(400).json({ error: 'Không thể bàn giao tài sản cho nhân sự đã thôi việc (RESIGNED)!' });
     }
 
     const docCode = handoverDocCode || `BB-BG-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -371,7 +361,7 @@ router.post('/assign', authenticateToken, async (req: any, res: Response): Promi
           assignedDate: assignedDate ? new Date(assignedDate) : new Date(),
           conditionOnAssign: conditionOnAssign || 'Thiết bị hoạt động bình thường, đầy đủ phụ kiện',
           handoverDocCode: docCode,
-          notes: notes || null,
+          notes: notes ? String(notes).trim() : null,
           status: AssignmentStatus.ACTIVE
         },
         include: {
@@ -398,15 +388,15 @@ router.post('/assign', authenticateToken, async (req: any, res: Response): Promi
       details: `Bàn giao tài sản [${assignment.asset.name} - ${assignment.asset.code}] cho nhân viên [${assignment.employee.fullName}] theo biên bản ${docCode}`
     });
 
-    res.status(201).json(assignment);
+    return res.status(201).json(assignment);
   } catch (error: any) {
     console.error('Error assigning asset:', error);
-    res.status(400).json({ error: error.message || 'Lỗi khi bàn giao tài sản' });
+    return res.status(400).json({ error: error.message || 'Lỗi khi bàn giao tài sản' });
   }
 });
 
-// POST /api/assets/assignments/:id/return - Thu hồi / Hoàn trả tài sản
-router.post('/assignments/:id/return', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// 8. POST /api/assets/assignments/:id/return - Thu hồi / Hoàn trả tài sản (Biểu mẫu BM02 - IT/HR Only)
+router.post('/assignments/:id/return', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { returnedDate, conditionOnReturn, notes, nextAssetStatus } = req.body;
@@ -455,10 +445,10 @@ router.post('/assignments/:id/return', authenticateToken, async (req: any, res: 
       details: `Thu hồi tài sản [${result.assetName}] từ nhân viên [${result.employeeName}]`
     });
 
-    res.json({ message: 'Thu hồi tài sản thành công', assignment: result.updatedAssignment });
+    return res.json({ message: 'Thu hồi tài sản thành công', assignment: result.updatedAssignment });
   } catch (error: any) {
     console.error('Error returning asset:', error);
-    res.status(400).json({ error: error.message || 'Lỗi khi thu hồi tài sản' });
+    return res.status(400).json({ error: error.message || 'Lỗi khi thu hồi tài sản' });
   }
 });
 

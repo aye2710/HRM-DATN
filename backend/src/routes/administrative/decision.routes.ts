@@ -1,14 +1,26 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
 
 const router = Router();
 
-// 1. GET: Danh sách Quyết định Nhân sự
-router.get('/', async (req: Request, res: Response): Promise<any> => {
+// Áp dụng xác thực danh tính cho toàn bộ phân hệ Quyết định Nhân sự
+router.use(authenticateToken);
+
+const hrManagerOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER');
+
+// 1. GET: Danh sách Quyết định Nhân sự (Chống IDOR: Nhân viên chỉ xem quyết định của bản thân)
+router.get('/', async (req: any, res: Response): Promise<any> => {
   try {
-    const { type, status, employeeId } = req.query;
+    const { type, status } = req.query;
+    let employeeId = req.query.employeeId as string;
+    const userRole = req.user?.role?.toUpperCase();
+
+    // Chặn IDOR: Nhân viên thông thường chỉ được xem các quyết định áp dụng cho chính mình
+    if (userRole === 'EMPLOYEE') {
+      employeeId = req.user.employeeId;
+    }
     
     let whereClause: any = {};
     if (type) whereClause.type = type;
@@ -34,10 +46,12 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-// 2. GET: Chi tiết 1 Quyết định
-router.get('/:id', async (req: Request, res: Response): Promise<any> => {
+// 2. GET: Chi tiết 1 Quyết định (Chống IDOR)
+router.get('/:id', async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
+    const userRole = req.user?.role?.toUpperCase();
+
     const decision = await prisma.decision.findUnique({
       where: { id },
       include: {
@@ -50,14 +64,20 @@ router.get('/:id', async (req: Request, res: Response): Promise<any> => {
     });
 
     if (!decision) return res.status(404).json({ error: 'Không tìm thấy quyết định' });
+
+    // Chặn IDOR: Nhân viên chỉ xem được quyết định của chính mình
+    if (userRole === 'EMPLOYEE' && decision.employeeId !== req.user?.employeeId) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem thông tin quyết định này.' });
+    }
+
     return res.json(decision);
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi lấy thông tin quyết định' });
   }
 });
 
-// 3. POST: Khởi tạo Quyết định Nhân sự mới
-router.post('/', async (req: Request, res: Response): Promise<any> => {
+// 3. POST: Khởi tạo Quyết định Nhân sự mới (HR Manager / Admin Only)
+router.post('/', hrManagerOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const {
       decisionNumber,
@@ -75,12 +95,12 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
       signBy
     } = req.body;
 
-    if (!title || !type || !employeeId) {
+    if (!title?.trim() || !type || !employeeId) {
       return res.status(400).json({ error: 'Vui lòng điền đủ Tiêu đề, Loại quyết định và Nhân sự áp dụng' });
     }
 
-    // Tự sinh số quyết định nếu không nhập (VD: QD-2026/001)
-    let finalDecNumber = decisionNumber;
+    // Tự sinh số quyết định nếu không nhập (VD: QĐ-2026/001)
+    let finalDecNumber = decisionNumber ? String(decisionNumber).trim().toUpperCase() : null;
     if (!finalDecNumber) {
       const year = new Date().getFullYear();
       const count = await prisma.decision.count();
@@ -94,6 +114,9 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     });
 
     if (!emp) return res.status(404).json({ error: 'Nhân sự không tồn tại' });
+    if (emp.status === 'RESIGNED') {
+      return res.status(400).json({ error: 'Không thể ban hành quyết định mới cho nhân sự đã thôi việc (RESIGNED)!' });
+    }
 
     const currentSalary = emp.contracts[0]?.baseSalary || 0;
     const currentDeptId = emp.departmentId || null;
@@ -102,7 +125,7 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     const newDecision = await prisma.decision.create({
       data: {
         decisionNumber: finalDecNumber,
-        title,
+        title: String(title).trim(),
         type,
         employeeId,
         oldSalary: oldSalary !== undefined ? oldSalary : currentSalary,
@@ -111,11 +134,19 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
         newDepartmentId: newDepartmentId || null,
         oldPositionId: oldPositionId || currentPosId,
         newPositionId: newPositionId || null,
-        reason: reason || '',
+        reason: reason ? String(reason).trim() : '',
         effectiveDate: effectiveDate ? new Date(effectiveDate) : new Date(),
         status: 'PENDING',
-        signBy: signBy || 'Ban Giám Đốc'
+        signBy: signBy ? String(signBy).trim() : 'Ban Giám Đốc'
       }
+    });
+
+    await createAuditLog({
+      action: 'CREATE_DECISION',
+      tableName: 'Decision',
+      recordId: newDecision.id,
+      accountId: req.user?.accountId,
+      details: `Khởi tạo quyết định nhân sự: [${newDecision.decisionNumber}] ${newDecision.title} cho nhân sự ${emp.fullName}`
     });
 
     return res.status(201).json(newDecision);
@@ -128,8 +159,9 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-// 4. PUT: Phê duyệt & Ban hành Quyết định (Tự động cập nhật Hồ sơ & Hợp đồng/Lương)
-router.put('/:id/approve', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// 4. PUT: Phê duyệt & Ban hành Quyết định (HR Manager / Admin Only)
+// Tự động kiểm tra thu hồi tài sản khi thôi việc, đồng bộ Hồ sơ, Hợp đồng & Lịch sử
+router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { signBy } = req.body;
@@ -145,6 +177,19 @@ router.put('/:id/approve', authenticateToken, async (req: any, res: Response): P
         throw new Error('Quyết định này đã được phê duyệt và ban hành trước đó!');
       }
 
+      const empId = decision.employeeId;
+      const effDate = decision.effectiveDate || new Date();
+
+      // Kiểm soát thu hồi tài sản trước khi cho thôi việc
+      if (decision.type === 'TERMINATION') {
+        const activeAssets = await tx.assetAssignment.count({
+          where: { employeeId: empId, status: 'ACTIVE' }
+        });
+        if (activeAssets > 0) {
+          throw new Error(`Không thể phê duyệt quyết định thôi việc! Nhân viên đang nắm giữ ${activeAssets} tài sản/thiết bị chưa hoàn trả. Vui lòng làm thủ tục thu hồi tài sản trước.`);
+        }
+      }
+
       const updatedDecision = await tx.decision.update({
         where: { id },
         data: {
@@ -153,9 +198,6 @@ router.put('/:id/approve', authenticateToken, async (req: any, res: Response): P
           signBy: signBy || decision.signBy || 'Ban Giám Đốc'
         }
       });
-
-      const empId = decision.employeeId;
-      const effDate = decision.effectiveDate || new Date();
 
       // Áp dụng biến động nghiệp vụ theo loại quyết định:
       // A. ĐIỀU CHỈNH LƯƠNG
@@ -229,7 +271,7 @@ router.put('/:id/approve', authenticateToken, async (req: any, res: Response): P
           data: { status: 'RESIGNED' }
         });
 
-        // Khóa tài khoản đăng nhập hệ thống của nhân sự (Bảo mật thông tin)
+        // Khóa tài khoản đăng nhập hệ thống của nhân sự
         await tx.account.updateMany({
           where: { employeeId: empId },
           data: { isActive: false }
@@ -282,11 +324,19 @@ router.put('/:id/approve', authenticateToken, async (req: any, res: Response): P
   }
 });
 
-// 5. PUT: Từ chối / Hủy quyết định
-router.put('/:id/reject', async (req: Request, res: Response): Promise<any> => {
+// 5. PUT: Từ chối / Hủy quyết định (HR Manager / Admin Only)
+router.put('/:id/reject', hrManagerOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { reason } = req.body;
+
+    const existing = await prisma.decision.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Không tìm thấy quyết định' });
+    }
+    if (existing.status === 'APPROVED') {
+      return res.status(400).json({ error: 'Không thể từ chối quyết định đã được phê duyệt và ban hành!' });
+    }
 
     const updated = await prisma.decision.update({
       where: { id },
@@ -296,14 +346,22 @@ router.put('/:id/reject', async (req: Request, res: Response): Promise<any> => {
       }
     });
 
+    await createAuditLog({
+      action: 'REJECT_DECISION',
+      tableName: 'Decision',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Từ chối quyết định ${existing.decisionNumber}. Lý do: ${reason || 'Không'}`
+    });
+
     return res.json({ message: 'Đã từ chối quyết định', decision: updated });
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi từ chối quyết định' });
   }
 });
 
-// 6. DELETE: Xóa quyết định nháp
-router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
+// 6. DELETE: Xóa quyết định nháp (HR Manager / Admin Only - Chặn xóa quyết định đã ban hành)
+router.delete('/:id', hrManagerOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const dec = await prisma.decision.findUnique({ where: { id } });
@@ -313,6 +371,15 @@ router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
     }
 
     await prisma.decision.delete({ where: { id } });
+
+    await createAuditLog({
+      action: 'DELETE_DECISION',
+      tableName: 'Decision',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Xóa quyết định ${dec.decisionNumber}`
+    });
+
     return res.json({ message: 'Đã xóa quyết định thành công' });
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi xóa quyết định' });
