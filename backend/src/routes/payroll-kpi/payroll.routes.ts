@@ -6,6 +6,9 @@ import { createAuditLog } from '../../utils/audit';
 
 const router = Router();
 
+const hrOrAccountant = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'ACCOUNTANT');
+const hrManagerOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER');
+
 /**
  * Biểu thuế lũy tiến từng phần 7 bậc theo Luật Thuế Thu Nhập Cá Nhân Việt Nam hiện hành
  */
@@ -68,8 +71,8 @@ router.get('/periods', authenticateToken, async (req: Request, res: Response): P
   }
 });
 
-// 2. POST: Khởi tạo Kỳ lương mới
-router.post('/periods', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// 2. POST: Khởi tạo Kỳ lương mới (HR / Kế toán)
+router.post('/periods', authenticateToken, hrOrAccountant, async (req: any, res: Response): Promise<any> => {
   try {
     const { month, year, standardWorkingDays } = req.body;
     if (!month || !year) return res.status(400).json({ error: 'Vui lòng chọn Tháng và Năm cho kỳ lương' });
@@ -105,8 +108,8 @@ router.post('/periods', authenticateToken, async (req: any, res: Response): Prom
   }
 });
 
-// 3. DELETE: Xóa Kỳ lương (chỉ khi đang ở trạng thái DRAFT)
-router.delete('/periods/:id', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// 3. DELETE: Xóa Kỳ lương (chỉ khi đang ở trạng thái DRAFT - HR Manager Only)
+router.delete('/periods/:id', authenticateToken, hrManagerOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const period = await prisma.payrollPeriod.findUnique({ where: { id } });
@@ -140,18 +143,22 @@ router.delete('/periods/:id', authenticateToken, async (req: any, res: Response)
   }
 });
 
-// 4. GET: Lấy danh sách phiếu lương theo tháng/năm
-router.get('/', authenticateToken, async (req: Request, res: Response): Promise<any> => {
+// 4. GET: Lấy danh sách phiếu lương (Bảo mật thu nhập: Nhân viên chỉ xem lương của chính mình)
+router.get('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const { month, year } = req.query;
+    const userRole = req.user?.role?.toUpperCase();
     
     let whereClause: any = {};
     if (month && year) {
-      whereClause = {
-        payrollPeriod: {
-          monthYear: `${month}-${year}`
-        }
+      whereClause.payrollPeriod = {
+        monthYear: `${month}-${year}`
       };
+    }
+
+    // Chặn rò rỉ thu nhập PII: Nhân viên chỉ được xem phiếu lương của chính mình
+    if (userRole === 'EMPLOYEE') {
+      whereClause.employeeId = req.user.employeeId;
     }
 
     const records = await prisma.payslip.findMany({
@@ -171,10 +178,16 @@ router.get('/', authenticateToken, async (req: Request, res: Response): Promise<
   }
 });
 
-// 5. GET: Lấy danh sách phiếu lương của 1 nhân viên (Cổng ESS)
-router.get('/employee/:employeeId', authenticateToken, async (req: Request, res: Response): Promise<any> => {
+// 5. GET: Lấy danh sách phiếu lương của 1 nhân viên (Cổng ESS - Chặn IDOR)
+router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const employeeId = req.params.employeeId as string;
+    const userRole = req.user?.role?.toUpperCase();
+
+    if (userRole === 'EMPLOYEE' && req.user?.employeeId !== employeeId) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem phiếu lương của nhân viên khác.' });
+    }
+
     const records = await prisma.payslip.findMany({
       where: { employeeId },
       include: {
@@ -192,10 +205,12 @@ router.get('/employee/:employeeId', authenticateToken, async (req: Request, res:
   }
 });
 
-// 5b. GET: Chi tiết 1 phiếu lương theo ID
-router.get('/payslip/:id', authenticateToken, async (req: Request, res: Response): Promise<any> => {
+// 5b. GET: Chi tiết 1 phiếu lương theo ID (Chặn IDOR)
+router.get('/payslip/:id', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
+    const userRole = req.user?.role?.toUpperCase();
+
     const payslip = await prisma.payslip.findUnique({
       where: { id },
       include: {
@@ -210,7 +225,13 @@ router.get('/payslip/:id', authenticateToken, async (req: Request, res: Response
         details: true
       }
     });
+
     if (!payslip) return res.status(404).json({ error: 'Không tìm thấy phiếu lương' });
+
+    if (userRole === 'EMPLOYEE' && payslip.employeeId !== req.user?.employeeId) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem chi tiết phiếu lương này.' });
+    }
+
     return res.json(payslip);
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi lấy chi tiết phiếu lương' });
@@ -218,8 +239,8 @@ router.get('/payslip/:id', authenticateToken, async (req: Request, res: Response
 });
 
 // 6. POST: Động cơ chạy bảng lương (Enterprise Payroll Engine)
-// Tuân thủ 100% Luật BHXH, Luật Thuế TNCN (7 bậc) và Luật Lao Động 2019
-router.post('/generate', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// Tuân thủ 100% Luật BHXH, Luật Thuế TNCN (7 bậc) và Luật Lao Động 2019 (Điều 98 OT, Điều 107)
+router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res: Response): Promise<any> => {
   try {
     const { month, year } = req.body;
     if (!month || !year) return res.status(400).json({ error: 'Thiếu thông tin tháng hoặc năm' });
@@ -231,9 +252,10 @@ router.post('/generate', authenticateToken, async (req: any, res: Response): Pro
       where: { monthYear: monthYearStr }
     });
 
+    // BR-PAY-01-01: Chặn Re-run sau khi Khóa sổ (Strict Lockout Rule)
     if (period && period.status === 'LOCKED') {
       return res.status(400).json({
-        error: `Kỳ lương tháng ${month}/${year} đã bị KHÓA SỔ (LOCKED). Không thể tính lại trừ khi Ban Giám Đốc mở khóa!`
+        error: `Kỳ lương tháng ${month}/${year} đã được Giám đốc phê duyệt và KHÓA SỔ (LOCKED). Tuyệt đối không thể tính toán lại!`
       });
     }
 
@@ -256,9 +278,12 @@ router.post('/generate', authenticateToken, async (req: any, res: Response): Pro
 
     const standardDays = period.standardWorkingDays || Number(dynamicStandardDays) || 22;
 
-    // Lấy tất cả nhân viên đang làm việc (kèm Hợp đồng ACTIVE & Người phụ thuộc)
+    // BR-PAY-01-02: Loại trừ nhân sự thôi việc và chỉ tính lương cho nhân viên có Hợp đồng ACTIVE
     const employees = await prisma.employee.findMany({
-      where: { status: { not: 'RESIGNED' } },
+      where: {
+        status: { not: 'RESIGNED' },
+        contracts: { some: { status: 'ACTIVE' } }
+      },
       include: {
         contracts: { where: { status: 'ACTIVE' }, orderBy: { startDate: 'desc' } },
         relatives: { where: { isDependent: true } }
@@ -268,13 +293,22 @@ router.post('/generate', authenticateToken, async (req: any, res: Response): Pro
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
+    // Lấy danh sách ngày lễ trong tháng để tính hệ số OT chuẩn xác theo Điều 98 BLLĐ 2019
+    const holidays = await prisma.holiday.findMany({
+      where: { date: { gte: startDate, lte: endDate } }
+    });
+    const holidayDates = new Set(holidays.map(h => h.date.toISOString().split('T')[0]));
+
     let generatedCount = 0;
 
     for (const emp of employees) {
-      // 1. Mức lương cơ bản theo hợp đồng
-      const baseSalary = emp.contracts.length > 0 ? Number(emp.contracts[0].baseSalary) : 10000000;
+      const activeContract = emp.contracts[0];
+      if (!activeContract) continue;
 
-      // 2. Chấm công thực tế trong tháng
+      // 1. Mức lương cơ bản theo hợp đồng lao động
+      const baseSalary = Number(activeContract.baseSalary);
+
+      // 2. Chấm công thực tế trong tháng (từ Module Chấm công)
       const attendances = await prisma.attendance.findMany({
         where: {
           employeeId: emp.id,
@@ -282,13 +316,13 @@ router.post('/generate', authenticateToken, async (req: any, res: Response): Pro
         }
       });
 
-      // Tính tổng ngày công thực tế (làm việc + nghỉ phép có lương PAID)
+      // Tổng ngày công thực tế (làm việc + nghỉ phép có lương PAID)
       const totalWorkingDays = attendances.reduce((sum, att) => sum + Number(att.workingDay || 0), 0);
 
       // Lương theo ngày công làm việc thực tế
       const baseEarned = (baseSalary / standardDays) * totalWorkingDays;
 
-      // 3. Tính tiền làm thêm giờ (Overtime - Điều 98 BLLĐ 2019)
+      // 3. Tính tiền làm thêm giờ (Overtime - Tuân thủ Điều 98 BLLĐ 2019: Ngày thường x1.5, Nghỉ tuần x2.0, Lễ x3.0)
       const approvedOT = await prisma.oTRequest.findMany({
         where: {
           employeeId: emp.id,
@@ -297,90 +331,114 @@ router.post('/generate', authenticateToken, async (req: any, res: Response): Pro
         }
       });
 
-      const totalOTHours = approvedOT.reduce((sum, ot) => sum + Number(ot.actualHours || ot.requestHours || 0), 0);
       const hourlyRate = baseSalary / standardDays / 8;
-      const otMultiplier = 1.5; // Hệ số tối thiểu 150%
-      const otPay = totalOTHours * hourlyRate * otMultiplier;
-      
-      // Theo Luật Thuế TNCN: phần lương trả thêm (50% phụ trội) được MIỄN THUẾ
-      const taxExemptOT = totalOTHours * hourlyRate * (otMultiplier - 1.0);
+      let otPay = 0;
+      let taxExemptOT = 0;
+      let totalOTHours = 0;
+
+      for (const ot of approvedOT) {
+        const hours = Number(ot.actualHours || ot.requestHours || 0);
+        if (hours <= 0) continue;
+        totalOTHours += hours;
+
+        const otDate = new Date(ot.date);
+        const dateStr = otDate.toISOString().split('T')[0];
+        const dayOfWeek = otDate.getDay();
+
+        let multiplier = 1.5; // Ngày làm việc bình thường (150%)
+        if (holidayDates.has(dateStr)) {
+          multiplier = 3.0; // Ngày nghỉ Lễ/Tết (300% theo Điều 98 BLLĐ 2019)
+        } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+          multiplier = 2.0; // Ngày nghỉ hàng tuần Thứ 7 / Chủ Nhật (200%)
+        }
+
+        const payForThisOT = hours * hourlyRate * multiplier;
+        otPay += payForThisOT;
+
+        // Theo Luật Thuế TNCN: phần lương làm thêm giờ trả cao hơn tiền lương làm việc bình thường được miễn thuế
+        taxExemptOT += hours * hourlyRate * (multiplier - 1.0);
+      }
 
       // Tổng thu nhập trước thuế (Gross)
       const grossSalary = baseEarned + otPay;
 
-      // 4. Trích đóng BHXH, BHYT, BHTN (Tối đa 20 lần lương cơ sở: maxInsuranceSalary)
-      const salaryForInsurance = Math.min(baseSalary, Number(maxInsuranceSalary) || 46800000);
-      const insuranceDeduction = salaryForInsurance * ((Number(insuranceRatePercent) || 10.5) / 100);
+      // 4. Trích đóng BHXH, BHYT, BHTN (Tỷ lệ 10.5% theo Luật BHXH hiện hành)
+      // Thực tập sinh và Thử việc không trích nộp bảo hiểm bắt buộc (AF-01)
+      let insuranceDeduction = 0;
+      const isOfficialContract = activeContract.contractType === 'OFFICIAL_1Y' || activeContract.contractType === 'INDEFINITE';
+      if (isOfficialContract) {
+        const salaryForInsurance = Math.min(baseSalary, Number(maxInsuranceSalary) || 46800000);
+        insuranceDeduction = salaryForInsurance * ((Number(insuranceRatePercent) || 10.5) / 100);
+      }
 
-      // 5. Giảm trừ gia cảnh: Bản thân + Người phụ thuộc (4.4M / người)
+      // 5. Giảm trừ gia cảnh: Bản thân (11tr) + Người phụ thuộc (4.4tr/người)
       const numDependents = emp.relatives.length;
       const dependentDeductionTotal = numDependents * (Number(dependentDeductionRate) || 4400000);
       const totalRelief = Number(personalDeduction || 11000000) + dependentDeductionTotal;
 
       // 6. Thu nhập tính thuế TNCN (Taxable Income)
-      // Thu nhập chịu thuế = Gross - Khoản miễn thuế (taxExemptOT)
-      // Thu nhập tính thuế = Thu nhập chịu thuế - Các khoản giảm trừ (Bảo hiểm + Gia cảnh)
       const taxableIncome = Math.max(0, (grossSalary - taxExemptOT) - insuranceDeduction - totalRelief);
 
-      // 7. Tính thuế TNCN theo biểu thuế lũy tiến từng phần 7 bậc
+      // 7. Tính thuế TNCN theo biểu thuế lũy tiến từng phần 7 bậc (BR-PAY-01-04)
       const taxDeduction = calculatePIT(taxableIncome);
 
       // 8. Lương thực nhận (Net Salary)
       const netSalary = Math.round(grossSalary - insuranceDeduction - taxDeduction);
 
-      // 9. Lưu bản ghi Payslip và PayslipDetails
-      const existing = await prisma.payslip.findFirst({
-        where: { employeeId: emp.id, payrollPeriodId: period.id }
+      // 9. Lưu bản ghi Payslip và PayslipDetails trong Transaction
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.payslip.findFirst({
+          where: { employeeId: emp.id, payrollPeriodId: period.id }
+        });
+
+        let payslipRecord;
+        if (existing) {
+          await tx.payslipDetail.deleteMany({ where: { payslipId: existing.id } });
+          payslipRecord = await tx.payslip.update({
+            where: { id: existing.id },
+            data: {
+              baseSalary,
+              actualWorkingDays: totalWorkingDays,
+              grossSalary: Math.round(grossSalary),
+              insuranceDeduction: Math.round(insuranceDeduction),
+              taxDeduction: Math.round(taxDeduction),
+              netSalary
+            }
+          });
+        } else {
+          payslipRecord = await tx.payslip.create({
+            data: {
+              employeeId: emp.id,
+              payrollPeriodId: period.id,
+              baseSalary,
+              actualWorkingDays: totalWorkingDays,
+              grossSalary: Math.round(grossSalary),
+              insuranceDeduction: Math.round(insuranceDeduction),
+              taxDeduction: Math.round(taxDeduction),
+              netSalary
+            }
+          });
+        }
+
+        // Tạo các dòng PayslipDetail để nhân viên xem minh bạch từng khoản
+        const detailsToCreate = [
+          { type: 'EARNING', amount: Math.round(baseEarned), description: `Lương theo công thực tế (${totalWorkingDays.toFixed(1)} / ${standardDays} ngày)` },
+          ...(totalOTHours > 0 ? [{ type: 'EARNING', amount: Math.round(otPay), description: `Làm thêm giờ (${totalOTHours.toFixed(1)} giờ OT theo Điều 98 BLLĐ)` }] : []),
+          ...(insuranceDeduction > 0 ? [{ type: 'DEDUCTION', amount: Math.round(insuranceDeduction), description: `Bảo hiểm bắt buộc 10.5% (BHXH 8%, BHYT 1.5%, BHTN 1%)` }] : []),
+          { type: 'DEDUCTION', amount: Math.round(taxDeduction), description: `Thuế TNCN lũy tiến (${numDependents} người phụ thuộc)` }
+        ];
+
+        for (const d of detailsToCreate) {
+          await tx.payslipDetail.create({
+            data: {
+              payslipId: payslipRecord.id,
+              type: d.type,
+              amount: d.amount,
+              description: d.description
+            }
+          });
+        }
       });
-
-      let payslipRecord;
-      if (existing) {
-        // Xóa details cũ để ghi mới
-        await prisma.payslipDetail.deleteMany({ where: { payslipId: existing.id } });
-        payslipRecord = await prisma.payslip.update({
-          where: { id: existing.id },
-          data: {
-            baseSalary,
-            actualWorkingDays: totalWorkingDays,
-            grossSalary: Math.round(grossSalary),
-            insuranceDeduction: Math.round(insuranceDeduction),
-            taxDeduction: Math.round(taxDeduction),
-            netSalary
-          }
-        });
-      } else {
-        payslipRecord = await prisma.payslip.create({
-          data: {
-            employeeId: emp.id,
-            payrollPeriodId: period.id,
-            baseSalary,
-            actualWorkingDays: totalWorkingDays,
-            grossSalary: Math.round(grossSalary),
-            insuranceDeduction: Math.round(insuranceDeduction),
-            taxDeduction: Math.round(taxDeduction),
-            netSalary
-          }
-        });
-      }
-
-      // Tạo các dòng PayslipDetail để nhân viên xem minh bạch từng khoản
-      const detailsToCreate = [
-        { type: 'EARNING', amount: Math.round(baseEarned), description: `Lương theo công thực tế (${totalWorkingDays.toFixed(1)} / ${standardDays} ngày)` },
-        ...(totalOTHours > 0 ? [{ type: 'EARNING', amount: Math.round(otPay), description: `Làm thêm giờ (${totalOTHours.toFixed(1)} giờ x 150%)` }] : []),
-        { type: 'DEDUCTION', amount: Math.round(insuranceDeduction), description: `Bảo hiểm bắt buộc (BHXH 8%, BHYT 1.5%, BHTN 1%)` },
-        { type: 'DEDUCTION', amount: Math.round(taxDeduction), description: `Thuế TNCN lũy tiến (${numDependents} người phụ thuộc)` }
-      ];
-
-      for (const d of detailsToCreate) {
-        await prisma.payslipDetail.create({
-          data: {
-            payslipId: payslipRecord.id,
-            type: d.type,
-            amount: d.amount,
-            description: d.description
-          }
-        });
-      }
 
       generatedCount++;
     }
@@ -390,12 +448,13 @@ router.post('/generate', authenticateToken, async (req: any, res: Response): Pro
       tableName: 'PayrollPeriod',
       recordId: period.id,
       accountId: req.user?.accountId,
-      details: `Chạy động cơ tính lương Tháng ${month}/${year} cho ${generatedCount} nhân sự.`
+      details: `Chạy động cơ tính lương Tháng ${month}/${year} cho ${generatedCount} nhân sự theo luật lao động & thuế.`
     });
 
     return res.json({ 
       message: `Đã tính toán xong bảng lương tháng ${month}/${year} cho ${generatedCount} nhân sự theo luật thuế và BHXH hiện hành!`,
-      period
+      period,
+      generatedCount
     });
   } catch (error: any) {
     console.error('Error generating payroll:', error);
@@ -418,8 +477,8 @@ router.get('/period/info', authenticateToken, async (req: Request, res: Response
   }
 });
 
-// 8. POST: Khóa hoặc mở khóa kỳ lương
-router.post('/period/toggle-lock', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// 8. POST: Khóa hoặc mở khóa kỳ lương (HR Manager / CEO Only)
+router.post('/period/toggle-lock', authenticateToken, hrManagerOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { month, year, status } = req.body;
     if (!month || !year) return res.status(400).json({ error: 'Thiếu tháng hoặc năm' });
