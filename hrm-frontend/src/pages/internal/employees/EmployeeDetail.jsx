@@ -2,7 +2,64 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save, Edit, CheckCircle, Plus, FileText, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Edit, CheckCircle, Plus, FileText, AlertTriangle, Eye, Upload, Image, X, ExternalLink, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+
+const parseContractFiles = (fileUrl) => {
+  if (!fileUrl) return [];
+  try {
+    const parsed = JSON.parse(fileUrl);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    return [fileUrl];
+  } catch (e) {
+    return [fileUrl];
+  }
+};
+
+const getContractTypeName = (type) => {
+  switch (type) {
+    case 'PROBATION': return 'Thử việc';
+    case 'INTERNSHIP': return 'Thực tập sinh';
+    case 'OFFICIAL_1Y': return 'Chính thức (1 năm)';
+    case 'INDEFINITE': return 'Không xác định thời hạn';
+    default: return type || 'Chưa xác định';
+  }
+};
+
+const getContractStatusBadge = (status, endDate) => {
+  if (status === 'ACTIVE' && endDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((end - today) / (1000 * 3600 * 24));
+    
+    if (diffDays < 0) {
+      return <span className="badge badge-warning" style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>Hết hạn</span>;
+    }
+    if (diffDays <= 15) {
+      return <span className="badge" style={{ backgroundColor: '#ffedd5', color: '#c2410c', border: '1px solid #fed7aa', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>Sắp hết hạn ({diffDays === 0 ? 'Hôm nay' : `còn ${diffDays} ngày`})</span>;
+    }
+  }
+
+  switch (status) {
+    case 'ACTIVE': return <span className="badge badge-success" style={{ backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>Hiệu lực</span>;
+    case 'EXPIRED': return <span className="badge badge-warning" style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>Hết hạn</span>;
+    case 'TERMINATED': return <span className="badge badge-error" style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>Đã chấm dứt</span>;
+    default: return <span className="badge badge-info" style={{ padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>{status}</span>;
+  }
+};
+
+const getEmployeeStatusName = (status) => {
+  switch (status) {
+    case 'ACTIVE': return 'Chính thức';
+    case 'PROBATION': return 'Thử việc';
+    case 'INTERNSHIP': return 'Thực tập';
+    case 'ONBOARDING': return 'Đang hội nhập';
+    case 'RESIGNED': return 'Đã nghỉ việc';
+    default: return status || '—';
+  }
+};
 
 const InfoField = ({ label, value, type = 'text', isEditMode, onChange, required = false, options = [] }) => {
   const readOnlyStyle = {
@@ -81,7 +138,7 @@ const ProfileHeader = ({ employee, isEditMode, onToggleEdit, onSave, onBack, cal
         <h2 style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0f172a', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '12px' }}>
           {employee.fullName}
           <span style={{ padding: '4px 12px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: '600', backgroundColor: employee.status === 'ACTIVE' ? '#dcfce7' : '#fef9c3', color: employee.status === 'ACTIVE' ? '#166534' : '#854d0e' }}>
-            {employee.status === 'ACTIVE' ? 'Đang làm việc' : employee.status}
+            {getEmployeeStatusName(employee.status)}
           </span>
         </h2>
         <div style={{ fontSize: '0.95rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -133,6 +190,113 @@ export const EmployeeDetail = () => {
   
   const [departments, setDepartments] = useState([]);
   const [positions, setPositions] = useState([]);
+
+  // Quản lý Hợp đồng & Upload nhiều trang ảnh scan giấy
+  const [showAddContractModal, setShowAddContractModal] = useState(false);
+  const [viewingContractFile, setViewingContractFile] = useState(null); // { contractId, urls: [], currentIndex: 0, title: '' }
+  const [newContractForm, setNewContractForm] = useState({
+    contractType: 'OFFICIAL_1Y',
+    baseSalary: '',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '',
+    fileUrls: []
+  });
+  const [isSubmittingContract, setIsSubmittingContract] = useState(false);
+
+  const handleUploadContractFiles = (contractId, files, isAppend = true) => {
+    if (!files || files.length === 0) return;
+    const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (validFiles.length === 0) {
+      return toast.error('Vui lòng chọn file hình ảnh (PNG, JPG, WebP)!');
+    }
+    const t = toast.loading(`Đang tải ${validFiles.length} trang ảnh hợp đồng...`);
+    
+    Promise.all(validFiles.map(file => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    }))).then(async (newImages) => {
+      try {
+        const currentContract = employee?.contracts?.find(c => c.id === contractId);
+        const existingImages = isAppend ? parseContractFiles(currentContract?.fileUrl) : [];
+        const allImages = [...existingImages, ...newImages];
+        
+        await axios.patch(`http://localhost:5000/api/contracts/${contractId}`, { 
+          fileUrl: JSON.stringify(allImages) 
+        });
+        toast.dismiss(t);
+        toast.success(`Đã lưu ${validFiles.length} trang hợp đồng!`);
+        fetchData();
+        if (viewingContractFile && viewingContractFile.contractId === contractId) {
+          setViewingContractFile({
+            ...viewingContractFile,
+            urls: allImages,
+            currentIndex: allImages.length - 1
+          });
+        }
+      } catch (err) {
+        toast.dismiss(t);
+        toast.error('Lỗi khi lưu ảnh hợp đồng!');
+      }
+    });
+  };
+
+  const handleDeleteContractPage = async (contractId, pageIndex) => {
+    const currentContract = employee?.contracts?.find(c => c.id === contractId);
+    const existingImages = parseContractFiles(currentContract?.fileUrl);
+    const newImages = existingImages.filter((_, idx) => idx !== pageIndex);
+    const t = toast.loading('Đang cập nhật trang hợp đồng...');
+    try {
+      await axios.patch(`http://localhost:5000/api/contracts/${contractId}`, {
+        fileUrl: newImages.length > 0 ? JSON.stringify(newImages) : null
+      });
+      toast.dismiss(t);
+      toast.success('Đã xóa trang hợp đồng!');
+      fetchData();
+      if (newImages.length === 0) {
+        setViewingContractFile(null);
+      } else {
+        setViewingContractFile({
+          ...viewingContractFile,
+          urls: newImages,
+          currentIndex: Math.max(0, pageIndex - 1)
+        });
+      }
+    } catch (err) {
+      toast.dismiss(t);
+      toast.error('Lỗi khi xóa trang hợp đồng!');
+    }
+  };
+
+  const handleCreateContract = async (e) => {
+    e.preventDefault();
+    if (!newContractForm.baseSalary || !newContractForm.startDate) {
+      return toast.error('Vui lòng nhập Lương cơ bản và Ngày bắt đầu');
+    }
+    setIsSubmittingContract(true);
+    try {
+      await axios.post('http://localhost:5000/api/contracts', {
+        employeeId: id,
+        ...newContractForm,
+        fileUrl: newContractForm.fileUrls.length > 0 ? JSON.stringify(newContractForm.fileUrls) : null,
+        baseSalary: parseFloat(newContractForm.baseSalary)
+      });
+      toast.success('Thêm hợp đồng mới thành công!');
+      setShowAddContractModal(false);
+      setNewContractForm({
+        contractType: 'OFFICIAL_1Y',
+        baseSalary: '',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: '',
+        fileUrls: []
+      });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi tạo hợp đồng');
+    } finally {
+      setIsSubmittingContract(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -321,35 +485,81 @@ export const EmployeeDetail = () => {
               
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>Danh sách Hợp đồng lao động</h3>
-                  <button style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileText size={20} color="#3b82f6" /> Danh sách Hợp đồng lao động
+                  </h3>
+                  <button 
+                    onClick={() => setShowAddContractModal(true)} 
+                    style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(59,130,246,0.25)' }}
+                  >
                     <Plus size={16}/> Thêm hợp đồng
                   </button>
                 </div>
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'white' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead style={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase' }}>
                       <tr>
                         <th style={{ padding: '16px', fontWeight: '600' }}>Loại Hợp đồng</th>
                         <th style={{ padding: '16px', fontWeight: '600' }}>Mức lương</th>
                         <th style={{ padding: '16px', fontWeight: '600' }}>Ngày bắt đầu</th>
+                        <th style={{ padding: '16px', fontWeight: '600' }}>Ngày hết hạn</th>
                         <th style={{ padding: '16px', fontWeight: '600' }}>Trạng thái</th>
+                        <th style={{ padding: '16px', fontWeight: '600', textAlign: 'center' }}>Bản scan / Ảnh HĐ</th>
                       </tr>
                     </thead>
                     <tbody>
                       {employee.contracts && employee.contracts.length > 0 ? (
                         employee.contracts.map(c => (
                           <tr key={c.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                            <td style={{ padding: '16px', fontWeight: 600, color: '#0f172a' }}>{c.contractType}</td>
-                            <td style={{ padding: '16px', fontWeight: 600, color: '#16a34a' }}>{Number(c.baseSalary).toLocaleString()} đ</td>
-                            <td style={{ padding: '16px', color: '#475569' }}>{new Date(c.startDate).toLocaleDateString('vi-VN')}</td>
+                            <td style={{ padding: '16px', fontWeight: 600, color: '#0f172a' }}>
+                              {getContractTypeName(c.contractType)}
+                            </td>
+                            <td style={{ padding: '16px', fontWeight: 600, color: '#16a34a' }}>
+                              {Number(c.baseSalary).toLocaleString('vi-VN')} đ
+                            </td>
+                            <td style={{ padding: '16px', color: '#475569' }}>
+                              {new Date(c.startDate).toLocaleDateString('vi-VN')}
+                            </td>
+                            <td style={{ padding: '16px', color: '#475569' }}>
+                              {c.endDate ? new Date(c.endDate).toLocaleDateString('vi-VN') : '—'}
+                            </td>
                             <td style={{ padding: '16px' }}>
-                              <span className={`badge ${c.status === 'ACTIVE' ? 'badge-success' : 'badge-error'}`}>{c.status}</span>
+                              {getContractStatusBadge(c.status, c.endDate)}
+                            </td>
+                            <td style={{ padding: '16px', textAlign: 'center' }}>
+                              {(() => {
+                                const files = parseContractFiles(c.fileUrl);
+                                return files.length > 0 ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <button
+                                      onClick={() => setViewingContractFile({
+                                        contractId: c.id,
+                                        urls: files,
+                                        currentIndex: 0,
+                                        title: `${getContractTypeName(c.contractType)} - ${employee.fullName}`
+                                      })}
+                                      style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                      title="Xem tất cả các trang scan của hợp đồng"
+                                    >
+                                      <Eye size={14} /> Xem {files.length} trang
+                                    </button>
+                                    <label style={{ cursor: 'pointer', color: '#3b82f6', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 8px', borderRadius: '6px', border: '1px dashed #bfdbfe', backgroundColor: '#f8fafc' }} title="Thêm trang vào hợp đồng này">
+                                      <Plus size={14} /> Thêm trang
+                                      <input type="file" multiple accept="image/*" style={{ display: 'none' }} onChange={(e) => handleUploadContractFiles(c.id, e.target.files, true)} />
+                                    </label>
+                                  </div>
+                                ) : (
+                                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '0.8rem', fontWeight: '600', backgroundColor: '#f8fafc', color: '#3b82f6', border: '1px dashed #93c5fd', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                    <Upload size={14} /> Tải ảnh/trang HĐ
+                                    <input type="file" multiple accept="image/*" style={{ display: 'none' }} onChange={(e) => handleUploadContractFiles(c.id, e.target.files, false)} />
+                                  </label>
+                                );
+                              })()}
                             </td>
                           </tr>
                         ))
                       ) : (
-                        <tr><td colSpan="4" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.95rem' }}>Chưa có hợp đồng nào.</td></tr>
+                        <tr><td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.95rem' }}>Chưa có hợp đồng nào.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -435,6 +645,260 @@ export const EmployeeDetail = () => {
           )}
         </div>
       </div>
+
+      {/* Modal Thêm Hợp đồng mới */}
+      {showAddContractModal && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', padding: '20px' }}>
+          <div style={{ width: '560px', maxWidth: '100%', backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FileText size={20} color="#3b82f6" /> Tạo Hợp đồng Lao động Mới
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                  Nhân viên: <strong>{employee?.fullName}</strong> ({employee?.code})
+                </p>
+              </div>
+              <button onClick={() => setShowAddContractModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', padding: '4px' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateContract} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Loại Hợp đồng *</label>
+                <select
+                  required
+                  value={newContractForm.contractType}
+                  onChange={(e) => setNewContractForm({ ...newContractForm, contractType: e.target.value })}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                >
+                  <option value="PROBATION">Thử việc (Probation)</option>
+                  <option value="INTERNSHIP">Thực tập sinh (Internship)</option>
+                  <option value="OFFICIAL_1Y">Chính thức (1 năm)</option>
+                  <option value="INDEFINITE">Không xác định thời hạn</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Mức lương cơ bản (VNĐ) *</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="100000"
+                  placeholder="Ví dụ: 15000000"
+                  value={newContractForm.baseSalary}
+                  onChange={(e) => setNewContractForm({ ...newContractForm, baseSalary: e.target.value })}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                />
+                {newContractForm.baseSalary && (
+                  <span style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                    {Number(newContractForm.baseSalary).toLocaleString('vi-VN')} đ/tháng
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Ngày bắt đầu *</label>
+                  <input
+                    type="date"
+                    required
+                    value={newContractForm.startDate}
+                    onChange={(e) => setNewContractForm({ ...newContractForm, startDate: e.target.value })}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Ngày kết thúc</label>
+                  <input
+                    type="date"
+                    value={newContractForm.endDate}
+                    onChange={(e) => setNewContractForm({ ...newContractForm, endDate: e.target.value })}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Upload nhiều ảnh scan giấy */}
+              <div style={{ border: '1px dashed #cbd5e1', borderRadius: '10px', padding: '16px', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
+                    Ảnh scan / Chụp Hợp đồng giấy (Hỗ trợ nhiều trang):
+                  </label>
+                  {newContractForm.fileUrls.length > 0 && (
+                    <span style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 600 }}>
+                      Đã chọn {newContractForm.fileUrls.length} trang
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Upload size={16} /> Chọn ảnh các trang HĐ
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files);
+                        if (files.length > 0) {
+                          Promise.all(files.map(file => new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => resolve(ev.target.result);
+                            reader.readAsDataURL(file);
+                          }))).then(newUrls => {
+                            setNewContractForm({
+                              ...newContractForm,
+                              fileUrls: [...newContractForm.fileUrls, ...newUrls]
+                            });
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    Giữ Ctrl/Shift để chọn nhiều ảnh (Trang 1, Trang 2...)
+                  </span>
+                </div>
+                {newContractForm.fileUrls.length > 0 && (
+                  <div style={{ marginTop: '12px', display: 'flex', gap: '8px', overflowX: 'auto', padding: '8px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
+                    {newContractForm.fileUrls.map((url, idx) => (
+                      <div key={idx} style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0, borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+                        <img src={url} alt={`Trang ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <span style={{ position: 'absolute', bottom: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '0.65rem', padding: '1px 4px', borderRadius: '3px' }}>
+                          Trang {idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setNewContractForm({ ...newContractForm, fileUrls: newContractForm.fileUrls.filter((_, i) => i !== idx) })}
+                          style={{ position: 'absolute', top: 2, right: 2, backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px' }}
+                          title="Xóa trang này"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddContractModal(false)}
+                  style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#475569', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingContract}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 4px rgba(59,130,246,0.3)' }}
+                >
+                  {isSubmittingContract ? 'Đang lưu...' : 'Lưu hợp đồng'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Xem Nhiều Trang Ảnh Scan Hợp đồng phóng to */}
+      {viewingContractFile && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(6px)', padding: '24px' }}>
+          <div style={{ width: '920px', maxWidth: '100%', maxHeight: '94vh', backgroundColor: 'white', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FileText size={20} color="#3b82f6" /> {viewingContractFile.title}
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+                  Trang {viewingContractFile.currentIndex + 1} / {viewingContractFile.urls.length}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <label style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Plus size={14} /> Thêm trang
+                  <input type="file" multiple accept="image/*" style={{ display: 'none' }} onChange={(e) => handleUploadContractFiles(viewingContractFile.contractId, e.target.files, true)} />
+                </label>
+                <button
+                  onClick={() => handleDeleteContractPage(viewingContractFile.contractId, viewingContractFile.currentIndex)}
+                  style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+                  title="Xóa trang hiện tại"
+                >
+                  <Trash2 size={14} /> Xóa trang
+                </button>
+                <a
+                  href={viewingContractFile.urls[viewingContractFile.currentIndex]}
+                  download={`hop-dong-trang-${viewingContractFile.currentIndex + 1}.png`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <ExternalLink size={14} /> Mở tab mới
+                </a>
+                <button
+                  onClick={() => setViewingContractFile(null)}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', padding: '6px' }}
+                >
+                  <X size={22} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Vùng xem ảnh kèm nút chuyển trang */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a', position: 'relative' }}>
+              {viewingContractFile.urls.length > 1 && (
+                <>
+                  <button
+                    disabled={viewingContractFile.currentIndex === 0}
+                    onClick={() => setViewingContractFile({ ...viewingContractFile, currentIndex: Math.max(0, viewingContractFile.currentIndex - 1) })}
+                    style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', padding: '12px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', cursor: viewingContractFile.currentIndex === 0 ? 'not-allowed' : 'pointer', opacity: viewingContractFile.currentIndex === 0 ? 0.3 : 1, transition: 'all 0.2s', zIndex: 10 }}
+                    title="Trang trước"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                  <button
+                    disabled={viewingContractFile.currentIndex === viewingContractFile.urls.length - 1}
+                    onClick={() => setViewingContractFile({ ...viewingContractFile, currentIndex: Math.min(viewingContractFile.urls.length - 1, viewingContractFile.currentIndex + 1) })}
+                    style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', padding: '12px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', cursor: viewingContractFile.currentIndex === viewingContractFile.urls.length - 1 ? 'not-allowed' : 'pointer', opacity: viewingContractFile.currentIndex === viewingContractFile.urls.length - 1 ? 0.3 : 1, transition: 'all 0.2s', zIndex: 10 }}
+                    title="Trang sau"
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+                </>
+              )}
+              <img
+                src={viewingContractFile.urls[viewingContractFile.currentIndex]}
+                alt={`Hợp đồng trang ${viewingContractFile.currentIndex + 1}`}
+                style={{ maxWidth: '100%', maxHeight: '66vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
+              />
+            </div>
+
+            {/* Thumbnail preview list ở đáy */}
+            {viewingContractFile.urls.length > 1 && (
+              <div style={{ padding: '12px 24px', backgroundColor: '#1e293b', display: 'flex', gap: '10px', overflowX: 'auto', borderTop: '1px solid #334155' }}>
+                {viewingContractFile.urls.map((u, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => setViewingContractFile({ ...viewingContractFile, currentIndex: idx })}
+                    style={{ width: '56px', height: '56px', borderRadius: '6px', overflow: 'hidden', border: idx === viewingContractFile.currentIndex ? '2px solid #3b82f6' : '2px solid transparent', opacity: idx === viewingContractFile.currentIndex ? 1 : 0.6, cursor: 'pointer', flexShrink: 0, position: 'relative' }}
+                  >
+                    <img src={u} alt={`Trang ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <span style={{ position: 'absolute', bottom: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '0.65rem', padding: '1px 4px', borderRadius: '3px' }}>
+                      {idx + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

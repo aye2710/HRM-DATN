@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Trash2, Edit, X, UserCircle, Eye, List, LayoutGrid } from 'lucide-react';
+import { Search, Plus, Trash2, Edit, X, UserCircle, Eye, List, LayoutGrid, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -19,6 +19,10 @@ export const EmployeeList = () => {
   const [deptFilter, setDeptFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -65,6 +69,14 @@ export const EmployeeList = () => {
     const matchLevel = levelFilter ? emp.position?.level?.toLowerCase() === levelFilter.toLowerCase() : true;
     return matchSearch && matchDept && matchStatus && matchLevel;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, deptFilter, statusFilter, levelFilter]);
+
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -253,7 +265,7 @@ export const EmployeeList = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.map(emp => (
+                {paginatedEmployees.map(emp => (
                   <tr key={emp.id} className="border-b border-[var(--border)] hover:bg-white transition-colors">
                     <td className="p-4 font-semibold text-[var(--primary)]">{emp.code}</td>
                     <td className="p-4">
@@ -296,7 +308,7 @@ export const EmployeeList = () => {
             </table>
           ) : (
             <div className="employee-grid" style={{ background: 'var(--bg-main)' }}>
-              {filteredEmployees.map(emp => (
+              {paginatedEmployees.map(emp => (
                 <div 
                   key={emp.id} 
                   className="employee-card group" 
@@ -344,6 +356,100 @@ export const EmployeeList = () => {
             </div>
           )}
         </div>
+
+        {/* Pagination Footer */}
+        {filteredEmployees.length > 0 && (
+          <div className="flex justify-between items-center p-4 border-t border-[var(--border)] bg-white flex-shrink-0" style={{ flexWrap: 'wrap', gap: '12px' }}>
+            <div className="flex items-center gap-3 text-sm text-muted">
+              <span>Hiển thị</span>
+              <select
+                className="form-input"
+                style={{ width: '70px', padding: '4px 8px', fontSize: '0.85rem' }}
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <span>
+                nhân sự/trang (Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredEmployees.length)} / {filteredEmployees.length} nhân sự)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button 
+                className="btn btn-outline"
+                style={{ padding: '6px 10px', fontSize: '0.85rem', opacity: currentPage === 1 ? 0.4 : 1 }}
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                title="Trang đầu"
+              >
+                <ChevronsLeft size={16} />
+              </button>
+              <button 
+                className="btn btn-outline"
+                style={{ padding: '6px 10px', fontSize: '0.85rem', opacity: currentPage === 1 ? 0.4 : 1 }}
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                title="Trang trước"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              {(() => {
+                const pages = [];
+                for (let i = 1; i <= totalPages; i++) {
+                  if (
+                    i === 1 || 
+                    i === totalPages || 
+                    (i >= currentPage - 1 && i <= currentPage + 1)
+                  ) {
+                    pages.push(i);
+                  } else if (pages[pages.length - 1] !== '...') {
+                    pages.push('...');
+                  }
+                }
+                return pages.map((page, idx) => 
+                  page === '...' ? (
+                    <span key={`ellipsis-${idx}`} style={{ padding: '0 6px', color: '#94a3b8' }}>...</span>
+                  ) : (
+                    <button
+                      key={page}
+                      className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ minWidth: '36px', height: '36px', padding: '0 8px', fontSize: '0.85rem', fontWeight: currentPage === page ? 700 : 500 }}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </button>
+                  )
+                );
+              })()}
+
+              <button 
+                className="btn btn-outline"
+                style={{ padding: '6px 10px', fontSize: '0.85rem', opacity: currentPage === totalPages ? 0.4 : 1 }}
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                title="Trang sau"
+              >
+                <ChevronRight size={16} />
+              </button>
+              <button 
+                className="btn btn-outline"
+                style={{ padding: '6px 10px', fontSize: '0.85rem', opacity: currentPage === totalPages ? 0.4 : 1 }}
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                title="Trang cuối"
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Employee Modal */}

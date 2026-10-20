@@ -6,6 +6,19 @@ const router = Router();
 // 1. Get all employees
 router.get('/', async (req: Request, res: Response) => {
   try {
+    // Tự động chuyển các hợp đồng đã qua endDate sang EXPIRED
+    await prisma.contract.updateMany({
+      where: {
+        status: 'ACTIVE',
+        endDate: {
+          lt: new Date()
+        }
+      },
+      data: {
+        status: 'EXPIRED'
+      }
+    });
+
     const employees = await prisma.employee.findMany({
       include: {
         department: true,
@@ -76,6 +89,21 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    
+    // Tự động chuyển các hợp đồng đã qua endDate sang EXPIRED
+    await prisma.contract.updateMany({
+      where: {
+        employeeId: id,
+        status: 'ACTIVE',
+        endDate: {
+          lt: new Date()
+        }
+      },
+      data: {
+        status: 'EXPIRED'
+      }
+    });
+
     const employee = await prisma.employee.findUnique({
       where: { id },
       include: {

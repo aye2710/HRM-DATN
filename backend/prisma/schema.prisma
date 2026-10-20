@@ -278,6 +278,8 @@ model Contract {
   startDate     DateTime
   endDate       DateTime?
   status        ContractStatus @default(ACTIVE)
+  fileUrl       String?        @db.Text
+  createdAt     DateTime       @default(now())
 }
 
 // ==========================================
