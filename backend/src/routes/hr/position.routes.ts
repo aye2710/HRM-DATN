@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 
 const router = Router();
+
+const hrOrgOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER');
 
 // Áp dụng bảo mật xác thực cho danh mục vị trí chức danh
 router.use(authenticateToken);
@@ -25,7 +27,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create position
-router.post('/', async (req, res) => {
+router.post('/', hrOrgOnly, async (req, res) => {
   try {
     const { code, title, description, level, minSalary, maxSalary, departmentId, status } = req.body;
     
@@ -54,7 +56,7 @@ router.post('/', async (req, res) => {
 });
 
 // Update position
-router.put('/:id', async (req, res) => {
+router.put('/:id', hrOrgOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const { code, title, description, level, minSalary, maxSalary, departmentId, status } = req.body;
@@ -89,7 +91,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete position
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', hrOrgOnly, async (req, res) => {
   try {
     const { id } = req.params;
     // Check if position has employees

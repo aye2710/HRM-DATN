@@ -1,8 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 
 const router = Router();
+
+const hrOrgOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER');
 
 // Áp dụng bảo mật cho toàn bộ phân hệ Cơ cấu tổ chức
 router.use(authenticateToken);
@@ -25,7 +27,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST: Thêm phòng ban mới
-router.post('/', async (req: Request, res: Response): Promise<any> => {
+router.post('/', hrOrgOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const { code, name, managerName, quota, status, parentId } = req.body;
 
@@ -55,7 +57,7 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
 });
 
 // PUT: Cập nhật phòng ban (kèm thuật toán chống vòng lặp phả hệ cha-con)
-router.put('/:id', async (req: Request, res: Response): Promise<any> => {
+router.put('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { code, name, managerName, quota, status, parentId } = req.body;
@@ -101,7 +103,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
 });
 
 // DELETE: Xóa phòng ban (Kiểm tra toàn diện tất cả các bảng quan hệ)
-router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
+router.delete('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
 

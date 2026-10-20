@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 
 const router = Router();
 router.use(authenticateToken);
+router.use(requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'RECRUITER'));
 
 // Hàm tiện ích: Tự động kiểm tra và hủy các Offer quá 24h mà ứng viên chưa phản hồi
 export const checkAndExpireOffers = async () => {
@@ -73,7 +74,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// POST: HR Tạo & Gửi Offer cho Ứng viên (Giới hạn 24h phản hồi)
+// POST: HR Tạo & Gửi Offer cho Ứng viên (Giới hạn 24h phản hồi, Lương thử việc >= 85% theo Điều 26 BLLĐ)
 router.post('/send-offer', async (req: Request, res: Response): Promise<any> => {
   try {
     const { candidateId, baseSalary, probationRate, startDate, contractType, notes } = req.body;
@@ -93,7 +94,11 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
     });
 
     if (!candidate) {
-      return res.status(404).json({ error: 'Không tìm thấy ứng viên.' });
+      return res.status(404).json({ error: 'Không tìm thấy thông tin ứng viên.' });
+    }
+
+    if (candidate.status === 'HIRED') {
+      return res.status(400).json({ error: 'Ứng viên này đã được tiếp nhận chính thức thành nhân viên, không thể gửi lại Offer.' });
     }
 
     const now = new Date();
@@ -144,7 +149,7 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
   }
 });
 
-// POST: HR Tiếp nhận & Kích hoạt Nhân viên khi Ứng viên đến công ty
+// POST: HR Tiếp nhận & Kích hoạt Nhân viên khi Ứng viên đến công ty (UC-REC-04-04 & BR-REC-04-03)
 router.post('/accept', async (req: Request, res: Response): Promise<any> => {
   try {
     const { candidateId, employeeCode, joinDate, cccd, baseSalary, contractType, departmentId, positionId } = req.body;
@@ -166,10 +171,21 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
           preOnboarding: true
         }
       });
-      if (!candidate) throw new Error("Không tìm thấy ứng viên");
+      if (!candidate) throw new Error("Không tìm thấy ứng viên.");
+
+      // Kiểm tra xem ứng viên đã được tiếp nhận trước đó chưa (Chống trùng lặp tạo NV)
+      if (candidate.status === 'HIRED') {
+        throw new Error("Ứng viên này đã được tiếp nhận thành nhân viên chính thức trước đó!");
+      }
 
       const po = candidate.preOnboarding;
       const offer = candidate.offer;
+
+      // Kiểm tra CCCD bắt buộc
+      const finalCccd = po?.cccd || (cccd ? String(cccd).trim() : null);
+      if (!finalCccd) {
+        throw new Error("Ứng viên chưa có thông tin CCCD trong hồ sơ Pre-Onboarding. Vui lòng bổ sung trước khi tiếp nhận.");
+      }
 
       // Tự động sinh mã nhân viên nếu chưa truyền vào
       let finalCode = employeeCode ? String(employeeCode).trim() : '';
@@ -191,7 +207,7 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
           fullName: candidate.name,
           email: candidate.email,
           phone: candidate.phone,
-          cccd: po?.cccd || (cccd ? String(cccd).trim() : null),
+          cccd: finalCccd,
           gender: po?.gender || null,
           dateOfBirth: po?.dateOfBirth ? new Date(po.dateOfBirth) : null,
           address: po?.address || null,
@@ -205,7 +221,7 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
           emergencyContactName: po?.emergencyContactName || null,
           emergencyContactPhone: po?.emergencyContactPhone || null,
           emergencyContactRelation: po?.emergencyContactRelation || null,
-          status: 'ONBOARDING', // Đưa vào lộ trình Hội nhập (Onboarding) để IT/HR bàn giao thiết bị & tài khoản
+          status: 'ONBOARDING', // Đưa vào lộ trình Hội nhập để bàn giao thiết bị & tài khoản
           joinDate: new Date(joinDate || offer?.startDate || new Date()),
           departmentId: departmentId || candidate.jobPosting?.departmentId || null,
           positionId: positionId || candidate.jobPosting?.positionId || null
@@ -214,7 +230,7 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
 
       // 3. Tạo bản ghi Hợp đồng lao động đầu tiên
       const finalSalary = baseSalary ? Number(baseSalary) : (offer ? Number(offer.baseSalary) : 10000000);
-      const finalContractType = contractType || offer?.contractType || 'PROBATION';
+      const finalContractType = contractType || (offer?.contractType as any) || 'PROBATION';
       const contractStartDate = new Date(joinDate || offer?.startDate || new Date());
 
       await tx.contract.create({
@@ -272,20 +288,22 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
       return newEmployee;
     });
 
-    res.status(201).json({ message: 'Kích hoạt hồ sơ nhân viên thành công!', employee: result });
+    return res.status(201).json({ message: 'Kích hoạt hồ sơ nhân viên thành công!', employee: result });
   } catch (error: any) {
     console.error("Lỗi khi tiếp nhận ứng viên:", error);
     if (error.code === 'P2002') {
-      return res.status(400).json({ error: 'Mã nhân viên hoặc CCCD đã tồn tại trong hệ thống.' });
+      return res.status(400).json({ error: 'Mã nhân viên, CCCD hoặc email đã tồn tại trong hệ thống.' });
     }
-    res.status(500).json({ error: error.message || 'Lỗi hệ thống khi khởi tạo hồ sơ nhân viên.' });
+    return res.status(400).json({ error: error.message || 'Lỗi hệ thống khi khởi tạo hồ sơ nhân viên.' });
   }
 });
 
-// POST: Từ chối / Hủy Offer
-router.post('/:id/reject', async (req: Request, res: Response) => {
+// POST: Từ chối / Hủy Offer (BR-REC-04-05: Ghi nhận lý do và thời gian)
+router.post('/:id/reject', async (req: Request, res: Response): Promise<any> => {
   try {
     const candidateId = req.params.id as string;
+    const declineReason = req.body.declineReason || req.body.reason || 'HR từ chối hoặc hủy Thư mời nhận việc.';
+
     await prisma.$transaction(async (tx) => {
       await tx.candidate.update({
         where: { id: candidateId },
@@ -293,13 +311,18 @@ router.post('/:id/reject', async (req: Request, res: Response) => {
       });
       await tx.jobOffer.updateMany({
         where: { candidateId },
-        data: { status: 'REJECTED', respondedAt: new Date() }
+        data: { 
+          status: 'REJECTED', 
+          declineReason,
+          respondedAt: new Date() 
+        }
       });
     });
-    res.json({ message: 'Đã hủy Offer thành công.' });
+    return res.json({ message: 'Đã hủy Offer thành công.' });
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi từ chối Offer' });
+    return res.status(500).json({ error: 'Lỗi khi từ chối Offer' });
   }
 });
 
 export default router;
+

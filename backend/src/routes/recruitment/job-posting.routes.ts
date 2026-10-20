@@ -1,14 +1,15 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../../db';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
 // GET: Lấy danh sách Job Posting (hỗ trợ ?status=PUBLISHED cho Cổng tuyển dụng công khai)
-router.get('/', async (req: Request, res: Response): Promise<any> => {
+router.get('/', async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   try {
     const statusQuery = req.query.status as string;
 
-    // BR-CAN-01: Cổng ứng viên chỉ nhận tin PUBLISHED, không kèm danh sách candidate nội bộ
+    // BR-CAN-01: Cổng ứng viên chỉ nhận tin PUBLISHED, không kèm danh sách candidate nội bộ (Public)
     if (statusQuery === 'PUBLISHED') {
       const publicJobs = await prisma.jobPosting.findMany({
         where: { status: 'PUBLISHED' },
@@ -25,32 +26,38 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       return res.json(publicJobs);
     }
 
-    // Luồng quản trị nội bộ
-    const jobs = await prisma.jobPosting.findMany({
-      include: {
-        _count: {
-          select: { candidates: true }
-        },
-        candidates: {
-          select: { status: true }
-        },
-        department: {
-          select: { name: true }
-        },
-        position: {
-          select: { title: true }
-        }
-      },
-      orderBy: { title: 'asc' }
+    // Luồng quản trị nội bộ: Yêu cầu xác thực Token
+    return authenticateToken(req, res, async () => {
+      try {
+        const jobs = await prisma.jobPosting.findMany({
+          include: {
+            _count: {
+              select: { candidates: true }
+            },
+            candidates: {
+              select: { status: true }
+            },
+            department: {
+              select: { name: true }
+            },
+            position: {
+              select: { title: true }
+            }
+          },
+          orderBy: { title: 'asc' }
+        });
+        return res.json(jobs);
+      } catch (err) {
+        return res.status(500).json({ error: 'Lỗi khi lấy danh sách tin tuyển dụng nội bộ' });
+      }
     });
-    return res.json(jobs);
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi lấy danh sách tin tuyển dụng' });
   }
 });
 
-// POST: Tạo Job Posting
-router.post('/', async (req: Request, res: Response): Promise<any> => {
+// POST: Tạo Job Posting (Bảo vệ bằng authenticateToken + requireRole)
+router.post('/', authenticateToken, requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'RECRUITER'), async (req: Request, res: Response): Promise<any> => {
   try {
     const { 
       title, description, status, amount, deadline, departmentId, positionId, 
@@ -115,7 +122,7 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
 });
 
 // PUT: Cập nhật Job Posting
-router.put('/:id', async (req: Request, res: Response): Promise<any> => {
+router.put('/:id', authenticateToken, requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'RECRUITER'), async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { 
@@ -179,20 +186,20 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-// DELETE: Xóa Job Posting
-router.delete('/:id', async (req: Request, res: Response) => {
+// DELETE: Xóa Job Posting (Chỉ Admin và HR Manager)
+router.delete('/:id', authenticateToken, requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER'), async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     
     const candidateCount = await prisma.candidate.count({ where: { jobPostingId: id } });
     if (candidateCount > 0) {
-      return res.status(400).json({ error: 'Không thể xóa tin tuyển dụng đang có ứng viên ứng tuyển' });
+      return res.status(400).json({ error: 'Không thể xóa tin tuyển dụng đang có ứng viên ứng tuyển.' });
     }
 
     await prisma.jobPosting.delete({ where: { id } });
-    res.json({ message: 'Xóa thành công' });
+    return res.json({ message: 'Xóa tin tuyển dụng thành công.' });
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi xóa tin tuyển dụng' });
+    return res.status(500).json({ error: 'Lỗi khi xóa tin tuyển dụng' });
   }
 });
 

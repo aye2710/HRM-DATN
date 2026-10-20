@@ -1,13 +1,15 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
 
 const router = Router();
+router.use(authenticateToken);
+router.use(requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF', 'IT_SUPPORT'));
 
 // 1. Lấy danh sách nhân viên đang Onboarding
-router.get('/newbies', authenticateToken, async (req: Request, res: Response) => {
+router.get('/newbies', async (req: Request, res: Response) => {
   try {
     const newbies = await prisma.employee.findMany({
       where: { status: 'ONBOARDING' },

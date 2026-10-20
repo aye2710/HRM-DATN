@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
@@ -147,9 +147,11 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
 });
 
 // ==========================================
-// 2. INTERNAL HR & ATS MANAGEMENT ENDPOINTS (Bắt buộc Token)
+// ==========================================
+// 2. INTERNAL HR & ATS MANAGEMENT ENDPOINTS (Bắt buộc Token + Role)
 // ==========================================
 router.use(authenticateToken);
+router.use(requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'RECRUITER'));
 
 // GET: Lấy danh sách Ứng viên (cho ATS Kanban)
 router.get('/', async (req: Request, res: Response) => {
@@ -158,8 +160,14 @@ router.get('/', async (req: Request, res: Response) => {
       include: {
         jobPosting: {
           include: {
-            department: true
+            department: true,
+            position: true
           }
+        },
+        offer: true,
+        preOnboarding: true,
+        interviews: {
+          include: { feedbacks: true }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -170,22 +178,56 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// PUT: Cập nhật Ứng viên (thường dùng để cập nhật Status kéo thả)
-router.put('/:id', async (req: Request, res: Response) => {
+// Bảng kiểm tra chuyển trạng thái hợp lệ trong phễu tuyển dụng (BR-REC-02-01)
+const validTransitions: Record<string, string[]> = {
+  SOURCED: ['SCREENING', 'REJECTED'],
+  APPLIED: ['SCREENING', 'SOURCED', 'REJECTED'],
+  SCREENING: ['INTERVIEWING', 'REJECTED'],
+  INTERVIEWING: ['OFFERING', 'REJECTED'],
+  OFFERING: ['HIRED', 'REJECTED'],
+  HIRED: [], // Tuyệt đối không cho phép kéo lùi khi đã tuyển dụng
+  REJECTED: ['SOURCED', 'APPLIED', 'SCREENING'] // Cho phép kích hoạt lại hồ sơ
+};
+
+// PUT: Cập nhật Ứng viên (chuyển trạng thái kéo thả Kanban hoặc sửa thông tin)
+router.put('/:id', async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { name, email, phone, cvUrl, jobPostingId, status } = req.body;
     
-    // Nếu chuyển sang HIRED
+    // Tìm ứng viên hiện tại
+    const candidate = await prisma.candidate.findUnique({
+      where: { id },
+      include: {
+        jobPosting: { include: { department: true, position: true } },
+        offer: true,
+        preOnboarding: true
+      }
+    });
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ ứng viên.' });
+    }
+
+    // 1. Kiểm tra quy tắc chuyển trạng thái (BR-REC-02-01 Strict Pipeline)
+    if (status && status !== candidate.status) {
+      if (candidate.status === 'HIRED') {
+        return res.status(400).json({ 
+          error: 'Ứng viên đã được tiếp nhận chính thức (HIRED), không thể thay đổi trạng thái hoặc lùi quy trình!' 
+        });
+      }
+
+      const allowedNext = validTransitions[candidate.status] || [];
+      if (!allowedNext.includes(status)) {
+        return res.status(400).json({ 
+          error: `Quy trình tuyển dụng không hợp lệ: Không thể di chuyển hồ sơ từ [${candidate.status}] sang [${status}]. Chỉ được phép chuyển tiếp vòng sau hoặc Đánh dấu từ chối (REJECTED).` 
+        });
+      }
+    }
+
+    // 2. Xử lý trường hợp chuyển sang HIRED (Auto-provisioning Employee & Contract)
     if (status === 'HIRED') {
       const result = await prisma.$transaction(async (tx) => {
-        const candidate = await tx.candidate.findUnique({
-          where: { id },
-          include: { jobPosting: true, offer: true }
-        });
-
-        if (!candidate) throw new Error('Không tìm thấy ứng viên');
-
         // Cập nhật trạng thái ứng viên
         const updatedCandidate = await tx.candidate.update({
           where: { id },
@@ -193,13 +235,18 @@ router.put('/:id', async (req: Request, res: Response) => {
           include: { jobPosting: true }
         });
 
-        // Kiểm tra xem đã có Employee được tạo qua luồng Onboarding trước đó chưa
-        const existingEmp = await tx.employee.findFirst({
-          where: { email: candidate.email }
+        // Kiểm tra xem đã có Employee tương ứng chưa
+        let existingEmp = await tx.employee.findFirst({
+          where: { 
+            OR: [
+              { email: candidate.email },
+              ...(candidate.preOnboarding?.cccd ? [{ cccd: candidate.preOnboarding.cccd }] : [])
+            ]
+          }
         });
 
         if (!existingEmp) {
-          // Sinh mã nhân viên chuẩn định dạng NV0001
+          // Sinh mã nhân viên chuẩn NV0001
           const count = await tx.employee.count();
           let nextNum = count + 1;
           let candidateCode = `NV${String(nextNum).padStart(4, '0')}`;
@@ -208,38 +255,75 @@ router.put('/:id', async (req: Request, res: Response) => {
             candidateCode = `NV${String(nextNum).padStart(4, '0')}`;
           }
 
-          const baseSalary = candidate.offer ? Number(candidate.offer.baseSalary) : 10000000;
+          const po = candidate.preOnboarding;
+          const offer = candidate.offer;
+          const baseSalary = offer ? Number(offer.baseSalary) : 10000000;
+          const contractStartDate = offer?.startDate || new Date();
 
+          // Kế thừa toàn bộ dữ liệu Pre-Onboarding do ứng viên tự khai
           const newEmployee = await tx.employee.create({
             data: {
               code: candidateCode,
               fullName: updatedCandidate.name,
               email: candidate.email,
               phone: candidate.phone,
-              cccd: null,
+              cccd: po?.cccd || null,
+              gender: po?.gender || null,
+              dateOfBirth: po?.dateOfBirth ? new Date(po.dateOfBirth) : null,
+              address: po?.address || null,
+              nationality: po?.nationality || 'Việt Nam',
+              maritalStatus: po?.maritalStatus || null,
+              taxCode: po?.taxCode || null,
+              bankName: po?.bankName || null,
+              bankAccount: po?.bankAccount || null,
+              socialInsurance: po?.socialInsurance || null,
+              healthInsurance: po?.healthInsurance || null,
+              emergencyContactName: po?.emergencyContactName || null,
+              emergencyContactPhone: po?.emergencyContactPhone || null,
+              emergencyContactRelation: po?.emergencyContactRelation || null,
               status: 'ONBOARDING',
-              joinDate: candidate.offer?.startDate || new Date(),
-              departmentId: updatedCandidate.jobPosting?.departmentId,
-              positionId: updatedCandidate.jobPosting?.positionId
+              joinDate: contractStartDate,
+              departmentId: candidate.jobPosting?.departmentId || null,
+              positionId: candidate.jobPosting?.positionId || null
             }
           });
 
-          // Tạo Hợp đồng thử việc
+          // Tạo Hợp đồng lao động đầu tiên
           await tx.contract.create({
             data: {
               employeeId: newEmployee.id,
-              contractType: candidate.offer?.contractType || 'PROBATION',
+              contractType: (offer?.contractType as any) || 'PROBATION',
               baseSalary: baseSalary,
-              startDate: candidate.offer?.startDate || new Date(),
+              startDate: contractStartDate,
               status: 'ACTIVE'
+            }
+          });
+
+          // Tạo Lịch sử công tác ban đầu (EmploymentHistory)
+          await tx.employmentHistory.create({
+            data: {
+              employeeId: newEmployee.id,
+              departmentId: candidate.jobPosting?.departmentId || null,
+              positionId: candidate.jobPosting?.positionId || null,
+              changeReason: 'Tuyển mới (New Hire - Auto Provisioned)',
+              salary: baseSalary,
+              effectiveDate: contractStartDate
             }
           });
         }
 
-        // Auto-close JobPosting logic nếu tuyển đủ chỉ tiêu
-        if (updatedCandidate.jobPostingId) {
-          const job = updatedCandidate.jobPosting;
-          if (job && job.status === 'PUBLISHED') {
+        // Cập nhật JobOffer thành ACCEPTED nếu có
+        if (candidate.offer && candidate.offer.status !== 'ACCEPTED') {
+          await tx.jobOffer.update({
+            where: { id: candidate.offer.id },
+            data: { status: 'ACCEPTED', respondedAt: new Date() }
+          });
+        }
+
+        // Auto-close JobPosting nếu đủ quân số
+        if (candidate.jobPostingId && candidate.jobPosting) {
+          const job = candidate.jobPosting;
+          if (job.status === 'PUBLISHED') {
             const hiredCount = await tx.candidate.count({
               where: { jobPostingId: job.id, status: 'HIRED' }
             });
@@ -257,12 +341,12 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.json(result);
     }
 
-    // Các trường hợp cập nhật thông thường khác
+    // 3. Các trường hợp cập nhật thông thường khác
     const updatedCandidate = await prisma.candidate.update({
       where: { id },
       data: { 
         name: name !== undefined ? name as string : undefined,
-        email: email !== undefined ? email as string : undefined,
+        email: email !== undefined ? (email as string).toLowerCase().trim() : undefined,
         phone: phone !== undefined ? phone as string : undefined,
         cvUrl: cvUrl !== undefined ? cvUrl as string : undefined,
         jobPostingId: jobPostingId !== undefined ? jobPostingId as string : undefined,
@@ -270,22 +354,61 @@ router.put('/:id', async (req: Request, res: Response) => {
       }
     });
 
-    res.json(updatedCandidate);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Lỗi khi cập nhật ứng viên' });
+    return res.json(updatedCandidate);
+  } catch (error: any) {
+    console.error("Lỗi cập nhật ứng viên:", error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Mã nhân viên, CCCD hoặc email đã tồn tại trong hệ thống.' });
+    }
+    return res.status(500).json({ error: error.message || 'Lỗi khi cập nhật ứng viên.' });
   }
 });
 
-// DELETE: Xóa Ứng viên
-router.delete('/:id', async (req: Request, res: Response) => {
+// DELETE: Xóa Ứng viên (Ràng buộc BR-REC-02-05)
+router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     
-    await prisma.candidate.delete({ where: { id } });
-    res.json({ message: 'Xóa thành công' });
+    const candidate = await prisma.candidate.findUnique({
+      where: { id },
+      include: {
+        interviews: { include: { feedbacks: true } },
+        offer: true,
+        preOnboarding: true
+      }
+    });
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ ứng viên để xóa.' });
+    }
+
+    // BR-REC-02-05: Chặn xóa ứng viên đang đánh giá hoặc đã tuyển
+    if (['SCREENING', 'INTERVIEWING', 'OFFERING', 'HIRED'].includes(candidate.status)) {
+      return res.status(400).json({ 
+        error: `Không thể xóa hồ sơ ứng viên đang ở giai đoạn [${candidate.status}]! Chỉ được phép xóa ứng viên ở trạng thái Nguồn mới (SOURCED/APPLIED) hoặc Đã từ chối (REJECTED).` 
+      });
+    }
+
+    // Xóa an toàn trong Transaction để tránh lỗi khóa ngoại Foreign Key (P2003)
+    await prisma.$transaction(async (tx) => {
+      // 1. Xóa các đánh giá phỏng vấn
+      for (const inv of candidate.interviews) {
+        await tx.candidateFeedback.deleteMany({ where: { interviewRoundId: inv.id } });
+      }
+      // 2. Xóa các vòng phỏng vấn
+      await tx.interviewRound.deleteMany({ where: { candidateId: id } });
+      // 3. Xóa JobOffer nếu có
+      await tx.jobOffer.deleteMany({ where: { candidateId: id } });
+      // 4. Xóa PreOnboarding nếu có
+      await tx.preOnboardingProfile.deleteMany({ where: { candidateId: id } });
+      // 5. Xóa Candidate
+      await tx.candidate.delete({ where: { id } });
+    });
+
+    return res.json({ message: 'Xóa hồ sơ ứng viên thành công.' });
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi xóa ứng viên' });
+    console.error("Lỗi khi xóa ứng viên:", error);
+    return res.status(500).json({ error: 'Lỗi khi xóa ứng viên.' });
   }
 });
 

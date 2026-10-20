@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
 // Áp dụng xác thực cho toàn bộ phân hệ Quản lý Hợp đồng lao động
 router.use(authenticateToken);
+const cbOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'CB_SPECIALIST', 'HR_STAFF');
 
 // GET: Lấy danh sách Hợp đồng
 router.get('/', async (req: Request, res: Response) => {
@@ -37,8 +38,8 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// POST: Tạo Hợp đồng mới
-router.post('/', async (req: Request, res: Response): Promise<any> => {
+// POST: Tạo Hợp đồng mới (CB/HR Only + Ràng buộc BLLĐ 2019)
+router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const { employeeId, contractType, baseSalary, startDate, endDate, evaluationResult, fileUrl } = req.body;
     
@@ -46,10 +47,21 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ error: 'Vui lòng điền đầy đủ: Nhân viên, loại hợp đồng, lương cơ bản và ngày bắt đầu.' });
     }
 
-    const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : null;
+    const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
+    if (!emp) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ nhân sự để ký hợp đồng.' });
+    }
 
-    if (end && end < start) {
+    if (emp.status === 'RESIGNED') {
+      return res.status(400).json({ error: 'Không thể tạo hợp đồng mới cho nhân viên đã thôi việc (RESIGNED).' });
+    }
+
+    const start = new Date(startDate);
+    let end = endDate ? new Date(endDate) : null;
+
+    if (contractType === 'INDEFINITE') {
+      end = null; // Hợp đồng không xác định thời hạn không có endDate
+    } else if (end && end < start) {
       return res.status(400).json({ error: 'Ngày kết thúc hợp đồng không thể trước ngày bắt đầu.' });
     }
 
@@ -71,54 +83,63 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     const contractStart = new Date(startDate);
     contractStart.setHours(0, 0, 0, 0);
 
-    // Quy tắc BR-CHR-02-01 (Tính độc quyền hiệu lực):
-    // Chỉ chuyển hợp đồng cũ sang EXPIRED nếu hợp đồng mới đã đến ngày hiệu lực (startDate <= now)
-    if (contractStart <= now) {
-      await prisma.contract.updateMany({
-        where: {
-          employeeId,
-          status: 'ACTIVE'
-        },
-        data: {
-          status: 'EXPIRED'
-        }
-      });
-    }
-
-    // Tạo hợp đồng mới
-    const newContract = await prisma.contract.create({
-      data: {
-        employeeId,
-        contractType,
-        baseSalary: Number(baseSalary),
-        startDate: start,
-        endDate: end,
-        fileUrl: fileUrl || null,
-        status: 'ACTIVE'
-      }
-    });
-
-    // Xử lý Đánh giá: Cập nhật Trạng thái Nhân viên nếu cần
-    let updatedEmployee = null;
-    if (evaluationResult === 'PASSED') {
-      // Nếu hợp đồng mới là hợp đồng chính thức, đổi trạng thái nhân viên thành ACTIVE
-      if (contractType === 'OFFICIAL_1Y' || contractType === 'INDEFINITE') {
-        updatedEmployee = await prisma.employee.update({
-          where: { id: employeeId },
-          data: { status: 'ACTIVE' }
+    const result = await prisma.$transaction(async (tx) => {
+      // Quy tắc BR-CHR-02-01 (Tính độc quyền hiệu lực):
+      // Chỉ chuyển hợp đồng cũ sang EXPIRED nếu hợp đồng mới đã đến ngày hiệu lực (startDate <= now)
+      if (contractStart <= now) {
+        await tx.contract.updateMany({
+          where: {
+            employeeId,
+            status: 'ACTIVE'
+          },
+          data: {
+            status: 'EXPIRED'
+          }
         });
       }
-    }
 
-    return res.status(201).json({ contract: newContract, employee: updatedEmployee });
+      // Tạo hợp đồng mới
+      const newContract = await tx.contract.create({
+        data: {
+          employeeId,
+          contractType,
+          baseSalary: Number(baseSalary),
+          startDate: start,
+          endDate: end,
+          fileUrl: fileUrl || null,
+          status: 'ACTIVE'
+        }
+      });
+
+      // Xử lý Đánh giá Thử việc: Cập nhật Trạng thái Nhân viên
+      let updatedEmployee = null;
+      if (evaluationResult === 'PASSED') {
+        if (contractType === 'OFFICIAL_1Y' || contractType === 'INDEFINITE') {
+          updatedEmployee = await tx.employee.update({
+            where: { id: employeeId },
+            data: { status: 'ACTIVE' }
+          });
+        }
+      } else if (evaluationResult === 'FAILED') {
+        // Thử việc không đạt -> Chuyển nhân viên sang RESIGNED
+        updatedEmployee = await tx.employee.update({
+          where: { id: employeeId },
+          data: { status: 'RESIGNED' }
+        });
+      }
+
+      return { contract: newContract, employee: updatedEmployee };
+    });
+
+    return res.status(201).json(result);
   } catch (error) {
     console.error("Create Contract Error:", error);
     return res.status(500).json({ error: 'Lỗi khi tạo hợp đồng mới' });
   }
 });
 
-// PATCH: Cập nhật thông tin / tải ảnh hợp đồng đã ký
-router.patch('/:id', async (req: Request, res: Response): Promise<any> => {
+// PATCH: Cập nhật thông tin / tải ảnh hợp đồng đã ký (CB/HR Only)
+router.patch('/:id', cbOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { fileUrl, status, contractType, baseSalary, startDate, endDate } = req.body;
@@ -142,8 +163,8 @@ router.patch('/:id', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-// DELETE: Xóa Hợp đồng
-router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
+// DELETE: Xóa Hợp đồng (CB/HR Only)
+router.delete('/:id', cbOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     await prisma.contract.delete({ where: { id } });

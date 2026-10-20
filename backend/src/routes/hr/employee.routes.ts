@@ -1,11 +1,23 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
 // Áp dụng xác thực cho toàn bộ phân hệ quản trị nhân sự Core HR
 router.use(authenticateToken);
+
+// Phân quyền cho cán bộ phụ trách nhân sự
+const hrOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF', 'CB_SPECIALIST');
+
+// Helper: Cho phép HR quản trị HOẶC chính nhân sự tự thao tác hồ sơ cá nhân qua ESS (Chống IDOR)
+const canManageOrSelf = (req: any, targetEmployeeId: string): boolean => {
+  const role = req.user?.role?.toUpperCase();
+  if (['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'HR_STAFF', 'CB_SPECIALIST'].includes(role)) {
+    return true;
+  }
+  return req.user?.employeeId === targetEmployeeId;
+};
 
 // 0. GET /me: Lấy thông tin cá nhân của người dùng đang đăng nhập (dành cho Cổng ESS)
 router.get('/me', async (req: any, res: Response): Promise<any> => {
@@ -93,20 +105,65 @@ router.get('/history', async (req: Request, res: Response) => {
   }
 });
 
-// 2. Add employee
-router.post('/', async (req: Request, res: Response) => {
+// 2. Add employee (HR Only + Quota Check + Input Validation)
+router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
-    const { code, fullName, cccd, joinDate, departmentId, positionId } = req.body;
+    const { code, fullName, cccd, email, phone, joinDate, departmentId, positionId } = req.body;
     
+    if (!code?.trim() || !fullName?.trim() || !joinDate) {
+      return res.status(400).json({ error: 'Mã nhân viên, Họ và tên và Ngày vào làm không được để trống.' });
+    }
+
+    const cleanCode = String(code).trim().toUpperCase();
+    const cleanCccd = cccd ? String(cccd).trim() : null;
+    const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+
+    if (cleanCccd && !/^\d{9}(\d{3})?$/.test(cleanCccd)) {
+      return res.status(400).json({ error: 'Số CCCD/CMND không hợp lệ (yêu cầu 9 hoặc 12 chữ số).' });
+    }
+
+    // Kiểm tra định biên phòng ban
+    if (departmentId) {
+      const dept = await prisma.department.findUnique({
+        where: { id: departmentId },
+        include: { _count: { select: { employees: { where: { status: { not: 'RESIGNED' } } } } } }
+      });
+      if (dept && dept.quota && dept._count.employees >= dept.quota) {
+        return res.status(400).json({
+          error: `Phòng ban "${dept.name}" đã đủ định biên nhân sự (${dept._count.employees}/${dept.quota}). Không thể tuyển thêm!`
+        });
+      }
+    }
+
+    // Kiểm tra trùng lặp
+    const existing = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { code: cleanCode },
+          ...(cleanCccd ? [{ cccd: cleanCccd }] : []),
+          ...(cleanEmail ? [{ email: cleanEmail }] : [])
+        ]
+      }
+    });
+
+    if (existing) {
+      if (existing.code === cleanCode) return res.status(400).json({ error: 'Mã nhân viên đã tồn tại trong hệ thống.' });
+      if (cleanCccd && existing.cccd === cleanCccd) return res.status(400).json({ error: 'Số CCCD đã tồn tại trong hệ thống.' });
+      if (cleanEmail && existing.email === cleanEmail) return res.status(400).json({ error: 'Địa chỉ Email đã tồn tại trong hệ thống.' });
+    }
+
     const newEmployee = await prisma.$transaction(async (tx) => {
       const emp = await tx.employee.create({
         data: {
-          code,
-          fullName,
-          cccd: cccd ? cccd : null,
+          code: cleanCode,
+          fullName: String(fullName).trim(),
+          cccd: cleanCccd,
+          email: cleanEmail,
+          phone: phone ? String(phone).trim() : null,
           joinDate: new Date(joinDate),
           departmentId: departmentId || null,
-          positionId: positionId || null
+          positionId: positionId || null,
+          status: 'ACTIVE'
         }
       });
       
@@ -122,9 +179,13 @@ router.post('/', async (req: Request, res: Response) => {
       return emp;
     });
     
-    res.status(201).json(newEmployee);
-  } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi thêm nhân viên' });
+    return res.status(201).json(newEmployee);
+  } catch (error: any) {
+    console.error('Error adding employee:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Mã nhân viên, CCCD hoặc Email đã tồn tại.' });
+    }
+    return res.status(500).json({ error: 'Lỗi khi thêm nhân viên' });
   }
 });
 
@@ -167,8 +228,8 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// 3. Update employee
-router.put('/:id', async (req: Request, res: Response) => {
+// 3. Update employee (HR Only)
+router.put('/:id', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { 
@@ -177,46 +238,57 @@ router.put('/:id', async (req: Request, res: Response) => {
       emergencyContactName, emergencyContactPhone, emergencyContactRelation
     } = req.body;
     
-    // Check if code or cccd already exists for another employee
-    const orConditions: any[] = [{ code }];
-    if (cccd) orConditions.push({ cccd });
-    if (email) orConditions.push({ email });
+    const cleanCode = code ? String(code).trim().toUpperCase() : undefined;
+    const cleanCccd = cccd ? String(cccd).trim() : null;
+    const cleanEmail = email ? String(email).trim().toLowerCase() : null;
 
-    const existing = await prisma.employee.findFirst({
-      where: {
-        OR: orConditions,
-        NOT: { id }
+    if (cleanCccd && !/^\d{9}(\d{3})?$/.test(cleanCccd)) {
+      return res.status(400).json({ error: 'Số CCCD/CMND không hợp lệ (yêu cầu 9 hoặc 12 chữ số).' });
+    }
+
+    // Check if code, cccd, or email already exists for another employee
+    const orConditions: any[] = [];
+    if (cleanCode) orConditions.push({ code: cleanCode });
+    if (cleanCccd) orConditions.push({ cccd: cleanCccd });
+    if (cleanEmail) orConditions.push({ email: cleanEmail });
+
+    if (orConditions.length > 0) {
+      const existing = await prisma.employee.findFirst({
+        where: {
+          OR: orConditions,
+          NOT: { id }
+        }
+      });
+
+      if (existing) {
+        if (cleanCode && existing.code === cleanCode) return res.status(400).json({ error: 'Mã nhân viên đã tồn tại ở hồ sơ khác.' });
+        if (cleanCccd && existing.cccd === cleanCccd) return res.status(400).json({ error: 'Số CCCD đã tồn tại ở hồ sơ khác.' });
+        if (cleanEmail && existing.email === cleanEmail) return res.status(400).json({ error: 'Email đã tồn tại ở hồ sơ khác.' });
       }
-    });
-
-    if (existing) {
-      if (existing.code === code) return res.status(400).json({ error: 'Mã nhân viên đã tồn tại' });
-      if (existing.cccd === cccd) return res.status(400).json({ error: 'CCCD đã tồn tại' });
-      if (existing.email === email) return res.status(400).json({ error: 'Email đã tồn tại' });
     }
 
     const updatedEmployee = await prisma.employee.update({
       where: { id },
       data: {
-        code,
-        fullName,
-        cccd: cccd ? cccd : null,
-        email: email ? email : null,
-        phone: phone ? phone : null,
+        ...(cleanCode && { code: cleanCode }),
+        ...(fullName && { fullName: String(fullName).trim() }),
+        cccd: cleanCccd,
+        email: cleanEmail,
+        phone: phone ? String(phone).trim() : null,
         gender: gender ? gender : null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         address: address ? address : null,
         nationality: nationality ? nationality : null,
         maritalStatus: maritalStatus ? maritalStatus : null,
-        taxCode: taxCode ? taxCode : null,
+        taxCode: taxCode ? String(taxCode).trim() : null,
         bankName: bankName ? bankName : null,
-        bankAccount: bankAccount ? bankAccount : null,
+        bankAccount: bankAccount ? String(bankAccount).trim() : null,
         socialInsurance: socialInsurance ? socialInsurance : null,
         healthInsurance: healthInsurance ? healthInsurance : null,
         emergencyContactName: emergencyContactName ? emergencyContactName : null,
         emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone : null,
         emergencyContactRelation: emergencyContactRelation ? emergencyContactRelation : null,
-        status,
+        ...(status && { status }),
         joinDate: joinDate ? new Date(joinDate) : undefined,
         departmentId: departmentId || null,
         positionId: positionId || null
@@ -226,32 +298,68 @@ router.put('/:id', async (req: Request, res: Response) => {
         position: true
       }
     });
-    res.json(updatedEmployee);
+    return res.json(updatedEmployee);
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi cập nhật nhân viên' });
+    console.error('Error updating employee:', error);
+    return res.status(500).json({ error: 'Lỗi khi cập nhật nhân viên' });
   }
 });
 
-// 4. Delete employee
-router.delete('/:id', async (req: Request, res: Response) => {
+// 4. Delete employee (HR Only + Delete Constraint BR-CHR-01-03)
+router.delete('/:id', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
 
-    // Check references before deleting
-    const contractCount = await prisma.contract.count({ where: { employeeId: id } });
-    if (contractCount > 0) {
-      return res.status(400).json({ error: 'Không thể xóa nhân viên đã có hợp đồng' });
+    const emp = await prisma.employee.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            contracts: true,
+            attendances: true,
+            leaveRequests: true,
+            otRequests: true,
+            payslips: true
+          }
+        }
+      }
+    });
+
+    if (!emp) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ nhân viên để xóa.' });
     }
 
-    await prisma.employee.delete({ where: { id } });
-    res.json({ message: 'Xóa nhân viên thành công' });
+    const counts = emp._count;
+    if (counts.contracts > 0 || counts.attendances > 0 || counts.leaveRequests > 0 || counts.otRequests > 0 || counts.payslips > 0) {
+      return res.status(400).json({
+        error: 'Không thể xóa hồ sơ nhân viên đã phát sinh dữ liệu giao dịch (Hợp đồng, Chấm công, Nghỉ phép hoặc Bảng lương). Hãy thực hiện thủ tục Thôi việc (Offboarding) để bảo lưu dữ liệu theo luật lao động!'
+      });
+    }
+
+    const activeAssets = await prisma.assetAssignment.count({ where: { employeeId: id } });
+    if (activeAssets > 0) {
+      return res.status(400).json({ error: 'Không thể xóa nhân viên đang có dữ liệu tài sản/thiết bị chưa giải quyết.' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.employmentHistory.deleteMany({ where: { employeeId: id } });
+      await tx.relative.deleteMany({ where: { employeeId: id } });
+      await tx.degree.deleteMany({ where: { employeeId: id } });
+      await tx.certificate.deleteMany({ where: { employeeId: id } });
+      await tx.onboardingTask.deleteMany({ where: { employeeId: id } });
+      await tx.account.deleteMany({ where: { employeeId: id } });
+      await tx.employee.delete({ where: { id } });
+    });
+
+    return res.json({ message: 'Xóa nhân viên thành công' });
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi xóa nhân viên' });
+    console.error('Error deleting employee:', error);
+    return res.status(500).json({ error: 'Lỗi khi xóa nhân viên' });
   }
 });
 
-// 5. Terminate employee (Thôi việc / Nghỉ việc)
-router.post('/:id/terminate', async (req: Request, res: Response): Promise<any> => {
+// 5. Terminate employee (Thôi việc / Nghỉ việc - HR Only)
+router.post('/:id/terminate', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     
@@ -307,14 +415,30 @@ router.post('/:id/terminate', async (req: Request, res: Response): Promise<any> 
   }
 });
 
-// 6. Transfer employee (Điều chuyển công tác)
-router.post('/:id/transfer', async (req: Request, res: Response): Promise<any> => {
+// 6. Transfer employee (Điều chuyển công tác - HR Only + Quota Check)
+router.post('/:id/transfer', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { departmentId, positionId, changeReason } = req.body;
 
     if (!departmentId && !positionId) {
       return res.status(400).json({ error: 'Vui lòng chọn phòng ban hoặc vị trí chức danh mới cần điều chuyển.' });
+    }
+
+    // Kiểm tra định biên phòng ban đích
+    if (departmentId) {
+      const currentEmp = await prisma.employee.findUnique({ where: { id }, select: { departmentId: true } });
+      if (currentEmp?.departmentId !== departmentId) {
+        const destDept = await prisma.department.findUnique({
+          where: { id: departmentId },
+          include: { _count: { select: { employees: { where: { status: { not: 'RESIGNED' } } } } } }
+        });
+        if (destDept && destDept.quota && destDept._count.employees >= destDept.quota) {
+          return res.status(400).json({
+            error: `Phòng ban đích "${destDept.name}" đã đạt trần định biên nhân sự (${destDept._count.employees}/${destDept.quota}). Không thể điều chuyển thêm!`
+          });
+        }
+      }
     }
     
     const updated = await prisma.$transaction(async (tx) => {
@@ -351,13 +475,18 @@ router.post('/:id/transfer', async (req: Request, res: Response): Promise<any> =
 });
 
 // ==========================================
+// ==========================================
 // 7. QUẢN LÝ NGƯỜI PHỤ THUỘC (RELATIVES / DEPENDENTS - THUẾ TNCN)
 // ==========================================
 
 // GET /api/employees/:id/relatives
-router.get('/:id/relatives', async (req: Request, res: Response): Promise<any> => {
+router.get('/:id/relatives', async (req: any, res: Response): Promise<any> => {
   try {
     const employeeId = req.params.id as string;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem thông tin người thân của nhân viên này.' });
+    }
+
     const relatives = await prisma.relative.findMany({
       where: { employeeId },
       orderBy: { fullName: 'asc' }
@@ -369,9 +498,13 @@ router.get('/:id/relatives', async (req: Request, res: Response): Promise<any> =
 });
 
 // POST /api/employees/:id/relatives
-router.post('/:id/relatives', async (req: Request, res: Response): Promise<any> => {
+router.post('/:id/relatives', async (req: any, res: Response): Promise<any> => {
   try {
     const employeeId = req.params.id as string;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền thêm người thân cho nhân viên này.' });
+    }
+
     const { fullName, relation, dateOfBirth, taxCode, isDependent } = req.body;
 
     if (!fullName || !relation) {
@@ -397,9 +530,13 @@ router.post('/:id/relatives', async (req: Request, res: Response): Promise<any> 
 });
 
 // PUT /api/employees/:id/relatives/:relativeId
-router.put('/:id/relatives/:relativeId', async (req: Request, res: Response): Promise<any> => {
+router.put('/:id/relatives/:relativeId', async (req: any, res: Response): Promise<any> => {
   try {
-    const { relativeId } = req.params;
+    const { id: employeeId, relativeId } = req.params;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền sửa thông tin người thân của nhân viên này.' });
+    }
+
     const { fullName, relation, dateOfBirth, taxCode, isDependent } = req.body;
 
     const updated = await prisma.relative.update({
@@ -420,9 +557,13 @@ router.put('/:id/relatives/:relativeId', async (req: Request, res: Response): Pr
 });
 
 // DELETE /api/employees/:id/relatives/:relativeId
-router.delete('/:id/relatives/:relativeId', async (req: Request, res: Response): Promise<any> => {
+router.delete('/:id/relatives/:relativeId', async (req: any, res: Response): Promise<any> => {
   try {
-    const { relativeId } = req.params;
+    const { id: employeeId, relativeId } = req.params;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền xóa thông tin người thân của nhân viên này.' });
+    }
+
     await prisma.relative.delete({ where: { id: relativeId } });
     return res.json({ message: 'Đã xóa người thân/người phụ thuộc thành công' });
   } catch (error) {
@@ -435,9 +576,13 @@ router.delete('/:id/relatives/:relativeId', async (req: Request, res: Response):
 // ==========================================
 
 // GET /api/employees/:id/degrees
-router.get('/:id/degrees', async (req: Request, res: Response): Promise<any> => {
+router.get('/:id/degrees', async (req: any, res: Response): Promise<any> => {
   try {
     const employeeId = req.params.id as string;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem bằng cấp của nhân viên này.' });
+    }
+
     const degrees = await prisma.degree.findMany({
       where: { employeeId },
       orderBy: { gradYear: 'desc' }
@@ -449,9 +594,13 @@ router.get('/:id/degrees', async (req: Request, res: Response): Promise<any> => 
 });
 
 // POST /api/employees/:id/degrees
-router.post('/:id/degrees', async (req: Request, res: Response): Promise<any> => {
+router.post('/:id/degrees', async (req: any, res: Response): Promise<any> => {
   try {
     const employeeId = req.params.id as string;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền thêm bằng cấp cho nhân viên này.' });
+    }
+
     const { degreeName, major, institution, gradYear } = req.body;
 
     if (!degreeName || !major || !institution) {
@@ -475,9 +624,13 @@ router.post('/:id/degrees', async (req: Request, res: Response): Promise<any> =>
 });
 
 // DELETE /api/employees/:id/degrees/:degreeId
-router.delete('/:id/degrees/:degreeId', async (req: Request, res: Response): Promise<any> => {
+router.delete('/:id/degrees/:degreeId', async (req: any, res: Response): Promise<any> => {
   try {
-    const { degreeId } = req.params;
+    const { id: employeeId, degreeId } = req.params;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền xóa bằng cấp của nhân viên này.' });
+    }
+
     await prisma.degree.delete({ where: { id: degreeId } });
     return res.json({ message: 'Đã xóa bằng cấp thành công' });
   } catch (error) {
@@ -490,9 +643,13 @@ router.delete('/:id/degrees/:degreeId', async (req: Request, res: Response): Pro
 // ==========================================
 
 // GET /api/employees/:id/certificates
-router.get('/:id/certificates', async (req: Request, res: Response): Promise<any> => {
+router.get('/:id/certificates', async (req: any, res: Response): Promise<any> => {
   try {
     const employeeId = req.params.id as string;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem chứng chỉ của nhân viên này.' });
+    }
+
     const certificates = await prisma.certificate.findMany({
       where: { employeeId },
       orderBy: { issueDate: 'desc' }
@@ -504,9 +661,13 @@ router.get('/:id/certificates', async (req: Request, res: Response): Promise<any
 });
 
 // POST /api/employees/:id/certificates
-router.post('/:id/certificates', async (req: Request, res: Response): Promise<any> => {
+router.post('/:id/certificates', async (req: any, res: Response): Promise<any> => {
   try {
     const employeeId = req.params.id as string;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền thêm chứng chỉ cho nhân viên này.' });
+    }
+
     const { name, issuedBy, issueDate, expiryDate } = req.body;
 
     if (!name || !issuedBy) {
@@ -530,9 +691,13 @@ router.post('/:id/certificates', async (req: Request, res: Response): Promise<an
 });
 
 // DELETE /api/employees/:id/certificates/:certId
-router.delete('/:id/certificates/:certId', async (req: Request, res: Response): Promise<any> => {
+router.delete('/:id/certificates/:certId', async (req: any, res: Response): Promise<any> => {
   try {
-    const { certId } = req.params;
+    const { id: employeeId, certId } = req.params;
+    if (!canManageOrSelf(req, employeeId)) {
+      return res.status(403).json({ error: 'Bạn không có quyền xóa chứng chỉ của nhân viên này.' });
+    }
+
     await prisma.certificate.delete({ where: { id: certId } });
     return res.json({ message: 'Đã xóa chứng chỉ thành công' });
   } catch (error) {

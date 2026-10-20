@@ -1,16 +1,24 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
-import { authenticateToken } from '../../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
 
 const router = Router();
 
-// 1. Lấy danh sách đăng ký làm thêm giờ (HR / Quản lý)
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+const managerOrHr = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD', 'MANAGER');
+
+// 1. Lấy danh sách đăng ký làm thêm giờ (HR / Quản lý xem toàn bộ; Nhân viên chỉ xem đơn của mình)
+router.get('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const month = req.query.month as string; // YYYY-MM
-    const employeeId = req.query.employeeId as string;
+    let employeeId = req.query.employeeId as string;
     const status = req.query.status as string;
+
+    const userRole = req.user?.role?.toUpperCase();
+    // Chặn IDOR: Nhân viên thông thường chỉ được xem danh sách của chính mình
+    if (userRole === 'EMPLOYEE') {
+      employeeId = req.user.employeeId;
+    }
 
     const where: any = {};
     if (month) {
@@ -43,10 +51,17 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
   }
 });
 
-// 2. Lấy danh sách OT của cá nhân (Cổng ESS)
-router.get('/employee/:employeeId', authenticateToken, async (req: Request, res: Response): Promise<any> => {
+// 2. Lấy danh sách OT của cá nhân (Cổng ESS - Có kiểm tra IDOR)
+router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const { employeeId } = req.params;
+    const userRole = req.user?.role?.toUpperCase();
+
+    // Chặn IDOR: Nhân viên thường không được xem dữ liệu OT của nhân viên khác
+    if (userRole === 'EMPLOYEE' && req.user?.employeeId !== employeeId) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem thông tin làm thêm giờ của nhân viên khác.' });
+    }
+
     const month = req.query.month as string;
 
     const now = new Date();
@@ -94,13 +109,19 @@ router.get('/employee/:employeeId', authenticateToken, async (req: Request, res:
   }
 });
 
-// 3. Đăng ký làm thêm giờ (Tuân thủ Điều 107 Bộ luật Lao động 2019)
+// 3. Đăng ký làm thêm giờ (Tuân thủ Điều 107 Bộ luật Lao động 2019: <= 4h/ngày, <= 40h/tháng)
 router.post('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const { employeeId, date, requestHours, reason } = req.body;
-    const empId = employeeId || req.user?.employeeId;
+    const userRole = req.user?.role?.toUpperCase();
+    
+    // Nếu là EMPLOYEE, bắt buộc chỉ được tạo đơn cho chính mình
+    let empId = employeeId;
+    if (userRole === 'EMPLOYEE' || !empId) {
+      empId = req.user?.employeeId;
+    }
 
-    if (!empId || !date || !requestHours) {
+    if (!empId || !date || requestHours === undefined) {
       return res.status(400).json({ error: 'Vui lòng điền đủ thông tin ngày làm và số giờ OT.' });
     }
 
@@ -109,17 +130,30 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       return res.status(400).json({ error: 'Số giờ làm thêm phải lớn hơn 0.' });
     }
 
-    // Điều 107 Khoản 2 Điểm b BLLĐ 2019: Số giờ làm thêm không quá 4 giờ/ngày
-    if (hours > 4) {
-      return res.status(400).json({
-        error: 'Quy định Pháp luật Lao động (Điều 107 BLLĐ 2019): Số giờ làm thêm không được vượt quá 4 giờ trong 01 ngày.'
-      });
-    }
-
     const otDate = new Date(date);
     otDate.setHours(0, 0, 0, 0);
 
-    // Kiểm tra giới hạn tháng (không quá 40 giờ/tháng)
+    // 1. Kiểm tra trần ngày (Điều 107 Khoản 2 Điểm b BLLĐ 2019: Tối đa 4 giờ/ngày)
+    const existingDayOT = await prisma.oTRequest.findMany({
+      where: {
+        employeeId: empId,
+        date: otDate,
+        status: { in: ['APPROVED', 'PENDING'] }
+      }
+    });
+
+    const dayAccumulatedHours = existingDayOT.reduce(
+      (sum, r) => sum + Number(r.status === 'APPROVED' ? (r.actualHours || r.requestHours) : r.requestHours),
+      0
+    );
+
+    if (dayAccumulatedHours + hours > 4) {
+      return res.status(400).json({
+        error: `Quy định Pháp luật Lao động (Điều 107 BLLĐ 2019): Số giờ làm thêm không được vượt quá 4 giờ trong 01 ngày (Bạn đã đăng ký ${dayAccumulatedHours}h trong ngày ${date}).`
+      });
+    }
+
+    // 2. Kiểm tra trần tháng (Điều 107 BLLĐ 2019: Tối đa 40 giờ/tháng)
     const monthStart = new Date(otDate.getFullYear(), otDate.getMonth(), 1);
     const monthEnd = new Date(otDate.getFullYear(), otDate.getMonth() + 1, 0, 23, 59, 59);
 
@@ -148,7 +182,7 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
         date: otDate,
         requestHours: hours as any,
         actualHours: 0 as any,
-        reason: reason || null,
+        reason: reason ? String(reason).trim() : null,
         status: 'PENDING'
       }
     });
@@ -161,18 +195,18 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       details: `Đăng ký làm thêm ${hours}h ngày ${date}. Lý do: ${reason || 'Không'}`
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Đăng ký làm thêm giờ thành công, đang chờ Quản lý phê duyệt.',
       request: newRequest
     });
   } catch (error: any) {
     console.error('Error creating OT request:', error);
-    res.status(500).json({ error: error.message || 'Lỗi khi gửi yêu cầu làm thêm giờ' });
+    return res.status(500).json({ error: error.message || 'Lỗi khi gửi yêu cầu làm thêm giờ' });
   }
 });
 
-// 4. Phê duyệt / Từ chối đơn làm thêm giờ
-router.put('/:id/status', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// 4. Phê duyệt / Từ chối đơn làm thêm giờ (Chỉ Quản lý / HR, Chống tự duyệt)
+router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
     const { status, actualHours } = req.body; // APPROVED | REJECTED
@@ -186,9 +220,22 @@ router.put('/:id/status', authenticateToken, async (req: any, res: Response): Pr
       return res.status(404).json({ error: 'Không tìm thấy đơn làm thêm giờ.' });
     }
 
+    if (request.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Đơn làm thêm giờ này đã được xử lý trước đó.' });
+    }
+
+    // Chống tự phê duyệt (Self-approval Protection)
+    if (req.user?.employeeId && request.employeeId === req.user.employeeId) {
+      return res.status(403).json({ error: 'Người đăng ký không thể tự phê duyệt đơn làm thêm giờ của chính mình.' });
+    }
+
     const confirmedActualHours = status === 'APPROVED'
       ? (actualHours !== undefined ? Number(actualHours) : Number(request.requestHours))
       : 0;
+
+    if (status === 'APPROVED' && confirmedActualHours > 4) {
+      return res.status(400).json({ error: 'Giờ nghiệm thu thực tế không được vượt quá 4 giờ/ngày (Điều 107 BLLĐ 2019).' });
+    }
 
     const updated = await prisma.oTRequest.update({
       where: { id },
@@ -206,17 +253,17 @@ router.put('/:id/status', authenticateToken, async (req: any, res: Response): Pr
       details: `${status === 'APPROVED' ? `Phê duyệt OT (${confirmedActualHours} giờ)` : 'Từ chối đơn OT'} #${id}`
     });
 
-    res.json({
+    return res.json({
       message: `Đã ${status === 'APPROVED' ? 'phê duyệt' : 'từ chối'} đơn làm thêm giờ.`,
       request: updated
     });
   } catch (error: any) {
     console.error('Error updating OT status:', error);
-    res.status(500).json({ error: error.message || 'Lỗi khi cập nhật trạng thái OT' });
+    return res.status(500).json({ error: error.message || 'Lỗi khi cập nhật trạng thái OT' });
   }
 });
 
-// 5. Hủy đơn làm thêm giờ (Nếu còn ở trạng thái PENDING)
+// 5. Hủy đơn làm thêm giờ (Nếu còn ở trạng thái PENDING & đúng chủ sở hữu hoặc Admin)
 router.delete('/:id', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
@@ -229,11 +276,26 @@ router.delete('/:id', authenticateToken, async (req: any, res: Response): Promis
       return res.status(400).json({ error: 'Chỉ có thể hủy đơn đang chờ duyệt (PENDING).' });
     }
 
+    const userRole = req.user?.role?.toUpperCase();
+    const isHrOrAdmin = ['ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF'].includes(userRole);
+    if (!isHrOrAdmin && request.employeeId !== req.user?.employeeId) {
+      return res.status(403).json({ error: 'Bạn không có quyền hủy đơn làm thêm giờ của người khác.' });
+    }
+
     await prisma.oTRequest.delete({ where: { id } });
-    res.json({ message: 'Đã hủy đơn làm thêm giờ thành công.' });
+
+    await createAuditLog({
+      action: 'CANCEL_OT_REQUEST',
+      tableName: 'OTRequest',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Hủy đơn làm thêm giờ #${id}`
+    });
+
+    return res.json({ message: 'Đã hủy đơn làm thêm giờ thành công.' });
   } catch (error: any) {
     console.error('Error deleting OT request:', error);
-    res.status(500).json({ error: 'Lỗi khi hủy đơn OT' });
+    return res.status(500).json({ error: 'Lỗi khi hủy đơn OT' });
   }
 });
 
