@@ -1,7 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
+import { authenticateToken } from '../../middlewares/auth.middleware';
 
 const router = Router();
+
+// Áp dụng xác thực cho toàn bộ phân hệ Quản lý Hợp đồng lao động
+router.use(authenticateToken);
 
 // GET: Lấy danh sách Hợp đồng
 router.get('/', async (req: Request, res: Response) => {
@@ -38,27 +42,57 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
   try {
     const { employeeId, contractType, baseSalary, startDate, endDate, evaluationResult, fileUrl } = req.body;
     
-    // Quy tắc BR-CHR-02-01 (Tính độc quyền hiệu lực):
-    // Một nhân viên tại một thời điểm chỉ có tối đa 1 hợp đồng ACTIVE.
-    // Nếu có hợp đồng cũ đang ACTIVE -> chuyển sang EXPIRED
-    await prisma.contract.updateMany({
-      where: {
-        employeeId,
-        status: 'ACTIVE'
-      },
-      data: {
-        status: 'EXPIRED'
+    if (!employeeId || !contractType || !baseSalary || !startDate) {
+      return res.status(400).json({ error: 'Vui lòng điền đầy đủ: Nhân viên, loại hợp đồng, lương cơ bản và ngày bắt đầu.' });
+    }
+
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : null;
+
+    if (end && end < start) {
+      return res.status(400).json({ error: 'Ngày kết thúc hợp đồng không thể trước ngày bắt đầu.' });
+    }
+
+    // Tuân thủ Điều 27 Bộ luật Lao động 2019: Thời hạn thử việc tối đa không quá 60 ngày
+    if (contractType === 'PROBATION') {
+      if (!end) {
+        return res.status(400).json({ error: 'Hợp đồng thử việc bắt buộc phải có ngày kết thúc (Điều 27 BLLĐ 2019).' });
       }
-    });
+      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays > 60) {
+        return res.status(400).json({ 
+          error: `Thời gian thử việc không được vượt quá 60 ngày theo Điều 27 Bộ luật Lao động 2019 (Hiện tại: ${diffDays} ngày).` 
+        });
+      }
+    }
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const contractStart = new Date(startDate);
+    contractStart.setHours(0, 0, 0, 0);
+
+    // Quy tắc BR-CHR-02-01 (Tính độc quyền hiệu lực):
+    // Chỉ chuyển hợp đồng cũ sang EXPIRED nếu hợp đồng mới đã đến ngày hiệu lực (startDate <= now)
+    if (contractStart <= now) {
+      await prisma.contract.updateMany({
+        where: {
+          employeeId,
+          status: 'ACTIVE'
+        },
+        data: {
+          status: 'EXPIRED'
+        }
+      });
+    }
 
     // Tạo hợp đồng mới
     const newContract = await prisma.contract.create({
       data: {
         employeeId,
         contractType,
-        baseSalary,
-        startDate: new Date(startDate),
-        endDate: endDate ? new Date(endDate) : null,
+        baseSalary: Number(baseSalary),
+        startDate: start,
+        endDate: end,
         fileUrl: fileUrl || null,
         status: 'ACTIVE'
       }

@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { prisma } from '../../db';
+import { authenticateToken } from '../../middlewares/auth.middleware';
 
 const router = Router();
+
+// Áp dụng bảo mật xác thực cho danh mục vị trí chức danh
+router.use(authenticateToken);
 
 // Get all positions
 router.get('/', async (req, res) => {
