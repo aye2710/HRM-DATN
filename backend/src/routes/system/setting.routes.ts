@@ -5,6 +5,9 @@ import { createAuditLog } from '../../utils/audit';
 
 const router = express.Router();
 
+const adminOnly = requireRole('ADMIN', 'SUPER_ADMIN');
+const hrOrAdmin = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER');
+
 // ==========================================
 // 1. SYSTEM SETTINGS (Cấu hình tham số)
 // ==========================================
@@ -98,34 +101,42 @@ const DEFAULT_SETTINGS = [
   // Quản trị Nhân sự & Quy trình
   {
     category: 'HR',
-    key: 'LEAVE_APPROVAL_THRESHOLD',
-    name: 'Ngưỡng ngày nghỉ phép phân cấp Tổng Giám Đốc phê duyệt',
-    value: '2',
-    dataType: 'NUMBER',
-    unit: 'Ngày',
-    description: 'Đơn xin nghỉ từ mức ngày này trở lên bắt buộc phải qua cấp TGĐ/CEO duyệt sau Trưởng phòng.'
-  },
-  {
-    category: 'HR',
-    key: 'CONTRACT_EXPIRY_WARN_DAYS',
-    name: 'Thời gian cảnh báo trước hạn Hợp đồng lao động',
-    value: '30',
-    dataType: 'NUMBER',
-    unit: 'Ngày',
-    description: 'Hệ thống tự động hiển thị danh sách hợp đồng sắp hết hạn để chuẩn bị tái ký.'
-  },
-  {
-    category: 'HR',
-    key: 'PROBATION_PERIOD_DAYS',
-    name: 'Thời gian thử việc tiêu chuẩn chức danh đại học/chuyên viên',
+    key: 'PROBATION_MAX_DAYS',
+    name: 'Thời gian thử việc tối đa chức danh đại học trở lên',
     value: '60',
     dataType: 'NUMBER',
     unit: 'Ngày',
-    description: 'Thời gian thử việc tối đa theo quy định pháp luật lao động.'
+    description: 'Điều 27 Bộ luật Lao động 2019: Tối đa 60 ngày đối với công việc có chức danh nghề nghiệp cần trình độ từ cao đẳng trở lên.'
+  },
+  {
+    category: 'HR',
+    key: 'ANNUAL_LEAVE_BASE',
+    name: 'Số ngày nghỉ phép năm tiêu chuẩn',
+    value: '12',
+    dataType: 'NUMBER',
+    unit: 'Ngày / năm',
+    description: 'Điều 113 Bộ luật Lao động: Người lao động làm đủ 12 tháng được nghỉ 12 ngày phép nguyên lương.'
+  },
+  {
+    category: 'HR',
+    key: 'SENIORITY_LEAVE_STEP',
+    name: 'Số năm thâm niên được cộng thêm 01 ngày phép',
+    value: '5',
+    dataType: 'NUMBER',
+    unit: 'Năm',
+    description: 'Điều 114 Bộ luật Lao động: Cứ đủ 05 năm làm việc thì số ngày nghỉ phép năm được tăng thêm tương ứng 01 ngày.'
+  },
+  {
+    category: 'HR',
+    key: 'AUTO_LOCK_RESIGNED_ACCOUNTS',
+    name: 'Tự động vô hiệu hóa tài khoản khi nhân sự Thôi việc',
+    value: 'true',
+    dataType: 'BOOLEAN',
+    unit: '',
+    description: 'Khóa tài khoản hệ thống ngay khi Quyết định Thôi việc có hiệu lực nhằm bảo mật dữ liệu doanh nghiệp.'
   }
 ];
 
-// Helper seed default settings
 export const seedDefaultSettings = async () => {
   const count = await prisma.systemSetting.count();
   if (count === 0) {
@@ -135,8 +146,8 @@ export const seedDefaultSettings = async () => {
   }
 };
 
-// GET /api/settings - Lấy toàn bộ tham số nghiệp vụ
-router.get('/', async (req: Request, res: Response) => {
+// GET /api/settings - Lấy toàn bộ tham số nghiệp vụ (Cần đăng nhập)
+router.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
     await seedDefaultSettings();
     const settings = await prisma.systemSetting.findMany({
@@ -150,8 +161,8 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// PUT /api/settings/bulk - Cập nhật hàng loạt tham số nghiệp vụ
-router.put('/bulk', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// PUT /api/settings/bulk - Cập nhật hàng loạt tham số nghiệp vụ (Super Admin / Admin Only)
+router.put('/bulk', authenticateToken, adminOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { updates } = req.body;
     if (!Array.isArray(updates)) {
@@ -356,8 +367,8 @@ router.get('/roles', authenticateToken, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/settings/roles - Tạo vai trò mới
-router.post('/roles', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// POST /api/settings/roles - Tạo vai trò mới (Admin Only)
+router.post('/roles', authenticateToken, adminOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { name, description, cloneFromRoleId, permissions } = req.body;
     if (!name || !name.trim()) {
@@ -426,11 +437,11 @@ router.post('/roles', authenticateToken, async (req: any, res: Response): Promis
   }
 });
 
-// PUT /api/settings/roles/:id - Cập nhật thông tin vai trò
-router.put('/roles/:id', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// PUT /api/settings/roles/:id - Cập nhật thông tin vai trò (Admin Only)
+router.put('/roles/:id', authenticateToken, adminOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { description } = req.body;
 
     const role = await prisma.role.findUnique({ where: { id } });
     if (!role) {
@@ -459,8 +470,8 @@ router.put('/roles/:id', authenticateToken, async (req: any, res: Response): Pro
   }
 });
 
-// PUT /api/settings/roles/:id/permissions - Cập nhật ma trận quyền hạn cho vai trò
-router.put('/roles/:id/permissions', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// PUT /api/settings/roles/:id/permissions - Cập nhật ma trận quyền hạn cho vai trò (Admin Only)
+router.put('/roles/:id/permissions', authenticateToken, adminOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
     const { permissions } = req.body; // Array of permission strings (actions)
@@ -522,8 +533,8 @@ router.put('/roles/:id/permissions', authenticateToken, async (req: any, res: Re
   }
 });
 
-// DELETE /api/settings/roles/:id - Xóa vai trò
-router.delete('/roles/:id', authenticateToken, async (req: any, res: Response): Promise<any> => {
+// DELETE /api/settings/roles/:id - Xóa vai trò (Admin Only)
+router.delete('/roles/:id', authenticateToken, adminOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
 
@@ -570,8 +581,8 @@ router.delete('/roles/:id', authenticateToken, async (req: any, res: Response): 
 // 3. AUDIT LOGS (Nhật ký Kiểm toán Hệ thống)
 // ==========================================
 
-// GET /api/settings/audit-logs - Tra cứu nhật ký kiểm toán
-router.get('/audit-logs', authenticateToken, async (req: Request, res: Response) => {
+// GET /api/settings/audit-logs - Tra cứu nhật ký kiểm toán (HR / Admin Only)
+router.get('/audit-logs', authenticateToken, hrOrAdmin, async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));

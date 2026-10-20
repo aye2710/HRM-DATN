@@ -1,10 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
+import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
-// 1. GET /api/reports/overview - Báo cáo tổng hợp toàn diện
-router.get('/overview', async (req: Request, res: Response): Promise<any> => {
+// Áp dụng xác thực cho toàn bộ phân hệ Báo cáo
+router.use(authenticateToken);
+
+const managementOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD', 'MANAGER', 'ACCOUNTANT');
+
+// 1. GET /api/reports/overview - Báo cáo tổng hợp toàn diện (Ban Giám Đốc / HR / Kế toán Only)
+router.get('/overview', managementOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     // 1. Nhân sự
     const totalEmployees = await prisma.employee.count();
