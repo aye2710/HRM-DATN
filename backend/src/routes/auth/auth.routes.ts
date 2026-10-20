@@ -36,9 +36,14 @@ router.post('/login', async (req: Request, res: Response): Promise<any> => {
       return res.status(403).json({ error: 'Tài khoản đã bị khóa' });
     }
 
-    // 2. So sánh mật khẩu (Bypass bằng mật khẩu thô tạm thời nếu chưa mã hóa trong seed)
-    // Trong môi trường thật, luôn phải dùng bcrypt.compare
-    const isMatch = await bcrypt.compare(password, account.password) || (password === account.password);
+    // 2. So sánh mật khẩu an toàn
+    let isMatch = false;
+    if (account.password.startsWith('$2b$') || account.password.startsWith('$2a$')) {
+      isMatch = await bcrypt.compare(password, account.password);
+    } else {
+      // Legacy plaintext check (nếu seed ban đầu chưa kịp hash)
+      isMatch = password === account.password;
+    }
     
     if (!isMatch) {
       return res.status(401).json({ error: 'Mật khẩu không chính xác' });
@@ -74,20 +79,7 @@ router.post('/login', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-// Middleware xác thực Token
-export const authenticateToken = (req: any, res: Response, next: Function) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Truy cập bị từ chối: Không có token' });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.status(403).json({ error: 'Token không hợp lệ hoặc đã hết hạn' });
-    req.user = user;
-    next();
-  });
-};
+// Xuất lại authenticateToken chuẩn từ middleware
+export { authenticateToken } from '../../middlewares/auth.middleware';
 
 export default router;

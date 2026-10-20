@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { createPortal } from 'react-dom';
 import { 
   Settings, Shield, UserCheck, AlertTriangle, Plus, Edit2, 
@@ -118,6 +119,7 @@ const initialRoles = [
 
 export const SettingsRBAC = () => {
   const [roles, setRoles] = useState(initialRoles);
+  const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState('MATRIX'); // 'MATRIX' (Ma trận tổng thể) | 'DETAIL' (Chi tiết theo vai trò)
   const [selectedRoleId, setSelectedRoleId] = useState('ROLE_HR');
 
@@ -125,76 +127,128 @@ export const SettingsRBAC = () => {
   const [showAddRoleModal, setShowAddRoleModal] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDesc, setNewRoleDesc] = useState('');
-  const [newRoleCloneFrom, setNewRoleCloneFrom] = useState('ROLE_MANAGER');
+  const [newRoleCloneFrom, setNewRoleCloneFrom] = useState('');
+
+  const getBadgeColor = (roleName) => {
+    const name = roleName?.toUpperCase();
+    if (name === 'ADMIN' || name === 'SUPER_ADMIN') return 'var(--error)';
+    if (name === 'HR_MANAGER' || name === 'ROLE_HR') return 'var(--primary)';
+    if (name === 'MANAGER' || name === 'ROLE_MANAGER') return 'var(--warning)';
+    if (name === 'EMPLOYEE' || name === 'ROLE_EMPLOYEE') return '#10b981';
+    return 'var(--primary)';
+  };
+
+  const fetchRoles = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('http://localhost:5000/api/settings/roles');
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        const enriched = res.data.map(r => ({
+          ...r,
+          badgeColor: getBadgeColor(r.name)
+        }));
+        setRoles(enriched);
+        if (!enriched.some(r => r.id === selectedRoleId)) {
+          setSelectedRoleId(enriched[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading roles:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRoles();
+  }, []);
 
   // Lấy role đang chọn
   const activeRole = roles.find(r => r.id === selectedRoleId) || roles[0];
 
   // Toggle 1 quyền cho 1 Role
-  const handleTogglePermission = (roleId, permCode) => {
-    setRoles(prevRoles => prevRoles.map(role => {
-      if (role.id === roleId) {
-        // Super Admin không cho tắt quyền hệ thống cốt lõi
-        if (role.id === 'ROLE_ADMIN' && (permCode === 'SYS_RBAC' || permCode === 'SYS_AUDIT')) {
-          toast.error('Không thể tước quyền Quản trị hệ thống của Super Admin!');
-          return role;
-        }
+  const handleTogglePermission = async (roleId, permCode) => {
+    const targetRole = roles.find(r => r.id === roleId);
+    if (!targetRole) return;
 
-        const hasPerm = role.permissions.includes(permCode);
-        const updatedPerms = hasPerm
-          ? role.permissions.filter(p => p !== permCode)
-          : [...role.permissions, permCode];
+    if (targetRole.isSystem && (targetRole.name === 'ADMIN' || targetRole.name === 'SUPER_ADMIN') && (permCode === 'SYS_RBAC' || permCode === 'SYS_AUDIT')) {
+      toast.error('Không thể tước quyền Quản trị hệ thống của Quản trị viên!');
+      return;
+    }
 
-        return { ...role, permissions: updatedPerms };
-      }
-      return role;
-    }));
+    const hasPerm = targetRole.permissions.includes(permCode);
+    const updatedPerms = hasPerm
+      ? targetRole.permissions.filter(p => p !== permCode)
+      : [...targetRole.permissions, permCode];
+
+    // Optimistic UI update
+    setRoles(prevRoles => prevRoles.map(role => role.id === roleId ? { ...role, permissions: updatedPerms } : role));
+
+    try {
+      await axios.put(`http://localhost:5000/api/settings/roles/${roleId}/permissions`, {
+        permissions: updatedPerms
+      });
+      toast.success(`Đã cập nhật quyền cho ${targetRole.name}`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Lỗi khi lưu phân quyền');
+      fetchRoles();
+    }
   };
 
   // Bật/Tắt toàn bộ quyền trong 1 module cho Active Role
-  const handleToggleModulePermissions = (module, selectAll) => {
+  const handleToggleModulePermissions = async (module, selectAll) => {
+    const targetRole = roles.find(r => r.id === selectedRoleId);
+    if (!targetRole) return;
+
     const permCodes = module.permissions.map(p => p.code);
-    setRoles(prevRoles => prevRoles.map(role => {
-      if (role.id === selectedRoleId) {
-        let updatedPerms = [...role.permissions];
-        if (selectAll) {
-          permCodes.forEach(code => {
-            if (!updatedPerms.includes(code)) updatedPerms.push(code);
-          });
-        } else {
-          updatedPerms = updatedPerms.filter(code => !permCodes.includes(code));
-        }
-        return { ...role, permissions: updatedPerms };
-      }
-      return role;
-    }));
-    toast.success(`${selectAll ? 'Đã cấp tất cả' : 'Đã hủy'} quyền trong nhóm: ${module.moduleName}`);
+    let updatedPerms = [...targetRole.permissions];
+    if (selectAll) {
+      permCodes.forEach(code => {
+        if (!updatedPerms.includes(code)) updatedPerms.push(code);
+      });
+    } else {
+      updatedPerms = updatedPerms.filter(code => !permCodes.includes(code));
+    }
+
+    setRoles(prevRoles => prevRoles.map(role => role.id === selectedRoleId ? { ...role, permissions: updatedPerms } : role));
+
+    try {
+      await axios.put(`http://localhost:5000/api/settings/roles/${selectedRoleId}/permissions`, {
+        permissions: updatedPerms
+      });
+      toast.success(`${selectAll ? 'Đã cấp tất cả' : 'Đã hủy'} quyền trong nhóm: ${module.moduleName}`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Lỗi khi cập nhật quyền');
+      fetchRoles();
+    }
   };
 
   // Tạo vai trò mới
-  const handleCreateRole = (e) => {
+  const handleCreateRole = async (e) => {
     e.preventDefault();
     if (!newRoleName.trim()) return toast.error('Vui lòng nhập tên vai trò');
 
-    const sourceRole = roles.find(r => r.id === newRoleCloneFrom);
-    const roleId = `ROLE_${newRoleName.toUpperCase().replace(/\s+/g, '_')}`;
+    try {
+      const res = await axios.post('http://localhost:5000/api/settings/roles', {
+        name: newRoleName,
+        description: newRoleDesc,
+        cloneFromRoleId: newRoleCloneFrom || undefined
+      });
 
-    const newRole = {
-      id: roleId,
-      name: newRoleName,
-      badgeColor: 'var(--primary)',
-      description: newRoleDesc || 'Vai trò tùy chỉnh trong doanh nghiệp.',
-      usersCount: 0,
-      isSystem: false,
-      permissions: sourceRole ? [...sourceRole.permissions] : ['EMP_VIEW']
-    };
-
-    setRoles([...roles, newRole]);
-    setSelectedRoleId(newRole.id);
-    setShowAddRoleModal(false);
-    setNewRoleName('');
-    setNewRoleDesc('');
-    toast.success(`Đã khởi tạo vai trò mới: ${newRoleName}!`);
+      toast.success(`Đã khởi tạo vai trò mới: ${newRoleName}!`);
+      setShowAddRoleModal(false);
+      setNewRoleName('');
+      setNewRoleDesc('');
+      await fetchRoles();
+      if (res.data?.role?.id) {
+        setSelectedRoleId(res.data.role.id);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Lỗi khi tạo vai trò');
+    }
   };
 
   // Xóa vai trò
@@ -217,9 +271,15 @@ export const SettingsRBAC = () => {
     });
 
     if (result.isConfirmed) {
-      setRoles(prev => prev.filter(r => r.id !== roleId));
-      setSelectedRoleId('ROLE_ADMIN');
-      toast.success(`Đã xóa vai trò ${role.name}`);
+      try {
+        await axios.delete(`http://localhost:5000/api/settings/roles/${roleId}`);
+        toast.success(`Đã xóa vai trò ${role.name}`);
+        await fetchRoles();
+        setSelectedRoleId(roles[0]?.id || '');
+      } catch (err) {
+        console.error(err);
+        toast.error(err.response?.data?.error || 'Lỗi khi xóa vai trò');
+      }
     }
   };
 

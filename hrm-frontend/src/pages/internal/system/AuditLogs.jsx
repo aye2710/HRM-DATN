@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import axios from 'axios';
 import { createPortal } from 'react-dom';
 import { 
   ShieldAlert, Search, Filter, History, Download, Eye, 
@@ -7,18 +8,9 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const initialLogs = [
-  { id: 1, action: 'LOCK_PAYROLL', user: 'admin.hr', resource: 'Kỳ Lương Tháng 10/2026', oldVal: 'Draft (Bản nháp)', newVal: 'Locked (Đã khóa sổ)', ip: '192.168.1.45', time: '2026-10-06 17:05:22' },
-  { id: 2, action: 'UPDATE_SALARY', user: 'admin.hr', resource: 'Nhân viên: Hoàng Nam (NV001)', oldVal: '20,000,000 VND', newVal: '25,000,000 VND', ip: '192.168.1.45', time: '2026-10-06 16:42:10' },
-  { id: 3, action: 'CREATE_DECISION', user: 'truclh', resource: 'Quyết định bổ nhiệm Phó Giám đốc', oldVal: 'Chưa có', newVal: 'QĐ-BN-2026/01', ip: '192.168.1.12', time: '2026-10-06 15:30:00' },
-  { id: 4, action: 'DELETE_CONTRACT', user: 'admin.hr', resource: 'Hợp đồng thử việc: Lê C', oldVal: 'Active', newVal: 'Deleted', ip: '192.168.1.45', time: '2026-10-05 09:15:00' },
-  { id: 5, action: 'LOGIN_FAILED', user: 'anonymous', resource: 'Hệ thống xác thực Auth', oldVal: '-', newVal: 'Sai mật khẩu 3 lần', ip: '113.190.45.22', time: '2026-10-04 22:40:11' },
-  { id: 6, action: 'GENERATE_PAYROLL', user: 'admin.hr', resource: 'Bảng Lương Tháng 10/2026', oldVal: '0 payslips', newVal: '132 payslips', ip: '192.168.1.45', time: '2026-10-04 10:15:20' },
-  { id: 7, action: 'UPDATE_QUOTA', user: 'truclh', resource: 'Phòng Công nghệ Thông tin', oldVal: 'Định biên: 15', newVal: 'Định biên: 20', ip: '192.168.1.12', time: '2026-10-03 14:00:00' },
-];
-
 export const AuditLogs = () => {
-  const [logs, setLogs] = useState(initialLogs);
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
 
@@ -36,11 +28,37 @@ export const AuditLogs = () => {
   const [newOldVal, setNewOldVal] = useState('-');
   const [newNewVal, setNewNewVal] = useState('');
 
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('http://localhost:5000/api/settings/audit-logs', {
+        params: { limit: 100 }
+      });
+      if (res.data?.data) {
+        const mapped = res.data.data.map(l => ({
+          ...l,
+          oldVal: l.oldVal || '-',
+          newVal: l.details || l.newVal || '-',
+          ip: l.ip || '127.0.0.1 (Local)'
+        }));
+        setLogs(mapped);
+      }
+    } catch (err) {
+      console.error('Error fetching audit logs:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+  }, []);
+
   // Lọc dữ liệu
   const filteredLogs = useMemo(() => {
     return logs.filter(l => {
       const q = searchTerm.toLowerCase().trim();
-      const matchSearch = !q || l.user.toLowerCase().includes(q) || l.action.toLowerCase().includes(q) || l.resource.toLowerCase().includes(q);
+      const matchSearch = !q || (l.user && l.user.toLowerCase().includes(q)) || (l.action && l.action.toLowerCase().includes(q)) || (l.resource && l.resource.toLowerCase().includes(q));
       const matchAction = actionFilter === 'ALL' || l.action === actionFilter;
       return matchSearch && matchAction;
     });
@@ -55,14 +73,13 @@ export const AuditLogs = () => {
 
   // Xuất file CSV
   const handleExportCSV = () => {
-    const headers = ["Thời gian", "Hành động (Action)", "Người thực hiện", "Đối tượng tác động", "Giá trị cũ", "Giá trị mới", "Địa chỉ IP"];
+    const headers = ["Thời gian", "Hành động (Action)", "Người thực hiện", "Đối tượng tác động", "Chi tiết", "Địa chỉ IP"];
     const rows = logs.map(l => [
       `"${l.time}"`,
       `"${l.action}"`,
       `"${l.user}"`,
       `"${l.resource}"`,
-      `"${l.oldVal}"`,
-      `"${l.newVal}"`,
+      `"${l.details || l.newVal || ''}"`,
       `"${l.ip}"`
     ]);
 
@@ -83,28 +100,28 @@ export const AuditLogs = () => {
   };
 
   // Thêm log thủ công
-  const handleCreateLog = (e) => {
+  const handleCreateLog = async (e) => {
     e.preventDefault();
     if (!newResource || !newNewVal) {
       return toast.error('Vui lòng điền đủ thông tin đối tượng và nội dung');
     }
 
-    const newLogItem = {
-      id: Date.now(),
-      action: newAction,
-      user: localStorage.getItem('fullName') || 'admin',
-      resource: newResource,
-      oldVal: newOldVal,
-      newVal: newNewVal,
-      ip: '127.0.0.1 (Local)',
-      time: new Date().toISOString().replace('T', ' ').slice(0, 19)
-    };
+    try {
+      await axios.post('http://localhost:5000/api/settings/audit-logs', {
+        action: newAction,
+        resource: newResource,
+        details: `Cũ: ${newOldVal} | Mới: ${newNewVal}`
+      });
 
-    setLogs([newLogItem, ...logs]);
-    toast.success('Đã ghi lại nhật ký kiểm toán mới!');
-    setShowAddModal(false);
-    setNewResource('');
-    setNewNewVal('');
+      toast.success('Đã ghi lại nhật ký kiểm toán mới!');
+      setShowAddModal(false);
+      setNewResource('');
+      setNewNewVal('');
+      fetchLogs();
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi ghi nhật ký kiểm toán');
+    }
   };
 
   return (
