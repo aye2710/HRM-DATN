@@ -511,10 +511,16 @@ model Candidate {
   cvUrl         String?
   jobPostingId  String
   jobPosting    JobPosting             @relation(fields: [jobPostingId], references: [id])
-  status        CandidateStatus        @default(SOURCED)
+  status        CandidateStatus        @default(APPLIED)
   interviews    InterviewRound[]
   offer         JobOffer?
   preOnboarding PreOnboardingProfile?
+  createdAt     DateTime               @default(now())
+
+  @@unique([email, jobPostingId])
+  @@index([email])
+  @@index([jobPostingId])
+  @@index([status])
 }
 
 model CandidateUser {

@@ -42,7 +42,7 @@ router.post('/register', async (req: Request, res: Response): Promise<any> => {
     });
 
     if (existing) {
-      return res.status(400).json({ error: 'Email này đã được đăng ký tài khoản ứng viên.' });
+      return res.status(409).json({ error: 'Email này đã được đăng ký tài khoản ứng viên.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -171,7 +171,7 @@ router.get('/my-applications', authenticateCandidateToken, async (req: any, res:
     await checkAndExpireOffers();
 
     const applications = await prisma.candidate.findMany({
-      where: { email },
+      where: { email: { equals: email, mode: 'insensitive' } },
       include: {
         jobPosting: {
           include: { department: true, position: true }
@@ -192,7 +192,7 @@ router.get('/my-applications', authenticateCandidateToken, async (req: any, res:
   }
 });
 
-// 5. Ứng viên Đồng ý Offer & Điền hồ sơ Pre-onboarding
+// 5. Ứng viên Đồng ý Offer & Điền hồ sơ Pre-onboarding (BR-CAN-05)
 router.post('/offers/:candidateId/accept', authenticateCandidateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const { candidateId } = req.params;
@@ -214,7 +214,30 @@ router.post('/offers/:candidateId/accept', authenticateCandidateToken, async (re
       emergencyContactRelation
     } = req.body;
 
-    // Kiểm tra candidate có đúng của ứng viên này không
+    // 1. Validate bắt buộc các trường nhân thân & pháp lý theo BR-CAN-05
+    const cleanCccd = String(cccd || '').trim();
+    if (!/^\d{12}$/.test(cleanCccd)) {
+      return res.status(400).json({ error: 'Số CCCD gắn chip không hợp lệ. Vui lòng nhập chính xác 12 chữ số.' });
+    }
+
+    if (!dateOfBirth || isNaN(Date.parse(dateOfBirth))) {
+      return res.status(400).json({ error: 'Ngày sinh không hợp lệ.' });
+    }
+
+    if (!address?.trim()) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp địa chỉ thường trú hoặc nơi ở hiện tại.' });
+    }
+
+    // 2. Validate bắt buộc tài khoản ngân hàng & liên hệ khẩn cấp
+    if (!bankName?.trim() || !bankAccount?.trim()) {
+      return res.status(400).json({ error: 'Vui lòng điền đầy đủ Tên ngân hàng và Số tài khoản chính chủ để nhận lương.' });
+    }
+
+    if (!emergencyContactName?.trim() || !emergencyContactPhone?.trim() || !emergencyContactRelation?.trim()) {
+      return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin Người liên hệ khẩn cấp (Họ tên, SĐT, Mối quan hệ).' });
+    }
+
+    // 3. Kiểm tra quyền sở hữu của ứng viên trên hồ sơ
     const candidate = await prisma.candidate.findUnique({
       where: { id: candidateId },
       include: { offer: true }
@@ -232,7 +255,8 @@ router.post('/offers/:candidateId/accept', authenticateCandidateToken, async (re
       return res.status(400).json({ error: 'Bạn đã xác nhận đồng ý Offer này trước đó rồi.' });
     }
 
-    if (candidate.offer.status === 'REJECTED' || (candidate.offer.expiresAt && new Date() > new Date(candidate.offer.expiresAt))) {
+    const now = new Date();
+    if (candidate.offer.status === 'REJECTED' || (candidate.offer.expiresAt && now > new Date(candidate.offer.expiresAt))) {
       return res.status(400).json({ error: 'Thư mời nhận việc (Offer) đã quá thời hạn 24 giờ phản hồi và đã bị tự động hủy.' });
     }
 

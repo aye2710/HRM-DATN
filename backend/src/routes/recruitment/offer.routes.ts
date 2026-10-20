@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
+import { authenticateToken } from '../../middlewares/auth.middleware';
 
 const router = Router();
+router.use(authenticateToken);
 
 // Hàm tiện ích: Tự động kiểm tra và hủy các Offer quá 24h mà ứng viên chưa phản hồi
 export const checkAndExpireOffers = async () => {

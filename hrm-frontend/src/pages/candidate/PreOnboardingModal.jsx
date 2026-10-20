@@ -40,8 +40,12 @@ export const PreOnboardingModal = ({ isOpen, onClose, candidate, offer, onSucces
 
   const handleNextStep = (e) => {
     e.preventDefault();
-    if (!formData.cccd || !formData.dateOfBirth || !formData.address) {
-      return toast.error('Vui lòng điền số CCCD, ngày sinh và địa chỉ thường trú.');
+    const cleanCccd = String(formData.cccd || '').trim();
+    if (!/^\d{12}$/.test(cleanCccd)) {
+      return toast.error('Số CCCD gắn chip không hợp lệ. Vui lòng nhập chính xác 12 chữ số.');
+    }
+    if (!formData.dateOfBirth || !formData.address?.trim()) {
+      return toast.error('Vui lòng điền đầy đủ ngày sinh và địa chỉ thường trú.');
     }
     setStep(2);
   };
@@ -51,6 +55,14 @@ export const PreOnboardingModal = ({ isOpen, onClose, candidate, offer, onSucces
     const token = localStorage.getItem('candidateToken');
     if (!token) {
       return toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    }
+
+    if (!formData.bankName?.trim() || !formData.bankAccount?.trim()) {
+      return toast.error('Vui lòng điền đầy đủ Tên ngân hàng và Số tài khoản chính chủ để nhận lương.');
+    }
+
+    if (!formData.emergencyContactName?.trim() || !formData.emergencyContactPhone?.trim()) {
+      return toast.error('Vui lòng điền Họ tên và Số điện thoại người liên hệ khẩn cấp.');
     }
 
     setLoading(true);

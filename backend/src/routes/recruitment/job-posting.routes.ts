@@ -3,9 +3,29 @@ import { prisma } from '../../db';
 
 const router = Router();
 
-// GET: Lấy danh sách Job Posting
-router.get('/', async (req: Request, res: Response) => {
+// GET: Lấy danh sách Job Posting (hỗ trợ ?status=PUBLISHED cho Cổng tuyển dụng công khai)
+router.get('/', async (req: Request, res: Response): Promise<any> => {
   try {
+    const statusQuery = req.query.status as string;
+
+    // BR-CAN-01: Cổng ứng viên chỉ nhận tin PUBLISHED, không kèm danh sách candidate nội bộ
+    if (statusQuery === 'PUBLISHED') {
+      const publicJobs = await prisma.jobPosting.findMany({
+        where: { status: 'PUBLISHED' },
+        include: {
+          department: {
+            select: { name: true }
+          },
+          position: {
+            select: { title: true }
+          }
+        },
+        orderBy: { title: 'asc' }
+      });
+      return res.json(publicJobs);
+    }
+
+    // Luồng quản trị nội bộ
     const jobs = await prisma.jobPosting.findMany({
       include: {
         _count: {
@@ -23,9 +43,9 @@ router.get('/', async (req: Request, res: Response) => {
       },
       orderBy: { title: 'asc' }
     });
-    res.json(jobs);
+    return res.json(jobs);
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi khi lấy danh sách tin tuyển dụng' });
+    return res.status(500).json({ error: 'Lỗi khi lấy danh sách tin tuyển dụng' });
   }
 });
 

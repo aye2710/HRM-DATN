@@ -101,10 +101,9 @@ export const CandidateLandingPage = () => {
       }
     }
 
-    axios.get('http://localhost:5000/api/job-postings')
+    axios.get('http://localhost:5000/api/job-postings?status=PUBLISHED')
       .then(res => {
-        const publishedJobs = res.data.filter(job => job.status === 'PUBLISHED');
-        setJobPostings(publishedJobs);
+        setJobPostings(res.data || []);
       })
       .catch(err => console.error("Lỗi lấy danh sách job", err))
       .finally(() => setLoading(false));
@@ -194,18 +193,20 @@ export const CandidateLandingPage = () => {
     setIsSubmitting(true);
 
     axios.post('http://localhost:5000/api/candidates', {
-      ...formData,
-      jobPostingId: selectedJob.id,
-      status: 'SOURCED'
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone?.trim() || null,
+      cvUrl: formData.cvUrl?.trim() || null,
+      jobPostingId: selectedJob.id
     })
     .then(res => {
-      const generatedCode = `LLA-APP-${res.data.id ? res.data.id.substring(0, 6).toUpperCase() : Math.floor(100000 + Math.random() * 900000)}`;
+      const generatedCode = res.data.trackingCode || `LLA-APP-${res.data.id ? res.data.id.substring(0, 6).toUpperCase() : 'PENDING'}`;
       setSubmittedCandidateCode(generatedCode);
       setApplySuccess(true);
-      toast.success("Nộp hồ sơ thành công!");
+      toast.success(res.data.message || "Nộp hồ sơ thành công!");
     })
     .catch(err => {
-      toast.error("Có lỗi xảy ra khi nộp hồ sơ. Vui lòng thử lại!");
+      toast.error(err.response?.data?.error || "Có lỗi xảy ra khi nộp hồ sơ. Vui lòng thử lại!");
       console.error(err);
     })
     .finally(() => {
@@ -220,18 +221,23 @@ export const CandidateLandingPage = () => {
       return;
     }
 
-    setIsTracking(true);
-    const query = new URLSearchParams({ email: trackEmail.trim() });
-    if (trackSecurityCode.trim()) {
-      query.append('code', trackSecurityCode.trim());
+    if (!trackSecurityCode.trim()) {
+      toast.error("Vui lòng nhập Mã bảo mật hồ sơ (hoặc Số điện thoại đã đăng ký)");
+      return;
     }
+
+    setIsTracking(true);
+    const query = new URLSearchParams({ 
+      email: trackEmail.trim(),
+      code: trackSecurityCode.trim()
+    });
 
     axios.get(`http://localhost:5000/api/candidates/track?${query.toString()}`)
       .then(res => {
         setTrackResults(res.data);
       })
       .catch(err => {
-        toast.error("Có lỗi xảy ra khi tra cứu hồ sơ.");
+        toast.error(err.response?.data?.error || "Có lỗi xảy ra khi tra cứu hồ sơ.");
         console.error(err);
       })
       .finally(() => {

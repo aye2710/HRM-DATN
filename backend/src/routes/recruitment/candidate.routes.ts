@@ -1,9 +1,157 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
+import { authenticateToken } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
-// GET: Lấy danh sách Ứng viên
+// ==========================================
+// 1. PUBLIC ENDPOINTS (Cổng Tuyển Dụng Ứng Viên)
+// ==========================================
+
+// GET: Tra cứu trạng thái hồ sơ theo email và mã bảo mật (BR-CAN-08)
+router.get('/track', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const email = (req.query.email as string)?.trim().toLowerCase();
+    const code = (req.query.code as string)?.trim();
+    
+    // Bắt buộc cả 2 yếu tố xác thực theo chuẩn BR-CAN-08
+    if (!email || !code) {
+      return res.status(400).json({ 
+        error: 'Vui lòng cung cấp cả Địa chỉ Email và Mã hồ sơ bảo mật (hoặc SĐT đã đăng ký) để tra cứu.' 
+      });
+    }
+    
+    const cleanCode = code.replace(/^(LLA-|APP-)/i, '').trim();
+    
+    const applications = await prisma.candidate.findMany({
+      where: { 
+        email: { equals: email, mode: 'insensitive' },
+        OR: [
+          { id: { startsWith: cleanCode, mode: 'insensitive' } },
+          { phone: { equals: code } }
+        ]
+      },
+      include: { 
+        jobPosting: {
+          select: {
+            title: true,
+            department: { select: { name: true } }
+          }
+        },
+        interviews: {
+          select: { scheduledAt: true, roundName: true, status: true, location: true },
+          orderBy: { scheduledAt: 'desc' },
+          take: 1
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    if (applications.length === 0) {
+      return res.status(404).json({ 
+        error: 'Không tìm thấy hồ sơ nào khớp với Email và Mã xác thực bạn đã cung cấp.' 
+      });
+    }
+    
+    const safeData = applications.map(app => ({
+      id: `LLA-${app.id.substring(0, 8).toUpperCase()}`,
+      jobTitle: app.jobPosting?.title || 'Không rõ',
+      department: app.jobPosting?.department?.name || '',
+      status: app.status,
+      appliedAt: app.createdAt || null,
+      latestInterview: app.interviews.length > 0 ? {
+        roundName: app.interviews[0].roundName,
+        scheduledAt: app.interviews[0].scheduledAt,
+        status: app.interviews[0].status
+      } : null
+    }));
+    
+    return res.json(safeData);
+  } catch (error) {
+    console.error('Error tracking candidate:', error);
+    return res.status(500).json({ error: 'Lỗi máy chủ khi tra cứu hồ sơ.' });
+  }
+});
+
+// POST: Nộp hồ sơ Ứng viên mới trực tuyến (UC-CAN-03-01 & BR-CAN-03, BR-CAN-04)
+router.post('/', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { name, email, phone, cvUrl, jobPostingId } = req.body;
+    
+    // 1. Validate Input cơ bản
+    if (!name?.trim() || !email?.trim() || !jobPostingId?.trim()) {
+      return res.status(400).json({ error: 'Họ tên, email và vị trí tuyển dụng không được để trống.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Định dạng email không hợp lệ.' });
+    }
+
+    // 2. BR-CAN-01: Kiểm tra vị trí tuyển dụng có đang mở (PUBLISHED) không
+    const job = await prisma.jobPosting.findUnique({
+      where: { id: jobPostingId.trim() },
+      select: { id: true, status: true, title: true }
+    });
+
+    if (!job || job.status !== 'PUBLISHED') {
+      return res.status(400).json({ error: 'Vị trí tuyển dụng này hiện không mở tiếp nhận hồ sơ.' });
+    }
+
+    // 3. BR-CAN-04: Kiểm tra chống nộp trùng lặp (Cùng email cho cùng 1 job)
+    const existing = await prisma.candidate.findFirst({
+      where: {
+        email: cleanEmail,
+        jobPostingId: job.id
+      }
+    });
+
+    if (existing) {
+      return res.status(409).json({ 
+        error: 'Email của bạn đã nộp hồ sơ cho vị trí này rồi! Vui lòng theo dõi trong mục "Hồ sơ của tôi".' 
+      });
+    }
+
+    // 4. BR-CAN-03: Cố định status = 'APPLIED' (Triệt tiêu Mass Assignment)
+    const newCandidate = await prisma.candidate.create({
+      data: { 
+        name: name.trim(),
+        email: cleanEmail,
+        phone: phone ? phone.trim() : null,
+        cvUrl: cvUrl ? cvUrl.trim() : null,
+        jobPostingId: job.id,
+        status: 'APPLIED'
+      },
+      include: {
+        jobPosting: { select: { title: true } }
+      }
+    });
+
+    const trackingCode = `LLA-APP-${newCandidate.id.substring(0, 6).toUpperCase()}`;
+
+    return res.status(201).json({
+      ...newCandidate,
+      trackingCode,
+      message: 'Nộp hồ sơ ứng tuyển thành công!'
+    });
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ 
+        error: 'Email của bạn đã nộp hồ sơ cho vị trí này rồi! Vui lòng theo dõi trong mục "Hồ sơ của tôi".' 
+      });
+    }
+    console.error("Lỗi khi thêm ứng viên:", error);
+    return res.status(500).json({ error: 'Lỗi khi thêm ứng viên' });
+  }
+});
+
+// ==========================================
+// 2. INTERNAL HR & ATS MANAGEMENT ENDPOINTS (Bắt buộc Token)
+// ==========================================
+router.use(authenticateToken);
+
+// GET: Lấy danh sách Ứng viên (cho ATS Kanban)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const candidates = await prisma.candidate.findMany({
@@ -14,82 +162,11 @@ router.get('/', async (req: Request, res: Response) => {
           }
         }
       },
-      orderBy: { name: 'asc' }
+      orderBy: { createdAt: 'desc' }
     });
     res.json(candidates);
   } catch (error) {
     res.status(500).json({ error: 'Lỗi khi lấy danh sách ứng viên' });
-  }
-});
-
-// GET: Tra cứu trạng thái hồ sơ theo email (kèm mã bảo mật hồ sơ hoặc SĐT để chống rò rỉ dữ liệu)
-router.get('/track', async (req: Request, res: Response): Promise<any> => {
-  try {
-    const email = (req.query.email as string)?.trim();
-    const code = (req.query.code as string)?.trim();
-    
-    if (!email) {
-      return res.status(400).json({ error: 'Vui lòng cung cấp email ứng tuyển' });
-    }
-    
-    const applications = await prisma.candidate.findMany({
-      where: { 
-        email: { equals: email, mode: 'insensitive' },
-        ...(code ? {
-          OR: [
-            { id: { contains: code.replace(/^LLA-/i, '').replace(/^APP-/i, ''), mode: 'insensitive' } },
-            { phone: { contains: code } }
-          ]
-        } : {})
-      },
-      include: { 
-        jobPosting: true,
-        interviews: {
-          select: { scheduledAt: true, roundName: true },
-          orderBy: { scheduledAt: 'desc' },
-          take: 1
-        }
-      },
-      orderBy: { id: 'desc' }
-    });
-    
-    const safeData = applications.map(app => ({
-      id: app.id,
-      jobTitle: app.jobPosting?.title || 'Không rõ',
-      status: app.status,
-      appliedAt: (app as any).createdAt || null,
-      latestInterview: app.interviews.length > 0 ? app.interviews[0] : null
-    }));
-    
-    return res.json(safeData);
-  } catch (error) {
-    return res.status(500).json({ error: 'Lỗi khi tra cứu hồ sơ' });
-  }
-});
-
-// POST: Thêm Ứng viên mới
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    const { name, email, phone, cvUrl, jobPostingId, status } = req.body;
-    
-    if (!name || !email || !jobPostingId) {
-        return res.status(400).json({ error: 'Tên, email và Job Posting không được bỏ trống' });
-    }
-
-    const newCandidate = await prisma.candidate.create({
-      data: { 
-        name: name as string,
-        email: email as string,
-        phone: phone as string | undefined,
-        cvUrl: cvUrl as string | undefined,
-        jobPostingId: jobPostingId as string,
-        status: (status as any) || 'SOURCED'
-      }
-    });
-    res.status(201).json(newCandidate);
-  } catch (error) {
-    console.error("Lỗi khi thêm ứng viên:", error);
-    res.status(500).json({ error: 'Lỗi khi thêm ứng viên' });
   }
 });
 
