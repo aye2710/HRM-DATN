@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../../db';
 import { AssetCategory, AssetStatus, AssignmentStatus } from '@prisma/client';
+import { authenticateToken } from '../../middlewares/auth.middleware';
+import { createAuditLog } from '../../utils/audit';
 
 const router = express.Router();
 
@@ -340,7 +342,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/assets/assign - Bàn giao tài sản cho nhân sự (Biểu mẫu BM01)
-router.post('/assign', async (req: Request, res: Response) => {
+router.post('/assign', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const { assetId, employeeId, assignedDate, conditionOnAssign, handoverDocCode, notes } = req.body;
 
@@ -348,90 +350,115 @@ router.post('/assign', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Vui lòng chọn tài sản và nhân viên nhận bàn giao' });
     }
 
-    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
-    if (!asset) return res.status(404).json({ error: 'Tài sản không tồn tại' });
-
-    if (asset.status === AssetStatus.ASSIGNED) {
-      return res.status(400).json({ error: 'Tài sản này đang được bàn giao cho người khác' });
-    }
-
     const docCode = handoverDocCode || `BB-BG-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const assignment = await prisma.assetAssignment.create({
-      data: {
-        assetId,
-        employeeId,
-        assignedDate: assignedDate ? new Date(assignedDate) : new Date(),
-        conditionOnAssign: conditionOnAssign || 'Thiết bị hoạt động bình thường, đầy đủ phụ kiện',
-        handoverDocCode: docCode,
-        notes: notes || null,
-        status: AssignmentStatus.ACTIVE
-      },
-      include: {
-        asset: true,
-        employee: {
-          select: { id: true, code: true, fullName: true, department: { select: { name: true } } }
-        }
+    const assignment = await prisma.$transaction(async (tx) => {
+      const asset = await tx.asset.findUnique({ where: { id: assetId } });
+      if (!asset) throw new Error('Tài sản không tồn tại');
+
+      if (asset.status === AssetStatus.ASSIGNED) {
+        throw new Error('Tài sản này đang được bàn giao cho nhân sự khác');
       }
+
+      if (asset.status === AssetStatus.MAINTENANCE || asset.status === AssetStatus.DISPOSED) {
+        throw new Error('Tài sản đang bảo trì hoặc đã thanh lý, không thể bàn giao');
+      }
+
+      const newAssignment = await tx.assetAssignment.create({
+        data: {
+          assetId,
+          employeeId,
+          assignedDate: assignedDate ? new Date(assignedDate) : new Date(),
+          conditionOnAssign: conditionOnAssign || 'Thiết bị hoạt động bình thường, đầy đủ phụ kiện',
+          handoverDocCode: docCode,
+          notes: notes || null,
+          status: AssignmentStatus.ACTIVE
+        },
+        include: {
+          asset: true,
+          employee: {
+            select: { id: true, code: true, fullName: true, department: { select: { name: true } } }
+          }
+        }
+      });
+
+      await tx.asset.update({
+        where: { id: assetId },
+        data: { status: AssetStatus.ASSIGNED }
+      });
+
+      return newAssignment;
     });
 
-    // Cập nhật trạng thái tài sản thành ASSIGNED
-    await prisma.asset.update({
-      where: { id: assetId },
-      data: { status: AssetStatus.ASSIGNED }
+    await createAuditLog({
+      action: 'ASSIGN_ASSET',
+      tableName: 'AssetAssignment',
+      recordId: assignment.id,
+      accountId: req.user?.accountId,
+      details: `Bàn giao tài sản [${assignment.asset.name} - ${assignment.asset.code}] cho nhân viên [${assignment.employee.fullName}] theo biên bản ${docCode}`
     });
 
     res.status(201).json(assignment);
   } catch (error: any) {
     console.error('Error assigning asset:', error);
-    res.status(500).json({ error: error.message });
+    res.status(400).json({ error: error.message || 'Lỗi khi bàn giao tài sản' });
   }
 });
 
 // POST /api/assets/assignments/:id/return - Thu hồi / Hoàn trả tài sản
-router.post('/assignments/:id/return', async (req: Request, res: Response) => {
+router.post('/assignments/:id/return', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { returnedDate, conditionOnReturn, notes, nextAssetStatus } = req.body;
 
-    const assignment = await prisma.assetAssignment.findUnique({
-      where: { id },
-      include: { asset: true }
-    }) as any;
+    const result = await prisma.$transaction(async (tx) => {
+      const assignment = await tx.assetAssignment.findUnique({
+        where: { id },
+        include: { asset: true, employee: { select: { fullName: true } } }
+      });
 
-    if (!assignment) {
-      return res.status(404).json({ error: 'Không tìm thấy phiếu bàn giao' });
-    }
-
-    if (assignment.status === AssignmentStatus.RETURNED) {
-      return res.status(400).json({ error: 'Tài sản này đã được thu hồi trước đó' });
-    }
-
-    // Cập nhật Assignment thành RETURNED
-    const updatedAssignment = await prisma.assetAssignment.update({
-      where: { id },
-      data: {
-        returnedDate: returnedDate ? new Date(returnedDate) : new Date(),
-        conditionOnReturn: conditionOnReturn || 'Thiết bị hoàn trả nguyên vẹn',
-        notes: notes ? `${assignment.notes ? assignment.notes + ' | ' : ''}Thu hồi: ${notes}` : assignment.notes,
-        status: AssignmentStatus.RETURNED
+      if (!assignment) {
+        throw new Error('Không tìm thấy phiếu bàn giao');
       }
+
+      if (assignment.status === AssignmentStatus.RETURNED) {
+        throw new Error('Tài sản này đã được thu hồi trước đó');
+      }
+
+      const updatedAssignment = await tx.assetAssignment.update({
+        where: { id },
+        data: {
+          returnedDate: returnedDate ? new Date(returnedDate) : new Date(),
+          conditionOnReturn: conditionOnReturn || 'Thiết bị hoàn trả nguyên vẹn',
+          notes: notes ? `${assignment.notes ? assignment.notes + ' | ' : ''}Thu hồi: ${notes}` : assignment.notes,
+          status: AssignmentStatus.RETURNED
+        }
+      });
+
+      const targetStatus = nextAssetStatus || AssetStatus.AVAILABLE;
+      await tx.asset.update({
+        where: { id: assignment.assetId },
+        data: {
+          status: targetStatus,
+          condition: conditionOnReturn || assignment.asset?.condition
+        }
+      });
+
+      return { updatedAssignment, assetName: assignment.asset.name, employeeName: assignment.employee.fullName };
     });
 
-    // Cập nhật trạng thái Asset thành AVAILABLE hoặc MAINTENANCE tùy tình trạng
-    const targetStatus = nextAssetStatus || AssetStatus.AVAILABLE;
-    await prisma.asset.update({
-      where: { id: assignment.assetId },
-      data: {
-        status: targetStatus,
-        condition: conditionOnReturn || assignment.asset?.condition
-      }
+    await createAuditLog({
+      action: 'RETURN_ASSET',
+      tableName: 'AssetAssignment',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Thu hồi tài sản [${result.assetName}] từ nhân viên [${result.employeeName}]`
     });
 
-    res.json({ message: 'Thu hồi tài sản thành công', assignment: updatedAssignment });
+    res.json({ message: 'Thu hồi tài sản thành công', assignment: result.updatedAssignment });
   } catch (error: any) {
     console.error('Error returning asset:', error);
-    res.status(500).json({ error: error.message });
+    res.status(400).json({ error: error.message || 'Lỗi khi thu hồi tài sản' });
   }
 });
 

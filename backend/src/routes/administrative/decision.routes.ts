@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
+import { authenticateToken } from '../../middlewares/auth.middleware';
+import { createAuditLog } from '../../utils/audit';
 
 const router = Router();
 
@@ -127,140 +129,156 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
 });
 
 // 4. PUT: Phê duyệt & Ban hành Quyết định (Tự động cập nhật Hồ sơ & Hợp đồng/Lương)
-router.put('/:id/approve', async (req: Request, res: Response): Promise<any> => {
+router.put('/:id/approve', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { signBy } = req.body;
 
-    const decision = await prisma.decision.findUnique({
-      where: { id },
-      include: { employee: true }
-    });
-
-    if (!decision) return res.status(404).json({ error: 'Không tìm thấy quyết định' });
-    if (decision.status === 'APPROVED') {
-      return res.status(400).json({ error: 'Quyết định này đã được phê duyệt và ban hành trước đó!' });
-    }
-
-    // Tiến hành cập nhật trạng thái Decision
-    const updatedDecision = await prisma.decision.update({
-      where: { id },
-      data: {
-        status: 'APPROVED',
-        signDate: new Date(),
-        signBy: signBy || decision.signBy || 'Ban Giám Đốc'
-      }
-    });
-
-    const empId = decision.employeeId;
-    const effDate = decision.effectiveDate || new Date();
-
-    // Áp dụng biến động nghiệp vụ theo loại quyết định:
-    // A. ĐIỀU CHỈNH LƯƠNG
-    if (decision.type === 'SALARY_ADJUSTMENT' && decision.newSalary) {
-      // 1. Cập nhật hợp đồng đang có hiệu lực
-      const activeContract = await prisma.contract.findFirst({
-        where: { employeeId: empId, status: 'ACTIVE' }
+    const result = await prisma.$transaction(async (tx) => {
+      const decision = await tx.decision.findUnique({
+        where: { id },
+        include: { employee: true }
       });
-      if (activeContract) {
-        await prisma.contract.update({
-          where: { id: activeContract.id },
-          data: { baseSalary: decision.newSalary }
+
+      if (!decision) throw new Error('Không tìm thấy quyết định');
+      if (decision.status === 'APPROVED') {
+        throw new Error('Quyết định này đã được phê duyệt và ban hành trước đó!');
+      }
+
+      const updatedDecision = await tx.decision.update({
+        where: { id },
+        data: {
+          status: 'APPROVED',
+          signDate: new Date(),
+          signBy: signBy || decision.signBy || 'Ban Giám Đốc'
+        }
+      });
+
+      const empId = decision.employeeId;
+      const effDate = decision.effectiveDate || new Date();
+
+      // Áp dụng biến động nghiệp vụ theo loại quyết định:
+      // A. ĐIỀU CHỈNH LƯƠNG
+      if (decision.type === 'SALARY_ADJUSTMENT' && decision.newSalary) {
+        const activeContract = await tx.contract.findFirst({
+          where: { employeeId: empId, status: 'ACTIVE' }
+        });
+        if (activeContract) {
+          await tx.contract.update({
+            where: { id: activeContract.id },
+            data: { baseSalary: decision.newSalary }
+          });
+        }
+
+        await tx.employmentHistory.create({
+          data: {
+            employeeId: empId,
+            departmentId: decision.oldDepartmentId || undefined,
+            positionId: decision.oldPositionId || undefined,
+            changeReason: `Điều chỉnh lương theo ${decision.decisionNumber}: ${Number(decision.oldSalary || 0).toLocaleString()} ➔ ${Number(decision.newSalary).toLocaleString()} VNĐ`,
+            salary: decision.newSalary,
+            effectiveDate: effDate
+          }
         });
       }
 
-      // 2. Ghi nhật ký biến động công tác
-      await prisma.employmentHistory.create({
-        data: {
-          employeeId: empId,
-          departmentId: decision.oldDepartmentId || undefined,
-          positionId: decision.oldPositionId || undefined,
-          changeReason: `Điều chỉnh lương theo ${decision.decisionNumber}: ${Number(decision.oldSalary || 0).toLocaleString()} ➔ ${Number(decision.newSalary).toLocaleString()} VNĐ`,
-          salary: decision.newSalary,
-          effectiveDate: effDate
-        }
-      });
-    }
+      // B. BỔ NHIỆM / THĂNG CHỨC
+      if (decision.type === 'PROMOTION' && decision.newPositionId) {
+        await tx.employee.update({
+          where: { id: empId },
+          data: { positionId: decision.newPositionId }
+        });
 
-    // B. BỔ NHIỆM / THĂNG CHỨC
-    if (decision.type === 'PROMOTION' && decision.newPositionId) {
-      await prisma.employee.update({
-        where: { id: empId },
-        data: { positionId: decision.newPositionId }
-      });
+        await tx.employmentHistory.create({
+          data: {
+            employeeId: empId,
+            departmentId: decision.newDepartmentId || decision.oldDepartmentId || undefined,
+            positionId: decision.newPositionId,
+            changeReason: `Bổ nhiệm chức vụ mới theo ${decision.decisionNumber}`,
+            effectiveDate: effDate
+          }
+        });
+      }
 
-      await prisma.employmentHistory.create({
-        data: {
-          employeeId: empId,
-          departmentId: decision.newDepartmentId || decision.oldDepartmentId || undefined,
-          positionId: decision.newPositionId,
-          changeReason: `Bổ nhiệm chức vụ mới theo ${decision.decisionNumber}`,
-          effectiveDate: effDate
-        }
-      });
-    }
+      // C. ĐIỀU CHUYỂN PHÒNG BAN
+      if (decision.type === 'TRANSFER' && decision.newDepartmentId) {
+        await tx.employee.update({
+          where: { id: empId },
+          data: {
+            departmentId: decision.newDepartmentId,
+            positionId: decision.newPositionId || undefined
+          }
+        });
 
-    // C. ĐIỀU CHUYỂN PHÒNG BAN
-    if (decision.type === 'TRANSFER' && decision.newDepartmentId) {
-      await prisma.employee.update({
-        where: { id: empId },
-        data: {
-          departmentId: decision.newDepartmentId,
-          positionId: decision.newPositionId || undefined
-        }
-      });
+        await tx.employmentHistory.create({
+          data: {
+            employeeId: empId,
+            departmentId: decision.newDepartmentId,
+            positionId: decision.newPositionId || decision.oldPositionId || undefined,
+            changeReason: `Điều chuyển đơn vị công tác theo ${decision.decisionNumber}`,
+            effectiveDate: effDate
+          }
+        });
+      }
 
-      await prisma.employmentHistory.create({
-        data: {
-          employeeId: empId,
-          departmentId: decision.newDepartmentId,
-          positionId: decision.newPositionId || decision.oldPositionId || undefined,
-          changeReason: `Điều chuyển đơn vị công tác theo ${decision.decisionNumber}`,
-          effectiveDate: effDate
-        }
-      });
-    }
+      // D. THÔI VIỆC / CHẤM DỨT HỢP ĐỒNG
+      if (decision.type === 'TERMINATION') {
+        // Cập nhật trạng thái nhân sự thành RESIGNED
+        await tx.employee.update({
+          where: { id: empId },
+          data: { status: 'RESIGNED' }
+        });
 
-    // D. THÔI VIỆC / CHẤM DỨT HỢP ĐỒNG
-    if (decision.type === 'TERMINATION') {
-      await prisma.employee.update({
-        where: { id: empId },
-        data: { status: 'RESIGNED' }
-      });
+        // Khóa tài khoản đăng nhập hệ thống của nhân sự (Bảo mật thông tin)
+        await tx.account.updateMany({
+          where: { employeeId: empId },
+          data: { isActive: false }
+        });
 
-      // Chấm dứt hợp đồng lao động
-      await prisma.contract.updateMany({
-        where: { employeeId: empId, status: 'ACTIVE' },
-        data: { status: 'TERMINATED', endDate: effDate }
-      });
+        // Chấm dứt các hợp đồng lao động đang hiệu lực
+        await tx.contract.updateMany({
+          where: { employeeId: empId, status: 'ACTIVE' },
+          data: { status: 'TERMINATED', endDate: effDate }
+        });
 
-      await prisma.employmentHistory.create({
-        data: {
-          employeeId: empId,
-          changeReason: `Thôi việc theo quyết định ${decision.decisionNumber}`,
-          effectiveDate: effDate
-        }
-      });
-    }
+        await tx.employmentHistory.create({
+          data: {
+            employeeId: empId,
+            changeReason: `Thôi việc theo quyết định ${decision.decisionNumber}`,
+            effectiveDate: effDate
+          }
+        });
+      }
 
-    // E. KHEN THƯỞNG / KỶ LUẬT
-    if (decision.type === 'REWARD' || decision.type === 'DISCIPLINE') {
-      await prisma.employmentHistory.create({
-        data: {
-          employeeId: empId,
-          changeReason: `${decision.type === 'REWARD' ? 'Khen thưởng' : 'Kỷ luật'}: ${decision.title} (${decision.decisionNumber})`,
-          effectiveDate: effDate
-        }
-      });
-    }
+      // E. KHEN THƯỞNG / KỶ LUẬT
+      if (decision.type === 'REWARD' || decision.type === 'DISCIPLINE') {
+        await tx.employmentHistory.create({
+          data: {
+            employeeId: empId,
+            changeReason: `${decision.type === 'REWARD' ? 'Khen thưởng' : 'Kỷ luật'}: ${decision.title} (${decision.decisionNumber})`,
+            effectiveDate: effDate
+          }
+        });
+      }
+
+      return { updatedDecision, decNumber: decision.decisionNumber, decType: decision.type, empName: decision.employee?.fullName };
+    });
+
+    await createAuditLog({
+      action: 'APPROVE_DECISION',
+      tableName: 'Decision',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Phê duyệt và ban hành quyết định [${result.decNumber} - ${result.decType}] cho nhân sự ${result.empName}`
+    });
 
     return res.json({
-      message: `Đã phê duyệt và ban hành quyết định ${decision.decisionNumber} thành công! Hồ sơ nhân sự và bảng lương đã được tự động đồng bộ.`,
-      decision: updatedDecision
+      message: `Đã phê duyệt và ban hành quyết định ${result.decNumber} thành công! Hồ sơ nhân sự, hợp đồng và tài khoản đã được tự động đồng bộ.`,
+      decision: result.updatedDecision
     });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Lỗi khi phê duyệt quyết định' });
+  } catch (error: any) {
+    console.error('Error approving decision:', error);
+    return res.status(400).json({ error: error.message || 'Lỗi khi phê duyệt quyết định' });
   }
 });
 

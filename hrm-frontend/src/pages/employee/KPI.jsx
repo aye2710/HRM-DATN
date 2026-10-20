@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   Target, Award, TrendingUp, CheckCircle2, Clock, AlertCircle, 
   ChevronRight, Sparkles, Star, Edit3, BarChart2
@@ -7,6 +8,8 @@ import toast from 'react-hot-toast';
 
 export const EmployeeKPI = () => {
   const [selectedQuarter, setSelectedQuarter] = useState('Q3-2026');
+  const employeeId = localStorage.getItem('employeeId');
+  const [loading, setLoading] = useState(false);
   
   const [kpis, setKpis] = useState([
     {
@@ -51,8 +54,26 @@ export const EmployeeKPI = () => {
     }
   ]);
 
+  useEffect(() => {
+    const fetchKpis = async () => {
+      if (!employeeId) return;
+      try {
+        setLoading(true);
+        const res = await axios.get(`http://localhost:5000/api/kpi/employee/${employeeId}`);
+        if (res.data?.kpis && Array.isArray(res.data.kpis) && res.data.kpis.length > 0) {
+          setKpis(res.data.kpis);
+        }
+      } catch (err) {
+        console.error('Error fetching employee KPIs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchKpis();
+  }, [employeeId]);
+
   // Tính điểm trung bình theo trọng số
-  const totalScore = kpis.reduce((acc, curr) => acc + (curr.selfScore * curr.weight / 100), 0).toFixed(1);
+  const totalScore = kpis.reduce((acc, curr) => acc + (Number(curr.selfScore) * Number(curr.weight) / 100), 0).toFixed(1);
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
