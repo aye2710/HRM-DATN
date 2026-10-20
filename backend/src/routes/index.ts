@@ -22,6 +22,7 @@ import attendanceRoutes from './attendance/attendance.routes';
 import leaveRoutes from './attendance/leave.routes';
 import leaveConfigRoutes from './attendance/leave-config.routes';
 import holidayRoutes from './attendance/holiday.routes';
+import otRoutes from './attendance/ot.routes';
 
 // 5. Phân hệ Tiền lương & Đánh giá Hiệu suất (Compensation & Performance)
 import payrollRoutes from './payroll-kpi/payroll.routes';
@@ -60,6 +61,7 @@ apiRouter.use('/attendance', attendanceRoutes);
 apiRouter.use('/leaves', leaveRoutes);
 apiRouter.use('/leave-config', leaveConfigRoutes);
 apiRouter.use('/holidays', holidayRoutes);
+apiRouter.use('/ot', otRoutes);
 
 // [Domain 5: Payroll & KPI]
 apiRouter.use('/payroll', payrollRoutes);

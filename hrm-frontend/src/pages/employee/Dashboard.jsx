@@ -46,11 +46,12 @@ export const EmployeeDashboard = () => {
       try {
         // Lấy lịch sử công
         const attRes = await axios.get(`http://localhost:5000/api/attendance/employee/${employeeId}`);
-        if (attRes.data && Array.isArray(attRes.data)) {
-          setAttendanceRecords(attRes.data);
+        const recordsList = Array.isArray(attRes.data) ? attRes.data : (attRes.data?.records || []);
+        if (recordsList.length >= 0) {
+          setAttendanceRecords(recordsList);
           // Check if checked in today
           const todayStr = new Date().toISOString().split('T')[0];
-          const todayRecord = attRes.data.find(r => r.date && r.date.startsWith(todayStr));
+          const todayRecord = recordsList.find(r => r.date && r.date.startsWith(todayStr));
           if (todayRecord) {
             if (todayRecord.checkIn) {
               setIsCheckedIn(true);
