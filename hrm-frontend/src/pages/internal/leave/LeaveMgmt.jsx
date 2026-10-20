@@ -90,50 +90,62 @@ export const LeaveMgmt = () => {
       </div>
 
       {/* Toolbar: Tìm kiếm và Lọc */}
-      <div className="card glass" style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <div 
+        style={{ 
+          padding: '0.85rem 1rem', 
+          backgroundColor: '#FFFFFF',
+          borderRadius: '0.5rem',
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+          display: 'flex', 
+          gap: '0.75rem', 
+          alignItems: 'flex-end', 
+          flexWrap: 'wrap' 
+        }}
+      >
         <div style={{ position: 'relative', flex: '1 1 250px' }}>
-          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Tìm kiếm nhân sự</label>
-          <Search size={18} style={{ position: 'absolute', left: '1rem', bottom: '0.6rem', color: 'var(--text-muted)' }} />
+          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Tìm kiếm nhân sự</label>
+          <Search size={16} style={{ position: 'absolute', left: '0.85rem', bottom: '0.65rem', color: 'var(--text-muted)' }} />
           <input 
             type="text" 
             className="form-input" 
             placeholder="Mã NV, Tên NV..." 
-            style={{ width: '100%', paddingLeft: '2.5rem' }}
+            style={{ width: '100%', paddingLeft: '2.25rem', height: '2.4rem', fontSize: '0.8125rem' }}
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
           />
         </div>
         
-        <div style={{ flex: '1 1 150px' }}>
-          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Từ ngày (Tạo đơn)</label>
+        <div style={{ flex: '1 1 140px' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Từ ngày (Tạo đơn)</label>
           <input 
             type="date" 
             className="form-input" 
-            style={{ width: '100%' }}
+            style={{ width: '100%', height: '2.4rem', fontSize: '0.8125rem' }}
             value={dateFrom}
             onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
           />
         </div>
-        <div style={{ flex: '1 1 150px' }}>
-          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Đến ngày (Tạo đơn)</label>
+        <div style={{ flex: '1 1 140px' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Đến ngày (Tạo đơn)</label>
           <input 
             type="date" 
             className="form-input" 
-            style={{ width: '100%' }}
+            style={{ width: '100%', height: '2.4rem', fontSize: '0.8125rem' }}
             value={dateTo}
             onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
           />
         </div>
 
-        <div style={{ flex: '1 1 150px' }}>
-          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>Trạng thái duyệt</label>
+        <div style={{ flex: '1 1 140px' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Trạng thái duyệt</label>
           <select 
             className="form-input" 
             value={statusFilter} 
             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            style={{ width: '100%' }}
+            style={{ width: '100%', height: '2.4rem', fontSize: '0.8125rem' }}
           >
-            <option value="ALL">Tất cả</option>
+            <option value="ALL">Tất cả trạng thái</option>
             <option value="PENDING">Chờ duyệt</option>
             <option value="APPROVED">Đã duyệt</option>
             <option value="REJECTED">Từ chối</option>
@@ -142,16 +154,28 @@ export const LeaveMgmt = () => {
         
         {(searchTerm || statusFilter !== 'ALL' || dateFrom || dateTo) && (
           <div>
-            <button className="btn btn-outline" style={{ height: '2.6rem' }} onClick={() => {
-              setSearchTerm(''); setStatusFilter('ALL'); setDateFrom(''); setDateTo(''); setCurrentPage(1);
-            }}>
+            <button 
+              className="btn btn-outline" 
+              style={{ height: '2.4rem', padding: '0 0.75rem', fontSize: '0.75rem', borderColor: 'var(--border)' }} 
+              onClick={() => {
+                setSearchTerm(''); setStatusFilter('ALL'); setDateFrom(''); setDateTo(''); setCurrentPage(1);
+              }}
+            >
               Xóa lọc
             </button>
           </div>
         )}
       </div>
 
-      <div className="card glass">
+      <div 
+        style={{ 
+          backgroundColor: '#FFFFFF',
+          borderRadius: '0.5rem',
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+          overflow: 'hidden'
+        }}
+      >
         <div className="table-container">
           <table>
             <thead>

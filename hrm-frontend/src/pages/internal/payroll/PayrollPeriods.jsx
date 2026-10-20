@@ -202,27 +202,41 @@ export const PayrollPeriods = () => {
 
   return (
     <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
-      {/* 1. Header Layout Độc Lập */}
-      <div className="card glass p-5 flex-col gap-4" style={{ borderRadius: '16px' }}>
+      {/* 1. Header Trang: Kỷ luật, tập trung nghiệp vụ */}
+      <div 
+        style={{ 
+          backgroundColor: '#FFFFFF', 
+          borderRadius: '0.5rem', 
+          border: '1px solid var(--border)', 
+          padding: '1.25rem 1.5rem',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)'
+        }}
+      >
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex-col">
-            <div className="flex items-center gap-2.5">
-              <h1 className="page-title">
-                Quản Lý Kỳ Lương
-              </h1>
-              <span className="badge badge-info" style={{ fontWeight: 600 }}>Enterprise Lifecycle</span>
-            </div>
-            <p className="text-muted text-xs mt-1" style={{ margin: 0 }}>
-              Khởi tạo chu kỳ tính lương, chốt công, phân bổ quỹ lương và khóa sổ kế toán
+            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+              Quản lý Chu kỳ Lương & Khóa sổ
+            </h1>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+              Khởi tạo kỳ tính lương hàng tháng, đối soát chấm công, tính toán bảng lương tự động và chốt số liệu giải ngân.
             </p>
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button onClick={fetchPeriods} className="btn btn-outline" style={{ height: 36 }} title="Làm mới">
-              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <button 
+              onClick={fetchPeriods} 
+              className="btn btn-outline" 
+              style={{ height: 36, fontSize: '0.8125rem', borderColor: 'var(--border)', backgroundColor: '#FFFFFF' }} 
+              title="Làm mới"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               <span>Làm mới</span>
             </button>
-            <button onClick={() => setShowCreateModal(true)} className="btn btn-primary flex items-center gap-1.5" style={{ height: 36 }}>
+            <button 
+              onClick={() => setShowCreateModal(true)} 
+              className="btn flex items-center gap-1.5" 
+              style={{ height: 36, fontSize: '0.8125rem', backgroundColor: '#0F766E', color: '#FFFFFF', border: 'none', fontWeight: 600 }}
+            >
               <Plus size={16} />
               <span>Tạo Kỳ Lương Mới</span>
             </button>
@@ -230,57 +244,65 @@ export const PayrollPeriods = () => {
         </div>
       </div>
 
-      {/* 2. 4 Thẻ Thống Kê Tổng Quan */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px' }}>
-          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
-            <span>Tổng số kỳ lương</span>
-            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(255, 255, 255, 0.06)' }}>
-              <CalendarClock size={16} color="var(--primary)" />
-            </div>
+      {/* 2. Thanh Tóm tắt Tài chính & Trạng thái Chu kỳ (Financial Summary Bar - Chuẩn Enterprise) */}
+      <div 
+        style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(4, 1fr)', 
+          backgroundColor: '#FFFFFF', 
+          borderRadius: '0.5rem', 
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ padding: '1rem 1.25rem', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+            Tổng số kỳ lương đã lập
           </div>
-          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)' }}>{totalCount}</div>
-          <span className="text-xs text-muted">Toàn bộ các chu kỳ đã lập</span>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>
+            {totalCount} <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'var(--text-muted)' }}>chu kỳ</span>
+          </div>
         </div>
 
-        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(234, 179, 8, 0.25)' }}>
-          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
-            <span>Kỳ đang mở (Draft)</span>
-            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(234, 179, 8, 0.12)' }}>
-              <PlayCircle size={16} color="var(--warning)" />
-            </div>
+        <div style={{ padding: '1rem 1.25rem', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#B45309', marginBottom: '0.35rem' }}>
+            Kỳ đang mở (Bản nháp)
           </div>
-          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--warning)' }}>{draftCount}</div>
-          <span className="text-xs text-muted">Có thể chỉnh sửa & tính lại công</span>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#D97706', fontVariantNumeric: 'tabular-nums' }}>
+            {draftCount} <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'var(--text-muted)' }}>kỳ có thể chỉnh sửa</span>
+          </div>
         </div>
 
-        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(16, 185, 129, 0.25)' }}>
-          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
-            <span>Kỳ đã khóa sổ (Locked)</span>
-            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(16, 185, 129, 0.12)' }}>
-              <Lock size={16} color="var(--success)" />
-            </div>
+        <div style={{ padding: '1rem 1.25rem', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803D', marginBottom: '0.35rem' }}>
+            Kỳ đã khóa sổ (Chốt chi)
           </div>
-          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--success)' }}>{lockedCount}</div>
-          <span className="text-xs text-muted">Dữ liệu Read-only để giải ngân</span>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#16A34A', fontVariantNumeric: 'tabular-nums' }}>
+            {lockedCount} <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'var(--text-muted)' }}>kỳ read-only</span>
+          </div>
         </div>
 
-        <div className="card glass p-4 flex-col gap-1 card-hover" style={{ borderRadius: '14px', borderColor: 'rgba(105, 108, 255, 0.25)' }}>
-          <div className="flex items-center justify-between text-muted text-xs uppercase font-bold tracking-wider mb-1">
-            <span>Thực chi kỳ gần nhất</span>
-            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(105, 108, 255, 0.12)' }}>
-              <Banknote size={16} color="var(--primary)" />
-            </div>
+        <div style={{ padding: '1rem 1.25rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+            Thực chi kỳ gần nhất (Lương Net)
           </div>
-          <div className="money-text font-bold" style={{ fontSize: '1.45rem', color: 'var(--primary)' }}>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F766E', fontVariantNumeric: 'tabular-nums' }}>
             {formatCurrency(latestNet)}
           </div>
-          <span className="text-xs text-muted">Tổng lương Net chi trả nhân sự</span>
         </div>
       </div>
 
-      {/* 3. Bảng Dữ Liệu & Bộ Lọc Kèm Phân Trang */}
-      <div className="card glass flex-col gap-0" style={{ padding: 0, borderRadius: '16px', overflow: 'hidden' }}>
+      {/* 3. Bảng Dữ Liệu & Bộ Lọc Kèm Phan Trang */}
+      <div 
+        style={{ 
+          backgroundColor: '#FFFFFF', 
+          borderRadius: '0.5rem', 
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+          overflow: 'hidden'
+        }}
+      >
         <div className="p-4 flex justify-between items-center gap-4 flex-wrap" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex gap-3 items-center" style={{ flex: 1, minWidth: '280px', maxWidth: '420px' }}>
             <div style={{ position: 'relative', width: '100%' }}>
