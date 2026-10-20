@@ -80,6 +80,12 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
       return res.status(400).json({ error: 'Vui lòng nhập Lương thỏa thuận và Ngày dự kiến nhận việc.' });
     }
 
+    if (probationRate !== undefined && Number(probationRate) < 85) {
+      return res.status(400).json({
+        error: 'Theo quy định Điều 26 Bộ luật Lao động 2019, tỷ lệ lương thử việc không được thấp hơn 85% mức lương chính thức.'
+      });
+    }
+
     const candidate = await prisma.candidate.findUnique({
       where: { id: candidateId }
     });
@@ -243,6 +249,22 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
           where: { id: offer.id },
           data: { status: 'ACCEPTED', respondedAt: new Date() }
         });
+      }
+
+      // 6. Tự động đóng Tin tuyển dụng nếu đã tuyển đủ chỉ tiêu
+      if (candidate.jobPostingId) {
+        const job = candidate.jobPosting;
+        if (job && job.status === 'PUBLISHED') {
+          const hiredCount = await tx.candidate.count({
+            where: { jobPostingId: job.id, status: 'HIRED' }
+          });
+          if (hiredCount >= job.amount) {
+            await tx.jobPosting.update({
+              where: { id: job.id },
+              data: { status: 'CLOSED' }
+            });
+          }
+        }
       }
 
       return newEmployee;

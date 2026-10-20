@@ -99,9 +99,16 @@ router.put('/:id', async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { name, email, phone, cvUrl, jobPostingId, status } = req.body;
     
-    // Nếu chuyển sang HIRED, thực hiện Transaction để Auto-provisioning
+    // Nếu chuyển sang HIRED
     if (status === 'HIRED') {
       const result = await prisma.$transaction(async (tx) => {
+        const candidate = await tx.candidate.findUnique({
+          where: { id },
+          include: { jobPosting: true, offer: true }
+        });
+
+        if (!candidate) throw new Error('Không tìm thấy ứng viên');
+
         // Cập nhật trạng thái ứng viên
         const updatedCandidate = await tx.candidate.update({
           where: { id },
@@ -109,32 +116,50 @@ router.put('/:id', async (req: Request, res: Response) => {
           include: { jobPosting: true }
         });
 
-        // Tự động tạo Employee
-        const empCode = `EMP${Math.floor(Math.random() * 10000)}`;
-        const newEmployee = await tx.employee.create({
-          data: {
-            code: empCode,
-            fullName: updatedCandidate.name,
-            cccd: null, // Nullable theo DB mới
-            status: 'ONBOARDING',
-            joinDate: new Date(),
-            departmentId: updatedCandidate.jobPosting?.departmentId,
-            positionId: updatedCandidate.jobPosting?.positionId
-          }
+        // Kiểm tra xem đã có Employee được tạo qua luồng Onboarding trước đó chưa
+        const existingEmp = await tx.employee.findFirst({
+          where: { email: candidate.email }
         });
 
-        // Tạo Hợp đồng thử việc mặc định
-        await tx.contract.create({
-          data: {
-            employeeId: newEmployee.id,
-            contractType: 'PROBATION',
-            baseSalary: 10000000, // Lương tạm mặc định
-            startDate: new Date(),
-            status: 'ACTIVE'
+        if (!existingEmp) {
+          // Sinh mã nhân viên chuẩn định dạng NV0001
+          const count = await tx.employee.count();
+          let nextNum = count + 1;
+          let candidateCode = `NV${String(nextNum).padStart(4, '0')}`;
+          while (await tx.employee.findUnique({ where: { code: candidateCode } })) {
+            nextNum++;
+            candidateCode = `NV${String(nextNum).padStart(4, '0')}`;
           }
-        });
 
-        // Auto-close JobPosting logic
+          const baseSalary = candidate.offer ? Number(candidate.offer.baseSalary) : 10000000;
+
+          const newEmployee = await tx.employee.create({
+            data: {
+              code: candidateCode,
+              fullName: updatedCandidate.name,
+              email: candidate.email,
+              phone: candidate.phone,
+              cccd: null,
+              status: 'ONBOARDING',
+              joinDate: candidate.offer?.startDate || new Date(),
+              departmentId: updatedCandidate.jobPosting?.departmentId,
+              positionId: updatedCandidate.jobPosting?.positionId
+            }
+          });
+
+          // Tạo Hợp đồng thử việc
+          await tx.contract.create({
+            data: {
+              employeeId: newEmployee.id,
+              contractType: candidate.offer?.contractType || 'PROBATION',
+              baseSalary: baseSalary,
+              startDate: candidate.offer?.startDate || new Date(),
+              status: 'ACTIVE'
+            }
+          });
+        }
+
+        // Auto-close JobPosting logic nếu tuyển đủ chỉ tiêu
         if (updatedCandidate.jobPostingId) {
           const job = updatedCandidate.jobPosting;
           if (job && job.status === 'PUBLISHED') {
