@@ -305,7 +305,7 @@ export const SettingsRBAC = () => {
 
           <div className="flex items-center gap-2.5">
             {/* Chuyển đổi góc nhìn */}
-            <div className="flex items-center p-1 rounded-xl bg-black/20" style={{ border: '1px solid var(--border)' }}>
+            <div className="flex items-center p-1 rounded-xl" style={{ border: '1px solid var(--border)', backgroundColor: '#F8FAFC' }}>
               <button 
                 onClick={() => setViewMode('MATRIX')}
                 className={`btn ${viewMode === 'MATRIX' ? 'btn-primary' : 'btn-outline'}`}

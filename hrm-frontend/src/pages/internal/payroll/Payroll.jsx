@@ -228,7 +228,7 @@ export const PayrollMgmt = () => {
             <button 
               onClick={() => navigate('/internal/payroll/periods')}
               className="btn btn-outline" 
-              style={{ width: 38, height: 38, padding: 0, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)' }}
+              style={{ width: 38, height: 38, padding: 0, borderRadius: '50%', backgroundColor: '#F8FAFC' }}
               title="Quay lại danh sách kỳ lương"
             >
               <ArrowLeft size={18} />
@@ -257,7 +257,7 @@ export const PayrollMgmt = () => {
           {/* Cụm Thao Tác & Chọn Kỳ Lương Bên Phải */}
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* Bộ Chọn Tháng & Năm Liền Kề Gọn Gàng */}
-            <div className="flex items-center bg-black/20 p-1 rounded-xl" style={{ border: '1px solid var(--border)' }}>
+            <div className="flex items-center p-1 rounded-xl" style={{ border: '1px solid var(--border)', backgroundColor: '#F8FAFC' }}>
               <select 
                 className="form-input" 
                 style={{ height: 32, padding: '0 0.5rem', fontSize: '0.85rem', width: 'auto', border: 'none', background: 'transparent' }}

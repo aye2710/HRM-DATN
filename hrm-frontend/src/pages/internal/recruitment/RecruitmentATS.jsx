@@ -1,23 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, UserPlus, CheckCircle, X, AlertTriangle, LayoutGrid, List, Search } from 'lucide-react';
+import { 
+  Briefcase, UserPlus, CheckCircle, X, AlertTriangle, LayoutGrid, 
+  List, Search, FileText, ChevronRight, Phone, Mail, UserCheck, 
+  UserX, Download, Clock, Star, ExternalLink, Filter, Sparkles
+} from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-
 
 export const RecruitmentATS = () => {
   const [candidates, setCandidates] = useState([]);
   const [jobPostings, setJobPostings] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // View state
-  const [viewMode, setViewMode] = useState('table'); // Mở table luôn để kiểm tra
+  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterJob, setFilterJob] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
-  const [departments, setDepartments] = useState([]);
 
   // Modals state
   const [showJobModal, setShowJobModal] = useState(false);
@@ -36,11 +40,14 @@ export const RecruitmentATS = () => {
       axios.get('http://localhost:5000/api/departments')
     ])
     .then(([jobRes, candRes, deptRes]) => {
-      setJobPostings(jobRes.data);
-      setCandidates(candRes.data);
-      setDepartments(deptRes.data);
+      setJobPostings(jobRes.data || []);
+      setCandidates(candRes.data || []);
+      setDepartments(deptRes.data || []);
     })
-    .catch(err => console.error(err))
+    .catch(err => {
+      console.error(err);
+      toast.error("Lỗi khi tải dữ liệu tuyển dụng");
+    })
     .finally(() => setLoading(false));
   };
 
@@ -50,38 +57,32 @@ export const RecruitmentATS = () => {
 
   // --- Handlers for Forms ---
   const handleCreateJob = () => {
-    if (!jobForm.title) return toast.error("Vui lòng nhập tiêu đề Job");
+    if (!jobForm.title.trim()) return toast.error("Vui lòng nhập tiêu đề vị trí tuyển dụng");
     axios.post('http://localhost:5000/api/job-postings', jobForm)
       .then(() => {
         fetchJobsAndCandidates();
         setShowJobModal(false);
         setJobForm({ title: '', description: '', status: 'OPEN' });
+        toast.success("Tạo tin tuyển dụng thành công!");
       })
-      .catch(err => toast.error("Lỗi khi tạo Job"));
+      .catch(() => toast.error("Lỗi khi tạo tin tuyển dụng"));
   };
 
   const handleCreateCandidate = () => {
-    if (!candidateForm.name || !candidateForm.email || !candidateForm.jobPostingId) {
-      return toast.error("Vui lòng nhập Tên, Email và Chọn Job ứng tuyển");
+    if (!candidateForm.name.trim() || !candidateForm.email.trim() || !candidateForm.jobPostingId) {
+      return toast.error("Vui lòng nhập Tên, Email và Chọn Vị trí tuyển dụng");
     }
     axios.post('http://localhost:5000/api/candidates', candidateForm)
       .then(() => {
         fetchJobsAndCandidates();
         setShowCandidateModal(false);
         setCandidateForm({ name: '', email: '', phone: '', cvUrl: '', jobPostingId: '' });
+        toast.success("Đã thêm ứng viên vào hệ thống!");
       })
-      .catch(err => toast.error("Lỗi khi thêm ứng viên"));
+      .catch(() => toast.error("Lỗi khi thêm ứng viên"));
   };
 
-  // --- Drag & Drop Handlers ---
-  const handleDragStart = (e, candidateId) => {
-    e.dataTransfer.setData('candidateId', candidateId);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault(); // Cho phép drop
-  };
-
+  // --- Business Workflow Logic ---
   const validTransitions = {
     SOURCED: ['SCREENING', 'REJECTED'],
     APPLIED: ['SCREENING', 'REJECTED', 'SOURCED'],
@@ -92,9 +93,34 @@ export const RecruitmentATS = () => {
     REJECTED: ['SOURCED']
   };
 
+  const getNextStageInfo = (currentStatus) => {
+    switch (currentStatus) {
+      case 'SOURCED':
+      case 'APPLIED':
+        return { target: 'SCREENING', label: 'Duyệt hồ sơ', color: '#0284c7' };
+      case 'SCREENING':
+        return { target: 'INTERVIEWING', label: 'Mời phỏng vấn', color: '#f59e0b' };
+      case 'INTERVIEWING':
+        return { target: 'OFFERING', label: 'Gửi Offer', color: '#10b981' };
+      case 'OFFERING':
+        return { target: 'HIRED', label: 'Nhận việc (Hired)', color: '#2563eb' };
+      default:
+        return null;
+    }
+  };
+
   const checkValidTransition = (currentStatus, newStatus) => {
     if (!validTransitions[currentStatus]) return false;
     return validTransitions[currentStatus].includes(newStatus);
+  };
+
+  // --- Drag & Drop Handlers ---
+  const handleDragStart = (e, candidateId) => {
+    e.dataTransfer.setData('candidateId', candidateId);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
   };
 
   const handleDrop = (e, newStatus) => {
@@ -105,12 +131,10 @@ export const RecruitmentATS = () => {
     const candidate = candidates.find(c => c.id === candidateId);
     if (!candidate || candidate.status === newStatus) return;
 
-    // Validate business logic: only forward or reject
     if (!checkValidTransition(candidate.status, newStatus)) {
-      return toast.error("Thao tác không hợp lệ! Ứng viên chỉ có thể đi tiếp vòng sau hoặc bị Từ chối, không thể lùi lại quy trình.");
+      return toast.error("Thao tác không hợp lệ theo quy trình tuyển dụng chuẩn!");
     }
 
-    // Show custom modal instead of window.confirm
     setPendingDrop({ candidateId, newStatus, candidateName: candidate.name });
   };
 
@@ -118,15 +142,14 @@ export const RecruitmentATS = () => {
     if (!pendingDrop) return;
     const { candidateId, newStatus } = pendingDrop;
 
-    // Cập nhật state ngay lập tức để mượt
     setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, status: newStatus } : c));
-    setPendingDrop(null); // Đóng modal
+    setPendingDrop(null);
 
-    // Gọi API update status
     axios.put(`http://localhost:5000/api/candidates/${candidateId}`, { status: newStatus })
+      .then(() => toast.success(`Đã cập nhật trạng thái ứng viên!`))
       .catch(err => {
         console.error("Lỗi khi chuyển trạng thái", err);
-        toast.error("Lỗi khi lưu trạng thái ứng viên. Sẽ reload lại dữ liệu.");
+        toast.error("Lỗi khi lưu trạng thái. Đang làm mới...");
         fetchJobsAndCandidates();
       });
   };
@@ -135,388 +158,925 @@ export const RecruitmentATS = () => {
     setPendingDrop(null);
   };
 
+  const handleDirectTransition = (candidate, newStatus) => {
+    if (!checkValidTransition(candidate.status, newStatus)) {
+      return toast.error("Thao tác chuyển trạng thái không hợp lệ!");
+    }
+    setPendingDrop({ candidateId: candidate.id, newStatus, candidateName: candidate.name });
+  };
+
   const statuses = [
-    { id: 'SOURCED', title: 'SÀNG LỌC CV', color: 'var(--primary)', badgeColor: 'badge-purple' },
-    { id: 'SCREENING', title: 'ĐÁNH GIÁ (SCREENING)', color: 'var(--info)', badgeColor: 'badge-info' },
-    { id: 'INTERVIEWING', title: 'PHỎNG VẤN', color: 'var(--warning)', badgeColor: 'badge-warning' },
-    { id: 'OFFERING', title: 'CHỐT OFFER', color: 'var(--success)', badgeColor: 'badge-success' },
-    { id: 'HIRED', title: 'NHẬN VIỆC (HIRED)', color: 'var(--text-main)', badgeColor: 'badge-primary' },
-    { id: 'REJECTED', title: 'TỪ CHỐI', color: 'var(--error)', badgeColor: 'badge-error' }
+    { id: 'SOURCED', title: 'SÀNG LỌC HỒ SƠ', color: '#6366f1', badgeColor: 'badge-purple', bgLight: '#f5f3ff' },
+    { id: 'SCREENING', title: 'ĐÁNH GIÁ (SCREENING)', color: '#0284c7', badgeColor: 'badge-info', bgLight: '#f0f9ff' },
+    { id: 'INTERVIEWING', title: 'PHỎNG VẤN CHUYÊN SÂU', color: '#f59e0b', badgeColor: 'badge-warning', bgLight: '#fffbeb' },
+    { id: 'OFFERING', title: 'CHỐT ĐỀ NGHỊ (OFFER)', color: '#10b981', badgeColor: 'badge-success', bgLight: '#f0fdf4' },
+    { id: 'HIRED', title: 'TUYỂN DỤNG THÀNH CÔNG', color: '#2563eb', badgeColor: 'badge-primary', bgLight: '#eff6ff' },
+    { id: 'REJECTED', title: 'TỪ CHỐI / LƯU TRỮ', color: '#ef4444', badgeColor: 'badge-error', bgLight: '#fef2f2' }
   ];
 
-  const processedCandidates = candidates.filter(c => {
-    const query = searchQuery.toLowerCase().trim();
-    const matchesSearch = !query || 
-      (c.name && c.name.toLowerCase().includes(query)) || 
-      (c.email && c.email.toLowerCase().includes(query)) ||
-      (c.phone && c.phone.includes(query));
-    const matchesDept = filterDepartment ? c.jobPosting?.departmentId === filterDepartment : true;
-    const matchesStatus = filterStatus 
-      ? (filterStatus === 'SOURCED' ? (c.status === 'SOURCED' || c.status === 'APPLIED') : c.status === filterStatus)
-      : true;
-    return matchesSearch && matchesDept && matchesStatus;
-  });
+  // Pipeline Filter logic
+  const processedCandidates = useMemo(() => {
+    return candidates.filter(c => {
+      const query = searchQuery.toLowerCase().trim();
+      const matchesSearch = !query || 
+        (c.name && c.name.toLowerCase().includes(query)) || 
+        (c.email && c.email.toLowerCase().includes(query)) ||
+        (c.phone && c.phone.includes(query)) ||
+        (c.id && c.id.toLowerCase().includes(query));
+      
+      const matchesDept = filterDepartment ? c.jobPosting?.departmentId === filterDepartment : true;
+      const matchesJob = filterJob ? c.jobPostingId === filterJob : true;
+      const matchesStatus = filterStatus 
+        ? (filterStatus === 'SOURCED' ? (c.status === 'SOURCED' || c.status === 'APPLIED') : c.status === filterStatus)
+        : true;
+      
+      return matchesSearch && matchesDept && matchesJob && matchesStatus;
+    });
+  }, [candidates, searchQuery, filterDepartment, filterJob, filterStatus]);
+
+  // High-Density ATS Metrics
+  const stats = useMemo(() => {
+    const total = candidates.length;
+    const sourced = candidates.filter(c => c.status === 'SOURCED' || c.status === 'APPLIED').length;
+    const screening = candidates.filter(c => c.status === 'SCREENING').length;
+    const interviewing = candidates.filter(c => c.status === 'INTERVIEWING').length;
+    const offering = candidates.filter(c => c.status === 'OFFERING').length;
+    const hired = candidates.filter(c => c.status === 'HIRED').length;
+    const rejected = candidates.filter(c => c.status === 'REJECTED').length;
+    const activePipeline = sourced + screening + interviewing + offering;
+    const hireRate = total > 0 ? Math.round((hired / total) * 100) : 0;
+
+    return { total, activePipeline, interviewing, offering, hired, rejected, hireRate };
+  }, [candidates]);
+
+  // CSV Export for ATS data
+  const handleExportCSV = () => {
+    if (processedCandidates.length === 0) return toast.error("Không có dữ liệu để xuất");
+    
+    const headers = ["Mã Ứng Viên", "Họ và tên", "Email", "Số điện thoại", "Vị trí ứng tuyển", "Phòng ban", "Trạng thái", "Link CV"];
+    const rows = processedCandidates.map(c => [
+      `"APP-${c.id.substring(0, 6).toUpperCase()}"`,
+      `"${c.name}"`,
+      `"${c.email}"`,
+      `"${c.phone || ''}"`,
+      `"${c.jobPosting?.title || ''}"`,
+      `"${c.jobPosting?.department?.name || ''}"`,
+      `"${statuses.find(s => s.id === c.status)?.title || c.status}"`,
+      `"${c.cvUrl || ''}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Bao_Cao_Tuyen_Dung_ATS_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Đã tải xuống file báo cáo tuyển dụng!");
+  };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '0 1rem', height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
-      <div className="flex items-center justify-between mb-8">
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      
+      {/* 1. Executive Top Header */}
+      <div style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: '1rem',
+        padding: '1.25rem 1.75rem',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-sm)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '1rem'
+      }}>
         <div>
-          <h1 className="page-title">
-            Quản lý Tuyển dụng (ATS)
-          </h1>
-          <p className="text-muted mt-2">Kéo thả thẻ ứng viên để thay đổi trạng thái tuyển dụng.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: '8px',
+              backgroundColor: '#EEF2FF', color: 'var(--primary)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <Briefcase size={20} />
+            </div>
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+              Hệ thống Tuyển dụng Doanh nghiệp (ATS)
+            </h1>
+          </div>
+          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Quản trị quy trình phỏng vấn chuẩn 6 giai đoạn, theo dõi ứng viên và chuyển tiếp tuyển dụng trực quan.
+          </p>
         </div>
-        <div className="flex gap-3 items-center">
-          <div className="bg-white p-1 rounded-lg flex border border-[var(--border)]">
-            <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-md transition-colors flex items-center gap-1 ${viewMode === 'kanban' ? 'bg-white text-[var(--text-heading)]' : 'text-muted hover:text-[var(--primary)]'}`} title="Dạng Bảng kéo thả">
-              <LayoutGrid size={18} />
+
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* View Toggle */}
+          <div style={{ backgroundColor: '#F1F5F9', padding: '3px', borderRadius: '8px', display: 'flex', border: '1px solid var(--border)' }}>
+            <button 
+              onClick={() => setViewMode('kanban')} 
+              style={{
+                padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600,
+                backgroundColor: viewMode === 'kanban' ? '#FFFFFF' : 'transparent',
+                color: viewMode === 'kanban' ? 'var(--primary)' : 'var(--text-muted)',
+                boxShadow: viewMode === 'kanban' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                transition: 'all 0.2s'
+              }}
+              title="Giao diện Kanban kéo thả"
+            >
+              <LayoutGrid size={16} /> Kanban
             </button>
-            <button onClick={() => setViewMode('table')} className={`p-2 rounded-md transition-colors flex items-center gap-1 ${viewMode === 'table' ? 'bg-white text-[var(--text-heading)]' : 'text-muted hover:text-[var(--primary)]'}`} title="Dạng Danh sách">
-              <List size={18} />
+            <button 
+              onClick={() => setViewMode('table')} 
+              style={{
+                padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600,
+                backgroundColor: viewMode === 'table' ? '#FFFFFF' : 'transparent',
+                color: viewMode === 'table' ? 'var(--primary)' : 'var(--text-muted)',
+                boxShadow: viewMode === 'table' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                transition: 'all 0.2s'
+              }}
+              title="Giao diện Bảng chi tiết"
+            >
+              <List size={16} /> Bảng dữ liệu
             </button>
           </div>
-          <button onClick={() => setShowCandidateModal(true)} className="btn btn-outline" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem' }}>
-            <UserPlus size={18} /> Thêm Ứng viên
+
+          <button onClick={handleExportCSV} className="btn btn-outline" style={{ height: 38, fontSize: '0.85rem' }}>
+            <Download size={16} /> Xuất CSV
           </button>
-          <button onClick={() => setShowJobModal(true)} className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem' }}>
-            <Briefcase size={18} /> Tạo Job Post mới
+          <button onClick={() => setShowCandidateModal(true)} className="btn btn-outline" style={{ height: 38, fontSize: '0.85rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}>
+            <UserPlus size={16} /> Thêm Ứng viên
+          </button>
+          <button onClick={() => setShowJobModal(true)} className="btn btn-primary" style={{ height: 38, fontSize: '0.85rem' }}>
+            <Briefcase size={16} /> Tạo Vị trí Tuyển
           </button>
         </div>
       </div>
 
-      {/* Filters Toolbar */}
-      <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-4 items-center flex-1">
-          <div style={{ position: 'relative', flex: '1 1 280px', maxWidth: '380px' }}>
-            <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+      {/* 2. Top KPI Metric Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
+        <div style={{
+          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
+          border: '1px solid var(--border)', borderLeft: '4px solid #6366f1',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
+            Tổng Hồ sơ
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+            {stats.total}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            {jobPostings.length} vị trí đang mở tuyển
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
+          border: '1px solid var(--border)', borderLeft: '4px solid #0284c7',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
+            Đang Xử lý (Active)
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0284c7' }}>
+            {stats.activePipeline}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Ứng viên trong vòng đánh giá
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
+          border: '1px solid var(--border)', borderLeft: '4px solid #f59e0b',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
+            Vòng Phỏng vấn
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#f59e0b' }}>
+            {stats.interviewing}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Đang xếp lịch với Hội đồng
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
+          border: '1px solid var(--border)', borderLeft: '4px solid #10b981',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
+            Chốt Offer
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#10b981' }}>
+            {stats.offering}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Chờ ứng viên phản hồi thư mời
+          </div>
+        </div>
+
+        <div style={{
+          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
+          border: '1px solid var(--border)', borderLeft: '4px solid #2563eb',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
+            Tuyển thành công
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#2563eb' }}>
+            {stats.hired}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Tỷ lệ chuyển đổi: <strong style={{ color: 'var(--success)' }}>{stats.hireRate}%</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Filter Bar */}
+      <div style={{
+        backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '0.75rem 1.25rem',
+        border: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '0.75rem',
+        alignItems: 'center', justifyContent: 'space-between'
+      }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', flex: 1 }}>
+          <div style={{ position: 'relative', minWidth: '260px', flex: '1 1 260px' }}>
+            <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
             <input 
               type="text" 
-              placeholder="Tìm kiếm ứng viên theo tên, email, SĐT..." 
-              className="form-input w-full bg-white" 
-              style={{ paddingLeft: '2.5rem' }}
+              placeholder="Tìm theo tên, email, SĐT hoặc mã ứng viên..." 
+              className="form-input"
+              style={{ paddingLeft: '2.4rem', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
               value={searchQuery} 
               onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
             />
           </div>
+
           <select 
-            className="form-input bg-white" 
-            style={{ minWidth: '180px' }}
+            className="form-input" 
+            style={{ minWidth: '180px', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
+            value={filterJob} 
+            onChange={e => { setFilterJob(e.target.value); setCurrentPage(1); }}
+          >
+            <option value="">Tất cả vị trí tuyển</option>
+            {jobPostings.map(j => (
+              <option key={j.id} value={j.id}>{j.title}</option>
+            ))}
+          </select>
+
+          <select 
+            className="form-input" 
+            style={{ minWidth: '180px', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
             value={filterDepartment} 
-            onChange={e => { 
-              setFilterDepartment(e.target.value); 
-              setCurrentPage(1); 
-            }}
+            onChange={e => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
           >
             <option value="">Tất cả phòng ban</option>
             {departments.map(d => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
           </select>
+
           <select 
-            className="form-input bg-white" 
-            style={{ minWidth: '220px' }}
+            className="form-input" 
+            style={{ minWidth: '180px', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
             value={filterStatus} 
-            onChange={e => { 
-              setFilterStatus(e.target.value); 
-              setCurrentPage(1); 
-            }}
+            onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}
           >
-            <option value="">Tất cả trạng thái</option>
+            <option value="">Tất cả trạng thái vòng</option>
             {statuses.map(s => (
               <option key={s.id} value={s.id}>{s.title}</option>
             ))}
           </select>
-          {(searchQuery || filterDepartment || filterStatus) && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setFilterDepartment('');
-                setFilterStatus('');
-                setCurrentPage(1);
-              }}
-              className="btn btn-outline text-xs"
-              style={{ padding: '0.4rem 0.75rem' }}
-              title="Đặt lại bộ lọc"
-            >
-              Xóa bộ lọc
-            </button>
-          )}
         </div>
+
+        {(searchQuery || filterDepartment || filterJob || filterStatus) && (
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setFilterDepartment('');
+              setFilterJob('');
+              setFilterStatus('');
+              setCurrentPage(1);
+            }}
+            className="btn btn-outline"
+            style={{ height: 38, fontSize: '0.8rem', padding: '0 0.85rem' }}
+          >
+            Xóa bộ lọc
+          </button>
+        )}
       </div>
 
-      {/* Main Content Area */}
+      {/* 4. Main ATS Workspace */}
       {viewMode === 'kanban' ? (
-        <div style={{ flex: 1, position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', gap: '1.5rem', overflowX: 'auto', paddingBottom: '1rem' }} className="custom-scrollbar">
-            {statuses.map(statusCol => {
-              const columnCandidates = processedCandidates.filter(c => 
-                statusCol.id === 'SOURCED'
-                  ? (c.status === 'SOURCED' || c.status === 'APPLIED')
-                  : c.status === statusCol.id
-              );
-              
-              return (
-                <div 
-                  key={statusCol.id}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, statusCol.id)}
-              style={{ flex: '0 0 320px', height: '100%', background: 'var(--bg-card)', borderRadius: '1rem', padding: '1rem', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-            >
-              <div className="flex justify-between items-center mb-4 flex-shrink-0">
-                <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-muted)' }}>{statusCol.title}</h3>
-                <span className={`badge ${statusCol.badgeColor}`} style={{ borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  {columnCandidates.length}
-                </span>
-              </div>
-              
-              <div className="flex-col gap-3 custom-scrollbar" style={{ flex: 1, paddingRight: '0.5rem', minHeight: 0, overflowY: 'auto' }}>
-                {loading ? (
-                   <p className="text-center text-muted text-sm py-4">Đang tải...</p>
-                ) : columnCandidates.length === 0 ? (
-                  <p className="text-center text-muted text-sm py-4 italic" style={{ opacity: 0.5 }}>Trống</p>
-                ) : (
-                  columnCandidates.map(c => (
-                    <div 
-                      key={c.id} 
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, c.id)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => {
-                        e.stopPropagation();
-                        handleDrop(e, statusCol.id);
-                      }}
-                      className="card card-hover" 
-                      style={{ padding: '1rem', cursor: 'grab', borderLeft: `3px solid ${statusCol.color}`, flexShrink: 0, backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-main)' }}>{c.name}</h4>
-                        {statusCol.id === 'OFFERING' && <CheckCircle size={16} color="var(--success)" />}
-                        {statusCol.id === 'INTERVIEWING' && <span className="badge badge-warning" style={{ fontSize: '0.7rem', background: 'transparent' }}>Phỏng vấn</span>}
-                      </div>
-                      <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-                        Ứng tuyển: <span style={{ color: 'var(--text-main)' }}>{c.jobPosting?.title || 'Không rõ'}</span>
-                      </p>
-                      <div className="flex justify-between items-center text-muted" style={{ fontSize: '0.8rem' }}>
-                        <span>{c.email}</span>
-                        {c.cvUrl && (
-                          <a 
-                            href={c.cvUrl} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="text-[var(--primary)] hover:underline flex items-center gap-1"
-                            onClick={(e) => e.stopPropagation()} // Prevent drag conflict if any
-                          >
-                            Xem CV
-                          </a>
-                        )}
-                      </div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(6, minmax(280px, 1fr))',
+          gap: '1rem',
+          overflowX: 'auto',
+          paddingBottom: '1rem',
+          minHeight: '560px'
+        }} className="custom-scrollbar">
+          {statuses.map(col => {
+            const columnCandidates = processedCandidates.filter(c => 
+              col.id === 'SOURCED'
+                ? (c.status === 'SOURCED' || c.status === 'APPLIED')
+                : c.status === col.id
+            );
+
+            return (
+              <div 
+                key={col.id}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, col.id)}
+                style={{
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  maxHeight: '75vh',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Column Header */}
+                <div style={{
+                  padding: '0.85rem 1rem',
+                  borderBottom: '1px solid var(--border)',
+                  backgroundColor: '#FFFFFF',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: col.color }} />
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                      {col.title}
+                    </h3>
+                  </div>
+                  <span style={{
+                    backgroundColor: col.bgLight,
+                    color: col.color,
+                    borderRadius: '12px',
+                    padding: '2px 8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    border: `1px solid ${col.color}30`
+                  }}>
+                    {columnCandidates.length}
+                  </span>
+                </div>
+
+                {/* Column Cards Container */}
+                <div style={{
+                  padding: '0.75rem',
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                  flex: 1
+                }} className="custom-scrollbar">
+                  {loading ? (
+                    <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      Đang tải...
                     </div>
-                  ))
-                )}
+                  ) : columnCandidates.length === 0 ? (
+                    <div style={{
+                      textAlign: 'center', padding: '2.5rem 1rem',
+                      color: 'var(--text-muted)', fontSize: '0.85rem',
+                      border: '1px dashed var(--border)', borderRadius: '8px',
+                      backgroundColor: 'rgba(255,255,255,0.4)'
+                    }}>
+                      Kéo thẻ ứng viên vào đây
+                    </div>
+                  ) : (
+                    columnCandidates.map(c => {
+                      const nextStep = getNextStageInfo(c.status);
+                      return (
+                        <div 
+                          key={c.id} 
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, c.id)}
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: '10px',
+                            padding: '0.85rem',
+                            border: '1px solid var(--border)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                            cursor: 'grab',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.5rem'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)'}
+                          onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'}
+                        >
+                          {/* Card Head: ID & Score */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+                              APP-{c.id.substring(0, 6).toUpperCase()}
+                            </span>
+                            <span style={{
+                              display: 'flex', alignItems: 'center', gap: '3px',
+                              fontSize: '0.72rem', fontWeight: 700, color: '#f59e0b',
+                              backgroundColor: '#fffbeb', padding: '1px 6px', borderRadius: '4px',
+                              border: '1px solid #fde68a'
+                            }}>
+                              <Star size={11} fill="#f59e0b" /> Đạt chuẩn
+                            </span>
+                          </div>
+
+                          {/* Candidate Name & Position */}
+                          <div>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '2px' }}>
+                              {c.name}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 600 }}>
+                              {c.jobPosting?.title || 'Chưa gán vị trí'}
+                            </div>
+                          </div>
+
+                          {/* Contact Info */}
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <Mail size={12} /> <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{c.email}</span>
+                            </div>
+                            {c.phone && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <Phone size={12} /> <span>{c.phone}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Action Foot: View CV & Quick Transition */}
+                          <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            paddingTop: '0.5rem', borderTop: '1px solid var(--border)', marginTop: '2px'
+                          }}>
+                            {c.cvUrl ? (
+                              <a 
+                                href={c.cvUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{
+                                  fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)',
+                                  display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none'
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Xem CV <ExternalLink size={12} />
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Chưa có CV</span>
+                            )}
+
+                            {nextStep && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDirectTransition(c, nextStep.target);
+                                }}
+                                style={{
+                                  padding: '3px 8px', borderRadius: '6px',
+                                  fontSize: '0.72rem', fontWeight: 700,
+                                  backgroundColor: nextStep.color, color: '#FFFFFF',
+                                  border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
+                                }}
+                                title={`Chuyển sang ${nextStep.label}`}
+                              >
+                                {nextStep.label} <ChevronRight size={12} />
+                              </button>
+                            )}
+
+                            {col.id !== 'REJECTED' && col.id !== 'HIRED' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDirectTransition(c, 'REJECTED');
+                                }}
+                                style={{
+                                  padding: '3px 6px', borderRadius: '4px',
+                                  fontSize: '0.7rem', fontWeight: 600,
+                                  backgroundColor: '#FEE2E2', color: '#EF4444',
+                                  border: '1px solid #FECACA', cursor: 'pointer'
+                                }}
+                                title="Từ chối hồ sơ ứng viên"
+                              >
+                                <UserX size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-          </div>
+            );
+          })}
         </div>
       ) : (
-        <div className="card glass overflow-hidden flex-1 flex flex-col p-6" style={{ minHeight: 0 }}>
-          <div className="table-container overflow-y-auto flex-1 custom-scrollbar" style={{ border: '1px solid var(--border)', borderRadius: '0.75rem' }}>
-            <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-white backdrop-blur-md z-10">
-                <tr className="border-b border-[var(--border)]">
-                  <th className="p-4 text-sm font-semibold text-muted">Ứng viên</th>
-                  <th className="p-4 text-sm font-semibold text-muted">Vị trí ứng tuyển</th>
-                  <th className="p-4 text-sm font-semibold text-muted">Phòng ban</th>
-                  <th className="p-4 text-sm font-semibold text-muted">Liên hệ</th>
-                  <th className="p-4 text-sm font-semibold text-muted">Hồ sơ CV</th>
-                  <th className="p-4 text-sm font-semibold text-muted">Trạng thái (Click đổi)</th>
+        /* Table View */
+        <div style={{
+          backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid var(--border)',
+          overflow: 'hidden', boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mã UV</th>
+                  <th>Ứng viên</th>
+                  <th>Vị trí ứng tuyển</th>
+                  <th>Phòng ban</th>
+                  <th>Thông tin liên hệ</th>
+                  <th>Hồ sơ CV</th>
+                  <th>Vòng tuyển dụng</th>
+                  <th style={{ textAlign: 'center' }}>Thao tác chuyển bước</th>
                 </tr>
               </thead>
               <tbody>
-                {processedCandidates
-                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                  .map(c => {
-                    const statusObj = statuses.find(s => s.id === c.status) || statuses[0];
-                    return (
-                      <tr key={c.id} className="border-b border-[var(--border)] hover:bg-white transition-colors">
-                        <td className="p-4">
-                          <div className="font-medium text-[var(--text-heading)]">{c.name}</div>
-                          <div className="text-xs text-muted">ID: #{c.id.substring(0,6).toUpperCase()}</div>
-                        </td>
-                        <td className="p-4">
-                          <span className="text-[var(--text-main)] font-medium">{c.jobPosting?.title || 'Không rõ'}</span>
-                        </td>
-                        <td className="p-4">
-                          <span className="text-[var(--text-muted)] text-sm font-medium">{c.jobPosting?.department?.name || 'Không rõ'}</span>
-                        </td>
-                        <td className="p-4">
-                          <div className="text-sm">{c.email}</div>
-                          <div className="text-sm text-muted">{c.phone || '--'}</div>
-                        </td>
-                        <td className="p-4">
-                          {c.cvUrl ? (
-                            <a href={c.cvUrl} target="_blank" rel="noreferrer" className="text-[var(--primary)] hover:underline text-sm font-medium">Xem CV</a>
-                          ) : (
-                            <span className="text-muted text-sm">Không có</span>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <select 
-                            className="form-input text-sm font-semibold cursor-pointer outline-none" 
-                            style={{ 
-                              backgroundColor: 'var(--bg-hover)', 
-                              border: `1px solid ${statusObj.color}`, 
-                              color: statusObj.color,
-                              padding: '0.4rem 0.75rem',
-                              borderRadius: '9999px'
-                            }}
-                            value={c.status} 
-                            onChange={(e) => {
-                              const newStatus = e.target.value;
-                              if (!checkValidTransition(c.status, newStatus)) {
-                                return toast.error("Thao tác không hợp lệ! Ứng viên chỉ có thể đi tiếp vòng sau hoặc bị Từ chối, không thể lùi lại quy trình.");
-                              }
-                              setPendingDrop({ candidateId: c.id, newStatus, candidateName: c.name })
-                            }}
-                          >
-                            {statuses.map(s => <option key={s.id} value={s.id} className="text-black">{s.title}</option>)}
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                })}
-                {processedCandidates.length === 0 && (
+                {loading ? (
                   <tr>
-                    <td colSpan="6" className="p-8 text-center text-muted">Không tìm thấy ứng viên nào phù hợp.</td>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-muted)' }}>
+                      Đang tải danh sách hồ sơ...
+                    </td>
                   </tr>
+                ) : processedCandidates.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-muted)' }}>
+                      Không tìm thấy ứng viên nào phù hợp bộ lọc.
+                    </td>
+                  </tr>
+                ) : (
+                  processedCandidates
+                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                    .map(c => {
+                      const statusObj = statuses.find(s => s.id === c.status) || statuses[0];
+                      const nextStep = getNextStageInfo(c.status);
+
+                      return (
+                        <tr key={c.id}>
+                          <td>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              APP-{c.id.substring(0, 6).toUpperCase()}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{
+                                width: 34, height: 34, borderRadius: '50%',
+                                backgroundColor: '#EEF2FF', color: 'var(--primary)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 700, fontSize: '0.85rem'
+                              }}>
+                                {c.name.charAt(0)}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '0.9rem' }}>{c.name}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ứng viên online</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.88rem' }}>
+                              {c.jobPosting?.title || 'Chưa gán'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                              {c.jobPosting?.department?.name || 'Doanh nghiệp'}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>{c.email}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone || 'Chưa cập nhật SĐT'}</div>
+                          </td>
+                          <td>
+                            {c.cvUrl ? (
+                              <a 
+                                href={c.cvUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{
+                                  fontSize: '0.82rem', fontWeight: 600, color: 'var(--primary)',
+                                  display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none'
+                                }}
+                              >
+                                Xem CV <ExternalLink size={13} />
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Không đính kèm</span>
+                            )}
+                          </td>
+                          <td>
+                            <select 
+                              className="form-input" 
+                              style={{ 
+                                padding: '4px 10px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700,
+                                backgroundColor: statusObj.bgLight, color: statusObj.color,
+                                border: `1px solid ${statusObj.color}40`, cursor: 'pointer'
+                              }}
+                              value={c.status} 
+                              onChange={(e) => {
+                                const newStatus = e.target.value;
+                                if (!checkValidTransition(c.status, newStatus)) {
+                                  return toast.error("Không thể lùi trạng thái quy trình hoặc nhảy cóc!");
+                                }
+                                setPendingDrop({ candidateId: c.id, newStatus, candidateName: c.name });
+                              }}
+                            >
+                              {statuses.map(s => <option key={s.id} value={s.id} style={{ color: '#000' }}>{s.title}</option>)}
+                            </select>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              {nextStep && (
+                                <button
+                                  onClick={() => handleDirectTransition(c, nextStep.target)}
+                                  className="btn btn-primary"
+                                  style={{ padding: '4px 10px', fontSize: '0.78rem', height: 'auto' }}
+                                >
+                                  {nextStep.label}
+                                </button>
+                              )}
+                              {c.status !== 'REJECTED' && c.status !== 'HIRED' && (
+                                <button
+                                  onClick={() => handleDirectTransition(c, 'REJECTED')}
+                                  style={{
+                                    padding: '4px 8px', borderRadius: '6px',
+                                    backgroundColor: '#FEE2E2', color: '#EF4444',
+                                    border: '1px solid #FECACA', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600
+                                  }}
+                                  title="Từ chối ứng viên"
+                                >
+                                  Từ chối
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                 )}
               </tbody>
             </table>
           </div>
-          {(() => {
-            const totalFiltered = processedCandidates.length;
-            const totalPages = Math.ceil(totalFiltered / itemsPerPage);
-            if (totalPages <= 1) return null;
-            return (
-              <div className="flex justify-between items-center mt-4 px-2 flex-shrink-0">
-                <span className="text-sm text-muted">
-                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalFiltered)} trong tổng số {totalFiltered} ứng viên
-                </span>
-                <div className="flex gap-2 items-center">
-                  <button 
-                    className="btn btn-outline" 
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    style={{ padding: '0.4rem 0.8rem' }}
+
+          {/* Pagination */}
+          {processedCandidates.length > itemsPerPage && (
+            <div style={{
+              padding: '0.85rem 1.5rem', borderTop: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, processedCandidates.length)} trong tổng số {processedCandidates.length} ứng viên
+              </span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button 
+                  className="btn btn-outline" 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  style={{ height: 32, padding: '0 10px', fontSize: '0.8rem' }}
+                >
+                  Trước
+                </button>
+                {Array.from({ length: Math.ceil(processedCandidates.length / itemsPerPage) }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ height: 32, minWidth: 32, padding: 0, fontSize: '0.8rem' }}
+                    onClick={() => setCurrentPage(page)}
                   >
-                    Trước
+                    {page}
                   </button>
-                  {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                      style={{ minWidth: '40px', padding: '0.4rem 0.8rem' }}
-                      onClick={() => setCurrentPage(page)}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  <button 
-                    className="btn btn-outline"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    style={{ padding: '0.4rem 0.8rem' }}
-                  >
-                    Sau
-                  </button>
-                </div>
+                ))}
+                <button 
+                  className="btn btn-outline" 
+                  disabled={currentPage === Math.ceil(processedCandidates.length / itemsPerPage)}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  style={{ height: 32, padding: '0 10px', fontSize: '0.8rem' }}
+                >
+                  Sau
+                </button>
               </div>
-            );
-          })()}
+            </div>
+          )}
         </div>
       )}
 
-      {/* MODALS */}
+      {/* MODAL 1: Create Job Posting */}
       {showJobModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="card glass flex-col overflow-hidden" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
-            <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              <h3 className="text-xl font-bold text-[var(--text-main)]">Tạo Tin tuyển dụng</h3>
-              <button onClick={() => setShowJobModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"><X size={20} /></button>
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF', borderRadius: '16px', width: '520px', maxWidth: '95vw',
+            border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column'
+          }}>
+            <div style={{
+              padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                Tạo Vị trí Tuyển dụng Mới
+              </h3>
+              <button onClick={() => setShowJobModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
             </div>
-            <div className="flex-col gap-4" style={{ padding: '1.5rem' }}>
-              <div className="flex-col gap-2">
-                <label className="text-sm font-medium text-[var(--text-muted)]">Tiêu đề (Vị trí tuyển dụng)</label>
-                <input type="text" className="form-input w-full" value={jobForm.title} onChange={e => setJobForm({...jobForm, title: e.target.value})} placeholder="VD: Lập trình viên Backend Node.js" />
+
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-heading)', display: 'block', marginBottom: '6px' }}>
+                  Tiêu đề vị trí tuyển dụng <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={jobForm.title} 
+                  onChange={e => setJobForm({...jobForm, title: e.target.value})} 
+                  placeholder="VD: Senior Backend Engineer (NodeJS/PostgreSQL)" 
+                />
               </div>
-              <div className="flex-col gap-2">
-                <label className="text-sm font-medium text-[var(--text-muted)]">Mô tả tóm tắt</label>
-                <textarea className="form-input w-full" style={{ minHeight: '80px', padding: '0.75rem' }} value={jobForm.description} onChange={e => setJobForm({...jobForm, description: e.target.value})} placeholder="Mô tả yêu cầu..." />
+
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-heading)', display: 'block', marginBottom: '6px' }}>
+                  Mô tả yêu cầu và phúc lợi
+                </label>
+                <textarea 
+                  className="form-input" 
+                  style={{ minHeight: '100px', resize: 'vertical' }} 
+                  value={jobForm.description} 
+                  onChange={e => setJobForm({...jobForm, description: e.target.value})} 
+                  placeholder="Yêu cầu từ 2 năm kinh nghiệm, chế độ đãi ngộ hấp dẫn..." 
+                />
               </div>
             </div>
-            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
-              <button onClick={() => setShowJobModal(false)} className="btn btn-outline">Hủy</button>
-              <button onClick={handleCreateJob} className="btn btn-primary">Lưu thông tin</button>
+
+            <div style={{
+              padding: '1rem 1.5rem', backgroundColor: '#F8FAFC', borderTop: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'flex-end', gap: '0.75rem'
+            }}>
+              <button onClick={() => setShowJobModal(false)} className="btn btn-outline">Hủy bỏ</button>
+              <button onClick={handleCreateJob} className="btn btn-primary">Lưu & Đăng tuyển</button>
             </div>
           </div>
         </div>,
         document.body
       )}
 
+      {/* MODAL 2: Add Candidate */}
       {showCandidateModal && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="card glass flex-col overflow-hidden" style={{ width: '500px', maxWidth: '95vw', padding: 0 }}>
-            <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              <h3 className="text-xl font-bold text-[var(--text-main)]">Thêm Ứng viên mới</h3>
-              <button onClick={() => setShowCandidateModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"><X size={20} /></button>
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF', borderRadius: '16px', width: '520px', maxWidth: '95vw',
+            border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column'
+          }}>
+            <div style={{
+              padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                Tiếp nhận Hồ sơ Ứng viên Mới
+              </h3>
+              <button onClick={() => setShowCandidateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
             </div>
-            <div className="flex-col gap-4" style={{ padding: '1.5rem' }}>
-              <div className="flex-col gap-2">
-                <label className="text-sm font-medium text-[var(--text-muted)]">Tin tuyển dụng (Job Posting)</label>
-                <select className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" style={{ padding: '0.5rem' }} value={candidateForm.jobPostingId} onChange={e => setCandidateForm({...candidateForm, jobPostingId: e.target.value})}>
-                  <option value="" className="text-black">-- Chọn tin tuyển dụng --</option>
-                  {jobPostings.filter(j => j.status === 'PUBLISHED').map(j => (
-                    <option key={j.id} value={j.id} className="text-black">{j.title}</option>
+
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-heading)', display: 'block', marginBottom: '6px' }}>
+                  Vị trí ứng tuyển <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <select 
+                  className="form-input" 
+                  value={candidateForm.jobPostingId} 
+                  onChange={e => setCandidateForm({...candidateForm, jobPostingId: e.target.value})}
+                >
+                  <option value="">-- Chọn vị trí tuyển dụng --</option>
+                  {jobPostings.map(j => (
+                    <option key={j.id} value={j.id}>{j.title}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex-col gap-2">
-                <label className="text-sm font-medium text-[var(--text-muted)]">Họ tên ứng viên</label>
-                <input type="text" className="form-input w-full" value={candidateForm.name} onChange={e => setCandidateForm({...candidateForm, name: e.target.value})} placeholder="Nhập tên..." />
+
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-heading)', display: 'block', marginBottom: '6px' }}>
+                  Họ và tên ứng viên <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={candidateForm.name} 
+                  onChange={e => setCandidateForm({...candidateForm, name: e.target.value})} 
+                  placeholder="VD: Nguyễn Văn An" 
+                />
               </div>
-              <div className="flex-col gap-2">
-                <label className="text-sm font-medium text-[var(--text-muted)]">Email</label>
-                <input type="email" className="form-input w-full" value={candidateForm.email} onChange={e => setCandidateForm({...candidateForm, email: e.target.value})} placeholder="Email..." />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-heading)', display: 'block', marginBottom: '6px' }}>
+                    Email <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input 
+                    type="email" 
+                    className="form-input" 
+                    value={candidateForm.email} 
+                    onChange={e => setCandidateForm({...candidateForm, email: e.target.value})} 
+                    placeholder="ungvien@example.com" 
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-heading)', display: 'block', marginBottom: '6px' }}>
+                    Số điện thoại
+                  </label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={candidateForm.phone} 
+                    onChange={e => setCandidateForm({...candidateForm, phone: e.target.value})} 
+                    placeholder="0912 345 678" 
+                  />
+                </div>
               </div>
-              <div className="flex-col gap-2">
-                <label className="text-sm font-medium text-[var(--text-muted)]">Số điện thoại</label>
-                <input type="text" className="form-input w-full" value={candidateForm.phone} onChange={e => setCandidateForm({...candidateForm, phone: e.target.value})} placeholder="SĐT..." />
+
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-heading)', display: 'block', marginBottom: '6px' }}>
+                  Link Hồ sơ CV (Drive / Dropbox / Website)
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={candidateForm.cvUrl} 
+                  onChange={e => setCandidateForm({...candidateForm, cvUrl: e.target.value})} 
+                  placeholder="https://drive.google.com/..." 
+                />
               </div>
             </div>
-            <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
-              <button onClick={() => setShowCandidateModal(false)} className="btn btn-outline">Hủy</button>
-              <button onClick={handleCreateCandidate} className="btn btn-primary">Thêm ứng viên</button>
+
+            <div style={{
+              padding: '1rem 1.5rem', backgroundColor: '#F8FAFC', borderTop: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'flex-end', gap: '0.75rem'
+            }}>
+              <button onClick={() => setShowCandidateModal(false)} className="btn btn-outline">Hủy bỏ</button>
+              <button onClick={handleCreateCandidate} className="btn btn-primary">Xác nhận Thêm</button>
             </div>
           </div>
         </div>,
         document.body
       )}
 
-      {/* Confirmation Modal */}
+      {/* MODAL 3: Confirmation Transition */}
       {pendingDrop && createPortal(
-        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="card glass flex-col overflow-hidden text-center" style={{ width: '400px', maxWidth: '95vw', padding: '2rem' }}>
-            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
-              <AlertTriangle size={32} color="var(--primary)" />
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF', borderRadius: '16px', width: '420px', maxWidth: '95vw',
+            border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+            padding: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: '50%',
+              backgroundColor: '#EEF2FF', color: 'var(--primary)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: '1rem'
+            }}>
+              <AlertTriangle size={28} />
             </div>
-            <h3 className="text-xl font-bold text-[var(--text-main)] mb-2">Xác nhận chuyển trạng thái</h3>
-            <p className="text-[var(--text-muted)] mb-6">
-              Bạn có chắc chắn muốn chuyển ứng viên <strong className="text-[var(--text-heading)]">{pendingDrop.candidateName}</strong> sang trạng thái <strong className="text-[var(--primary)]">{statuses.find(s => s.id === pendingDrop.newStatus)?.title}</strong>?
+            
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-heading)', marginBottom: '0.5rem' }}>
+              Xác nhận Chuyển Giai đoạn
+            </h3>
+            
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Bạn có chắc muốn chuyển ứng viên <strong style={{ color: 'var(--text-heading)' }}>{pendingDrop.candidateName}</strong> sang trạng thái{' '}
+              <strong style={{ color: 'var(--primary)' }}>
+                {statuses.find(s => s.id === pendingDrop.newStatus)?.title}
+              </strong>?
             </p>
-            <div className="flex justify-center gap-3">
-              <button onClick={cancelDrop} className="btn btn-outline flex-1">Hủy bỏ</button>
-              <button onClick={confirmDrop} className="btn btn-primary flex-1">Đồng ý chuyển</button>
+
+            <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
+              <button onClick={cancelDrop} className="btn btn-outline" style={{ flex: 1 }}>Hủy bỏ</button>
+              <button onClick={confirmDrop} className="btn btn-primary" style={{ flex: 1 }}>Xác nhận chuyển</button>
             </div>
           </div>
         </div>,
