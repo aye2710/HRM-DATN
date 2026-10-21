@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE CỔNG TỰ PHỤC VỤ NHÂN VIÊN (EMPLOYEE SELF-SERVICE PORTAL - ESS)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE CỔNG TỰ PHỤC VỤ NHÂN VIÊN (EMPLOYEE SELF-SERVICE PORTAL - ESS)
 
 ## 1. Giới thiệu tổng quan Module
 **Cổng Tự phục vụ Nhân viên (Employee Self-Service Portal - ESS)** là giao diện riêng biệt (`/employee`) dành hoàn toàn cho nhân viên chính thức sau khi đăng nhập vào hệ thống HRM. Cổng thông tin này cung cấp trải nghiệm người dùng hiện đại, đồng bộ thương hiệu **LLA HRM Enterprise Platform**, tập trung **5 phân hệ tự phục vụ cốt lõi** trong vòng đời công việc hằng ngày:
@@ -83,11 +83,11 @@ Cổng Nhân viên ESS bao gồm **5 phân màn hình chính** với tổng cộ
 
 ## 4. Danh mục Hồ sơ Phân tích Chi tiết (Detailed Specifications)
 
-1. [Đặc tả Chức năng Dashboard & Điểm danh Trực tuyến (Check-in / Check-out)](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Nhân%20viên%20ESS/Chuc-nang-Dashboard-Diem-danh.md) (UC-ESS-01-01 đến UC-ESS-01-03).
-2. [Đặc tả Chức năng Hồ sơ Cá nhân & Hợp đồng Lao động](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Nhân%20viên%20ESS/Chuc-nang-Ho-so-Ca-nhan.md) (UC-ESS-02-01 đến UC-ESS-02-03).
-3. [Đặc tả Chức năng Quản lý Nghỉ phép Cá nhân (Leave Self-Service)](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Nhân%20viên%20ESS/Chuc-nang-Nghi-phep-Ca-nhan.md) (UC-ESS-03-01 đến UC-ESS-03-03).
-4. [Đặc tả Chức năng Phiếu lương Cá nhân (Payslip Self-Service)](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Nhân%20viên%20ESS/Chuc-nang-Tra-cuu-Phieu-luong.md) (UC-ESS-04-01 đến UC-ESS-04-03).
-5. [Đặc tả Chức năng Mục tiêu & Đánh giá Hiệu suất KPI (My Performance & KPI)](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Nhân%20viên%20ESS/Chuc-nang-Muc-tieu-KPI.md) (UC-ESS-05-01 đến UC-ESS-05-02).
+1. [Đặc tả Chức năng Dashboard & Điểm danh Trực tuyến (Check-in / Check-out)](./Chuc-nang-Dashboard-Diem-danh.md) (UC-ESS-01-01 đến UC-ESS-01-03).
+2. [Đặc tả Chức năng Hồ sơ Cá nhân & Hợp đồng Lao động](./Chuc-nang-Ho-so-Ca-nhan.md) (UC-ESS-02-01 đến UC-ESS-02-03).
+3. [Đặc tả Chức năng Quản lý Nghỉ phép Cá nhân (Leave Self-Service)](./Chuc-nang-Nghi-phep-Ca-nhan.md) (UC-ESS-03-01 đến UC-ESS-03-03).
+4. [Đặc tả Chức năng Phiếu lương Cá nhân (Payslip Self-Service)](./Chuc-nang-Tra-cuu-Phieu-luong.md) (UC-ESS-04-01 đến UC-ESS-04-03).
+5. [Đặc tả Chức năng Mục tiêu & Đánh giá Hiệu suất KPI (My Performance & KPI)](./Chuc-nang-Muc-tieu-KPI.md) (UC-ESS-05-01 đến UC-ESS-05-02).
 
 ---
 
@@ -102,3 +102,4 @@ Cổng Nhân viên ESS bao gồm **5 phân màn hình chính** với tổng cộ
 | **BR-ESS-05** | **Không thể Hủy Đơn đã Duyệt (Immutable Approved Leave)** | Khi đơn nghỉ đã được duyệt (`APPROVED`), nhân viên không thể tự hủy trên cổng ESS. Phải liên hệ HR để xử lý điều chỉnh thủ công. | UC-ESS-03-03 |
 | **BR-ESS-06** | **Bảo vệ Phân quyền Tuyệt đối (Strict Multi-level RBAC)** | Tài khoản nhân viên bị chặn hoàn toàn khi cố truy cập Cổng Quản trị (`/internal/*`), Router Guard tự động đưa về `/login` với thông báo phân quyền rõ ràng thay vì âm thầm nhảy trang. | Toàn bộ Router |
 | **BR-ESS-07** | **Tính toàn vẹn Session Nhân viên (Complete Session Payload)** | Phản hồi đăng nhập của tài khoản nội bộ bắt buộc trả về `employeeId` tương ứng để frontend lưu phiên và khởi tạo chính xác các API tự phục vụ cá nhân. | Đăng nhập Auth |
+

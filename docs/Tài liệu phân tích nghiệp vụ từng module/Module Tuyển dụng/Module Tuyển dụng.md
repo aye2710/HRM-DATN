@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE TUYỂN DỤNG (RECRUITMENT & ATS)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE TUYỂN DỤNG (RECRUITMENT & ATS)
 
 ## 1. Giới thiệu tổng quan Module
 **Module Tuyển dụng (Recruitment & ATS)** là cổng tiếp nhận và sàng lọc nhân sự đầu vào của toàn bộ doanh nghiệp. Được thiết kế theo chuẩn Enterprise HRM, module đóng vai trò cầu nối xuyên suốt giữa hai trụ cột:
@@ -76,19 +76,19 @@ Hệ thống Tuyển dụng bao gồm **4 nhóm chức năng lớn** với tổn
 
 Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
 
-1. [Đặc tả Chức năng Quản lý Yêu cầu Tuyển dụng](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Yeu-cau-Tuyen-dung.md)
+1. [Đặc tả Chức năng Quản lý Yêu cầu Tuyển dụng](./Chuc-nang-Yeu-cau-Tuyen-dung.md)
    - Đặc tả 5 Use Case con: Tạo yêu cầu, Sửa yêu cầu, Đóng/Mở chiến dịch, Thống kê Fill Rate, Xóa chiến dịch.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
-2. [Đặc tả Chức năng Hệ thống Theo dõi Ứng viên ATS Kanban](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Quan-ly-ATS.md)
+2. [Đặc tả Chức năng Hệ thống Theo dõi Ứng viên ATS Kanban](./Chuc-nang-Quan-ly-ATS.md)
    - Đặc tả 5 Use Case con: Thêm ứng viên Sourced, Kéo thả Kanban, Loại ứng viên, Tìm kiếm lọc CV, Kích hoạt Auto-provisioning khi kéo vào cột HIRED.
    - Sơ đồ tuần tự Transaction liên bảng và 5 kịch bản kiểm thử mẫu.
 
-3. [Đặc tả Chức năng Quản lý Lịch Phỏng vấn và Đánh giá](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Phong-van.md)
+3. [Đặc tả Chức năng Quản lý Lịch Phỏng vấn và Đánh giá](./Chuc-nang-Phong-van.md)
    - Đặc tả 5 Use Case con: Lên lịch hẹn, Dời lịch, Chấm điểm Feedback định lượng (1-10) sau giờ hẹn, Phê duyệt nhanh kết quả (Chốt Offer / Từ chối), Hủy lịch.
    - Sơ đồ tuần tự Feedback và 6 kịch bản kiểm thử mẫu.
 
-4. [Đặc tả Chức năng Quản lý Đề nghị nhận việc và Tiếp nhận Nhân sự](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tuyển%20dụng/Chuc-nang-Quan-ly-Offer.md)
+4. [Đặc tả Chức năng Quản lý Đề nghị nhận việc và Tiếp nhận Nhân sự](./Chuc-nang-Quan-ly-Offer.md)
    - Đặc tả 5 Use Case con: Tra cứu danh sách Offer, Thiết lập điều khoản tiếp nhận, Tiếp nhận Onboarding sinh mã NV & hợp đồng tự động, Từ chối Offer, Ràng buộc Unique & Đồng bộ chỉ tiêu.
    - Sơ đồ tuần tự Prisma $transaction Onboarding và 6 kịch bản kiểm thử mẫu.
 
@@ -110,3 +110,4 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
 
 3. **Tự động đóng chiến dịch khi đạt chỉ tiêu (Headcount Auto-closure)**:
    - Mỗi khi một ứng viên được tiếp nhận thành công, hệ thống tính toán lại tỷ lệ lấp đầy (`Fill Rate`). Nếu số người được tuyển (`hiredCount`) đạt chỉ tiêu (`amount`), chiến dịch tự động chuyển sang trạng thái `CLOSED` để tránh tiếp nhận dư thừa nhân lực.
+

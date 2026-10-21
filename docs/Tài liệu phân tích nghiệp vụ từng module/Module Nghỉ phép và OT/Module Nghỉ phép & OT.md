@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE NGHỈ PHÉP & LÀM THÊM GIỜ (LEAVE & OT)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE NGHỈ PHÉP & LÀM THÊM GIỜ (LEAVE & OT)
 
 ## 1. Giới thiệu tổng quan Module
 **Module Nghỉ phép & Làm thêm giờ (Leave & Overtime Management)** là phân hệ quản trị thời gian vắng mặt có phép và thời gian cống hiến ngoài giờ của người lao động. Phân hệ này giải quyết triệt để bài toán kiểm soát quỹ phép năm (Leave Balance), chống thất thoát ngày công, tuân thủ nghiêm ngặt các giới hạn pháp lý của Luật Lao động Việt Nam về thời gian làm thêm, và kết chuyển dữ liệu trực tiếp sang Module Chấm công và Module Tiền lương.
@@ -80,11 +80,11 @@ Hệ thống Nghỉ phép & Làm thêm giờ bao gồm **2 nhóm chức năng l�
 
 Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
 
-1. [Đặc tả Chức năng Quản lý Nghỉ phép và Quỹ phép năm](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Nghỉ%20phép%20và%20OT/Chuc-nang-Nghi-Phep.md)
+1. [Đặc tả Chức năng Quản lý Nghỉ phép và Quỹ phép năm](./Chuc-nang-Nghi-Phep.md)
    - Đặc tả 5 Use Case con: Tra cứu quỹ phép cá nhân, Nộp đơn nghỉ phép có cơ chế Anti-negative Balance và khóa tạm số dư, Phê duyệt đơn tự động sinh ngày công 1.0 vào bảng chấm công (bỏ qua Thứ 7, CN), Từ chối đơn tự động hoàn trả ngày phép, và Cấu hình loại phép/chính sách thâm niên.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
-2. [Đặc tả Chức năng Quản lý Làm thêm giờ (OT)](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Nghỉ%20phép%20và%20OT/Chuc-nang-OT.md)
+2. [Đặc tả Chức năng Quản lý Làm thêm giờ (OT)](./Chuc-nang-OT.md)
    - Đặc tả 5 Use Case con: Đăng ký OT kèm kiểm soát trần pháp luật 40h/tháng theo Điều 107 BLLĐ, Quản lý nghiệm thu và điều chỉnh số giờ thực tế khi duyệt, Bác bỏ đơn OT không hợp lệ, Giám sát cảnh báo cận trần giờ OT, và Tự động tích hợp bảng lương áp dụng hệ số 150%, 200%, 300%.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
@@ -104,3 +104,4 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
 
 4. **Kiểm soát Trần Giờ Làm thêm theo Luật Lao động (Legal Overtime Cap Enforcement)**:
    - Tuân thủ nghiêm ngặt Điều 107 Bộ luật Lao động 2019: Hệ thống kiểm tra tổng thời gian OT trong tháng không được vượt quá 40 giờ. Mọi nỗ lực tạo đơn vượt quá giới hạn này đều bị chặn tự động kèm thông báo cảnh báo pháp lý.
+

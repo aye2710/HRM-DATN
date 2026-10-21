@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE HỆ THỐNG & PHÂN QUYỀN (SYSTEM ADMINISTRATION & DYNAMIC RBAC)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE HỆ THỐNG & PHÂN QUYỀN (SYSTEM ADMINISTRATION & DYNAMIC RBAC)
 
 ## 1. Giới thiệu tổng quan Module
 **Module Hệ thống & Phân quyền (System Administration & Dynamic RBAC)** là nền tảng hạ tầng bảo mật (Security Foundation) chịu trách nhiệm kiểm soát toàn bộ định danh, quyền hạn và tính toàn vẹn dữ liệu cho toàn bộ hệ thống HRM:
@@ -123,8 +123,8 @@ erDiagram
 
 Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
 
-1. [Đặc tả Chức năng Quản lý Tài khoản & Phân quyền Động RBAC](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Hệ%20thống%20Phân%20quyền/Chuc-nang-Phan-Quyen-RBAC.md) (UC-SYS-01-01 đến UC-SYS-01-05).
-2. [Đặc tả Chức năng Nhật ký Hệ thống & Giám sát An toàn Thông tin - Audit Log](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Hệ%20thống%20Phân%20quyền/Chuc-nang-Audit-Log.md) (UC-SYS-02-01 đến UC-SYS-02-04).
+1. [Đặc tả Chức năng Quản lý Tài khoản & Phân quyền Động RBAC](./Chuc-nang-Phan-Quyen-RBAC.md) (UC-SYS-01-01 đến UC-SYS-01-05).
+2. [Đặc tả Chức năng Nhật ký Hệ thống & Giám sát An toàn Thông tin - Audit Log](./Chuc-nang-Audit-Log.md) (UC-SYS-02-01 đến UC-SYS-02-04).
 
 ---
 
@@ -137,3 +137,4 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
 | **3** | **Mã hóa Một chiều Mật khẩu (Bcrypt Hashing)** | Sử dụng thư viện Bcrypt với Salt Rounds = 10 để băm mật khẩu người dùng trước khi lưu trữ vào CSDL PostgreSQL. | Đảm bảo ngay cả khi CSDL bị lộ, kẻ tấn công cũng không thể dịch ngược được mật khẩu gốc của người dùng. |
 | **4** | **Sổ cái Nhật ký Bất biến (Immutable Audit Trail)** | Bảng `AuditLog` chỉ được cấp quyền `INSERT` và `SELECT`. Tuyệt đối không cung cấp API `DELETE` hoặc `UPDATE`. | Đảm bảo tính pháp lý và tính toàn vẹn của bằng chứng khi có sự cố gian lận tài chính hoặc lộ lọt thông tin. |
 | **5** | **Đồng bộ Giao dịch Song song (Transactional Dual-write)** | Toàn bộ các thao tác chỉnh sửa dữ liệu nhạy cảm (Lương, Hợp đồng) được gói chung trong cùng một Prisma Transaction với câu lệnh ghi `AuditLog`. | Đảm bảo không bao giờ xảy ra tình trạng có hành vi sửa dữ liệu mà không có nhật ký ghi vết đi kèm. |
+

@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE ĐÁNH GIÁ HIỆU SUẤT & KPI (PERFORMANCE MANAGEMENT)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE ĐÁNH GIÁ HIỆU SUẤT & KPI (PERFORMANCE MANAGEMENT)
 
 ## 1. Giới thiệu tổng quan Module
 **Module Đánh giá Hiệu suất & KPI (Performance Management)** là "thước đo giá trị đóng góp" của nguồn nhân lực đối với mục tiêu chiến lược của doanh nghiệp. Module này lượng hóa toàn bộ kết quả công tác của nhân viên theo định kỳ (Tháng, Quý, Năm) thông qua hệ thống Chỉ số Hiệu suất Cốt lõi (Key Performance Indicators - KPI), cung cấp bức tranh minh bạch 360 độ phục vụ công tác quy hoạch nhân sự, xét duyệt tăng lương, chi trả tiền thưởng KPI và sàng lọc nhân sự kém hiệu quả.
@@ -79,11 +79,11 @@ Hệ thống Đánh giá Hiệu suất & KPI bao gồm **2 nhóm chức năng tr
 
 Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
 
-1. [Đặc tả Chức năng Quản lý Chu kỳ Đánh giá và Gán Mục tiêu KPI](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Đánh%20giá%20KPI/Chuc-nang-Chu-ky-Danh-gia.md)
+1. [Đặc tả Chức năng Quản lý Chu kỳ Đánh giá và Gán Mục tiêu KPI](./Chuc-nang-Chu-ky-Danh-gia.md)
    - Đặc tả 5 Use Case con: Mở đợt đánh giá toàn công ty (tự động sinh phiếu đánh giá nháp cho toàn bộ nhân sự active), Tra cứu quản lý chu kỳ, Thư viện mẫu tiêu chí KPI phân theo khối phòng ban, Gán mục tiêu định lượng đầu kỳ, Cập nhật số liệu thực tế đo lường tiến độ %.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
-2. [Đặc tả Chức năng Chấm điểm Hiệu suất và Xếp loại Nhân sự](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Đánh%20giá%20KPI/Chuc-nang-Cham-diem.md)
+2. [Đặc tả Chức năng Chấm điểm Hiệu suất và Xếp loại Nhân sự](./Chuc-nang-Cham-diem.md)
    - Đặc tả 5 Use Case con: Nhập điểm số đánh giá thang 100 và nhận xét chi tiết, Cơ chế kiểm soát hạn chót cứng (Hard Deadline Enforcement - từ chối lưu và khóa form khi quá hạn), Tự động xếp loại năng lực chuẩn Bell Curve (Loại A $\ge 90$, Loại B $70 - 89$, Loại C $< 70$), Ghi nhận kế hoạch đào tạo phát triển, Tra cứu lịch sử đánh giá và thống kê tỷ lệ phân bổ toàn công ty.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
@@ -103,3 +103,4 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
 3. **Thuật toán Phân loại Hiệu suất Chuẩn hóa (Standardized Performance Grading)**:
    - Loại bỏ hoàn toàn sự cảm tính trong đánh giá thông qua thuật toán quy đổi điểm định lượng tự động:
      $$\text{Grade} = \begin{cases} \text{A (Xuất sắc)} & \text{khi Score} \ge 90 \\ \text{B (Đạt yêu cầu)} & \text{khi } 70 \le \text{Score} < 90 \\ \text{C (Cần cải thiện)} & \text{khi Score} < 70 \end{cases}$$
+

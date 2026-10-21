@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE CỔNG TUYỂN DỤNG ỨNG VIÊN (CANDIDATE CAREER PORTAL)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE CỔNG TUYỂN DỤNG ỨNG VIÊN (CANDIDATE CAREER PORTAL)
 
 ## 1. Giới thiệu tổng quan Module
 **Cổng Tuyển dụng Ứng viên (Candidate Career Portal)** là trang web đối ngoại công khai tại đường dẫn gốc (`/` hoặc `/candidate`) - Mặt tiền số (Digital Storefront) của doanh nghiệp trong cuộc chiến thu hút nhân tài. Đây là điểm tiếp xúc đầu tiên (First Touchpoint) giữa ứng viên tiềm năng và công ty, hoạt động độc lập với hệ thống nội bộ nhưng liên kết thông suốt về mặt dữ liệu qua hệ thống API RESTful.
@@ -68,8 +68,8 @@ Cổng Ứng viên bao gồm **4 phân khu nội dung** với tổng cộng **10
 
 ## 4. Danh mục Hồ sơ Phân tích Chi tiết (Detailed Specifications)
 
-1. [Đặc tả Chức năng Trang chủ, Thương hiệu Tuyển dụng & Tìm kiếm Việc làm](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Tuyển%20dụng%20Ứng%20viên/Chuc-nang-Trang-chu-Tuyen-dung.md) (UC-CAN-01-01 đến UC-CAN-02-02).
-2. [Đặc tả Chức năng Nộp Hồ sơ, Tài khoản Ứng viên, Theo dõi & Pre-Onboarding](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Cổng%20Tuyển%20dụng%20Ứng%20viên/Chuc-nang-Nop-Ho-so-Va-Theo-doi.md) (UC-CAN-03-01 đến UC-CAN-04-04).
+1. [Đặc tả Chức năng Trang chủ, Thương hiệu Tuyển dụng & Tìm kiếm Việc làm](./Chuc-nang-Trang-chu-Tuyen-dung.md) (UC-CAN-01-01 đến UC-CAN-02-02).
+2. [Đặc tả Chức năng Nộp Hồ sơ, Tài khoản Ứng viên, Theo dõi & Pre-Onboarding](./Chuc-nang-Nop-Ho-so-Va-Theo-doi.md) (UC-CAN-03-01 đến UC-CAN-04-04).
 
 ---
 
@@ -85,3 +85,4 @@ Cổng Ứng viên bao gồm **4 phân khu nội dung** với tổng cộng **10
 | **BR-CAN-06** | **Tính toàn vẹn Dữ liệu Tiếp nhận Core HR (Atomic Onboarding)** | HR chỉ thực hiện tiếp nhận chính thức vào ngày ứng viên đến công ty; dữ liệu từ `PreOnboardingProfile` tự động chuyển giao vào `Employee` và `Contract` qua Transaction nguyên tử. | UC-REC-04-04 |
 | **BR-CAN-07** | **Cách ly Cổng Tuyển dụng công khai với Cổng Quản trị nội bộ (Public-Internal Boundary)** | Cổng Tuyển dụng công khai (`/`) tuyệt đối không hiển thị nút hay liên kết đăng nhập Quản trị viên trên thanh điều hướng chính, ngăn chặn hành vi tấn công dò quét (brute-force) của đối tượng bên ngoài. Cổng Quản trị chỉ truy cập qua URL riêng biệt (`/login` hoặc `/admin`). | Toàn bộ Module |
 | **BR-CAN-08** | **Tra cứu Hồ sơ Bảo mật 2 Lớp (Anti-scraping Application Tracking)** | Tra cứu tiến độ tuyển dụng nhanh yêu cầu kết hợp giữa địa chỉ Email và Mã hồ sơ bảo mật (Candidate Tracking Code) do hệ thống cấp lúc nộp đơn, ngăn chặn hành vi đoán email để xem trái phép trạng thái hồ sơ của người khác. | UC-CAN-04-04 |
+

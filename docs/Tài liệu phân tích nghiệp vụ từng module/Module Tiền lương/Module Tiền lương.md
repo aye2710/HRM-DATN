@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE TIỀN LƯƠNG (PAYROLL)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE TIỀN LƯƠNG (PAYROLL)
 
 ## 1. Giới thiệu tổng quan Module
 **Module Tiền lương (Payroll)** là "điểm hội tụ tài chính" tối hậu của toàn bộ hệ sinh thái HRM. Nơi đây tiếp nhận và tích hợp dữ liệu từ tất cả các phân hệ vệ tinh:
@@ -77,11 +77,11 @@ Hệ thống Tiền lương (Payroll) bao gồm **2 nhóm chức năng trụ c�
 
 Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
 
-1. [Đặc tả Chức năng Thiết lập Kỳ lương và Chạy Bảng lương Gross to Net](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tiền%20lương/Chuc-nang-Tinh-Luong.md)
+1. [Đặc tả Chức năng Thiết lập Kỳ lương và Chạy Bảng lương Gross to Net](./Chuc-nang-Tinh-Luong.md)
    - Đặc tả 5 Use Case con: Thiết lập kỳ lương mới theo tháng/năm, Chạy tổng hợp bảng lương tự động gom dữ liệu liên module, Tính trừ bảo hiểm bắt buộc 10.5%, Tính thuế TNCN biểu lũy tiến từng phần 7 bậc, Phê duyệt và kích hoạt cơ chế khóa sổ (Strict Lockout - Chặn Re-run).
    - Sơ đồ tuần tự và 6 kịch bản kiểm thử mẫu.
 
-2. [Đặc tả Chức năng Quản lý Phiếu lương và Phân phối Thu nhập](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Tiền%20lương/Chuc-nang-Phieu-Luong.md)
+2. [Đặc tả Chức năng Quản lý Phiếu lương và Phân phối Thu nhập](./Chuc-nang-Phieu-Luong.md)
    - Đặc tả 5 Use Case con: Tra cứu phiếu lương cá nhân bảo mật (chặn tuyệt đối xem chéo lương), Xem chi tiết bảng kê 3 phần (Thu nhập, Khấu trừ, Lương Net), Xuất bảng lương tổng hợp ra file Excel cho ngân hàng chuyển khoản, Tải phiếu lương file PDF có dấu điện tử, Tiếp nhận khiếu nại lương và kết chuyển truy lĩnh/truy thu sang kỳ lương sau.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
@@ -104,3 +104,4 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
    - Thu nhập là thông tin nhạy cảm bậc nhất (PII). API Phiếu lương được kiểm soát phân quyền 2 lớp:
      - Lớp 1 (Token Authentication): Xác thực danh tính người gọi API.
      - Lớp 2 (Resource-level Authorization): So khớp `employeeId` của token với chủ sở hữu phiếu lương. Nhân viên chỉ truy cập được duy nhất phiếu lương của mình, hoàn toàn không thể xem trộm lương của đồng nghiệp.
+

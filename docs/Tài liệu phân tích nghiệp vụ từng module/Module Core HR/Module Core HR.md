@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE QUẢN LÝ NHÂN SỰ (CORE HR)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE QUẢN LÝ NHÂN SỰ (CORE HR)
 
 ## 1. Giới thiệu tổng quan Module
 **Module Quản lý Nhân sự (Core HR)** là "trái tim" và nền tảng dữ liệu cốt lõi của toàn bộ hệ thống HRM. Nơi đây đóng vai trò là **Nguồn dữ liệu thật duy nhất (Single Source of Truth - SSOT)**, lưu trữ toàn diện hồ sơ lý lịch, cơ cấu công tác, hồ sơ hợp đồng, các biến động việc làm và quy trình hội nhập của từng cá nhân trong tổ chức.
@@ -73,15 +73,15 @@ Hệ thống Quản lý Nhân sự (Core HR) bao gồm **3 nhóm chức năng tr
 
 Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
 
-1. [Đặc tả Chức năng Quản lý Hồ sơ Nhân sự](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Core%20HR/Chuc-nang-Ho-so-Nhan-su.md)
+1. [Đặc tả Chức năng Quản lý Hồ sơ Nhân sự](./Chuc-nang-Ho-so-Nhan-su.md)
    - Đặc tả 5 Use Case con: Thêm nhân viên thủ công (tự sinh lịch sử tuyển mới), Cập nhật thông tin chuyên sâu (ngân hàng, thuế, bảo hiểm), Tìm kiếm lọc danh bạ đa chiều, Điều chuyển công tác thăng chức, và Quy trình Thôi việc nguyên tử (khóa tài khoản & đóng hợp đồng).
    - Sơ đồ tuần tự và 6 kịch bản kiểm thử mẫu.
 
-2. [Đặc tả Chức năng Quản lý Hợp đồng Lao động](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Core%20HR/Chuc-nang-Hop-dong.md)
+2. [Đặc tả Chức năng Quản lý Hợp đồng Lao động](./Chuc-nang-Hop-dong.md)
    - Đặc tả 5 Use Case con: Ký hợp đồng lao động (thử việc, 1 năm, vô thời hạn, thực tập), Đánh giá thử việc đạt tự động đổi trạng thái nhân viên sang ACTIVE, Cảnh báo hạn hợp đồng $\le 15$ ngày, Gia hạn hợp đồng nối tiếp, và Hủy/xóa hợp đồng an toàn.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
-3. [Đặc tả Chức năng Quy trình Hội nhập Nhân sự (Onboarding)](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Core%20HR/Chuc-nang-Onboarding.md)
+3. [Đặc tả Chức năng Quy trình Hội nhập Nhân sự (Onboarding)](./Chuc-nang-Onboarding.md)
    - Đặc tả 5 Use Case con: Theo dõi Newbies Pipeline, Đánh dấu tiến độ nhiệm vụ thời gian thực qua Checkbox (4 nhóm: Thiết bị, Tài khoản, Hợp đồng, Đào tạo), Cấp phát trang thiết bị (Laptop, Thẻ từ), Cấp phát tài khoản email/HRM, Nghiệm thu hoàn tất tự động phân loại trạng thái PROBATION hoặc INTERNSHIP.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
@@ -102,3 +102,4 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
 3. **Nguyên tắc Hợp đồng Độc quyền (Single Active Contract Constraint)**:
    - Tại mọi thời điểm, một nhân sự chỉ được sở hữu tối đa 01 Hợp đồng có trạng thái `ACTIVE`.
    - Ngăn chặn triệt để rủi ro xung đột dữ liệu lương cơ bản khi xuất bảng lương tự động hàng tháng.
+

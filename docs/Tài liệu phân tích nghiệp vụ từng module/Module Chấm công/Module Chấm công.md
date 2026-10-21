@@ -1,4 +1,4 @@
-# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE CHẤM CÔNG (TIME & ATTENDANCE)
+﻿# TÀI LIỆU PHÂN TÍCH NGHIỆP VỤ - MODULE CHẤM CÔNG (TIME & ATTENDANCE)
 
 ## 1. Giới thiệu tổng quan Module
 **Module Chấm công (Time & Attendance)** đóng vai trò là "chiếc đồng hồ đo lường chuẩn xác" thời gian cống hiến và kỷ luật lao động của toàn bộ cán bộ công nhân viên trong doanh nghiệp. Module này loại bỏ hoàn toàn các phương pháp chấm công thủ công bằng sổ sách hoặc file Excel dễ sai sót, thay thế bằng cơ chế ghi nhận thời gian thực (Real-time Clock-in/out) kết hợp thuật toán tự động quy đổi thời gian làm việc sang **Số ngày công chuẩn (Working Days)**.
@@ -83,15 +83,15 @@ Hệ thống Chấm công (Time & Attendance) bao gồm **3 nhóm chức năng t
 
 Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức năng con tại các liên kết dưới đây:
 
-1. [Đặc tả Chức năng Ghi nhận Vào/Ra và Tính toán Ngày công](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Chấm%20công/Chuc-nang-Checkin-Checkout.md)
+1. [Đặc tả Chức năng Ghi nhận Vào/Ra và Tính toán Ngày công](./Chuc-nang-Checkin-Checkout.md)
    - Đặc tả 5 Use Case con: Bấm nút Check-in (chặn trùng lặp, chặn nghỉ phép, ân hạn 15 phút), Bấm nút Check-out (tính công 1.0, 0.5, 0.0 theo số giờ thực tế), Tra cứu bảng công thời gian thực, Tác vụ Cron Job chốt công tự động lúc 23:59 đêm, và Điểm danh thay thủ công.
    - Sơ đồ tuần tự và 6 kịch bản kiểm thử mẫu.
 
-2. [Đặc tả Chức năng Quản lý Ca làm việc và Ngày Lễ](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Chấm%20công/Chuc-nang-Quan-ly-Ca-lam.md)
+2. [Đặc tả Chức năng Quản lý Ca làm việc và Ngày Lễ](./Chuc-nang-Quan-ly-Ca-lam.md)
    - Đặc tả 5 Use Case con: Tạo ca làm việc chuẩn, Quản lý danh mục ca làm, Xóa ca làm việc an toàn, Khai báo ngày nghỉ lễ quốc gia tự động tính nguyên công (Điều 112 BLLĐ 2019), Tra cứu và điều chỉnh ngày nghỉ lễ.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
-3. [Đặc tả Chức năng Quản lý Điều chỉnh Chấm công và Giải trình Công](file:///c:/Users/truclh/Desktop/HRM-ĐATN/docs/Tài%20liệu%20phân%20tích%20nghiệp%20vụ%20từng%20module/Module%20Chấm%20công/Chuc-nang-Dieu-chinh-Cham-cong.md)
+3. [Đặc tả Chức năng Quản lý Điều chỉnh Chấm công và Giải trình Công](./Chuc-nang-Dieu-chinh-Cham-cong.md)
    - Đặc tả 4 Use Case con: Nhân viên nộp đơn giải trình (quên check-in/out, đi công tác), Quản lý trực tiếp phê duyệt đơn khôi phục ngày công, Quản lý từ chối đơn gian lận/sai sự thật, Tra cứu tìm kiếm đơn giải trình toàn công ty.
    - Sơ đồ tuần tự và 5 kịch bản kiểm thử mẫu.
 
@@ -117,3 +117,4 @@ Vui lòng tham khảo tài liệu đặc tả chi tiết của từng chức nă
 
 4. **Tự động Ghi nhận Nguyên công Ngày Lễ (Full Pay Holiday Rule)**:
    - Mọi ngày được khai báo trong bảng `Holiday` được bảo vệ tự động: Nhân viên được nghỉ làm nhưng hệ thống tự động ghi nhận **1.0 ngày công chuẩn** để chi trả 100% lương theo đúng quy định tại Điều 112 Bộ luật Lao động 2019.
+
