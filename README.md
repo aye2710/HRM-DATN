@@ -37,8 +37,15 @@ Dự án được xây dựng trên kiến trúc Client-Server hiện đại:
 - Node.js (Phiên bản v18 trở lên)
 - PostgreSQL (Đã cài đặt và tạo sẵn một Database trống)
 
-### Bước 1: Thiết lập Backend
-1. Mở Terminal và di chuyển vào thư mục backend:
+### Khởi động 1-Click (Nhanh nhất):
+Chỉ cần nhấp đúp vào tệp **`start_dev.bat`** (hoặc chạy `.\start_dev.ps1` trên PowerShell), hệ thống sẽ tự động bật đồng thời cả Backend (`:5000`) và Frontend (`:5173`) trong 2 cửa sổ song song!
+
+---
+
+### Khởi động Thủ công (Manual):
+
+#### Bước 1: Thiết lập Backend
+1. Di chuyển vào thư mục backend:
    ```bash
    cd backend
    ```
@@ -46,22 +53,16 @@ Dự án được xây dựng trên kiến trúc Client-Server hiện đại:
    ```bash
    npm install
    ```
-3. Cấu hình biến môi trường: Tạo file `.env` trong thư mục `backend` và thêm chuỗi kết nối Database của bạn:
+3. Cấu hình biến môi trường: Tạo file `.env` trong thư mục `backend`:
    ```env
    PORT=5000
    DATABASE_URL="postgresql://<username>:<password>@localhost:5432/<dbname>?schema=public"
    JWT_SECRET="your_super_secret_key"
    ```
-4. Đồng bộ Cấu trúc Database và Nạp dữ liệu mẫu (Seed):
+4. Khởi tạo dữ liệu mẫu (Seed) và chạy server:
    ```bash
-   npx prisma generate
-   npx prisma db push
-   npx tsx prisma/seed.ts        # Tạo phòng ban, nhân viên mẫu
-   npx tsx create_accounts.ts    # Tạo tài khoản admin và emp01
-   ```
-5. Khởi động server Backend (Chạy tại `http://localhost:5000`):
-   ```bash
-   npx tsx watch src/index.ts
+   npm run seed    # Nạp toàn bộ dữ liệu mẫu doanh nghiệp chuẩn
+   npm run dev     # Khởi động Backend tại http://localhost:5000
    ```
 
 ### Bước 2: Thiết lập Frontend
@@ -93,11 +94,13 @@ Sau khi chạy các file seed thành công, bạn có thể sử dụng các tà
 
 ---
 
-## 📚 Sổ tay Hướng dẫn Sử dụng (Documentation)
-Để hiểu rõ cách thức vận hành và luồng công việc (Workflow) của hệ thống, vui lòng tham khảo các tài liệu cực kỳ chi tiết trong thư mục `Huong_Dan_Su_Dung/`:
-- [`admin_portal_guide.md`](./Huong_Dan_Su_Dung/admin_portal_guide.md) - Dành cho Quản lý.
-- [`employee_portal_guide.md`](./Huong_Dan_Su_Dung/employee_portal_guide.md) - Dành cho Nhân viên.
-- [`candidate_portal_guide.md`](./Huong_Dan_Su_Dung/candidate_portal_guide.md) - Dành cho Ứng viên.
+## 📚 Sổ tay Hướng dẫn Sử dụng & Hồ sơ Nghiệp vụ (Documentation)
+
+- 👉 **[Cổng Tra cứu Hồ sơ & Đặc tả 10 Phân hệ Nghiệp vụ (docs/README.md)](./docs/README.md)** - Hệ thống hồ sơ ĐATN, biểu mẫu ĐHXDHN và 39 tệp phân tích nghiệp vụ chi tiết.
+- **Cẩm nang vận hành 3 cổng (Huong_Dan_Su_Dung/):**
+  - [`admin_portal_guide.md`](./Huong_Dan_Su_Dung/admin_portal_guide.md) - Hướng dẫn Cổng Quản trị Nội bộ.
+  - [`employee_portal_guide.md`](./Huong_Dan_Su_Dung/employee_portal_guide.md) - Hướng dẫn Cổng Tự phục vụ Nhân viên (ESS).
+  - [`candidate_portal_guide.md`](./Huong_Dan_Su_Dung/candidate_portal_guide.md) - Hướng dẫn Cổng Tuyển dụng Ứng viên.
 
 ---
 *Dự án Đồ án Tốt nghiệp - Cung cấp Giải pháp số hóa Nguồn Nhân lực hiện đại & tối ưu.*

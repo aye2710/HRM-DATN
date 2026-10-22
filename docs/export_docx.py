@@ -10,9 +10,8 @@ from docx.oxml.ns import nsdecls, qn
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-SRC_MD = r"c:\Users\truclh\Desktop\HRM-ĐATN\docs\BAO_CAO_DO_AN_TOT_NGHIEP_HRM.md"
-OUT_DOCX_1 = r"c:\Users\truclh\Desktop\HRM-ĐATN\docs\Ho_So_DATN_Word\BAO_CAO_DO_AN_TOT_NGHIEP_HRM.docx"
-OUT_DOCX_2 = r"c:\Users\truclh\Desktop\HRM-ĐATN\docs\Ho_So_DATN_Word\DATN-14-Thuyet-minh.docx"
+SRC_MD = r"c:\Users\truclh\Desktop\HRM-ĐATN\docs\Ho_So_DATN\DATN-14-Thuyet-minh.md"
+OUT_DOCX = r"c:\Users\truclh\Desktop\HRM-ĐATN\docs\Ho_So_DATN_Word\DATN-14-Thuyet-minh.docx"
 
 def set_cell_background(cell, fill_hex):
     shading_elm = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{fill_hex}"/>')
@@ -430,21 +429,16 @@ def convert():
     if in_code_block:
         flush_code_block(code_block_lines, code_lang)
 
-    print(f"Saving copy to Word docx: {OUT_DOCX_2}")
+    print(f"Saving to Word docx: {OUT_DOCX}")
     try:
-        doc.save(OUT_DOCX_2)
-        print(f"Saved successfully: {OUT_DOCX_2}")
-    except Exception as e:
-        print(f"Could not save {OUT_DOCX_2}: {e}")
-
-    print(f"Saving to Word docx: {OUT_DOCX_1}")
-    try:
-        doc.save(OUT_DOCX_1)
-        print(f"Saved successfully: {OUT_DOCX_1}")
+        doc.save(OUT_DOCX)
+        print(f"Saved successfully: {OUT_DOCX}")
     except PermissionError:
-        alt_path = OUT_DOCX_1.replace(".docx", "_TimesNewRoman.docx")
-        print(f"File {OUT_DOCX_1} is currently open in Word! Saved to {alt_path} instead.")
+        alt_path = OUT_DOCX.replace(".docx", "_TimesNewRoman.docx")
+        print(f"File {OUT_DOCX} is currently open in Word! Saved to {alt_path} instead.")
         doc.save(alt_path)
+    except Exception as e:
+        print(f"Could not save {OUT_DOCX}: {e}")
     print("Done converting thesis to docx!")
 
 if __name__ == "__main__":

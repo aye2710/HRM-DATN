@@ -113,9 +113,9 @@ router.post('/policies', hrOnly, async (req: any, res: Response): Promise<any> =
       data: {
         name: String(data.name).trim(),
         type: data.type,
-        seniority: parseInt(String(data.seniority)),
-        extraDays: data.extraDays !== undefined ? parseInt(String(data.extraDays)) : 0,
-        maxDays: data.maxDays !== undefined ? parseInt(String(data.maxDays)) : 20
+        seniority: String(data.seniority),
+        extraDays: String(data.extraDays !== undefined ? data.extraDays : 0),
+        maxDays: String(data.maxDays !== undefined ? data.maxDays : 20)
       }
     });
 
