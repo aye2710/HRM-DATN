@@ -15,6 +15,10 @@ export const Performance = () => {
   const [filterDept, setFilterDept] = useState('ALL');
   const [filterGrade, setFilterGrade] = useState('ALL');
 
+  // Phân trang chuẩn Positions.jsx
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
   // Modal Cycle State
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [cycleForm, setCycleForm] = useState({
@@ -106,6 +110,12 @@ export const Performance = () => {
       return matchSearch && matchDept && matchGrade;
     });
   }, [evaluations, searchQuery, filterDept, filterGrade]);
+
+  // Phân trang chuẩn Positions.jsx
+  const totalPages = Math.ceil(filteredEvaluations.length / itemsPerPage) || 1;
+  const paginatedEvaluations = useMemo(() => {
+    return filteredEvaluations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredEvaluations, currentPage, itemsPerPage]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -285,7 +295,7 @@ export const Performance = () => {
               className="form-input"
               style={{ paddingLeft: '2.4rem', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
               value={searchQuery} 
-              onChange={e => setSearchQuery(e.target.value)} 
+              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
             />
           </div>
 
@@ -293,7 +303,7 @@ export const Performance = () => {
             className="form-input" 
             style={{ minWidth: '180px', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
             value={filterDept} 
-            onChange={e => setFilterDept(e.target.value)}
+            onChange={e => { setFilterDept(e.target.value); setCurrentPage(1); }}
           >
             <option value="ALL">Tất cả phòng ban</option>
             {departments.map(d => (
@@ -305,7 +315,7 @@ export const Performance = () => {
             className="form-input" 
             style={{ minWidth: '180px', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
             value={filterGrade} 
-            onChange={e => setFilterGrade(e.target.value)}
+            onChange={e => { setFilterGrade(e.target.value); setCurrentPage(1); }}
           >
             <option value="ALL">Tất cả phân loại</option>
             <option value="A">Hạng A (Top 20% Xuất sắc)</option>
@@ -316,7 +326,7 @@ export const Performance = () => {
 
         {(searchQuery || filterDept !== 'ALL' || filterGrade !== 'ALL') && (
           <button
-            onClick={() => { setSearchQuery(''); setFilterDept('ALL'); setFilterGrade('ALL'); }}
+            onClick={() => { setSearchQuery(''); setFilterDept('ALL'); setFilterGrade('ALL'); setCurrentPage(1); }}
             className="btn btn-outline"
             style={{ height: 38, fontSize: '0.8rem', padding: '0 0.85rem' }}
           >
@@ -358,7 +368,7 @@ export const Performance = () => {
                   </td>
                 </tr>
               ) : (
-                filteredEvaluations.map(kpi => (
+                paginatedEvaluations.map(kpi => (
                   <tr key={kpi.id}>
                     <td>
                       <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>
@@ -444,6 +454,58 @@ export const Performance = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Phân Trang (Pagination Controls chuẩn theo Positions.jsx) */}
+        {totalPages > 1 && (
+          <div style={{
+            padding: '0.85rem 1.25rem',
+            borderTop: '1px solid var(--border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            backgroundColor: '#FFFFFF',
+            flexWrap: 'wrap',
+            gap: '0.75rem'
+          }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredEvaluations.length)} trong tổng số {filteredEvaluations.length} nhân sự đánh giá
+            </span>
+
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button 
+                className="btn btn-outline" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                style={{ height: 32, padding: '0 12px', fontSize: '0.8rem' }}
+              >
+                Trước
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                  style={{
+                    height: 32, minWidth: 32, padding: 0,
+                    fontSize: '0.8rem', fontWeight: currentPage === page ? 700 : 500
+                  }}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button 
+                className="btn btn-outline"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                style={{ height: 32, padding: '0 12px', fontSize: '0.8rem' }}
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL 1: Create Evaluation Cycle (Replaced window.prompt) */}

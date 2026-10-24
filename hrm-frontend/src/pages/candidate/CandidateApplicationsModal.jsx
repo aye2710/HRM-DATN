@@ -181,7 +181,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
       if (prev.actionType === 'RESCHEDULE') {
         template = `Kính gửi Quý công ty, do ${reason.toLowerCase()} vào khung giờ trên, em xin phép kính đề xuất dời lịch phỏng vấn sang thời gian khác để có thể chuẩn bị tốt nhất. Rất mong Quý công ty thông cảm và hỗ trợ sắp xếp.`;
       } else {
-        template = `Kính gửi Quý công ty, em chân thành cảm ơn cơ hội phỏng vấn. Do ${reason.toLowerCase()}, em xin phép từ chối tham gia vòng phỏng vấn này. Chúc Quý công ty sớm tìm được ứng viên phù hợp.`;
+        template = `Kính gửi Quý công ty, em chân thành cảm ơn cơ hội phỏng vấn. Do ${reason.toLowerCase()}, em xin phép từ chối tham gia buổi phỏng vấn này. Chúc Quý công ty sớm tìm được ứng viên phù hợp.`;
       }
       return {
         ...prev,
@@ -920,7 +920,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                    {interviewDeclineModal.interview?.name || 'Vòng phỏng vấn'}
+                    {interviewDeclineModal.interview?.name || 'Buổi phỏng vấn'}
                   </span>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
                     {interviewDeclineModal.app?.jobPosting?.title}
@@ -997,7 +997,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                       </strong>
                     </div>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
-                      (Hủy bỏ vòng phỏng vấn này)
+                      (Hủy bỏ buổi phỏng vấn này)
                     </span>
                   </button>
                 </div>

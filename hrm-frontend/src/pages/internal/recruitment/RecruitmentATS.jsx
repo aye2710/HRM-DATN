@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { 
   Briefcase, UserPlus, CheckCircle, X, AlertTriangle, LayoutGrid, 
   List, Search, FileText, ChevronRight, Phone, Mail, UserCheck, 
-  UserX, Download, Clock, Star, ExternalLink, Filter, Sparkles
+  UserX, Download, Clock, ExternalLink, Filter, Calendar, Inbox
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -97,13 +97,13 @@ export const RecruitmentATS = () => {
     switch (currentStatus) {
       case 'SOURCED':
       case 'APPLIED':
-        return { target: 'SCREENING', label: 'Duyệt hồ sơ', color: '#0284c7' };
+        return { target: 'SCREENING', label: 'Duyệt hồ sơ' };
       case 'SCREENING':
-        return { target: 'INTERVIEWING', label: 'Mời phỏng vấn', color: '#f59e0b' };
+        return { target: 'INTERVIEWING', label: 'Mời phỏng vấn' };
       case 'INTERVIEWING':
-        return { target: 'OFFERING', label: 'Gửi Offer', color: '#10b981' };
+        return { target: 'OFFERING', label: 'Gửi Offer' };
       case 'OFFERING':
-        return { target: 'HIRED', label: 'Nhận việc (Hired)', color: '#2563eb' };
+        return { target: 'HIRED', label: 'Tiếp nhận (Hired)' };
       default:
         return null;
     }
@@ -166,12 +166,12 @@ export const RecruitmentATS = () => {
   };
 
   const statuses = [
-    { id: 'SOURCED', title: 'SÀNG LỌC HỒ SƠ', color: '#6366f1', badgeColor: 'badge-purple', bgLight: '#f5f3ff' },
-    { id: 'SCREENING', title: 'ĐÁNH GIÁ (SCREENING)', color: '#0284c7', badgeColor: 'badge-info', bgLight: '#f0f9ff' },
-    { id: 'INTERVIEWING', title: 'PHỎNG VẤN CHUYÊN SÂU', color: '#f59e0b', badgeColor: 'badge-warning', bgLight: '#fffbeb' },
-    { id: 'OFFERING', title: 'CHỐT ĐỀ NGHỊ (OFFER)', color: '#10b981', badgeColor: 'badge-success', bgLight: '#f0fdf4' },
-    { id: 'HIRED', title: 'TUYỂN DỤNG THÀNH CÔNG', color: '#2563eb', badgeColor: 'badge-primary', bgLight: '#eff6ff' },
-    { id: 'REJECTED', title: 'TỪ CHỐI / LƯU TRỮ', color: '#ef4444', badgeColor: 'badge-error', bgLight: '#fef2f2' }
+    { id: 'SOURCED', title: 'Sàng lọc hồ sơ', color: '#64748B', bgLight: '#f8fafc' },
+    { id: 'SCREENING', title: 'Sơ loại & Đánh giá', color: '#0284c7', bgLight: '#f0f9ff' },
+    { id: 'INTERVIEWING', title: 'Phỏng vấn chuyên sâu', color: '#d97706', bgLight: '#fffbeb' },
+    { id: 'OFFERING', title: 'Chốt đề nghị (Offer)', color: '#059669', bgLight: '#f0fdf4' },
+    { id: 'HIRED', title: 'Tiếp nhận thành công', color: '#2563eb', bgLight: '#eff6ff' },
+    { id: 'REJECTED', title: 'Từ chối / Lưu trữ', color: '#94a3b8', bgLight: '#f8fafc' }
   ];
 
   // Pipeline Filter logic
@@ -320,107 +320,110 @@ export const RecruitmentATS = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
         <div style={{
           backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', borderLeft: '4px solid #6366f1',
-          boxShadow: 'var(--shadow-sm)'
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
         }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
-            Tổng Hồ sơ
+          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
+            Tổng Hồ sơ ứng viên
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
             {stats.total}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
             {jobPostings.length} vị trí đang mở tuyển
           </div>
         </div>
 
         <div style={{
           backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', borderLeft: '4px solid #0284c7',
-          boxShadow: 'var(--shadow-sm)'
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
         }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
-            Đang Xử lý (Active)
+          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
+            Đang xử lý (Active)
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0284c7' }}>
+          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
             {stats.activePipeline}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Ứng viên trong vòng đánh giá
+          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
+            Ứng viên trong pipeline
           </div>
         </div>
 
         <div style={{
           backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', borderLeft: '4px solid #f59e0b',
-          boxShadow: 'var(--shadow-sm)'
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
         }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
-            Vòng Phỏng vấn
+          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
+            Phỏng vấn
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#f59e0b' }}>
+          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
             {stats.interviewing}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
             Đang xếp lịch với Hội đồng
           </div>
         </div>
 
         <div style={{
           backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', borderLeft: '4px solid #10b981',
-          boxShadow: 'var(--shadow-sm)'
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
         }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
             Chốt Offer
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#10b981' }}>
+          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
             {stats.offering}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Chờ ứng viên phản hồi thư mời
+          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
+            Chờ phản hồi thư mời
           </div>
         </div>
 
         <div style={{
           backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', borderLeft: '4px solid #2563eb',
-          boxShadow: 'var(--shadow-sm)'
+          border: '1px solid var(--border)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
         }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
             Tuyển thành công
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#2563eb' }}>
+          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
             {stats.hired}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Tỷ lệ chuyển đổi: <strong style={{ color: 'var(--success)' }}>{stats.hireRate}%</strong>
+          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
+            Tỷ lệ chuyển đổi: <strong style={{ color: '#059669', fontWeight: 600 }}>{stats.hireRate}%</strong>
           </div>
         </div>
       </div>
 
-      {/* 3. Filter Bar */}
+      {/* 3. Filter Bar: 1 hàng chia 4 ô đều nhau */}
       <div style={{
         backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '0.75rem 1.25rem',
-        border: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '0.75rem',
-        alignItems: 'center', justifyContent: 'space-between'
+        border: '1px solid var(--border)', display: 'grid',
+        gridTemplateColumns: (searchQuery || filterDepartment || filterJob || filterStatus) ? 'repeat(4, minmax(0, 1fr)) auto' : 'repeat(4, minmax(0, 1fr))',
+        gap: '0.75rem', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
       }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', flex: 1 }}>
-          <div style={{ position: 'relative', minWidth: '260px', flex: '1 1 260px' }}>
-            <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
-            <input 
-              type="text" 
-              placeholder="Tìm theo tên, email, SĐT hoặc mã ứng viên..." 
-              className="form-input"
-              style={{ paddingLeft: '2.4rem', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
-              value={searchQuery} 
-              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
-            />
-          </div>
+        {/* Ô 1: Tìm kiếm */}
+        <div style={{ position: 'relative', width: '100%' }}>
+          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
+          <input 
+            type="text" 
+            placeholder="Tìm theo tên, email, SĐT hoặc mã..." 
+            className="form-input"
+            style={{ paddingLeft: '2.4rem', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC', width: '100%' }}
+            value={searchQuery} 
+            onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} 
+          />
+        </div>
 
+        {/* Ô 2: Vị trí tuyển */}
+        <div style={{ width: '100%' }}>
           <select 
             className="form-input" 
-            style={{ minWidth: '180px', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
+            style={{ height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC', width: '100%' }}
             value={filterJob} 
             onChange={e => { setFilterJob(e.target.value); setCurrentPage(1); }}
           >
@@ -429,10 +432,13 @@ export const RecruitmentATS = () => {
               <option key={j.id} value={j.id}>{j.title}</option>
             ))}
           </select>
+        </div>
 
+        {/* Ô 3: Phòng ban */}
+        <div style={{ width: '100%' }}>
           <select 
             className="form-input" 
-            style={{ minWidth: '180px', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
+            style={{ height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC', width: '100%' }}
             value={filterDepartment} 
             onChange={e => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
           >
@@ -441,10 +447,13 @@ export const RecruitmentATS = () => {
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
           </select>
+        </div>
 
+        {/* Ô 4: Trạng thái vòng */}
+        <div style={{ width: '100%' }}>
           <select 
             className="form-input" 
-            style={{ minWidth: '180px', height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC' }}
+            style={{ height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC', width: '100%' }}
             value={filterStatus} 
             onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}
           >
@@ -455,6 +464,7 @@ export const RecruitmentATS = () => {
           </select>
         </div>
 
+        {/* Nút xóa bộ lọc */}
         {(searchQuery || filterDepartment || filterJob || filterStatus) && (
           <button
             onClick={() => {
@@ -465,9 +475,9 @@ export const RecruitmentATS = () => {
               setCurrentPage(1);
             }}
             className="btn btn-outline"
-            style={{ height: 38, fontSize: '0.8rem', padding: '0 0.85rem' }}
+            style={{ height: 38, fontSize: '0.8rem', padding: '0 0.85rem', whiteSpace: 'nowrap', color: '#64748B' }}
           >
-            Xóa bộ lọc
+            Xóa lọc
           </button>
         )}
       </div>
@@ -514,19 +524,19 @@ export const RecruitmentATS = () => {
                   alignItems: 'center'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: col.color }} />
-                    <h3 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-heading)', margin: 0 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: col.color, display: 'inline-block' }} />
+                    <h3 style={{ fontSize: '0.825rem', fontWeight: 600, color: '#1E293B', margin: 0, letterSpacing: '0.2px' }}>
                       {col.title}
                     </h3>
                   </div>
                   <span style={{
-                    backgroundColor: col.bgLight,
-                    color: col.color,
+                    backgroundColor: '#F1F5F9',
+                    color: '#475569',
                     borderRadius: '12px',
                     padding: '2px 8px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    border: `1px solid ${col.color}30`
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    border: '1px solid #E2E8F0'
                   }}>
                     {columnCandidates.length}
                   </span>
@@ -548,11 +558,14 @@ export const RecruitmentATS = () => {
                   ) : columnCandidates.length === 0 ? (
                     <div style={{
                       textAlign: 'center', padding: '2.5rem 1rem',
-                      color: 'var(--text-muted)', fontSize: '0.85rem',
-                      border: '1px dashed var(--border)', borderRadius: '8px',
-                      backgroundColor: 'rgba(255,255,255,0.4)'
+                      color: '#94A3B8', fontSize: '0.8rem',
+                      border: '1px dashed #CBD5E1', borderRadius: '8px',
+                      backgroundColor: '#FFFFFF',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px'
                     }}>
-                      Kéo thẻ ứng viên vào đây
+                      <Inbox size={22} color="#CBD5E1" />
+                      <span style={{ fontWeight: 500, color: '#64748B' }}>Chưa có hồ sơ</span>
+                      <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Kéo thẻ vào đây để chuyển bước</span>
                     </div>
                   ) : (
                     columnCandidates.map(c => {
@@ -566,58 +579,75 @@ export const RecruitmentATS = () => {
                             backgroundColor: '#FFFFFF',
                             borderRadius: '10px',
                             padding: '0.85rem',
-                            border: '1px solid var(--border)',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                            border: '1px solid #E2E8F0',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                             cursor: 'grab',
-                            transition: 'all 0.2s',
+                            transition: 'all 0.15s ease',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '0.5rem'
+                            gap: '0.55rem'
                           }}
-                          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)'}
-                          onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.boxShadow = '0 4px 8px -2px rgba(0,0,0,0.06), 0 2px 4px -2px rgba(0,0,0,0.03)';
+                            e.currentTarget.style.borderColor = '#CBD5E1';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.03)';
+                            e.currentTarget.style.borderColor = '#E2E8F0';
+                          }}
                         >
-                          {/* Card Head: ID & Score */}
+                          {/* Card Head: ID & Date */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+                            <span style={{
+                              fontSize: '0.7rem', fontWeight: 600, color: '#64748B',
+                              backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0',
+                              padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.3px'
+                            }}>
                               APP-{c.id.substring(0, 6).toUpperCase()}
                             </span>
-                            <span style={{
-                              display: 'flex', alignItems: 'center', gap: '3px',
-                              fontSize: '0.72rem', fontWeight: 700, color: '#f59e0b',
-                              backgroundColor: '#fffbeb', padding: '1px 6px', borderRadius: '4px',
-                              border: '1px solid #fde68a'
-                            }}>
-                              <Star size={11} fill="#f59e0b" /> Đạt chuẩn
-                            </span>
+                            {c.createdAt ? (
+                              <span style={{ fontSize: '0.7rem', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <Clock size={11} color="#94A3B8" /> {new Date(c.createdAt).toLocaleDateString('vi-VN')}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Ứng viên</span>
+                            )}
                           </div>
 
                           {/* Candidate Name & Position */}
                           <div>
-                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '2px' }}>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0F172A', marginBottom: '2px', lineHeight: 1.3 }}>
                               {c.name}
                             </div>
-                            <div style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 600 }}>
-                              {c.jobPosting?.title || 'Chưa gán vị trí'}
+                            <div style={{
+                              fontSize: '0.78rem', color: '#475569', fontWeight: 500,
+                              display: 'flex', alignItems: 'center', gap: '4px'
+                            }}>
+                              <Briefcase size={12} color="#94A3B8" style={{ flexShrink: 0 }} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {c.jobPosting?.title || 'Chưa gán vị trí'}
+                              </span>
                             </div>
                           </div>
 
                           {/* Contact Info */}
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <Mail size={12} /> <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{c.email}</span>
+                          <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Mail size={12} color="#94A3B8" style={{ flexShrink: 0 }} />
+                              <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{c.email}</span>
                             </div>
                             {c.phone && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <Phone size={12} /> <span>{c.phone}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Phone size={12} color="#94A3B8" style={{ flexShrink: 0 }} />
+                                <span>{c.phone}</span>
                               </div>
                             )}
                           </div>
 
-                          {/* Action Foot: View CV & Quick Transition */}
+                          {/* Action Foot: View CV & Action Buttons */}
                           <div style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            paddingTop: '0.5rem', borderTop: '1px solid var(--border)', marginTop: '2px'
+                            paddingTop: '0.5rem', borderTop: '1px solid #F1F5F9', marginTop: '2px'
                           }}>
                             {c.cvUrl ? (
                               <a 
@@ -625,52 +655,76 @@ export const RecruitmentATS = () => {
                                 target="_blank" 
                                 rel="noreferrer" 
                                 style={{
-                                  fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)',
-                                  display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none'
+                                  fontSize: '0.72rem', fontWeight: 500, color: '#475569',
+                                  display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none',
+                                  padding: '3px 7px', borderRadius: '5px',
+                                  backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0',
+                                  transition: 'all 0.15s ease'
                                 }}
+                                onMouseEnter={e => { e.currentTarget.style.color = '#0F172A'; e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                Xem CV <ExternalLink size={12} />
+                                <FileText size={12} color="#64748B" /> Xem CV
                               </a>
                             ) : (
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Chưa có CV</span>
+                              <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Chưa có CV</span>
                             )}
 
-                            {nextStep && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDirectTransition(c, nextStep.target);
-                                }}
-                                style={{
-                                  padding: '3px 8px', borderRadius: '6px',
-                                  fontSize: '0.72rem', fontWeight: 700,
-                                  backgroundColor: nextStep.color, color: '#FFFFFF',
-                                  border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
-                                }}
-                                title={`Chuyển sang ${nextStep.label}`}
-                              >
-                                {nextStep.label} <ChevronRight size={12} />
-                              </button>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {nextStep && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDirectTransition(c, nextStep.target);
+                                  }}
+                                  style={{
+                                    padding: '4px 9px', borderRadius: '6px',
+                                    fontSize: '0.72rem', fontWeight: 600,
+                                    backgroundColor: '#0F172A', color: '#FFFFFF',
+                                    border: 'none', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '3px',
+                                    transition: 'background-color 0.15s ease'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#334155'}
+                                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0F172A'}
+                                  title={`Chuyển sang: ${nextStep.label}`}
+                                >
+                                  <span>{nextStep.label}</span>
+                                  <ChevronRight size={12} />
+                                </button>
+                              )}
 
-                            {col.id !== 'REJECTED' && col.id !== 'HIRED' && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDirectTransition(c, 'REJECTED');
-                                }}
-                                style={{
-                                  padding: '3px 6px', borderRadius: '4px',
-                                  fontSize: '0.7rem', fontWeight: 600,
-                                  backgroundColor: '#FEE2E2', color: '#EF4444',
-                                  border: '1px solid #FECACA', cursor: 'pointer'
-                                }}
-                                title="Từ chối hồ sơ ứng viên"
-                              >
-                                <UserX size={12} />
-                              </button>
-                            )}
+                              {col.id !== 'REJECTED' && col.id !== 'HIRED' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDirectTransition(c, 'REJECTED');
+                                  }}
+                                  style={{
+                                    padding: '4px 6px', borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    backgroundColor: '#FFFFFF', color: '#94A3B8',
+                                    border: '1px solid #E2E8F0', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.backgroundColor = '#FEF2F2';
+                                    e.currentTarget.style.borderColor = '#FECACA';
+                                    e.currentTarget.style.color = '#EF4444';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                                    e.currentTarget.style.borderColor = '#E2E8F0';
+                                    e.currentTarget.style.color = '#94A3B8';
+                                  }}
+                                  title="Từ chối hồ sơ ứng viên"
+                                >
+                                  <UserX size={13} />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -732,31 +786,33 @@ export const RecruitmentATS = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <div style={{
                                 width: 34, height: 34, borderRadius: '50%',
-                                backgroundColor: '#EEF2FF', color: 'var(--primary)',
+                                backgroundColor: '#F1F5F9', color: '#334155',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontWeight: 700, fontSize: '0.85rem'
                               }}>
                                 {c.name.charAt(0)}
                               </div>
                               <div>
-                                <div style={{ fontWeight: 700, color: 'var(--text-heading)', fontSize: '0.9rem' }}>{c.name}</div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ứng viên online</div>
+                                <div style={{ fontWeight: 600, color: '#0F172A', fontSize: '0.9rem' }}>{c.name}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
+                                  {c.createdAt ? `Nộp: ${new Date(c.createdAt).toLocaleDateString('vi-VN')}` : 'Ứng viên'}
+                                </div>
                               </div>
                             </div>
                           </td>
                           <td>
-                            <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.88rem' }}>
+                            <span style={{ fontWeight: 500, color: '#334155', fontSize: '0.85rem' }}>
                               {c.jobPosting?.title || 'Chưa gán'}
                             </span>
                           </td>
                           <td>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
                               {c.jobPosting?.department?.name || 'Doanh nghiệp'}
                             </span>
                           </td>
                           <td>
-                            <div style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>{c.email}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone || 'Chưa cập nhật SĐT'}</div>
+                            <div style={{ fontSize: '0.82rem', color: '#334155' }}>{c.email}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{c.phone || 'Chưa có SĐT'}</div>
                           </td>
                           <td>
                             {c.cvUrl ? (
@@ -765,23 +821,25 @@ export const RecruitmentATS = () => {
                                 target="_blank" 
                                 rel="noreferrer" 
                                 style={{
-                                  fontSize: '0.82rem', fontWeight: 600, color: 'var(--primary)',
-                                  display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none'
+                                  fontSize: '0.78rem', fontWeight: 500, color: '#475569',
+                                  display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none',
+                                  padding: '3px 7px', borderRadius: '5px',
+                                  backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0'
                                 }}
                               >
-                                Xem CV <ExternalLink size={13} />
+                                <FileText size={12} color="#64748B" /> Xem CV
                               </a>
                             ) : (
-                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Không đính kèm</span>
+                              <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Không đính kèm</span>
                             )}
                           </td>
                           <td>
                             <select 
                               className="form-input" 
                               style={{ 
-                                padding: '4px 10px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700,
-                                backgroundColor: statusObj.bgLight, color: statusObj.color,
-                                border: `1px solid ${statusObj.color}40`, cursor: 'pointer'
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600,
+                                backgroundColor: '#F8FAFC', color: '#334155',
+                                border: '1px solid #CBD5E1', cursor: 'pointer'
                               }}
                               value={c.status} 
                               onChange={(e) => {
@@ -800,8 +858,11 @@ export const RecruitmentATS = () => {
                               {nextStep && (
                                 <button
                                   onClick={() => handleDirectTransition(c, nextStep.target)}
-                                  className="btn btn-primary"
-                                  style={{ padding: '4px 10px', fontSize: '0.78rem', height: 'auto' }}
+                                  style={{
+                                    padding: '4px 10px', fontSize: '0.75rem', height: 'auto',
+                                    backgroundColor: '#0F172A', color: '#FFFFFF',
+                                    border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer'
+                                  }}
                                 >
                                   {nextStep.label}
                                 </button>
@@ -811,8 +872,18 @@ export const RecruitmentATS = () => {
                                   onClick={() => handleDirectTransition(c, 'REJECTED')}
                                   style={{
                                     padding: '4px 8px', borderRadius: '6px',
-                                    backgroundColor: '#FEE2E2', color: '#EF4444',
-                                    border: '1px solid #FECACA', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600
+                                    backgroundColor: '#FFFFFF', color: '#94A3B8',
+                                    border: '1px solid #E2E8F0', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500
+                                  }}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.backgroundColor = '#FEF2F2';
+                                    e.currentTarget.style.borderColor = '#FECACA';
+                                    e.currentTarget.style.color = '#EF4444';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                                    e.currentTarget.style.borderColor = '#E2E8F0';
+                                    e.currentTarget.style.color = '#94A3B8';
                                   }}
                                   title="Từ chối ứng viên"
                                 >

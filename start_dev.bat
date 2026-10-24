@@ -7,7 +7,7 @@ echo.
 echo [1/2] Dang khoi dong Backend API Server (Port 5000)...
 start "HRM Backend (:5000)" cmd /k "cd /d %~dp0backend && npm run dev"
 
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 
 echo [2/2] Dang khoi dong Frontend Web App (Port 5173)...
 start "HRM Frontend (:5173)" cmd /k "cd /d %~dp0hrm-frontend && npm run dev"

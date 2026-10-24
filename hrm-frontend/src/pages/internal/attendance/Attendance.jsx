@@ -25,6 +25,11 @@ export const AttendanceMgmt = () => {
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
 
+  // Phân trang chuẩn Positions.jsx
+  const [dailyPage, setDailyPage] = useState(1);
+  const [monthlyPage, setMonthlyPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Manual Adjust Modal
   const [showManualModal, setShowManualModal] = useState(false);
   const [manualForm, setManualForm] = useState({
@@ -121,6 +126,17 @@ export const AttendanceMgmt = () => {
       return matchSearch && matchDept;
     });
   }, [employees, attendances, selectedMonth, selectedYear, searchTerm, selectedDept]);
+
+  // Phân trang Daily & Monthly
+  const totalDailyPages = Math.ceil(dailyRecords.length / itemsPerPage) || 1;
+  const paginatedDailyRecords = useMemo(() => {
+    return dailyRecords.slice((dailyPage - 1) * itemsPerPage, dailyPage * itemsPerPage);
+  }, [dailyRecords, dailyPage, itemsPerPage]);
+
+  const totalMonthlyPages = Math.ceil(monthlySummary.length / itemsPerPage) || 1;
+  const paginatedMonthly = useMemo(() => {
+    return monthlySummary.slice((monthlyPage - 1) * itemsPerPage, monthlyPage * itemsPerPage);
+  }, [monthlySummary, monthlyPage, itemsPerPage]);
 
   // Daily Midnight Sweep Action
   const handleDailySweep = async () => {
@@ -442,7 +458,7 @@ export const AttendanceMgmt = () => {
               <input 
                 type="date" 
                 value={selectedDate} 
-                onChange={e => setSelectedDate(e.target.value)}
+                onChange={e => { setSelectedDate(e.target.value); setDailyPage(1); }}
                 className="form-input"
                 style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
               />
@@ -452,7 +468,7 @@ export const AttendanceMgmt = () => {
               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748B' }}>Kỳ công:</span>
               <select 
                 value={selectedMonth} 
-                onChange={e => setSelectedMonth(Number(e.target.value))}
+                onChange={e => { setSelectedMonth(Number(e.target.value)); setMonthlyPage(1); }}
                 className="form-input" 
                 style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
               >
@@ -462,7 +478,7 @@ export const AttendanceMgmt = () => {
               </select>
               <select 
                 value={selectedYear} 
-                onChange={e => setSelectedYear(Number(e.target.value))}
+                onChange={e => { setSelectedYear(Number(e.target.value)); setMonthlyPage(1); }}
                 className="form-input" 
                 style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
               >
@@ -475,7 +491,7 @@ export const AttendanceMgmt = () => {
 
           <select 
             value={selectedDept} 
-            onChange={e => setSelectedDept(e.target.value)}
+            onChange={e => { setSelectedDept(e.target.value); setDailyPage(1); setMonthlyPage(1); }}
             className="form-input"
             style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
           >
@@ -488,7 +504,7 @@ export const AttendanceMgmt = () => {
           {activeTab === 'daily' && (
             <select 
               value={selectedStatus} 
-              onChange={e => setSelectedStatus(e.target.value)}
+              onChange={e => { setSelectedStatus(e.target.value); setDailyPage(1); }}
               className="form-input"
               style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
             >
@@ -505,7 +521,7 @@ export const AttendanceMgmt = () => {
               type="text" 
               placeholder="Tìm theo Tên hoặc Mã NV..."
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={e => { setSearchTerm(e.target.value); setDailyPage(1); setMonthlyPage(1); }}
               className="form-input"
               style={{ paddingLeft: '2.1rem', paddingRight: '0.5rem', width: '100%', fontSize: '0.85rem' }}
             />
@@ -554,7 +570,7 @@ export const AttendanceMgmt = () => {
                     </td>
                   </tr>
                 ) : (
-                  dailyRecords.map(att => {
+                  paginatedDailyRecords.map(att => {
                     const checkInDate = att.checkIn ? new Date(att.checkIn) : null;
                     const checkOutDate = att.checkOut ? new Date(att.checkOut) : null;
                     
@@ -648,6 +664,57 @@ export const AttendanceMgmt = () => {
                 )}
               </tbody>
             </table>
+
+            {totalDailyPages > 1 && (
+              <div style={{
+                padding: '0.85rem 1.25rem',
+                borderTop: '1px solid #E2E8F0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#FFFFFF',
+                flexWrap: 'wrap',
+                gap: '0.75rem'
+              }}>
+                <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
+                  Hiển thị {((dailyPage - 1) * itemsPerPage) + 1} - {Math.min(dailyPage * itemsPerPage, dailyRecords.length)} trong tổng số {dailyRecords.length} bản ghi chấm công
+                </span>
+
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <button 
+                    className="btn btn-outline" 
+                    disabled={dailyPage === 1}
+                    onClick={() => setDailyPage(p => Math.max(1, p - 1))}
+                    style={{ height: 32, padding: '0 12px', fontSize: '0.8rem' }}
+                  >
+                    Trước
+                  </button>
+
+                  {Array.from({ length: totalDailyPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      className={`btn ${dailyPage === page ? 'btn-primary' : 'btn-outline'}`}
+                      style={{
+                        height: 32, minWidth: 32, padding: 0,
+                        fontSize: '0.8rem', fontWeight: dailyPage === page ? 700 : 500
+                      }}
+                      onClick={() => setDailyPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button 
+                    className="btn btn-outline"
+                    disabled={dailyPage === totalDailyPages}
+                    onClick={() => setDailyPage(p => Math.min(totalDailyPages, p + 1))}
+                    style={{ height: 32, padding: '0 12px', fontSize: '0.8rem' }}
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* TAB 2: MONTHLY SUMMARY MATRIX */
@@ -680,7 +747,7 @@ export const AttendanceMgmt = () => {
                     </td>
                   </tr>
                 ) : (
-                  monthlySummary.map(item => (
+                  paginatedMonthly.map(item => (
                     <tr key={item.employee.id} style={{ borderBottom: '1px solid #F1F5F9' }} className="hover:bg-slate-50">
                       <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#2563EB' }}>
                         {item.employee.code}
@@ -730,6 +797,57 @@ export const AttendanceMgmt = () => {
                 )}
               </tbody>
             </table>
+
+            {totalMonthlyPages > 1 && (
+              <div style={{
+                padding: '0.85rem 1.25rem',
+                borderTop: '1px solid #E2E8F0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#FFFFFF',
+                flexWrap: 'wrap',
+                gap: '0.75rem'
+              }}>
+                <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
+                  Hiển thị {((monthlyPage - 1) * itemsPerPage) + 1} - {Math.min(monthlyPage * itemsPerPage, monthlySummary.length)} trong tổng số {monthlySummary.length} nhân sự
+                </span>
+
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <button 
+                    className="btn btn-outline" 
+                    disabled={monthlyPage === 1}
+                    onClick={() => setMonthlyPage(p => Math.max(1, p - 1))}
+                    style={{ height: 32, padding: '0 12px', fontSize: '0.8rem' }}
+                  >
+                    Trước
+                  </button>
+
+                  {Array.from({ length: totalMonthlyPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      className={`btn ${monthlyPage === page ? 'btn-primary' : 'btn-outline'}`}
+                      style={{
+                        height: 32, minWidth: 32, padding: 0,
+                        fontSize: '0.8rem', fontWeight: monthlyPage === page ? 700 : 500
+                      }}
+                      onClick={() => setMonthlyPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button 
+                    className="btn btn-outline"
+                    disabled={monthlyPage === totalMonthlyPages}
+                    onClick={() => setMonthlyPage(p => Math.min(totalMonthlyPages, p + 1))}
+                    style={{ height: 32, padding: '0 12px', fontSize: '0.8rem' }}
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

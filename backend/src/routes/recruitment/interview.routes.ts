@@ -10,18 +10,39 @@ router.use(requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'RECRUITER', 'INTER
 export const checkAndExpireInterviews = async () => {
   try {
     const now = new Date();
-    await prisma.interviewRound.updateMany({
+    // Chỉ hủy các lịch hẹn PENDING_CONFIRMATION quá 24h VÀ chưa từng có feedback
+    const expiredInterviews = await prisma.interviewRound.findMany({
       where: {
         status: 'PENDING_CONFIRMATION',
-        expiresAt: {
-          lte: now
-        }
+        expiresAt: { lte: now },
+        feedbacks: { none: {} }
       },
-      data: {
-        status: 'CANCELLED',
-        candidateResponse: 'Hệ thống tự động hủy: Ứng viên không xác nhận trong vòng 24 giờ kể từ khi gửi lời mời.'
-      }
+      select: { id: true, candidateId: true }
     });
+
+    if (expiredInterviews.length > 0) {
+      const expiredIds = expiredInterviews.map(i => i.id);
+      const candidateIds = expiredInterviews.map(i => i.candidateId);
+
+      await prisma.interviewRound.updateMany({
+        where: { id: { in: expiredIds } },
+        data: {
+          status: 'CANCELLED',
+          candidateResponse: 'Hệ thống tự động hủy: Ứng viên không xác nhận tham gia trong vòng 24 giờ.'
+        }
+      });
+
+      // Tự động chuyển ứng viên sang REJECTED (Loại vì quá hạn phản hồi)
+      await prisma.candidate.updateMany({
+        where: {
+          id: { in: candidateIds },
+          status: 'INTERVIEWING'
+        },
+        data: {
+          status: 'REJECTED'
+        }
+      });
+    }
   } catch (error) {
     console.error('Error auto-expiring interviews:', error);
   }
@@ -54,8 +75,8 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
   try {
     const { candidateId, interviewerId, roundName, scheduledAt, location } = req.body;
     
-    if (!candidateId || !interviewerId || !scheduledAt || !roundName) {
-      return res.status(400).json({ error: 'Vui lòng điền đầy đủ Ứng viên, Người phỏng vấn, Vòng thi và Thời gian phỏng vấn.' });
+    if (!candidateId || !interviewerId || !scheduledAt) {
+      return res.status(400).json({ error: 'Vui lòng điền đầy đủ Ứng viên, Người phỏng vấn và Thời gian phỏng vấn.' });
     }
 
     const candidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
@@ -70,7 +91,7 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
       data: { 
         candidateId: candidateId as string,
         interviewerId: interviewerId as string,
-        roundName: roundName as string,
+        roundName: (roundName as string) || 'Phỏng vấn',
         scheduledAt: new Date(scheduledAt),
         location: location || 'Trực tuyến (Google Meet / Zoom)',
         status: 'PENDING_CONFIRMATION',
@@ -237,6 +258,50 @@ router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
   } catch (error) {
     console.error("Lỗi khi hủy lịch phỏng vấn:", error);
     return res.status(500).json({ error: 'Lỗi khi hủy lịch phỏng vấn' });
+  }
+});
+
+// POST: Ghi nhận ứng viên bùng lịch / vắng mặt không lý do (No-Show)
+router.post('/:id/no-show', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const { reason, action } = req.body; // action: 'REJECT' (mặc định) | 'RESCHEDULE'
+
+    const interview = await prisma.interviewRound.findUnique({
+      where: { id },
+      include: { candidate: true }
+    });
+
+    if (!interview) {
+      return res.status(404).json({ error: 'Không tìm thấy lịch phỏng vấn.' });
+    }
+
+    const cancelReason = reason || 'Ứng viên vắng mặt không lý do (No-show)';
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Cập nhật lịch thành CANCELLED
+      await tx.interviewRound.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
+          candidateResponse: cancelReason,
+          respondedAt: new Date()
+        }
+      });
+
+      // 2. Tự động loại hồ sơ ứng viên nếu không phải dời lịch
+      if (action !== 'RESCHEDULE') {
+        await tx.candidate.update({
+          where: { id: interview.candidateId },
+          data: { status: 'REJECTED' }
+        });
+      }
+    });
+
+    return res.json({ success: true, message: 'Đã ghi nhận ứng viên vắng mặt (No-show) và cập nhật hồ sơ.' });
+  } catch (error) {
+    console.error('Error marking no-show:', error);
+    return res.status(500).json({ error: 'Lỗi khi xử lý trạng thái vắng mặt' });
   }
 });
 
