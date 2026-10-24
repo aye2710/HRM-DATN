@@ -238,22 +238,61 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
   };
 
   const renderStatusBadge = (status) => {
+    const baseStyle = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '5px',
+      padding: '4px 10px',
+      borderRadius: '9999px',
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      letterSpacing: '0.01em',
+      lineHeight: 1.2
+    };
     switch (status) {
       case 'SOURCED':
       case 'APPLIED':
-        return <span className="badge badge-purple">Đang sàng lọc CV</span>;
+        return (
+          <span style={{ ...baseStyle, backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+            <FileText size={12} /> Đang sàng lọc hồ sơ
+          </span>
+        );
       case 'SCREENING':
-        return <span className="badge badge-info">Vòng sơ tuyển</span>;
+        return (
+          <span style={{ ...baseStyle, backgroundColor: '#F0FDFA', color: '#0F766E', border: '1px solid #99F6E4' }}>
+            <Clock size={12} /> Vòng sơ loại
+          </span>
+        );
       case 'INTERVIEWING':
-        return <span className="badge badge-warning">Đang phỏng vấn</span>;
+        return (
+          <span style={{ ...baseStyle, backgroundColor: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}>
+            <Calendar size={12} /> Đang phỏng vấn
+          </span>
+        );
       case 'OFFERING':
-        return <span className="badge badge-success">✨ Đã có Offer</span>;
+        return (
+          <span style={{ ...baseStyle, backgroundColor: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE' }}>
+            <Sparkles size={12} /> Đã có Thư mời (Offer)
+          </span>
+        );
       case 'HIRED':
-        return <span className="badge badge-success">Đã tiếp nhận làm việc</span>;
+        return (
+          <span style={{ ...baseStyle, backgroundColor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>
+            <CheckCircle2 size={12} /> Đã tiếp nhận chính thức
+          </span>
+        );
       case 'REJECTED':
-        return <span className="badge badge-error">Chưa phù hợp</span>;
+        return (
+          <span style={{ ...baseStyle, backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
+            <XCircle size={12} /> Chưa phù hợp đợt này
+          </span>
+        );
       default:
-        return <span className="badge badge-gray">{status}</span>;
+        return (
+          <span style={{ ...baseStyle, backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' }}>
+            {status}
+          </span>
+        );
     }
   };
 
@@ -266,12 +305,12 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
             position: 'fixed',
             inset: 0,
             zIndex: 1000,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backgroundColor: 'rgba(15, 23, 42, 0.55)',
             backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '1rem'
+            padding: '1.25rem'
           }}
           onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
@@ -281,7 +320,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
               maxWidth: '820px',
               maxHeight: '90vh',
               backgroundColor: '#FFFFFF',
-              borderRadius: '1.25rem',
+              borderRadius: '16px',
               boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8)',
               overflow: 'hidden',
               display: 'flex',
@@ -292,37 +331,57 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
             <div
               style={{
                 padding: '1.25rem 1.75rem',
-                borderBottom: '1px solid var(--border)',
+                borderBottom: '1px solid #E2E8F0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: 'linear-gradient(to right, rgba(37, 99, 235, 0.04), transparent)'
+                backgroundColor: '#FFFFFF'
               }}
             >
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                  Hồ sơ ứng tuyển & Thư mời Offer
-                </h3>
-                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Tài khoản: <strong style={{ color: 'var(--text-main)' }}>{candidateUser?.email}</strong>
-                </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)'
+                  }}
+                >
+                  <Briefcase size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+                    Hồ sơ ứng tuyển & Thư mời nhận việc
+                  </h3>
+                  <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8125rem', color: '#64748B' }}>
+                    Tài khoản ứng viên: <strong style={{ color: '#0F172A', fontWeight: 600 }}>{candidateUser?.email}</strong>
+                  </p>
+                </div>
               </div>
 
               <button
                 onClick={onClose}
+                aria-label="Đóng"
                 style={{
                   border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text-muted)',
+                  background: '#F1F5F9',
+                  color: '#64748B',
                   cursor: 'pointer',
-                  padding: '0.35rem',
-                  borderRadius: '0.375rem',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  transition: 'all 0.15s ease'
                 }}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
@@ -335,11 +394,12 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                 padding: '1.5rem 1.75rem',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '1.25rem'
+                gap: '1.25rem',
+                backgroundColor: '#F8FAFC'
               }}
             >
               {loading ? (
-                <div style={{ padding: '3rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div style={{ padding: '3.5rem 0', textAlign: 'center', color: '#64748B', fontSize: '0.9rem' }}>
                   Đang tải thông tin hồ sơ...
                 </div>
               ) : applications.length === 0 ? (
@@ -350,15 +410,18 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '12px',
+                    border: '1px dashed #CBD5E1'
                   }}
                 >
-                  <Briefcase size={44} color="var(--border)" style={{ marginBottom: '1rem' }} />
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: 'var(--text-main)' }}>
+                  <Briefcase size={44} color="#CBD5E1" style={{ marginBottom: '1rem' }} />
+                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#0F172A', fontWeight: 700 }}>
                     Chưa có đơn ứng tuyển nào
                   </h4>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '380px' }}>
-                    Hãy khám phá các vị trí công việc đang mở tuyển và nộp hồ sơ để bắt đầu hành trình cùng LLA nhé!
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748B', maxWidth: '380px' }}>
+                    Hãy khám phá các vị trí công việc đang mở tuyển và nộp hồ sơ để bắt đầu hành trình sự nghiệp nhé!
                   </p>
                 </div>
               ) : (
@@ -370,40 +433,44 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                   return (
                     <div
                       key={app.id}
-                      className="card"
                       style={{
-                        padding: '1.25rem',
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: '14px',
+                        border: '1px solid #E2E8F0',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                        padding: '1.5rem',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '1rem',
-                        borderColor: hasOffer && offer.status === 'PENDING' ? 'rgba(245, 158, 11, 0.4)' : 'var(--border)'
+                        gap: '1.25rem'
                       }}
                     >
                       {/* Job Title & Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                         <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                            <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#0F172A', letterSpacing: '-0.01em' }}>
                               {app.jobPosting?.title || 'Vị trí ứng tuyển'}
                             </h4>
                             {renderStatusBadge(app.status)}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.35rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <Building size={14} /> {app.jobPosting?.department?.name || 'Phòng ban chuyên môn'}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.45rem', fontSize: '0.8125rem', color: '#64748B', flexWrap: 'wrap' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <Building size={14} color="#64748B" /> {app.jobPosting?.department?.name || 'Phòng ban chuyên môn'}
                             </span>
-                            <span>•</span>
-                            <span>Mã đơn: #{app.id.substring(0, 8).toUpperCase()}</span>
+                            <span style={{ color: '#CBD5E1' }}>•</span>
+                            <span style={{ backgroundColor: '#F1F5F9', padding: '1px 8px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.75rem', color: '#475569' }}>
+                              #{app.id.substring(0, 8).toUpperCase()}
+                            </span>
                             {app.cvUrl && (
                               <>
-                                <span>•</span>
+                                <span style={{ color: '#CBD5E1' }}>•</span>
                                 <a
                                   href={app.cvUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                  style={{ color: '#2563EB', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600 }}
                                 >
-                                  <FileText size={13} /> Xem CV
+                                  <FileText size={13} /> Xem CV đính kèm
                                 </a>
                               </>
                             )}
@@ -411,7 +478,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                         </div>
                       </div>
 
-                      {/* KHU VỰC LỊCH PHỎNG VẤN & XÁC NHẬN TRONG 24H */}
+                      {/* KHU VỰC LỊCH PHỎNG VẤN (CLEAN EVENT CARD - FLAT MODERN DESIGN) */}
                       {app.interviews && app.interviews.length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           {app.interviews.map((inv) => {
@@ -433,131 +500,127 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                               <div
                                 key={inv.id}
                                 style={{
-                                  borderRadius: '0.75rem',
-                                  border: '1px solid',
-                                  borderColor: isConfirmed
-                                    ? 'rgba(34, 197, 94, 0.4)'
-                                    : isDeclined || isCancelled || isExpired
-                                    ? 'rgba(239, 68, 68, 0.3)'
-                                    : 'rgba(245, 158, 11, 0.5)',
-                                  backgroundColor: isConfirmed
-                                    ? 'rgba(34, 197, 94, 0.04)'
-                                    : isDeclined || isCancelled || isExpired
-                                    ? 'rgba(239, 68, 68, 0.04)'
-                                    : '#FFFBEB',
-                                  padding: '1.15rem',
+                                  borderRadius: '10px',
+                                  border: '1px solid #E2E8F0',
+                                  borderLeft: isConfirmed 
+                                    ? '4px solid #10B981' 
+                                    : isDeclined || isCancelled || isExpired 
+                                    ? '4px solid #EF4444' 
+                                    : '4px solid #2563EB',
+                                  backgroundColor: '#F8FAFC',
+                                  padding: '1.15rem 1.25rem',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: '0.75rem'
+                                  gap: '0.85rem'
                                 }}
                               >
                                 {/* Header của Lịch phỏng vấn */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Calendar size={18} color={isConfirmed ? 'var(--success)' : isPending ? '#D97706' : 'var(--error)'} />
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                                      Lịch hẹn Phỏng vấn: {inv.roundName}
+                                    <div style={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: '6px',
+                                      backgroundColor: isConfirmed ? '#ECFDF5' : '#EFF6FF',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: isConfirmed ? '#059669' : '#2563EB'
+                                    }}>
+                                      <Calendar size={15} />
+                                    </div>
+                                    <span style={{ fontSize: '0.925rem', fontWeight: 700, color: '#0F172A' }}>
+                                      Lịch hẹn phỏng vấn: {inv.roundName}
                                     </span>
                                   </div>
 
                                   {/* Badge trạng thái */}
                                   {isPending && !isExpired && (
-                                    <span className="badge badge-warning" style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#FEF3C7', color: '#B45309' }}>
-                                      ⏳ Chờ bạn xác nhận (Hạn chót 24h)
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                                      <Clock size={12} /> Chờ xác nhận (còn {remainingHours}h {remainingMinutes}p)
                                     </span>
                                   )}
                                   {isPending && isExpired && (
-                                    <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                                      ⚠️ Đã quá hạn 24h (Tự động hủy)
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
+                                      <XCircle size={12} /> Quá hạn phản hồi (24h)
                                     </span>
                                   )}
                                   {isConfirmed && (
-                                    <span className="badge badge-success" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                                      ✓ Bạn đã xác nhận tham gia
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>
+                                      <CheckCircle2 size={12} /> Đã xác nhận tham gia
                                     </span>
                                   )}
                                   {isDeclined && (
-                                    <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                                      ✗ Đã từ chối lịch hẹn
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
+                                      <XCircle size={12} /> Đã từ chối lịch hẹn
                                     </span>
                                   )}
                                   {isCancelled && !isExpired && (
-                                    <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' }}>
                                       Đã hủy lịch phỏng vấn
                                     </span>
                                   )}
                                 </div>
 
-                                {/* Thông tin chi tiết lịch hẹn */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', fontSize: '0.8125rem' }}>
-                                  <div style={{ padding: '0.6rem 0.85rem', backgroundColor: '#FFFFFF', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
-                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block' }}>Thời gian phỏng vấn</span>
-                                    <strong style={{ color: 'var(--primary)', fontSize: '0.875rem' }}>
+                                {/* Thông tin chi tiết lịch hẹn - PHẲNG, KHÔNG LỒNG HỘP */}
+                                <div style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                  gap: '1rem',
+                                  padding: '0.75rem 0',
+                                  borderTop: '1px solid #E2E8F0',
+                                  borderBottom: '1px solid #E2E8F0'
+                                }}>
+                                  <div>
+                                    <span style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>Thời gian phỏng vấn</span>
+                                    <span style={{ color: '#0F172A', fontSize: '0.875rem', fontWeight: 700, display: 'block', marginTop: '3px' }}>
                                       {new Date(inv.scheduledAt).toLocaleString('vi-VN', {
                                         dateStyle: 'medium',
                                         timeStyle: 'short'
                                       })}
-                                    </strong>
+                                    </span>
                                   </div>
 
-                                  <div style={{ padding: '0.6rem 0.85rem', backgroundColor: '#FFFFFF', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
-                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block' }}>Hình thức / Địa điểm</span>
-                                    <strong style={{ color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                  <div>
+                                    <span style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>Hình thức / Địa điểm</span>
+                                    <span style={{ color: '#2563EB', fontSize: '0.875rem', fontWeight: 600, display: 'block', marginTop: '3px', wordBreak: 'break-all' }}>
                                       {inv.location || 'Online Meeting (Google Meet)'}
-                                    </strong>
+                                    </span>
                                   </div>
 
-                                  <div style={{ padding: '0.6rem 0.85rem', backgroundColor: '#FFFFFF', borderRadius: '0.5rem', border: '1px solid var(--border)' }}>
-                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block' }}>Người phỏng vấn (HR/Lead)</span>
-                                    <strong style={{ color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                  <div>
+                                    <span style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>Người phỏng vấn (HR/Lead)</span>
+                                    <span style={{ color: '#0F172A', fontSize: '0.875rem', fontWeight: 600, display: 'block', marginTop: '3px' }}>
                                       {inv.interviewerId}
-                                    </strong>
+                                    </span>
                                   </div>
                                 </div>
 
-                                {/* Cảnh báo đếm ngược 24h nếu đang chờ xác nhận */}
-                                {isPending && !isExpired && (
-                                  <div style={{
-                                    padding: '0.6rem 0.85rem',
-                                    borderRadius: '0.5rem',
-                                    backgroundColor: '#FFF7ED',
-                                    border: '1px dashed #FDBA74',
-                                    fontSize: '0.8rem',
-                                    color: '#C2410C',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    flexWrap: 'wrap',
-                                    gap: '0.5rem'
-                                  }}>
-                                    <span>
-                                      ⏰ <strong>Lưu ý:</strong> Vui lòng xác nhận tham gia. Nếu sau <strong>24 giờ</strong> không phản hồi, lịch hẹn sẽ tự động bị hủy (Còn lại: <strong>{remainingHours} giờ {remainingMinutes} phút</strong>).
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Ghi chú nếu đã xác nhận / từ chối / hủy */}
+                                {/* Ghi chú nếu đã xác nhận / từ chối */}
                                 {inv.candidateResponse && (
-                                  <div style={{ fontSize: '0.8rem', color: isConfirmed ? 'var(--success)' : 'var(--error)', fontStyle: 'italic' }}>
-                                    Phản hồi: "{inv.candidateResponse}"
+                                  <div style={{ fontSize: '0.8125rem', color: isConfirmed ? '#059669' : '#DC2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                                    <span>Phản hồi của bạn: "{inv.candidateResponse}"</span>
                                   </div>
                                 )}
 
                                 {/* Nút thao tác xác nhận / từ chối */}
                                 {isPending && !isExpired && (
-                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.25rem' }}>
                                     <button
                                       type="button"
                                       onClick={() => handleOpenDeclineModal(inv, app)}
                                       className="btn btn-outline"
                                       style={{
                                         fontSize: '0.8125rem',
-                                        color: 'var(--error)',
-                                        borderColor: 'rgba(239, 68, 68, 0.4)',
-                                        padding: '0.45rem 0.95rem'
+                                        padding: '0.45rem 0.95rem',
+                                        height: '36px',
+                                        borderRadius: '8px',
+                                        color: '#DC2626',
+                                        borderColor: '#FECACA'
                                       }}
                                     >
-                                      ✗ Báo bận / Xin đổi lịch
+                                      Báo bận / Xin đổi lịch
                                     </button>
 
                                     <button
@@ -566,12 +629,17 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                                       className="btn btn-primary"
                                       style={{
                                         fontSize: '0.8125rem',
-                                        backgroundColor: '#16A34A',
-                                        borderColor: '#16A34A',
-                                        padding: '0.45rem 1.15rem'
+                                        padding: '0.45rem 1.15rem',
+                                        height: '36px',
+                                        borderRadius: '8px',
+                                        backgroundColor: '#10B981',
+                                        borderColor: '#10B981',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.35rem'
                                       }}
                                     >
-                                      ✓ Xác nhận tham gia phỏng vấn
+                                      <CheckCircle2 size={15} /> Xác nhận tham gia
                                     </button>
                                   </div>
                                 )}
@@ -581,7 +649,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                         </div>
                       )}
 
-                      {/* KHU VỰC THƯ MỜI NHẬN VIỆC (OFFER LETTER) */}
+                      {/* KHU VỰC THƯ MỜI NHẬN VIỆC (EXECUTIVE OFFER CARD - FLAT MODERN DESIGN) */}
                       {hasOffer && (() => {
                         const isOfferPending = offer.status === 'PENDING';
                         const offerExpiresAt = offer.expiresAt
@@ -595,159 +663,169 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                         return (
                           <div
                             style={{
-                              borderRadius: '0.75rem',
-                              border: '1px solid',
-                              borderColor:
-                                offer.status === 'ACCEPTED'
-                                  ? 'rgba(34, 197, 94, 0.3)'
-                                  : isOfferExpired || offer.status === 'REJECTED'
-                                  ? 'rgba(239, 68, 68, 0.3)'
-                                  : 'rgba(245, 158, 11, 0.4)',
-                              backgroundColor:
-                                offer.status === 'ACCEPTED'
-                                  ? 'rgba(34, 197, 94, 0.03)'
-                                  : isOfferExpired || offer.status === 'REJECTED'
-                                  ? 'rgba(239, 68, 68, 0.03)'
-                                  : '#FFFBEB',
+                              borderRadius: '10px',
+                              border: '1px solid #E2E8F0',
+                              borderLeft: offer.status === 'ACCEPTED'
+                                ? '4px solid #10B981'
+                                : isOfferExpired
+                                ? '4px solid #94A3B8'
+                                : '4px solid #4F46E5',
+                              backgroundColor: offer.status === 'ACCEPTED'
+                                ? '#F0FDF4'
+                                : isOfferExpired
+                                ? '#F8FAFC'
+                                : '#EEF2FF',
                               padding: '1.25rem',
                               display: 'flex',
                               flexDirection: 'column',
-                              gap: '0.875rem'
+                              gap: '0.85rem'
                             }}
                           >
                             {/* Banner Header */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Award size={18} color={offer.status === 'ACCEPTED' ? 'var(--success)' : isOfferPending && !isOfferExpired ? '#D97706' : 'var(--error)'} />
-                                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                                <div style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: '6px',
+                                  backgroundColor: offer.status === 'ACCEPTED' ? '#DCFCE7' : isOfferExpired ? '#F1F5F9' : '#E0E7FF',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: offer.status === 'ACCEPTED' ? '#059669' : isOfferExpired ? '#64748B' : '#4338CA'
+                                }}>
+                                  <Award size={15} />
+                                </div>
+                                <span style={{ fontSize: '0.925rem', fontWeight: 700, color: '#0F172A' }}>
                                   Thư mời nhận việc chính thức (Job Offer Letter)
                                 </span>
                               </div>
 
                               {isOfferPending && !isOfferExpired && (
-                                <span className="badge badge-warning" style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#FEF3C7', color: '#B45309' }}>
-                                  ⏳ Chờ bạn phản hồi (Hạn chót 24h)
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                                  <Clock size={12} /> Chờ phản hồi (còn {offerRemainingHours}h {offerRemainingMinutes}p)
                                 </span>
                               )}
                               {isOfferExpired && (
-                                <span className="badge badge-error" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                                  ⚠️ Đã quá hạn 24h (Tự động hủy)
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#F1F5F9', color: '#64748B', border: '1px solid #E2E8F0' }}>
+                                  <Clock size={12} /> Đã quá hạn phản hồi (24h)
                                 </span>
                               )}
                               {offer.status === 'ACCEPTED' && (
-                                <span className="badge badge-success" style={{ fontWeight: 600 }}>
-                                  ✓ Bạn đã chấp nhận Offer
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>
+                                  <CheckCircle2 size={12} /> Đã đồng ý tiếp nhận
                                 </span>
                               )}
                               {offer.status === 'REJECTED' && !isOfferExpired && (
-                                <span className="badge badge-error" style={{ fontWeight: 600 }}>
-                                  Đã từ chối
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
+                                  <XCircle size={12} /> Đã từ chối Offer
                                 </span>
                               )}
                             </div>
 
-                            {/* 3 Metric Cards */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                              <div
-                                style={{
-                                  padding: '0.75rem',
-                                  backgroundColor: '#FFFFFF',
-                                  borderRadius: '0.5rem',
-                                  border: '1px solid var(--border)'
-                                }}
-                              >
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {/* 3 Metric Summary - PHẲNG, TINH TẾ */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                              gap: '1.25rem',
+                              padding: '0.85rem 0',
+                              borderTop: '1px solid rgba(203, 213, 225, 0.6)',
+                              borderBottom: '1px solid rgba(203, 213, 225, 0.6)',
+                              alignItems: 'baseline'
+                            }}>
+                              <div>
+                                <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>
                                   Lương thỏa thuận
                                 </span>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.15rem' }}>
-                                  {Number(offer.baseSalary).toLocaleString('vi-VN')} đ
+                                <div style={{ 
+                                  fontSize: '1.25rem', 
+                                  fontWeight: 800, 
+                                  color: isOfferExpired ? '#64748B' : '#0F172A', 
+                                  marginTop: '2px',
+                                  display: 'flex',
+                                  alignItems: 'baseline',
+                                  gap: '4px'
+                                }}>
+                                  {Number(offer.baseSalary).toLocaleString('vi-VN')}
+                                  <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#64748B' }}>đ / tháng</span>
                                 </div>
                               </div>
 
-                              <div
-                                style={{
-                                  padding: '0.75rem',
-                                  backgroundColor: '#FFFFFF',
-                                  borderRadius: '0.5rem',
-                                  border: '1px solid var(--border)'
-                                }}
-                              >
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                  Ngày nhận việc
+                              <div>
+                                <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>
+                                  Ngày bắt đầu làm việc
                                 </span>
-                                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>
+                                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>
                                   {offer.startDate ? new Date(offer.startDate).toLocaleDateString('vi-VN') : 'Thỏa thuận'}
                                 </div>
                               </div>
 
-                              <div
-                                style={{
-                                  padding: '0.75rem',
-                                  backgroundColor: '#FFFFFF',
-                                  borderRadius: '0.5rem',
-                                  border: '1px solid var(--border)'
-                                }}
-                              >
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              <div>
+                                <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>
                                   Loại hợp đồng
                                 </span>
-                                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>
-                                  {offer.contractType === 'PROBATION' ? 'Thử việc (85%)' : offer.contractType || 'Thử việc'}
+                                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>
+                                  {offer.contractType === 'PROBATION' ? 'Thử việc (Hưởng 85% lương)' : offer.contractType || 'Thử việc'}
                                 </div>
                               </div>
                             </div>
 
                             {offer.notes && (
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                              <div style={{ fontSize: '0.85rem', color: '#475569', fontStyle: 'italic', lineHeight: 1.5 }}>
                                 "{offer.notes}"
+                              </div>
+                            )}
+
+                            {/* Expired Notice - LỊCH SỰ, TRANG TRỌNG */}
+                            {isOfferExpired && (
+                              <div style={{
+                                padding: '0.65rem 0.85rem',
+                                borderRadius: '6px',
+                                backgroundColor: '#F1F5F9',
+                                border: '1px solid #E2E8F0',
+                                fontSize: '0.8125rem',
+                                color: '#475569',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                              }}>
+                                <Clock size={15} style={{ flexShrink: 0, color: '#64748B' }} />
+                                <span>Thư mời nhận việc đã hết thời hạn 24 giờ phản hồi và đã được lưu trữ tự động.</span>
                               </div>
                             )}
 
                             {/* Cảnh báo đếm ngược 24h nếu đang chờ xác nhận */}
                             {isOfferPending && !isOfferExpired && (
                               <div style={{
-                                padding: '0.65rem 0.95rem',
-                                borderRadius: '0.5rem',
-                                backgroundColor: '#FFF7ED',
-                                border: '1px dashed #FDBA74',
+                                padding: '0.65rem 0.85rem',
+                                borderRadius: '6px',
+                                backgroundColor: '#FEF3C7',
+                                border: '1px solid #FDE68A',
                                 fontSize: '0.8rem',
-                                color: '#C2410C',
+                                color: '#92400E',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'space-between',
-                                flexWrap: 'wrap',
                                 gap: '0.5rem'
                               }}>
-                                <span>
-                                  ⏰ <strong>Quy định 24h:</strong> Vui lòng xem xét và phản hồi Offer trong vòng <strong>24 giờ</strong>. Nếu sau 24h không phản hồi, thư mời sẽ tự động bị hủy (Còn lại: <strong>{offerRemainingHours} giờ {offerRemainingMinutes} phút</strong>).
-                                </span>
-                              </div>
-                            )}
-
-                            {isOfferExpired && (
-                              <div style={{
-                                padding: '0.65rem 0.95rem',
-                                borderRadius: '0.5rem',
-                                backgroundColor: '#FEF2F2',
-                                border: '1px solid #FECACA',
-                                fontSize: '0.8rem',
-                                color: '#991B1B'
-                              }}>
-                                ⚠️ <strong>Đã quá hạn phản hồi:</strong> Thư mời nhận việc đã hết thời hạn 24 giờ phản hồi và đã bị hệ thống tự động hủy.
+                                <Clock size={15} style={{ flexShrink: 0 }} />
+                                <span>Vui lòng phản hồi trong vòng <strong>24 giờ</strong> (Còn lại: <strong>{offerRemainingHours}h {offerRemainingMinutes}p</strong>).</span>
                               </div>
                             )}
 
                             {/* ACTION BUTTONS */}
                             {isOfferPending && !isOfferExpired && (
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.25rem' }}>
                                 <button
                                   type="button"
                                   onClick={() => handleOpenRejectOffer(app)}
                                   className="btn btn-outline"
                                   style={{
                                     fontSize: '0.8125rem',
-                                    color: 'var(--error)',
-                                    borderColor: 'rgba(239, 68, 68, 0.4)'
+                                    padding: '0.45rem 0.95rem',
+                                    height: '36px',
+                                    borderRadius: '8px',
+                                    color: '#DC2626',
+                                    borderColor: '#FECACA'
                                   }}
                                 >
                                   Từ chối Offer
@@ -758,13 +836,17 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                                   className="btn btn-primary"
                                   style={{
                                     fontSize: '0.8125rem',
-                                    fontWeight: 600,
-                                    backgroundColor: 'var(--success)',
-                                    borderColor: 'var(--success)',
-                                    boxShadow: '0 2px 8px rgba(34, 197, 94, 0.25)'
+                                    padding: '0.45rem 1.15rem',
+                                    height: '36px',
+                                    borderRadius: '8px',
+                                    backgroundColor: '#4F46E5',
+                                    borderColor: '#4F46E5',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem'
                                   }}
                                 >
-                                  <CheckCircle2 size={16} /> Chấp nhận Offer & Khai báo thông tin nhận việc
+                                  <CheckCircle2 size={15} /> Chấp nhận Offer & Khai báo thông tin
                                 </button>
                               </div>
                             )}
@@ -773,25 +855,26 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                               <div
                                 style={{
                                   padding: '0.75rem 1rem',
-                                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                                  borderRadius: '0.5rem',
-                                  fontSize: '0.8rem',
-                                  color: 'var(--success-fg)',
+                                  backgroundColor: '#ECFDF5',
+                                  borderRadius: '8px',
+                                  border: '1px solid #A7F3D0',
+                                  fontSize: '0.8125rem',
+                                  color: '#065F46',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '0.5rem'
                                 }}
                               >
-                                <ShieldCheck size={18} />
+                                <ShieldCheck size={17} style={{ flexShrink: 0 }} />
                                 <span>
-                                  <strong>Hồ sơ tiếp nhận đã gửi thành công!</strong> Vui lòng có mặt tại văn phòng vào{' '}
-                                  <strong>{new Date(offer.startDate).toLocaleDateString('vi-VN')}</strong> để hoàn tất thủ tục bàn giao.
+                                  Hồ sơ tiếp nhận đã gửi thành công! Vui lòng có mặt tại văn phòng vào{' '}
+                                  <strong>{new Date(offer.startDate).toLocaleDateString('vi-VN')}</strong>.
                                 </span>
                               </div>
                             )}
 
                             {offer.status === 'REJECTED' && offer.declineReason && (
-                              <div style={{ fontSize: '0.8rem', color: 'var(--error)' }}>
+                              <div style={{ fontSize: '0.8125rem', color: '#991B1B' }}>
                                 Lý do bạn từ chối: {offer.declineReason}
                               </div>
                             )}

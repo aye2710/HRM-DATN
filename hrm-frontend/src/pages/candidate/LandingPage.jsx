@@ -144,15 +144,16 @@ export const CandidateLandingPage = () => {
 
   const handleApplyClick = (job) => {
     setSelectedJob(job);
+    const hasCandidate = !!candidateUser;
     setFormData({
       name: candidateUser ? candidateUser.name : '',
       email: candidateUser ? candidateUser.email : '',
       phone: candidateUser?.phone || '',
-      cvUrl: ''
+      cvUrl: candidateUser?.cvUrl || ''
     });
-    setUploadedFileName('');
-    setCvInputType('file');
-    setConsentChecked(false);
+    setUploadedFileName(candidateUser?.cvUrl ? (candidateUser.name ? `CV_${candidateUser.name.replace(/\s+/g, '_')}.pdf` : 'CV_Luu_Tru.pdf') : '');
+    setCvInputType(candidateUser?.cvUrl ? 'link' : 'file');
+    setConsentChecked(hasCandidate);
     setApplySuccess(false);
     setSubmittedCandidateCode('');
     setShowApplyModal(true);
@@ -735,6 +736,9 @@ export const CandidateLandingPage = () => {
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#16A34A', fontWeight: 700 }}>
                       <DollarSign size={15} /> {job.salaryRange || 'Thương lượng hấp dẫn'}
                     </span>
+                    <span style={{ fontSize: '0.75rem', color: '#059669', backgroundColor: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, border: '1px solid #A7F3D0' }}>
+                      Thử việc ≥ 85% lương (BLLĐ)
+                    </span>
                     {job.deadline && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                         <Calendar size={15} /> Hạn nộp: {new Date(job.deadline).toLocaleDateString('vi-VN')}
@@ -757,7 +761,7 @@ export const CandidateLandingPage = () => {
                     className="btn btn-primary"
                     style={{ padding: '0.65rem 1.35rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                   >
-                    Nộp CV <ChevronRight size={16} />
+                    {candidateUser ? 'Ứng tuyển 1 chạm' : 'Nộp CV'} <ChevronRight size={16} />
                   </button>
                 </div>
               </div>
@@ -1038,12 +1042,12 @@ export const CandidateLandingPage = () => {
                 <FileText size={26} />
               </div>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2563EB', textTransform: 'uppercase' }}>BƯỚC 1</span>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A', margin: '0.25rem 0 0.5rem 0' }}>Nộp hồ sơ (Apply)</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A', margin: '0.25rem 0 0.5rem 0' }}>Nộp hồ sơ & Sàng lọc</h3>
               <div style={{ display: 'inline-block', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.75rem' }}>
                 ⚡ Phản hồi trong 48 giờ
               </div>
               <p style={{ fontSize: '0.875rem', color: '#64748B', lineHeight: 1.6, margin: 0 }}>
-                Nộp CV trực tuyến 1 chạm qua website. Hệ thống cấp ngay Mã hồ sơ để bạn tra cứu tiến độ real-time.
+                Nộp CV trực tuyến 1 chạm, cam kết bảo vệ dữ liệu theo Nghị định 13/2023/NĐ-CP. Cấp mã hồ sơ bảo mật tức thì.
               </p>
             </div>
 
@@ -1052,12 +1056,12 @@ export const CandidateLandingPage = () => {
                 <Users size={26} />
               </div>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>BƯỚC 2</span>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A', margin: '0.25rem 0 0.5rem 0' }}>Phỏng vấn chuyên môn</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A', margin: '0.25rem 0 0.5rem 0' }}>Phỏng vấn 3 vòng chuẩn LLA</h3>
               <div style={{ display: 'inline-block', backgroundColor: '#ECFDF5', color: '#047857', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-                ⚡ Kết quả sau 3 ngày
+                ⚡ Chuẩn hóa theo SOP-100
               </div>
               <p style={{ fontSize: '0.875rem', color: '#64748B', lineHeight: 1.6, margin: 0 }}>
-                1 vòng chuyên môn kỹ thuật sâu cùng Tech Lead và 1 vòng trao đổi văn hóa (Culture fit) cởi mở, tôn trọng.
+                Vòng 1 (HR Văn hóa & Kỳ vọng) ➔ Vòng 2 (Chuyên môn & Live Test với Tech Lead) ➔ Vòng 3 (Gặp gỡ Ban Giám đốc).
               </p>
             </div>
 
@@ -1071,10 +1075,55 @@ export const CandidateLandingPage = () => {
                 ⚡ Thư mời trong 24 giờ
               </div>
               <p style={{ fontSize: '0.875rem', color: '#64748B', lineHeight: 1.6, margin: 0 }}>
-                Nhận Thư mời làm việc điện tử trên Portal, ký xác nhận online và hoàn tất hồ sơ hội nhập trước ngày đi làm.
+                Nhận Offer letter điện tử, ký xác nhận online, chuẩn bị cấp tài khoản và thiết bị MacBook/Dell XPS theo SOP-25.
               </p>
             </div>
 
+          </div>
+
+          {/* Cam kết Minh bạch & Pháp lý chuẩn BLLĐ 2019 (SOP-100) */}
+          <div style={{
+            marginTop: '3rem',
+            padding: '1.75rem 2rem',
+            borderRadius: '1rem',
+            background: 'linear-gradient(135deg, #F0FDF4 0%, #EFF6FF 100%)',
+            border: '1px solid #BBF7D0',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.06)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <ShieldCheck size={24} color="#059669" />
+              <div>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#065F46', margin: 0 }}>
+                  Cam kết Tuyển dụng Minh bạch & Tuân thủ Bộ luật Lao động 2019
+                </h4>
+                <span style={{ fontSize: '0.8125rem', color: '#047857' }}>
+                  Tiêu chuẩn tuyển dụng công bằng, bảo vệ tối đa quyền lợi ứng viên theo SOP-100 LLA
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                <CheckCircle2 size={18} color="#059669" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span style={{ fontSize: '0.85rem', color: '#1E293B', lineHeight: 1.5 }}>
+                  <strong>Không giữ giấy tờ gốc & không thu phí:</strong> Tuyệt đối không giữ bằng cấp, CCCD gốc hay bất kỳ khoản đặt cọc nào của ứng viên (Điều 17 BLLĐ 2019).
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                <CheckCircle2 size={18} color="#059669" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span style={{ fontSize: '0.85rem', color: '#1E293B', lineHeight: 1.5 }}>
+                  <strong>Lương thử việc chuẩn 85% - 100%:</strong> Mức lương thử việc minh bạch theo đúng năng lực, đóng Full 100% BHXH khi ký hợp đồng chính thức (Điều 26 BLLĐ 2019).
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                <CheckCircle2 size={18} color="#059669" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span style={{ fontSize: '0.85rem', color: '#1E293B', lineHeight: 1.5 }}>
+                  <strong>Bảo mật thông tin cá nhân:</strong> Dữ liệu CV và liên hệ chỉ sử dụng cho mục đích tuyển dụng nội bộ theo Nghị định 13/2023/NĐ-CP.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1413,6 +1462,23 @@ export const CandidateLandingPage = () => {
               ) : (
                 <form onSubmit={handleApplySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
                   
+                  {candidateUser && (
+                    <div style={{
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderRadius: '0.625rem',
+                      padding: '0.65rem 0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem'
+                    }}>
+                      <Sparkles size={16} color="#2563EB" style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.8rem', color: '#1E40AF', lineHeight: 1.4 }}>
+                        <strong>Ứng tuyển 1 chạm:</strong> Đã tự động điền thông tin từ tài khoản <strong>{candidateUser.name}</strong> ({candidateUser.email}).
+                      </span>
+                    </div>
+                  )}
+
                   <div>
                     <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.35rem' }}>
                       Họ và tên <span style={{ color: '#EF4444' }}>*</span>
@@ -1640,10 +1706,11 @@ export const CandidateLandingPage = () => {
                   />
                   <input 
                     type="text" 
+                    required
                     className="form-input" 
                     value={trackSecurityCode} 
                     onChange={e => setTrackSecurityCode(e.target.value)} 
-                    placeholder="Mã hồ sơ / SĐT (tùy chọn)" 
+                    placeholder="Mã hồ sơ hoặc SĐT đã đăng ký *" 
                     style={{ height: '42px', backgroundColor: '#F8FAFC' }}
                   />
                 </div>
