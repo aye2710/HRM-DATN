@@ -29,6 +29,7 @@ export const AssetManagement = () => {
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnAssignmentTarget, setReturnAssignmentTarget] = useState(null);
   const [viewBm01Doc, setViewBm01Doc] = useState(null);
+  const [viewBm02Doc, setViewBm02Doc] = useState(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -671,6 +672,16 @@ export const AssetManagement = () => {
                           >
                             <FileText size={14} /> BM-01
                           </button>
+                          {assign.status === 'RETURNED' && (
+                            <button
+                              className="btn btn-outline"
+                              style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', gap: 4, color: '#0284c7', borderColor: '#38bdf8' }}
+                              title="Xem và in Biên bản thu hồi BM-02 (SOP-26)"
+                              onClick={() => setViewBm02Doc(assign)}
+                            >
+                              <FileText size={14} /> BM-02
+                            </button>
+                          )}
                           {assign.status === 'ACTIVE' && (
                             <button
                               className="btn btn-outline"
@@ -1176,6 +1187,139 @@ export const AssetManagement = () => {
                 <div className="font-bold text-xs uppercase text-gray-800">NGƯỜI NHẬN BÀN GIAO</div>
                 <div className="text-xs italic text-gray-500 mb-16">(Ký và ghi rõ họ tên)</div>
                 <div className="font-semibold text-xs text-blue-700">{viewBm01Doc.employee?.fullName}</div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* MODAL 5: BIỂU MẪU CHÍNH THỨC BM-02 (Biên bản thu hồi & hoàn trả trang thiết bị - SOP-26) */}
+      {viewBm02Doc && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem'
+        }}>
+          <div className="card flex-col gap-4 animate-scale-up" style={{
+            width: '100%', maxWidth: '780px', maxHeight: '92vh', overflowY: 'auto',
+            background: '#ffffff', color: '#1e293b', padding: '2.5rem'
+          }}>
+            {/* Action Bar (Top) */}
+            <div className="flex justify-between items-center pb-4 border-b border-gray-200">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+                Hệ thống Quản Trị Nhân Sự Doanh Nghiệp • Biểu mẫu chuẩn BM-02 (SOP-26)
+              </span>
+              <div className="flex gap-2">
+                <button 
+                  className="btn btn-primary" 
+                  style={{ gap: 6, padding: '0.4rem 0.8rem', fontSize: '0.85rem', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+                  onClick={() => window.print()}
+                >
+                  <Printer size={16} /> In Biên bản
+                </button>
+                <button 
+                  className="btn btn-outline" 
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', color: '#64748b', borderColor: '#cbd5e1' }}
+                  onClick={() => setViewBm02Doc(null)}
+                >
+                  <X size={16} /> Đóng
+                </button>
+              </div>
+            </div>
+
+            {/* Official Form Header */}
+            <div className="text-center my-2">
+              <div className="text-xs uppercase font-bold text-gray-500 tracking-widest">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+              <div className="text-xs font-semibold text-gray-600">Độc lập - Tự do - Hạnh phúc</div>
+              <div className="my-2 border-b border-gray-300 w-32 mx-auto"></div>
+              <h2 className="text-xl font-bold uppercase tracking-wide text-gray-900 mt-4">
+                BIÊN BẢN THU HỒI & HOÀN TRẢ TRANG THIẾT BỊ
+              </h2>
+              <div className="text-xs italic text-gray-500 font-mono mt-1">
+                (Căn cứ Quy trình Thôi việc SOP-26 • Số biên bản: {viewBm02Doc.handoverDocCode ? `TH-${viewBm02Doc.handoverDocCode}` : 'BM-02-2026/01'})
+              </div>
+            </div>
+
+            {/* Form Intro */}
+            <div className="text-sm text-gray-700 leading-relaxed my-2">
+              Hôm nay, ngày {new Date(viewBm02Doc.returnedDate || Date.now()).getDate()} tháng {new Date(viewBm02Doc.returnedDate || Date.now()).getMonth() + 1} năm {new Date(viewBm02Doc.returnedDate || Date.now()).getFullYear()}, tại Văn phòng Công ty, chúng tôi tiến hành kiểm tra và hoàn tất thủ tục thu hồi tài sản làm việc phục vụ quyết toán nghỉ việc:
+            </div>
+
+            {/* Parties info */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <div className="flex-col gap-1 text-xs">
+                <strong className="text-gray-900 uppercase">BÊN TIẾP NHẬN THU HỒI (IT / HÀNH CHÍNH):</strong>
+                <div>Đại diện: <strong>Bộ phận Quản trị Thiết bị & Hạ tầng CNTT</strong></div>
+                <div>Phòng ban: Khối Vận hành Doanh nghiệp LLA</div>
+              </div>
+              <div className="flex-col gap-1 text-xs">
+                <strong className="text-gray-900 uppercase">BÊN BÀN GIAO HOÀN TRẢ (NGƯỜI LAO ĐỘNG):</strong>
+                <div>Họ và tên: <strong className="text-blue-700">{viewBm02Doc.employee?.fullName}</strong></div>
+                <div>Mã nhân viên: <strong>{viewBm02Doc.employee?.code}</strong></div>
+                <div>Phòng ban: <strong>{viewBm02Doc.employee?.department?.name || 'Văn phòng'}</strong></div>
+              </div>
+            </div>
+
+            {/* Asset Table */}
+            <div className="my-3">
+              <strong className="text-xs font-bold text-gray-800 uppercase block mb-2">DANH MỤC THIẾT BỊ THU HỒI NHẬP KHO:</strong>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', border: '1px solid #cbd5e1' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                    <th style={{ padding: '6px 10px', textAlign: 'left', borderRight: '1px solid #cbd5e1' }}>STT</th>
+                    <th style={{ padding: '6px 10px', textAlign: 'left', borderRight: '1px solid #cbd5e1' }}>Tên thiết bị</th>
+                    <th style={{ padding: '6px 10px', textAlign: 'left', borderRight: '1px solid #cbd5e1' }}>Mã tài sản</th>
+                    <th style={{ padding: '6px 10px', textAlign: 'left', borderRight: '1px solid #cbd5e1' }}>Số Serial</th>
+                    <th style={{ padding: '6px 10px', textAlign: 'left' }}>Tình trạng khi thu hồi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '8px 10px', borderRight: '1px solid #cbd5e1' }}>01</td>
+                    <td style={{ padding: '8px 10px', borderRight: '1px solid #cbd5e1', fontWeight: 600 }}>
+                      {viewBm02Doc.asset?.name}
+                    </td>
+                    <td style={{ padding: '8px 10px', borderRight: '1px solid #cbd5e1', fontFamily: 'monospace' }}>
+                      {viewBm02Doc.asset?.code}
+                    </td>
+                    <td style={{ padding: '8px 10px', borderRight: '1px solid #cbd5e1', fontFamily: 'monospace' }}>
+                      {viewBm02Doc.asset?.serialNumber || '—'}
+                    </td>
+                    <td style={{ padding: '8px 10px', color: '#059669', fontWeight: 600 }}>
+                      {viewBm02Doc.conditionOnReturn || 'Đầy đủ sạc cáp, hoạt động bình thường'}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Confirmation & Compliance */}
+            <div className="text-xs text-gray-600 leading-relaxed bg-blue-50 p-3 rounded border border-blue-200">
+              <strong>Xác nhận điều kiện thanh toán & an ninh bảo mật:</strong>
+              <ul className="list-disc ml-5 mt-1">
+                <li>Bộ phận IT xác nhận nhân sự đã bàn giao đầy đủ thiết bị, đã xóa toàn bộ dữ liệu nội bộ trên máy cá nhân.</li>
+                <li>Đúng 18:00 ngày làm việc cuối cùng, hệ thống tự động khóa tài khoản đăng nhập và thu hồi phiên làm việc theo quy trình SOP-26.</li>
+                <li>Biên bản này là chứng từ hợp lệ để Phòng Kế toán thực hiện quyết toán trợ cấp và tiền lương thôi việc.</li>
+              </ul>
+            </div>
+
+            {/* Signature Blocks */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginTop: '2rem', textAlign: 'center' }}>
+              <div>
+                <div className="font-bold text-xs uppercase text-gray-800">NGƯỜI BÀN GIAO</div>
+                <div className="text-xs italic text-gray-500 mb-16">(Ký và ghi rõ họ tên)</div>
+                <div className="font-semibold text-xs text-blue-700">{viewBm02Doc.employee?.fullName}</div>
+              </div>
+              <div>
+                <div className="font-bold text-xs uppercase text-gray-800">BÊN TIẾP NHẬN (IT/HC)</div>
+                <div className="text-xs italic text-gray-500 mb-16">(Ký và ghi rõ họ tên)</div>
+                <div className="font-semibold text-xs text-gray-700">Bộ phận Quản Trị Hệ Thống</div>
+              </div>
+              <div>
+                <div className="font-bold text-xs uppercase text-gray-800">DUYỆT NHÂN SỰ (HR)</div>
+                <div className="text-xs italic text-gray-500 mb-16">(Ký xác nhận quyết toán)</div>
+                <div className="font-semibold text-xs text-emerald-700">Phòng Nhân Sự LLA</div>
               </div>
             </div>
           </div>

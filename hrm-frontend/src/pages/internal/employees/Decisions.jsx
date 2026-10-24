@@ -69,7 +69,7 @@ export const Decisions = () => {
   const handleOpenAdd = () => {
     const year = new Date().getFullYear();
     const count = decisions.length + 1;
-    const autoNumber = `QĐ-${year}/${String(count).padStart(3, '0')}`;
+    const autoNumber = `QĐ-${year}/${String(count).padStart(3, '0')}/LLA`;
 
     setFormData({
       decisionNumber: autoNumber,
@@ -268,11 +268,16 @@ export const Decisions = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title">
-            Quyết Định Nhân Sự
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <h1 className="page-title" style={{ margin: 0 }}>
+              Quyết Định Nhân Sự
+            </h1>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+              QUY TRÌNH SOP-99 (QĐ-LLA)
+            </span>
+          </div>
           <p className="text-muted" style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem' }}>
-            Quản trị các văn bản pháp lý biến động nhân sự (Bổ nhiệm, Điều chuyển, Tăng lương, Thôi việc)
+            Văn bản pháp lý biến động nhân sự: Tự động sinh Phụ lục HĐLĐ và đồng bộ Hợp đồng + Bảng lương khi phê duyệt
           </p>
         </div>
         <button onClick={handleOpenAdd} className="btn btn-primary" style={{ padding: '0.625rem 1.25rem', height: '40px' }}>

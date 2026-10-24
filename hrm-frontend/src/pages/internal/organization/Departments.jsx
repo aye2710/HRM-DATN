@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Building, Users, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock, Sparkles } from 'lucide-react';
+import { Building, Users, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -14,8 +14,8 @@ const removeVietnameseTones = (str) => {
     .replace(/Đ/g, 'D');
 };
 
-// Hàm sinh mã phòng ban thông minh theo chuẩn doanh nghiệp
-const generateDeptCode = (deptName) => {
+// Hàm sinh mã phòng ban thông minh theo chuẩn doanh nghiệp (tự động khử trùng lặp)
+const generateDeptCode = (deptName, existingDepartments = [], currentId = '') => {
   if (!deptName || !deptName.trim()) return '';
 
   const clean = removeVietnameseTones(deptName.trim().toLowerCase());
@@ -38,21 +38,38 @@ const generateDeptCode = (deptName) => {
     { regex: /an\s*ninh|bao\s*mat|security/i, code: 'SEC' }
   ];
 
+  let baseCode = '';
   for (const item of keywordMap) {
     if (item.regex.test(clean)) {
-      return item.code;
+      baseCode = item.code;
+      break;
     }
   }
 
   // 2. Nếu không khớp từ điển: Lược bỏ hư từ tiền tố ('phong', 'ban', 'to', 'khoi', 'trung tam') và lấy chữ cái đầu
-  const words = clean
-    .split(/[\s\-_]+/)
-    .filter(w => !['phong', 'ban', 'to', 'khoi', 'trung', 'tam', 'bo', 'phan'].includes(w));
+  if (!baseCode) {
+    const words = clean
+      .split(/[\s\-_]+/)
+      .filter(w => !['phong', 'ban', 'to', 'khoi', 'trung', 'tam', 'bo', 'phan'].includes(w));
 
-  const targetWords = words.length > 0 ? words : clean.split(/[\s\-_]+/);
-  const initials = targetWords.map(w => w[0]?.toUpperCase()).join('');
+    const targetWords = words.length > 0 ? words : clean.split(/[\s\-_]+/);
+    baseCode = targetWords.map(w => w[0]?.toUpperCase()).join('').slice(0, 6);
+  }
 
-  return initials.slice(0, 6);
+  if (!baseCode) {
+    baseCode = 'PB';
+  }
+
+  // 3. Tự động kiểm tra trùng lặp với danh sách phòng ban hiện có
+  let finalCode = baseCode;
+  let counter = 2;
+  const isCodeTaken = (c) => existingDepartments.some(d => d.code?.toUpperCase() === c.toUpperCase() && d.id !== currentId);
+  while (isCodeTaken(finalCode)) {
+    finalCode = `${baseCode}${counter}`;
+    counter++;
+  }
+
+  return finalCode;
 };
 
 export const Departments = () => {
@@ -68,10 +85,11 @@ export const Departments = () => {
   const [modalMode, setModalMode] = useState('add');
   const [editingId, setEditingId] = useState('');
   const [formData, setFormData] = useState({ code: '', name: '', managerName: '', quota: 15, parentId: '', status: 'ACTIVE' });
-  const [isManualCode, setIsManualCode] = useState(false);
 
   // Delete confirm state
   const [deleteId, setDeleteId] = useState(null);
+  // Lock/Unlock confirm state
+  const [lockTarget, setLockTarget] = useState(null);
 
   useEffect(() => {
     fetchDepartments();
@@ -87,7 +105,6 @@ export const Departments = () => {
 
   const handleOpenAdd = () => {
     setModalMode('add');
-    setIsManualCode(false);
     setFormData({ code: '', name: '', managerName: '', quota: 15, parentId: '', status: 'ACTIVE' });
     setShowModal(true);
   };
@@ -95,7 +112,6 @@ export const Departments = () => {
   const handleOpenEdit = (dept) => {
     setModalMode('edit');
     setEditingId(dept.id);
-    setIsManualCode(true);
     setFormData({
       code: dept.code,
       name: dept.name,
@@ -107,45 +123,28 @@ export const Departments = () => {
     setShowModal(true);
   };
 
-  // Tự động sinh mã khi nhập Tên phòng ban
+  // Tự động sinh mã phòng ban khi nhập Tên phòng ban
   const handleNameChange = (e) => {
     const newName = e.target.value;
-    const updated = { ...formData, name: newName };
-    if (!isManualCode && modalMode === 'add') {
-      updated.code = generateDeptCode(newName);
-    }
-    setFormData(updated);
-  };
-
-  // Người dùng tùy chỉnh mã: Cưỡng chế in hoa, lọc ký tự hợp lệ
-  const handleCodeChange = (e) => {
-    const raw = e.target.value;
-    const sanitized = removeVietnameseTones(raw)
-      .toUpperCase()
-      .replace(/[^A-Z0-9_\-]/g, '');
-    setFormData({ ...formData, code: sanitized });
-    setIsManualCode(true);
-  };
-
-  // Nút chủ động sinh lại mã gợi ý
-  const handleRegenerateCode = () => {
-    if (!formData.name.trim()) {
-      toast('Vui lòng nhập tên phòng ban trước khi sinh mã!', { icon: 'ℹ️' });
-      return;
-    }
-    const autoCode = generateDeptCode(formData.name);
-    setFormData(prev => ({ ...prev, code: autoCode }));
-    setIsManualCode(false);
-    toast.success(`Đã sinh mã gợi ý: ${autoCode}`);
+    const autoCode = modalMode === 'add' ? generateDeptCode(newName, departments, editingId) : formData.code;
+    setFormData({
+      ...formData,
+      name: newName,
+      code: autoCode
+    });
   };
 
   const handleSave = () => {
     const cleanName = formData.name.trim();
-    const cleanCode = formData.code.trim().toUpperCase();
+    let cleanCode = formData.code ? formData.code.trim().toUpperCase() : '';
 
     if (!cleanName) {
       toast.error('Vui lòng nhập Tên phòng ban!');
       return;
+    }
+
+    if (!cleanCode) {
+      cleanCode = generateDeptCode(cleanName, departments, editingId);
     }
 
     if (!cleanCode || cleanCode.length < 2) {
@@ -158,7 +157,7 @@ export const Departments = () => {
       d => d.code.toUpperCase() === cleanCode && d.id !== editingId
     );
     if (isDuplicate) {
-      toast.error(`Mã phòng ban "${cleanCode}" đã được sử dụng! Vui lòng chọn mã khác.`);
+      toast.error(`Mã phòng ban "${cleanCode}" đã được sử dụng! Vui lòng chọn tên khác.`);
       return;
     }
 
@@ -187,11 +186,20 @@ export const Departments = () => {
     }
   };
 
-  const handleToggleStatus = (dept) => {
-    const newStatus = (dept.status === 'ACTIVE' || dept.status === 'Hoạt động') ? 'INACTIVE' : 'ACTIVE';
-    axios.put(`http://localhost:5000/api/departments/${dept.id}`, { ...dept, status: newStatus })
-      .then(() => fetchDepartments())
-      .catch(err => toast.error(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái'));
+  const handleConfirmToggleStatus = () => {
+    if (!lockTarget) return;
+    const isCurrentlyActive = lockTarget.status === 'ACTIVE' || lockTarget.status === 'Hoạt động';
+    const newStatus = isCurrentlyActive ? 'INACTIVE' : 'ACTIVE';
+    axios.put(`http://localhost:5000/api/departments/${lockTarget.id}`, { ...lockTarget, status: newStatus })
+      .then(() => {
+        toast.success(newStatus === 'ACTIVE' ? 'Đã mở khóa phòng ban!' : 'Đã khóa phòng ban!');
+        fetchDepartments();
+        setLockTarget(null);
+      })
+      .catch(err => {
+        toast.error(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái');
+        setLockTarget(null);
+      });
   };
 
   const handleDelete = () => {
@@ -265,8 +273,8 @@ export const Departments = () => {
           <table>
             <thead>
               <tr>
-                <th>Tên Phòng ban</th>
                 <th>Mã PB</th>
+                <th>Tên Phòng ban</th>
                 <th>Người đại diện</th>
                 <th>Trực thuộc</th>
                 <th>Số lượng nhân sự</th>
@@ -291,6 +299,11 @@ export const Departments = () => {
                   return (
                     <tr key={dept.id}>
                       <td>
+                        <span style={{ color: 'var(--primary)', fontWeight: 600, fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                          {dept.code}
+                        </span>
+                      </td>
+                      <td>
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                             <Building size={16} color="var(--text-muted)" />
@@ -298,7 +311,6 @@ export const Departments = () => {
                           <span style={{ fontWeight: 500, color: 'var(--text-main)' }}>{dept.name}</span>
                         </div>
                       </td>
-                      <td style={{ color: 'var(--primary)' }}>{dept.code}</td>
                       <td>{dept.managerName || '-'}</td>
                       <td>
                         {dept.parentId ? (
@@ -321,7 +333,7 @@ export const Departments = () => {
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => handleToggleStatus(dept)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title={status === 'ACTIVE' || status === 'Hoạt động' ? 'Khóa (Ngưng hoạt động)' : 'Mở khóa (Hoạt động)'}>
+                          <button onClick={() => setLockTarget(dept)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title={status === 'ACTIVE' || status === 'Hoạt động' ? 'Khóa (Ngưng hoạt động)' : 'Mở khóa (Hoạt động)'}>
                             {status === 'ACTIVE' || status === 'Hoạt động' ? <Unlock size={16} color="var(--success)" /> : <Lock size={16} color="var(--warning)" />}
                           </button>
                           <button onClick={() => handleOpenEdit(dept)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title="Chỉnh sửa">
@@ -404,37 +416,23 @@ export const Departments = () => {
                   className="form-input w-full"
                   value={formData.name}
                   onChange={handleNameChange}
-                  placeholder="Ví dụ: Phòng Nhân sự, Tổ Phát triển..."
+                  placeholder="Nhập tên phòng ban..."
                 />
               </div>
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-[var(--text-muted)]">
-                    Mã phòng ban <span style={{ color: 'var(--error)' }}>*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleRegenerateCode}
-                    className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
-                    title="Gợi ý mã chuẩn theo tên phòng ban"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <Sparkles size={13} />
-                    <span>Sinh mã gợi ý</span>
-                  </button>
-                </div>
+                <label className="text-sm font-medium text-[var(--text-muted)]">
+                  Mã phòng ban <span className="text-xs text-[var(--text-muted)] font-normal">(Hệ thống tự sinh)</span>
+                </label>
                 <input
                   type="text"
+                  readOnly
+                  disabled
                   className="form-input w-full font-mono font-semibold"
                   value={formData.code}
-                  onChange={handleCodeChange}
-                  placeholder="Ví dụ: HR, DEV, BGD, TCKT..."
-                  style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
+                  placeholder="Hệ thống tự sinh theo tên..."
+                  style={{ textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.75, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }}
                 />
-                <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '0.75rem', marginTop: '-2px' }}>
-                  💡 Tự động in hoa, không dấu (Tối thiểu 2 ký tự: A-Z, 0-9)
-                </span>
               </div>
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
@@ -467,6 +465,48 @@ export const Departments = () => {
             <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid var(--border)' }}>
               <button onClick={() => setShowModal(false)} className="btn btn-outline">Hủy bỏ</button>
               <button onClick={handleSave} className="btn btn-primary">Lưu thông tin</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Lock/Unlock Confirmation Modal */}
+      {lockTarget && createPortal(
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="card glass flex-col items-center justify-center text-center gap-4" style={{ width: '420px', padding: '1.5rem', animation: 'zoomIn 0.2s ease-out' }}>
+            <div className="flex items-center justify-center mb-2" style={{ width: '4rem', height: '4rem', borderRadius: '50%', backgroundColor: (lockTarget.status === 'ACTIVE' || lockTarget.status === 'Hoạt động') ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)' }}>
+              {(lockTarget.status === 'ACTIVE' || lockTarget.status === 'Hoạt động') ? (
+                <Lock size={32} color="#F59E0B" />
+              ) : (
+                <Unlock size={32} color="#10B981" />
+              )}
+            </div>
+            <h3 className="text-xl font-bold text-[var(--text-main)]">
+              {(lockTarget.status === 'ACTIVE' || lockTarget.status === 'Hoạt động') ? 'Xác nhận khóa phòng ban?' : 'Xác nhận mở khóa phòng ban?'}
+            </h3>
+            <p className="text-[var(--text-muted)] text-sm mb-4">
+              {(lockTarget.status === 'ACTIVE' || lockTarget.status === 'Hoạt động') ? (
+                <>Phòng ban <strong>{lockTarget.name}</strong> ({lockTarget.code}) sẽ chuyển sang trạng thái <strong>Ngưng hoạt động</strong>. Bạn có chắc chắn muốn khóa?</>
+              ) : (
+                <>Phòng ban <strong>{lockTarget.name}</strong> ({lockTarget.code}) sẽ được mở khóa và chuyển sang trạng thái <strong>Hoạt động</strong>.</>
+              )}
+            </p>
+
+            <div className="flex justify-center w-full" style={{ gap: '0.75rem' }}>
+              <button onClick={() => setLockTarget(null)} className="btn btn-outline" style={{ flex: 1 }}>Hủy</button>
+              <button 
+                onClick={handleConfirmToggleStatus} 
+                className="btn" 
+                style={{ 
+                  flex: 1, 
+                  backgroundColor: (lockTarget.status === 'ACTIVE' || lockTarget.status === 'Hoạt động') ? '#F59E0B' : '#10B981', 
+                  color: 'white',
+                  border: 'none'
+                }}
+              >
+                {(lockTarget.status === 'ACTIVE' || lockTarget.status === 'Hoạt động') ? 'Xác nhận khóa' : 'Xác nhận mở khóa'}
+              </button>
             </div>
           </div>
         </div>,

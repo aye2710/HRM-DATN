@@ -307,99 +307,13 @@ export const RecruitmentATS = () => {
           <button onClick={handleExportCSV} className="btn btn-outline" style={{ height: 38, fontSize: '0.85rem' }}>
             <Download size={16} /> Xuất CSV
           </button>
-          <button onClick={() => setShowCandidateModal(true)} className="btn btn-outline" style={{ height: 38, fontSize: '0.85rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}>
+          <button onClick={() => setShowCandidateModal(true)} className="btn btn-primary" style={{ height: 38, fontSize: '0.85rem' }}>
             <UserPlus size={16} /> Thêm Ứng viên
           </button>
-          <button onClick={() => setShowJobModal(true)} className="btn btn-primary" style={{ height: 38, fontSize: '0.85rem' }}>
-            <Briefcase size={16} /> Tạo Vị trí Tuyển
-          </button>
         </div>
       </div>
 
-      {/* 2. Top KPI Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-        }}>
-          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
-            Tổng Hồ sơ ứng viên
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
-            {stats.total}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
-            {jobPostings.length} vị trí đang mở tuyển
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-        }}>
-          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
-            Đang xử lý (Active)
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
-            {stats.activePipeline}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
-            Ứng viên trong pipeline
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-        }}>
-          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
-            Phỏng vấn
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
-            {stats.interviewing}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
-            Đang xếp lịch với Hội đồng
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-        }}>
-          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
-            Chốt Offer
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
-            {stats.offering}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
-            Chờ phản hồi thư mời
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-        }}>
-          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
-            Tuyển thành công
-          </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A' }}>
-            {stats.hired}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
-            Tỷ lệ chuyển đổi: <strong style={{ color: '#059669', fontWeight: 600 }}>{stats.hireRate}%</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Filter Bar: 1 hàng chia 4 ô đều nhau */}
+      {/* 2. Filter Bar: 1 hàng chia 4 ô đều nhau */}
       <div style={{
         backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '0.75rem 1.25rem',
         border: '1px solid var(--border)', display: 'grid',

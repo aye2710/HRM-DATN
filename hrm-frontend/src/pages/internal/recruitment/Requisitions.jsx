@@ -14,33 +14,6 @@ const REQUISITION_LEVELS = [
   'Intern', 'Fresher', 'Junior', 'Staff', 'Mid-level', 'Senior', 'Team Lead', 'Manager', 'Director'
 ];
 
-// Danh mục lý do tuyển dụng
-const RECRUITMENT_REASONS = [
-  { value: 'EXPANSION', label: 'Tuyển mới mở rộng quy mô (Expansion)' },
-  { value: 'REPLACEMENT', label: 'Tuyển thay thế nhân sự nghỉ (Replacement)' },
-  { value: 'PROJECT', label: 'Tuyển theo dự án ngắn hạn (Project-based)' },
-  { value: 'CAMPUS', label: 'Tuyển thực tập sinh định kỳ (Campus)' }
-];
-
-// Danh mục kinh nghiệm yêu cầu
-const EXPERIENCE_LEVELS = [
-  'Không yêu cầu kinh nghiệm',
-  'Dưới 1 năm',
-  '1 - 2 năm',
-  '3 - 5 năm',
-  'Trên 5 năm'
-];
-
-// Danh mục địa điểm làm việc
-const WORK_LOCATIONS = [
-  'Hà Nội',
-  'TP. Hồ Chí Minh',
-  'Đà Nẵng',
-  'Cần Thơ',
-  'Hải Phòng',
-  'Toàn quốc / Remote'
-];
-
 export const Requisitions = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -59,23 +32,24 @@ export const Requisitions = () => {
   const [modalMode, setModalMode] = useState('add');
   const [editingId, setEditingId] = useState('');
   
+  const getTodayStr = () => new Date().toLocaleDateString('en-CA');
+
   const initialFormState = { 
     title: '', 
     description: '', 
     amount: 1, 
+    publishDate: new Date().toLocaleDateString('en-CA'),
     deadline: '', 
-    targetStartDate: '',
     status: 'DRAFT', 
     departmentId: '',
     positionId: '',
     salaryRange: '',
     jobType: 'Full-time',
     level: 'Mid-level',
-    location: 'Hà Nội',
+    location: '',
     workplaceType: 'On-site',
-    experienceLevel: '1 - 2 năm',
-    recruitmentReason: 'EXPANSION',
-    recruiterName: ''
+    experienceLevel: '',
+    recruitmentReason: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -104,30 +78,33 @@ export const Requisitions = () => {
 
   const handleOpenAdd = () => {
     setModalMode('add');
-    setFormData(initialFormState);
+    setFormData({
+      ...initialFormState,
+      publishDate: getTodayStr()
+    });
     setShowModal(true);
   };
 
   const handleOpenEdit = (req) => {
     setModalMode('edit');
     setEditingId(req.id);
+    const todayStr = getTodayStr();
     setFormData({
       title: req.title || '',
       description: req.description || '',
       amount: req.amount || 1,
-      deadline: req.deadline ? new Date(req.deadline).toISOString().split('T')[0] : '',
-      targetStartDate: req.targetStartDate ? new Date(req.targetStartDate).toISOString().split('T')[0] : '',
+      publishDate: req.publishDate ? new Date(req.publishDate).toLocaleDateString('en-CA') : todayStr,
+      deadline: req.deadline ? new Date(req.deadline).toLocaleDateString('en-CA') : '',
       status: req.status || 'DRAFT',
       departmentId: req.departmentId || '',
       positionId: req.positionId || '',
       salaryRange: req.salaryRange || '',
       jobType: req.jobType || 'Full-time',
       level: req.level || 'Mid-level',
-      location: req.location || 'Hà Nội',
+      location: req.location || '',
       workplaceType: req.workplaceType || 'On-site',
-      experienceLevel: req.experienceLevel || '1 - 2 năm',
-      recruitmentReason: req.recruitmentReason || 'EXPANSION',
-      recruiterName: req.recruiterName || ''
+      experienceLevel: req.experienceLevel || '',
+      recruitmentReason: req.recruitmentReason || ''
     });
     setShowModal(true);
   };
@@ -192,11 +169,23 @@ export const Requisitions = () => {
     toast.success('Đã cập nhật tiêu đề gợi ý!');
   };
 
-  // Nút chọn nhanh hạn chót (+15, +30, +45 ngày)
+  // Khi đổi ngày phát hành -> đồng bộ ngày kết thúc nếu ngày kết thúc < ngày phát hành
+  const handlePublishDateChange = (newPublishDate) => {
+    setFormData(prev => {
+      const nextState = { ...prev, publishDate: newPublishDate };
+      if (nextState.deadline && nextState.deadline < newPublishDate) {
+        nextState.deadline = newPublishDate;
+      }
+      return nextState;
+    });
+  };
+
+  // Nút chọn nhanh ngày kết thúc (+15, +30, +45 ngày tính từ ngày phát hành)
   const handleQuickDeadline = (days) => {
-    const d = new Date();
+    const baseStr = formData.publishDate || getTodayStr();
+    const d = new Date(baseStr);
     d.setDate(d.getDate() + days);
-    setFormData(prev => ({ ...prev, deadline: d.toISOString().split('T')[0] }));
+    setFormData(prev => ({ ...prev, deadline: d.toLocaleDateString('en-CA') }));
   };
 
   // Nút điền mẫu JD chuẩn tự động
@@ -232,11 +221,15 @@ export const Requisitions = () => {
   const handleSave = () => {
     if (!formData.title?.trim()) return toast.error("Vui lòng nhập tên chiến dịch tuyển dụng");
     if (!formData.positionId) return toast.error("Vui lòng chọn Vị trí (Chức danh) cần tuyển");
-    if (!formData.deadline) return toast.error("Vui lòng chọn Hạn chót nộp hồ sơ");
+    if (!formData.deadline) return toast.error("Vui lòng chọn Ngày kết thúc");
     
-    const today = new Date().toISOString().split('T')[0];
-    if (formData.deadline < today) {
-      return toast.error("Hạn chót nộp hồ sơ phải từ hôm nay trở đi!");
+    const today = getTodayStr();
+    if (formData.publishDate && formData.publishDate < today) {
+      return toast.error("Ngày phát hành không được chọn ngày trong quá khứ!");
+    }
+    const minEndDate = formData.publishDate || today;
+    if (formData.deadline < minEndDate) {
+      return toast.error("Ngày kết thúc không được bé hơn Ngày phát hành!");
     }
     
     if (modalMode === 'add') {
@@ -315,11 +308,16 @@ export const Requisitions = () => {
     <div className="flex-col gap-6 animate-fade-in relative">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title">Yêu cầu Tuyển dụng</h1>
-          <p className="text-muted text-sm">Quản lý các chiến dịch tuyển dụng của các phòng ban</p>
+          <div className="flex items-center gap-2.5">
+            <h1 className="page-title">Yêu cầu Tuyển dụng</h1>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+              MẪU F37 - LLA (SOP-100)
+            </span>
+          </div>
+          <p className="text-muted text-sm">Quản lý các chiến dịch tuyển dụng và kiểm soát trần định biên nhân sự theo phòng ban</p>
         </div>
         <button onClick={handleOpenAdd} className="btn btn-primary">
-          <Plus size={18} /> Tạo Yêu cầu mới
+          <Plus size={18} /> Lập Phiếu Tuyển dụng (F37)
         </button>
       </div>
 
@@ -372,7 +370,8 @@ export const Requisitions = () => {
                 <th>Phòng ban</th>
                 <th>Số lượng</th>
                 <th>Mức lương</th>
-                <th>Hạn chót</th>
+                <th>Ngày phát hành</th>
+                <th>Ngày kết thúc</th>
                 <th>Tiến độ</th>
                 <th>Trạng thái</th>
                 <th className="text-center">Thao tác</th>
@@ -381,11 +380,11 @@ export const Requisitions = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="text-center text-muted py-8">Đang tải dữ liệu...</td>
+                  <td colSpan="9" className="text-center text-muted py-8">Đang tải dữ liệu...</td>
                 </tr>
               ) : paginatedRequisitions.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center text-muted py-8">Chưa có yêu cầu tuyển dụng nào</td>
+                  <td colSpan="9" className="text-center text-muted py-8">Chưa có yêu cầu tuyển dụng nào</td>
                 </tr>
               ) : (
                 paginatedRequisitions.map(req => {
@@ -404,6 +403,7 @@ export const Requisitions = () => {
                             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                               {req.position?.title ? `${req.position.title} • ` : ''}
                               {req.level || 'Intern'} • {req.jobType || 'Full-time'}
+                              {req.location ? ` • ${req.location}` : ''}
                             </span>
                           </div>
                         </div>
@@ -420,10 +420,16 @@ export const Requisitions = () => {
                         <span style={{ color: 'var(--success)', fontWeight: 500 }}>{req.salaryRange || 'Thỏa thuận'}</span>
                       </td>
                       <td>
-                        <div className="flex items-center gap-1 text-muted">
-                          <Calendar size={14} /> 
-                          {req.deadline ? new Date(req.deadline).toLocaleDateString('vi-VN') : 'Không có'}
-                        </div>
+                        <span className="text-xs font-medium text-[var(--text-main)]">
+                          {req.publishDate 
+                            ? new Date(req.publishDate).toLocaleDateString('vi-VN') 
+                            : (req.createdAt ? new Date(req.createdAt).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN'))}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="text-xs font-medium" style={{ color: req.deadline ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                          {req.deadline ? new Date(req.deadline).toLocaleDateString('vi-VN') : '-'}
+                        </span>
                       </td>
                       <td>
                         <div className="flex-col gap-1">
@@ -437,9 +443,25 @@ export const Requisitions = () => {
                         </div>
                       </td>
                       <td>
-                        <span className={`badge ${req.status === 'PUBLISHED' ? 'badge-success' : req.status === 'CLOSED' ? 'badge-error' : 'badge-purple'}`}>
-                          {req.status === 'PUBLISHED' ? 'Phát hành' : req.status === 'CLOSED' ? 'Ngừng phát hành' : 'Bản nháp'}
-                        </span>
+                        {(() => {
+                          const todayStr = getTodayStr();
+                          const isFuturePublish = req.publishDate && new Date(req.publishDate).toISOString().split('T')[0] > todayStr;
+                          
+                          if (req.status === 'PUBLISHED') {
+                            if (isFuturePublish) {
+                              return (
+                                <span className="badge badge-warning" title={`Tự động đăng lên trang tuyển vào ngày ${new Date(req.publishDate).toLocaleDateString('vi-VN')}`}>
+                                  Chờ đăng ({new Date(req.publishDate).toLocaleDateString('vi-VN')})
+                                </span>
+                              );
+                            }
+                            return <span className="badge badge-success">Phát hành</span>;
+                          }
+                          if (req.status === 'CLOSED') {
+                            return <span className="badge badge-error">Ngừng phát hành</span>;
+                          }
+                          return <span className="badge badge-purple">Bản nháp</span>;
+                        })()}
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -507,10 +529,10 @@ export const Requisitions = () => {
             <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
               <div>
                 <h3 className="text-xl font-bold text-[var(--text-main)]">
-                  {modalMode === 'add' ? 'Tạo Yêu cầu Tuyển dụng Mới' : 'Cập nhật Yêu cầu Tuyển dụng'}
+                  {modalMode === 'add' ? 'Lập Phiếu Yêu Cầu Tuyển Dụng (Mẫu F37)' : 'Cập Nhật Phiếu Yêu Cầu Tuyển Dụng (Mẫu F37)'}
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Thiết lập chỉ tiêu tuyển dụng, ngân sách và liên kết định biên phòng ban
+                  Quy trình SOP-100: Kiểm tra trần định biên nhân sự phòng ban và bảo vệ ngân sách quỹ lương
                 </p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors">
@@ -624,16 +646,13 @@ export const Requisitions = () => {
               {/* Row 4: Yêu cầu kinh nghiệm & Loại hình làm việc */}
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Yêu cầu kinh nghiệm</label>
-                <select 
-                  className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
+                <input 
+                  type="text" 
+                  className="form-input w-full font-medium" 
                   value={formData.experienceLevel} 
-                  onChange={e => setFormData({...formData, experienceLevel: e.target.value})}
-                >
-                  {EXPERIENCE_LEVELS.map(exp => (
-                    <option key={exp} value={exp} className="text-black">{exp}</option>
-                  ))}
-                </select>
+                  onChange={e => setFormData({...formData, experienceLevel: e.target.value})} 
+                  placeholder="VD: 1 - 2 năm kinh nghiệm, Không yêu cầu..." 
+                />
               </div>
 
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
@@ -646,24 +665,19 @@ export const Requisitions = () => {
                 >
                   <option value="Full-time" className="text-black">Toàn thời gian (Full-time)</option>
                   <option value="Part-time" className="text-black">Bán thời gian (Part-time)</option>
-                  <option value="Internship" className="text-black">Thực tập sinh (Internship)</option>
-                  <option value="Contract" className="text-black">Hợp đồng dự án (Contract)</option>
                 </select>
               </div>
 
               {/* Row 5: Địa điểm làm việc & Chế độ làm việc */}
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Địa điểm làm việc</label>
-                <select 
-                  className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
+                <input 
+                  type="text" 
+                  className="form-input w-full font-medium" 
                   value={formData.location} 
-                  onChange={e => setFormData({...formData, location: e.target.value})}
-                >
-                  {WORK_LOCATIONS.map(loc => (
-                    <option key={loc} value={loc} className="text-black">{loc}</option>
-                  ))}
-                </select>
+                  onChange={e => setFormData({...formData, location: e.target.value})} 
+                  placeholder="VD: Hà Nội, TP. Hồ Chí Minh, Toàn quốc..." 
+                />
               </div>
 
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
@@ -701,53 +715,34 @@ export const Requisitions = () => {
 
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Lý do tuyển dụng</label>
-                <select 
-                  className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
-                  value={formData.recruitmentReason} 
-                  onChange={e => setFormData({...formData, recruitmentReason: e.target.value})}
-                >
-                  {RECRUITMENT_REASONS.map(r => (
-                    <option key={r.value} value={r.value} className="text-black">{r.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Row 7: Chuyên viên phụ trách & Ngày dự kiến đi làm */}
-              <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Chuyên viên phụ trách (Recruiter)</label>
-                <select 
-                  className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
-                  value={formData.recruiterName} 
-                  onChange={e => setFormData({...formData, recruiterName: e.target.value})}
-                >
-                  <option value="" className="text-black">-- Chọn chuyên viên phụ trách --</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.fullName} className="text-black">
-                      {emp.fullName} ({emp.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
-                <label className="text-sm font-medium text-[var(--text-muted)]">Ngày dự kiến đi làm (Target Date)</label>
                 <input 
-                  type="date" 
-                  className="form-input w-full" 
-                  style={{ colorScheme: 'dark' }} 
-                  value={formData.targetStartDate} 
-                  onChange={e => setFormData({...formData, targetStartDate: e.target.value})} 
-                  min={new Date().toISOString().split('T')[0]}
+                  type="text" 
+                  className="form-input w-full font-medium" 
+                  value={formData.recruitmentReason} 
+                  onChange={e => setFormData({...formData, recruitmentReason: e.target.value})} 
+                  placeholder="VD: Mở rộng quy mô, thay thế nhân sự nghỉ..." 
                 />
               </div>
 
-              {/* Row 8: Hạn chót nộp hồ sơ & Trạng thái phát hành */}
+              {/* Row 7: Ngày phát hành & Ngày kết thúc */}
+              <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
+                <label className="text-sm font-medium text-[var(--text-muted)]">
+                  Ngày phát hành <span style={{ color: 'var(--error)' }}>*</span>
+                </label>
+                <input 
+                  type="date" 
+                  className="form-input w-full font-medium" 
+                  style={{ colorScheme: 'dark' }} 
+                  value={formData.publishDate} 
+                  onChange={e => handlePublishDateChange(e.target.value)} 
+                  min={getTodayStr()}
+                />
+              </div>
+
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-medium text-[var(--text-muted)]">
-                    Hạn chót nộp hồ sơ <span style={{ color: 'var(--error)' }}>*</span>
+                    Ngày kết thúc <span style={{ color: 'var(--error)' }}>*</span>
                   </label>
                   <div className="flex gap-1">
                     {[15, 30, 45].map(days => (
@@ -757,7 +752,7 @@ export const Requisitions = () => {
                         onClick={() => handleQuickDeadline(days)}
                         className="text-xs px-1.5 py-0.5 rounded bg-[var(--bg-hover)] hover:bg-[var(--primary)] hover:text-white transition-colors"
                         style={{ border: '1px solid var(--border)', fontSize: '0.7rem' }}
-                        title={`Cộng thêm ${days} ngày từ hôm nay`}
+                        title={`Cộng thêm ${days} ngày từ ngày phát hành`}
                       >
                         +{days}d
                       </button>
@@ -766,15 +761,16 @@ export const Requisitions = () => {
                 </div>
                 <input 
                   type="date" 
-                  className="form-input w-full" 
+                  className="form-input w-full font-medium" 
                   style={{ colorScheme: 'dark' }} 
                   value={formData.deadline} 
                   onChange={e => setFormData({...formData, deadline: e.target.value})} 
-                  min={new Date().toISOString().split('T')[0]}
+                  min={formData.publishDate || getTodayStr()}
                 />
               </div>
 
-              <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
+              {/* Row 8: Trạng thái phát hành */}
+              <div className="flex-col gap-1.5" style={{ gridColumn: 'span 2' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">Trạng thái phát hành</label>
                 <select 
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Plus, Trash2, Edit, X, UserCircle, Eye, List, LayoutGrid, 
+  Search, Plus, Trash2, Edit, X, Eye, 
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users, 
-  UserCheck, Clock, UserPlus, UserX, FileSpreadsheet, RefreshCw, Mail, Phone, Shield
+  FileSpreadsheet, RefreshCw
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
@@ -15,8 +15,6 @@ export const EmployeeList = () => {
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [positions, setPositions] = useState([]);
-  const [viewMode, setViewMode] = useState('list');
-  
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -70,16 +68,6 @@ export const EmployeeList = () => {
     fetchData();
   }, []);
 
-  // Top KPI Metrics
-  const stats = useMemo(() => {
-    const total = employees.length;
-    const active = employees.filter(e => e.status === 'ACTIVE').length;
-    const probation = employees.filter(e => e.status === 'PROBATION' || e.status === 'INTERNSHIP').length;
-    const onboarding = employees.filter(e => e.status === 'ONBOARDING').length;
-    const resigned = employees.filter(e => e.status === 'RESIGNED').length;
-    return { total, active, probation, onboarding, resigned };
-  }, [employees]);
-
   // Filtered List
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
@@ -87,6 +75,8 @@ export const EmployeeList = () => {
       const matchSearch = searchTerm === '' ||
         (emp.fullName && emp.fullName.toLowerCase().includes(q)) ||
         (emp.code && emp.code.toLowerCase().includes(q)) ||
+        (emp.position?.title && emp.position.title.toLowerCase().includes(q)) ||
+        (emp.department?.name && emp.department.name.toLowerCase().includes(q)) ||
         (emp.email && emp.email.toLowerCase().includes(q)) ||
         (emp.phone && emp.phone.includes(q)) ||
         (emp.cccd && emp.cccd.includes(q));
@@ -294,36 +284,11 @@ export const EmployeeList = () => {
             </h1>
           </div>
           <p style={{ margin: 0, color: '#64748B', fontSize: '0.875rem' }}>
-            Quản trị vòng đời nhân sự, hợp đồng lao động, vị trí chức danh và định danh CCCD tập trung.
+            Quản trị vòng đời nhân sự, hợp đồng lao động, vị trí chức danh và phòng ban tập trung.
           </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '0.5rem', overflow: 'hidden' }}>
-            <button 
-              onClick={() => setViewMode('list')} 
-              style={{
-                padding: '0.45rem 0.65rem', border: 'none', cursor: 'pointer',
-                backgroundColor: viewMode === 'list' ? '#2563EB' : 'transparent',
-                color: viewMode === 'list' ? '#FFFFFF' : '#64748B'
-              }}
-              title="Dạng Bảng chi tiết"
-            >
-              <List size={16} />
-            </button>
-            <button 
-              onClick={() => setViewMode('grid')} 
-              style={{
-                padding: '0.45rem 0.65rem', border: 'none', cursor: 'pointer',
-                backgroundColor: viewMode === 'grid' ? '#2563EB' : 'transparent',
-                color: viewMode === 'grid' ? '#FFFFFF' : '#64748B'
-              }}
-              title="Dạng Thẻ danh bạ"
-            >
-              <LayoutGrid size={16} />
-            </button>
-          </div>
-
           <button 
             onClick={handleExportCSV} 
             className="btn btn-outline"
@@ -351,74 +316,7 @@ export const EmployeeList = () => {
         </div>
       </div>
 
-      {/* 2. Top 5 KPI Metrics Strip */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '0.75rem'
-      }}>
-        {/* Card 1: Tổng nhân sự */}
-        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-          <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Users size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>Tổng nhân sự</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A' }}>{stats.total}</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B' }}>Toàn bộ hồ sơ trong CSDL</div>
-          </div>
-        </div>
-
-        {/* Card 2: Chính thức */}
-        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-          <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#DCFCE7', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <UserCheck size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#166534', textTransform: 'uppercase' }}>Chính thức (Active)</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#166534' }}>{stats.active}</div>
-            <div style={{ fontSize: '0.75rem', color: '#15803D' }}>Đã ký HĐ chính thức</div>
-          </div>
-        </div>
-
-        {/* Card 3: Thử việc */}
-        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-          <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#FEF3C7', color: '#92400e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Clock size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#92400e', textTransform: 'uppercase' }}>Thử việc / Thực tập</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#92400e' }}>{stats.probation}</div>
-            <div style={{ fontSize: '0.75rem', color: '#B45309' }}>Theo BLLĐ &le;60 ngày</div>
-          </div>
-        </div>
-
-        {/* Card 4: Đang hội nhập */}
-        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-          <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#E0E7FF', color: '#4338CA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <UserPlus size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4338CA', textTransform: 'uppercase' }}>Đang hội nhập</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#4338CA' }}>{stats.onboarding}</div>
-            <div style={{ fontSize: '0.75rem', color: '#4F46E5' }}>Chờ hoàn tất thủ tục</div>
-          </div>
-        </div>
-
-        {/* Card 5: Thôi việc */}
-        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-          <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#F1F5F9', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <UserX size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>Đã thôi việc</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#475569' }}>{stats.resigned}</div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Đã thu hồi tài sản & chốt sổ</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Filter Toolbar */}
+      {/* 2. Filter Toolbar */}
       <div style={{
         backgroundColor: '#FFFFFF',
         borderRadius: '0.75rem',
@@ -436,7 +334,7 @@ export const EmployeeList = () => {
           <input 
             type="text" 
             className="form-input w-full"
-            placeholder="Tìm theo Tên, Mã NV, CCCD, Email hoặc SĐT..."
+            placeholder="Tìm theo Tên, Mã NV, Phòng ban, Chức danh..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             style={{ paddingLeft: '2.25rem', fontSize: '0.875rem' }}
@@ -530,25 +428,26 @@ export const EmployeeList = () => {
             <Users size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.4 }} />
             Không tìm thấy hồ sơ nhân sự nào phù hợp với bộ lọc.
           </div>
-        ) : viewMode === 'list' ? (
+        ) : (
           /* LIST TABLE VIEW */
           <div style={{ overflowX: 'auto' }}>
             <table className="w-full text-left" style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.875rem' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   <th style={{ padding: '0.85rem 1rem', width: 110 }}>Mã NV</th>
-                  <th style={{ padding: '0.85rem 1rem' }}>Nhân sự & Định danh</th>
-                  <th style={{ padding: '0.85rem 1rem' }}>Chức danh / Phòng ban</th>
-                  <th style={{ padding: '0.85rem 1rem', width: 140 }}>Hợp đồng hiện tại</th>
-                  <th style={{ padding: '0.85rem 1rem', width: 130 }}>Ngày vào làm</th>
+                  <th style={{ padding: '0.85rem 1rem', minWidth: 200 }}>Họ và Tên</th>
+                  <th style={{ padding: '0.85rem 1rem', minWidth: 170 }}>Chức danh</th>
+                  <th style={{ padding: '0.85rem 1rem', minWidth: 160 }}>Phòng ban</th>
+                  <th style={{ padding: '0.85rem 1rem', width: 140 }}>Ngày vào làm</th>
                   <th style={{ padding: '0.85rem 1rem', width: 130 }}>Trạng thái</th>
-                  <th style={{ padding: '0.85rem 1rem', width: 120, textAlign: 'right' }}>Thao tác</th>
+                  <th style={{ padding: '0.85rem 1rem', width: 100, textAlign: 'center' }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedEmployees.map(emp => (
                   <tr key={emp.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background-color 0.15s' }} className="hover:bg-slate-50">
-                    <td style={{ padding: '0.75rem 1rem' }}>
+                    {/* 1. Mã NV */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
                       <span 
                         onClick={() => navigate(`/internal/employees/profiles/${emp.id}`)}
                         style={{ fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}
@@ -557,50 +456,52 @@ export const EmployeeList = () => {
                         {emp.code}
                       </span>
                     </td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
+
+                    {/* 2. Họ và Tên (Không có thông tin định danh linh tinh) */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                         <div style={{
                           width: 34, height: 34, borderRadius: '50%',
                           backgroundColor: '#EFF6FF', color: '#1D4ED8',
                           fontWeight: 700, fontSize: '0.825rem',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: '1px solid #DBEAFE'
+                          border: '1px solid #DBEAFE', flexShrink: 0
                         }}>
                           {emp.fullName?.split(' ').pop()?.substring(0, 2).toUpperCase() || 'NV'}
                         </div>
-                        <div>
-                          <div 
-                            onClick={() => navigate(`/internal/employees/profiles/${emp.id}`)}
-                            style={{ fontWeight: 600, color: '#0F172A', cursor: 'pointer' }}
-                            className="hover:text-blue-600"
-                          >
-                            {emp.fullName}
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {emp.cccd && <span>CCCD: {emp.cccd}</span>}
-                            {emp.email && <span>• {emp.email}</span>}
-                            {emp.phone && <span>• {emp.phone}</span>}
-                          </div>
-                        </div>
+                        <span 
+                          onClick={() => navigate(`/internal/employees/profiles/${emp.id}`)}
+                          style={{ fontWeight: 600, color: '#0F172A', cursor: 'pointer' }}
+                          className="hover:text-blue-600"
+                        >
+                          {emp.fullName}
+                        </span>
                       </div>
                     </td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <span style={{ fontWeight: 600, color: '#0F172A' }}>{emp.position?.title || 'Chưa xếp chức vụ'}</span>
+
+                    {/* 3. Chức danh */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                          {emp.position?.title || 'Chưa xếp chức danh'}
+                        </span>
                         {emp.position?.level && (
                           <span className="badge badge-purple" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
                             {emp.position.level}
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.15rem' }}>
+                    </td>
+
+                    {/* 4. Phòng ban */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      <span style={{ color: '#334155', fontWeight: 500 }}>
                         {emp.department?.name || 'Chưa xếp phòng ban'}
-                      </div>
+                      </span>
                     </td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      {getContractBadge(emp)}
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
+
+                    {/* 5. Ngày vào làm */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
                       <div style={{ fontWeight: 500, color: '#0F172A' }}>
                         {new Date(emp.joinDate).toLocaleDateString('vi-VN')}
                       </div>
@@ -608,34 +509,30 @@ export const EmployeeList = () => {
                         {calculateTenure(emp.joinDate)}
                       </div>
                     </td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
+
+                    {/* 6. Trạng thái */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
                       {getStatusBadge(emp.status)}
                     </td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.35rem' }}>
+
+                    {/* 7. Thao tác (Chỉ Xem và Xóa) */}
+                    <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
                         <button 
                           onClick={() => navigate(`/internal/employees/profiles/${emp.id}`)} 
                           className="btn btn-outline"
-                          style={{ padding: '0.35rem 0.5rem', color: '#2563EB', borderColor: '#E2E8F0' }}
+                          style={{ padding: '0.35rem 0.55rem', color: '#2563EB', borderColor: '#E2E8F0', borderRadius: '6px' }}
                           title="Xem chi tiết hồ sơ"
                         >
-                          <Eye size={14} />
-                        </button>
-                        <button 
-                          onClick={() => handleOpenEdit(emp)} 
-                          className="btn btn-outline"
-                          style={{ padding: '0.35rem 0.5rem', color: '#475569', borderColor: '#E2E8F0' }}
-                          title="Chỉnh sửa thông tin"
-                        >
-                          <Edit size={14} />
+                          <Eye size={15} />
                         </button>
                         <button 
                           onClick={() => handleDelete(emp.id)} 
                           className="btn btn-outline"
-                          style={{ padding: '0.35rem 0.5rem', color: '#EF4444', borderColor: '#FEE2E2' }}
+                          style={{ padding: '0.35rem 0.55rem', color: '#EF4444', borderColor: '#FEE2E2', borderRadius: '6px' }}
                           title="Xóa hồ sơ"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -643,97 +540,6 @@ export const EmployeeList = () => {
                 ))}
               </tbody>
             </table>
-          </div>
-        ) : (
-          /* GRID VIEW */
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '1rem',
-            padding: '1.25rem',
-            backgroundColor: '#F8FAFC'
-          }}>
-            {paginatedEmployees.map(emp => (
-              <div 
-                key={emp.id}
-                onClick={() => navigate(`/internal/employees/profiles/${emp.id}`)}
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '0.75rem',
-                  border: '1px solid #E2E8F0',
-                  padding: '1.25rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                  transition: 'all 0.15s ease'
-                }}
-                className="hover:shadow-md hover:border-blue-400"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{
-                    width: 44, height: 44, borderRadius: '50%',
-                    backgroundColor: '#EFF6FF', color: '#2563EB',
-                    fontWeight: 700, fontSize: '1rem',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '1px solid #DBEAFE'
-                  }}>
-                    {emp.fullName?.split(' ').pop()?.substring(0, 2).toUpperCase() || 'NV'}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {emp.fullName}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#2563EB' }}>
-                      {emp.code}
-                    </div>
-                  </div>
-                  <div>
-                    {getStatusBadge(emp.status)}
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B' }}>Chức danh:</span>
-                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{emp.position?.title || '—'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B' }}>Phòng ban:</span>
-                    <span style={{ color: '#0F172A' }}>{emp.department?.name || '—'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B' }}>Hợp đồng:</span>
-                    <span>{getContractBadge(emp)}</span>
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
-                    {calculateTenure(emp.joinDate)}
-                  </span>
-                  <div style={{ display: 'flex', gap: '0.35rem' }} onClick={e => e.stopPropagation()}>
-                    <button 
-                      onClick={() => handleOpenEdit(emp)} 
-                      className="btn btn-outline"
-                      style={{ padding: '0.25rem 0.45rem', fontSize: '0.75rem' }}
-                      title="Sửa"
-                    >
-                      <Edit size={13} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(emp.id)} 
-                      className="btn btn-outline"
-                      style={{ padding: '0.25rem 0.45rem', fontSize: '0.75rem', color: '#EF4444' }}
-                      title="Xóa"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         )}
 

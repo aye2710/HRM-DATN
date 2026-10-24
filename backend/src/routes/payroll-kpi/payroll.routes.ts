@@ -165,16 +165,126 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
       where: whereClause,
       include: {
         employee: {
-          select: { id: true, fullName: true, code: true, department: true, position: true }
+          select: { 
+            id: true, 
+            fullName: true, 
+            code: true, 
+            status: true,
+            joinDate: true,
+            department: true, 
+            position: true,
+            onboardingTasks: true
+          }
         },
         payrollPeriod: true,
         details: true
       },
       orderBy: { employee: { code: 'asc' } }
     });
-    return res.json(records);
+
+    // Bổ sung Logic Chế tài SOP-25: Khóa chi trả lương do trễ nộp hồ sơ gốc cứng > 7 ngày
+    const formattedRecords = records.map(p => {
+      const holdDetail = p.details.find(d => d.type === 'PAYMENT_HOLD');
+      const unlockDetail = p.details.find(d => d.type === 'PAYMENT_UNLOCKED');
+
+      let isPaymentLocked = false;
+      let paymentLockReason = '';
+
+      if (unlockDetail) {
+        isPaymentLocked = false;
+        paymentLockReason = unlockDetail.description || 'Đã mở khóa chi trả thủ công';
+      } else if (holdDetail) {
+        isPaymentLocked = true;
+        paymentLockReason = holdDetail.description || 'Tạm khóa chi trả theo chỉ đạo Kế toán / HR';
+      } else {
+        const joinDate = p.employee?.joinDate ? new Date(p.employee.joinDate) : null;
+        if (joinDate) {
+          const diffDays = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
+          const hasIncompleteDocTasks = p.employee?.onboardingTasks?.some(t => 
+            (t.category === 'CONTRACT' || t.taskName?.toLowerCase().includes('hồ sơ') || t.taskName?.toLowerCase().includes('giấy tờ') || t.taskName?.toLowerCase().includes('cccd')) && !t.isCompleted
+          );
+          const isStillOnboarding = p.employee?.status === 'ONBOARDING';
+
+          if (diffDays > 7 && (hasIncompleteDocTasks || isStillOnboarding)) {
+            isPaymentLocked = true;
+            paymentLockReason = `Chậm nộp hồ sơ gốc quá ${diffDays} ngày (SOP-25: Vượt hạn định 7 ngày)`;
+          }
+        }
+      }
+
+      return {
+        ...p,
+        isPaymentLocked,
+        paymentLockReason
+      };
+    });
+
+    return res.json(formattedRecords);
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi lấy dữ liệu bảng lương' });
+  }
+});
+
+// 4b. POST: Khóa / Mở khóa chi trả lương từng nhân sự (SOP-25 - HR & Kế toán)
+router.post('/payslip/:id/toggle-payment-hold', authenticateToken, hrOrAccountant, async (req: any, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { lock, reason } = req.body; // lock: boolean
+
+    const payslip = await prisma.payslip.findUnique({
+      where: { id },
+      include: { employee: true, details: true }
+    });
+
+    if (!payslip) {
+      return res.status(404).json({ error: 'Không tìm thấy phiếu lương' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Xóa các trạng thái hold/unlocked cũ
+      await tx.payslipDetail.deleteMany({
+        where: {
+          payslipId: id,
+          type: { in: ['PAYMENT_HOLD', 'PAYMENT_UNLOCKED'] }
+        }
+      });
+
+      if (lock) {
+        await tx.payslipDetail.create({
+          data: {
+            payslipId: id,
+            type: 'PAYMENT_HOLD',
+            amount: 0,
+            description: reason || 'Tạm khóa chi trả theo quy định SOP-25 (Chậm nộp hồ sơ gốc > 7 ngày)'
+          }
+        });
+      } else {
+        await tx.payslipDetail.create({
+          data: {
+            payslipId: id,
+            type: 'PAYMENT_UNLOCKED',
+            amount: 0,
+            description: reason || 'HR đã xác nhận thu đủ hồ sơ gốc bản cứng. Mở khóa thanh toán.'
+          }
+        });
+      }
+    });
+
+    await createAuditLog({
+      action: lock ? 'LOCK_PAYSLIP_PAYMENT' : 'UNLOCK_PAYSLIP_PAYMENT',
+      tableName: 'Payslip',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: JSON.stringify({ lock, reason })
+    });
+
+    return res.json({ 
+      message: lock ? 'Đã tạm khóa chi trả phiếu lương (SOP-25)' : 'Đã mở khóa chi trả phiếu lương thành công!',
+      isPaymentLocked: lock
+    });
+  } catch (error: any) {
+    console.error('Error in toggle-payment-hold:', error);
+    return res.status(500).json({ error: error.message || 'Lỗi khi cập nhật trạng thái chi trả' });
   }
 });
 

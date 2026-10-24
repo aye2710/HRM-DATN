@@ -126,6 +126,10 @@ export const CandidateLandingPage = () => {
       // Level filter
       const matchesLevel = filterLevel === 'ALL' || (job.level && job.level.toLowerCase() === filterLevel.toLowerCase());
 
+      // Publish date check (chỉ hiển thị nếu đã tới hoặc qua ngày phát hành)
+      const isPublishedDate = !job.publishDate || new Date(job.publishDate) <= new Date();
+      if (!isPublishedDate) return false;
+
       // Type filter
       const matchesType = filterType === 'ALL' || (job.jobType && job.jobType.toLowerCase() === filterType.toLowerCase());
 

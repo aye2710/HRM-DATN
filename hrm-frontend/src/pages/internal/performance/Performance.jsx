@@ -182,12 +182,17 @@ export const Performance = () => {
             }}>
               <Target size={20} />
             </div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
-              Đánh giá Hiệu suất & Xếp loại KPI (Performance Review)
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                Đánh giá Hiệu suất & Xếp loại KPI
+              </h1>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+                MẪU F32 - LLA (SOP-104)
+              </span>
+            </div>
           </div>
           <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Phân bổ nhân sự theo chuẩn đường cong hiệu suất Force Ranking (Top 20% Xuất sắc - Mid 60% Đạt - Bot 20% Cần cải thiện).
+            Quy trình SOP-104: Đánh giá thử việc & hiệu suất định kỳ theo chuẩn phân bổ đường cong Bell Curve (Top 20% Xuất sắc - Mid 60% Đạt - Bot 20% Cần cải thiện).
           </p>
         </div>
 

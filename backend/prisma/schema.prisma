@@ -472,6 +472,7 @@ model JobPosting {
   title             String
   description       String      @db.Text
   amount            Int         @default(1)
+  publishDate       DateTime?
   deadline          DateTime?
   status            String      @default("DRAFT") // DRAFT, PUBLISHED, CLOSED
   salaryRange       String?

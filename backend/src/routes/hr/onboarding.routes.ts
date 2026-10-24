@@ -26,6 +26,56 @@ router.get('/newbies', async (req: Request, res: Response) => {
   }
 });
 
+// 1b. Lấy danh sách Ứng viên đang chờ Hội nhập (Pre-onboarding Hub)
+router.get('/pre-onboarding', async (req: Request, res: Response) => {
+  try {
+    const candidates = await prisma.candidate.findMany({
+      where: {
+        offer: {
+          status: 'ACCEPTED'
+        },
+        status: {
+          not: 'HIRED'
+        }
+      },
+      include: {
+        jobPosting: {
+          include: { department: true, position: true }
+        },
+        offer: true,
+        preOnboarding: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(candidates);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách ứng viên Pre-onboarding' });
+  }
+});
+
+// 1c. Giám sát Tuân thủ Hồ sơ & Khóa lương (SOP-25 Compliance & BOD Logs)
+router.get('/compliance-overview', async (req: Request, res: Response) => {
+  try {
+    const newbies = await prisma.employee.findMany({
+      where: { status: 'ONBOARDING' },
+      include: {
+        department: true,
+        position: true,
+        onboardingTasks: true
+      },
+      orderBy: { joinDate: 'desc' }
+    });
+    const auditLogs = await prisma.auditLog.findMany({
+      where: { action: 'BOD_OVERRIDE_ONBOARDING_PAYROLL_LOCK' },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+    res.json({ newbies, auditLogs });
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi khi lấy dữ liệu giám sát hồ sơ và khóa lương' });
+  }
+});
+
 // 2. Chuyển đổi trạng thái (Check/Uncheck) của 1 task
 router.post('/task/toggle', authenticateToken, async (req: Request, res: Response) => {
   try {
@@ -126,4 +176,40 @@ router.post('/complete', authenticateToken, async (req: any, res: Response): Pro
   }
 });
 
+// 4. Phê duyệt ngoại lệ mở khóa lương từ Ban Giám đốc (FE-G06 - BOD Override & Audit Trail)
+router.post('/bod-override', authenticateToken, requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER'), async (req: any, res: any) => {
+  try {
+    const { employeeId, reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'Bắt buộc nhập lý do ngoại lệ theo chuẩn kiểm toán' });
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId }
+    });
+    if (!employee) {
+      return res.status(404).json({ error: 'Không tìm thấy nhân viên' });
+    }
+
+    // Ghi nhận Audit Log bất biến
+    const log = await createAuditLog({
+      action: 'BOD_OVERRIDE_ONBOARDING_PAYROLL_LOCK',
+      tableName: 'Employee',
+      recordId: employeeId,
+      accountId: req.user?.accountId || 'BOD_ADMIN',
+      details: `Ban Giám đốc phê duyệt mở khóa chi trả lương ngoại lệ cho ${employee.fullName} (${employee.code}). Lý do: ${reason}`
+    });
+
+    res.json({
+      success: true,
+      message: 'Phê duyệt ngoại lệ thành công và đã lưu vết Audit Trail',
+      log
+    });
+  } catch (error: any) {
+    console.error('Error processing BOD override:', error);
+    res.status(500).json({ error: error.message || 'Lỗi khi phê duyệt ngoại lệ' });
+  }
+});
+
 export default router;
+

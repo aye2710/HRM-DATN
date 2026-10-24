@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save, Edit, CheckCircle, Plus, FileText, AlertTriangle, Eye, Upload, Image, X, ExternalLink, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { 
+  ArrowLeft, Save, Edit, CheckCircle, Plus, FileText, AlertTriangle, Eye, Upload, 
+  Image, X, ExternalLink, ChevronLeft, ChevronRight, Trash2, Laptop, FileSignature, 
+  Award, TrendingUp, ShieldCheck, CheckCircle2, Building2, Network, Briefcase
+} from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 const parseContractFiles = (fileUrl) => {
@@ -359,7 +363,9 @@ export const EmployeeDetail = () => {
     { id: 'PERSONAL', label: 'Cá nhân & Liên hệ' },
     { id: 'WORK', label: 'Thông tin Công tác' },
     { id: 'CONTRACTS', label: 'Hợp đồng & Lương' },
-    { id: 'RELATIVES', label: 'Người thân' },
+    { id: 'ASSETS', label: 'Tài sản & Thiết bị' },
+    { id: 'DECISIONS', label: 'Quyết định & Biến động' },
+    { id: 'RELATIVES', label: 'Người thân & Phụ thuộc' },
     { id: 'EDUCATION', label: 'Học vấn & Bằng cấp' }
   ];
 
@@ -641,6 +647,216 @@ export const EmployeeDetail = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* TAB 8: TÀI SẢN & THIẾT BỊ (BM-01 / BM-02 / FE-H10) */}
+          {activeTab === 'ASSETS' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Laptop size={20} color="#3b82f6" /> Danh mục Tài sản & Thiết bị cấp phát
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                    Theo dõi laptop, màn hình, thẻ ra vào (Biên bản bàn giao BM-01 & Thu hồi BM-02 khi thôi việc)
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'white' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead style={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase' }}>
+                    <tr>
+                      <th style={{ padding: '16px', fontWeight: '600' }}>Mã Tài Sản</th>
+                      <th style={{ padding: '16px', fontWeight: '600' }}>Tên Thiết Bị</th>
+                      <th style={{ padding: '16px', fontWeight: '600' }}>Loại</th>
+                      <th style={{ padding: '16px', fontWeight: '600' }}>Ngày Cấp</th>
+                      <th style={{ padding: '16px', fontWeight: '600' }}>Trạng Thái</th>
+                      <th style={{ padding: '16px', fontWeight: '600' }}>Tình Trạng & Ghi Chú</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employee.assetAssignments && employee.assetAssignments.length > 0 ? (
+                      employee.assetAssignments.map(a => (
+                        <tr key={a.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '16px', fontWeight: 600, color: '#2563eb', fontFamily: 'monospace' }}>
+                            {a.asset?.code || '—'}
+                          </td>
+                          <td style={{ padding: '16px', fontWeight: 600, color: '#0f172a' }}>
+                            {a.asset?.name || 'Thiết bị làm việc'}
+                          </td>
+                          <td style={{ padding: '16px', color: '#475569' }}>
+                            {a.asset?.type || 'IT Equipment'}
+                          </td>
+                          <td style={{ padding: '16px', color: '#475569' }}>
+                            {a.assignedDate ? new Date(a.assignedDate).toLocaleDateString('vi-VN') : '—'}
+                          </td>
+                          <td style={{ padding: '16px' }}>
+                            {a.status === 'ACTIVE' ? (
+                              <span style={{ backgroundColor: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <CheckCircle2 size={12} /> Đang sử dụng (BM-01)
+                              </span>
+                            ) : a.status === 'RETURNED' ? (
+                              <span style={{ backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                Đã hoàn trả (BM-02)
+                              </span>
+                            ) : (
+                              <span style={{ backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                {a.status}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '16px', color: '#64748b', fontSize: '0.85rem' }}>
+                            {a.notes || a.asset?.specifications || 'Bàn giao đầy đủ phụ kiện'}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '0.95rem' }}>
+                          <Laptop size={36} color="#cbd5e1" style={{ margin: '0 auto 8px auto', display: 'block' }} />
+                          Chưa có tài sản nào được cấp phát cho nhân sự này.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 12 & 13: QUYẾT ĐỊNH & BIẾN ĐỘNG (SOP-99 / FE-H14 - FE-H16) */}
+          {activeTab === 'DECISIONS' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FileSignature size={20} color="#3b82f6" /> Lịch sử Quyết định Nhân sự ban hành
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                      Văn bản pháp lý chính thức điều chỉnh mức lương, bổ nhiệm chức vụ, điều chuyển phòng ban và khen thưởng kỷ luật
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'white' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead style={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase' }}>
+                      <tr>
+                        <th style={{ padding: '16px', fontWeight: '600' }}>Số Quyết Định</th>
+                        <th style={{ padding: '16px', fontWeight: '600' }}>Loại Quyết Định</th>
+                        <th style={{ padding: '16px', fontWeight: '600' }}>Trích Yếu</th>
+                        <th style={{ padding: '16px', fontWeight: '600' }}>Nội Dung Biến Động</th>
+                        <th style={{ padding: '16px', fontWeight: '600' }}>Ngày Hiệu Lực</th>
+                        <th style={{ padding: '16px', fontWeight: '600' }}>Trạng Thái</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {employee.decisions && employee.decisions.length > 0 ? (
+                        employee.decisions.map(d => (
+                          <tr key={d.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                            <td style={{ padding: '16px', fontWeight: 700, color: '#2563eb', fontFamily: 'monospace' }}>
+                              {d.decisionNumber}
+                            </td>
+                            <td style={{ padding: '16px' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '3px 8px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#334155' }}>
+                                {d.type === 'SALARY_ADJUSTMENT' ? 'Điều chỉnh lương' :
+                                 d.type === 'PROMOTION' ? 'Bổ nhiệm chức vụ' :
+                                 d.type === 'TRANSFER' ? 'Điều chuyển' :
+                                 d.type === 'TERMINATION' ? 'Thôi việc' :
+                                 d.type === 'REWARD' ? 'Khen thưởng' :
+                                 d.type === 'DISCIPLINE' ? 'Kỷ luật' : d.type}
+                              </span>
+                            </td>
+                            <td style={{ padding: '16px', fontWeight: 600, color: '#0f172a' }}>
+                              {d.title}
+                            </td>
+                            <td style={{ padding: '16px', color: '#475569', fontSize: '0.875rem' }}>
+                              {d.type === 'SALARY_ADJUSTMENT' && d.newSalary ? (
+                                <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                                  Lương mới: {Number(d.newSalary).toLocaleString('vi-VN')} đ/tháng
+                                </span>
+                              ) : d.type === 'PROMOTION' && d.newPosition ? (
+                                <span>Vị trí mới: <strong>{d.newPosition.title}</strong></span>
+                              ) : d.type === 'TRANSFER' && d.newDepartment ? (
+                                <span>Phòng ban mới: <strong>{d.newDepartment.name}</strong></span>
+                              ) : (
+                                <span>{d.reason || 'Theo quy chế nội bộ'}</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '16px', color: '#475569' }}>
+                              {d.effectiveDate ? new Date(d.effectiveDate).toLocaleDateString('vi-VN') : '—'}
+                            </td>
+                            <td style={{ padding: '16px' }}>
+                              {d.status === 'APPROVED' ? (
+                                <span style={{ backgroundColor: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <CheckCircle2 size={12} /> Đã ban hành
+                                </span>
+                              ) : d.status === 'PENDING' ? (
+                                <span style={{ backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                  Chờ phê duyệt
+                                </span>
+                              ) : (
+                                <span style={{ backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                  Đã từ chối
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '0.95rem' }}>
+                            <FileSignature size={36} color="#cbd5e1" style={{ margin: '0 auto 8px auto', display: 'block' }} />
+                            Chưa có quyết định nhân sự nào được ban hành cho nhân sự này.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Lịch sử biến động công tác (Employment Histories) */}
+              {employee.employmentHistories && employee.employmentHistories.length > 0 && (
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TrendingUp size={18} color="#0284c7" /> Nhật ký diễn biến chức vụ & phòng ban
+                  </h4>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', backgroundColor: 'white' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                      <thead style={{ backgroundColor: '#f8fafc', color: '#64748b' }}>
+                        <tr>
+                          <th style={{ padding: '12px 16px' }}>Ngày Hiệu Lực</th>
+                          <th style={{ padding: '12px 16px' }}>Phòng Ban</th>
+                          <th style={{ padding: '12px 16px' }}>Vị Trí</th>
+                          <th style={{ padding: '12px 16px' }}>Lý Do Biến Động</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {employee.employmentHistories.map(h => (
+                          <tr key={h.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                            <td style={{ padding: '12px 16px', color: '#0f172a', fontWeight: 600 }}>
+                              {new Date(h.effectiveDate).toLocaleDateString('vi-VN')}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: '#475569' }}>
+                              {h.department?.name || '—'}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: '#475569' }}>
+                              {h.position?.title || '—'}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: '#0284c7', fontWeight: 500 }}>
+                              {h.changeReason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

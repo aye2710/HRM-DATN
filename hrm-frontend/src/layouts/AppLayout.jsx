@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, UserCircle, Menu, Bell, ChevronDown, ChevronRight, CheckSquare, Target, DollarSign, BarChart2, Shield, LogOut, Building, UserPlus, FileSignature, Monitor } from 'lucide-react';
-
+import { 
+  LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, 
+  UserCircle, Menu, Bell, ChevronDown, ChevronRight, CheckSquare, Target, DollarSign, 
+  BarChart2, Shield, LogOut, Building, UserPlus, FileSignature, Monitor, Building2, Check, Sparkles 
+} from 'lucide-react';
 const TopHeader = ({ portalName }) => {
   const fullName = localStorage.getItem('fullName') || 'Unknown User';
   const role = localStorage.getItem('role') || 'EMPLOYEE';

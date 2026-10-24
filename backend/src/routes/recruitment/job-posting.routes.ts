@@ -9,10 +9,17 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
   try {
     const statusQuery = req.query.status as string;
 
-    // BR-CAN-01: Cổng ứng viên chỉ nhận tin PUBLISHED, không kèm danh sách candidate nội bộ (Public)
+    // BR-CAN-01: Cổng ứng viên chỉ nhận tin PUBLISHED và đã đến hoặc qua ngày phát hành
     if (statusQuery === 'PUBLISHED') {
+      const now = new Date();
       const publicJobs = await prisma.jobPosting.findMany({
-        where: { status: 'PUBLISHED' },
+        where: { 
+          status: 'PUBLISHED',
+          OR: [
+            { publishDate: null },
+            { publishDate: { lte: now } }
+          ]
+        },
         include: {
           department: {
             select: { name: true }
@@ -60,7 +67,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
 router.post('/', authenticateToken, requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'RECRUITER'), async (req: Request, res: Response): Promise<any> => {
   try {
     const { 
-      title, description, status, amount, deadline, departmentId, positionId, 
+      title, description, status, amount, publishDate, deadline, departmentId, positionId, 
       salaryRange, jobType, level, location, workplaceType, experienceLevel, 
       recruitmentReason, recruiterName, targetStartDate 
     } = req.body;
@@ -101,6 +108,7 @@ router.post('/', authenticateToken, requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANA
         description: (description as string) || '',
         status: (status as string) || 'DRAFT',
         amount: amount ? parseInt(amount as string) : 1,
+        publishDate: publishDate ? new Date(publishDate as string) : null,
         deadline: deadline ? new Date(deadline as string) : null,
         targetStartDate: targetStartDate ? new Date(targetStartDate as string) : null,
         departmentId: departmentId ? (departmentId as string) : null,
@@ -126,7 +134,7 @@ router.put('/:id', authenticateToken, requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MA
   try {
     const id = req.params.id as string;
     const { 
-      title, description, status, amount, deadline, departmentId, positionId, 
+      title, description, status, amount, publishDate, deadline, departmentId, positionId, 
       salaryRange, jobType, level, location, workplaceType, experienceLevel, 
       recruitmentReason, recruiterName, targetStartDate 
     } = req.body;
@@ -166,8 +174,9 @@ router.put('/:id', authenticateToken, requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MA
         description: description as string,
         status: status as string,
         amount: amount ? parseInt(amount as string) : undefined,
-        deadline: deadline ? new Date(deadline as string) : null,
-        targetStartDate: targetStartDate ? new Date(targetStartDate as string) : null,
+        publishDate: publishDate !== undefined ? (publishDate ? new Date(publishDate as string) : null) : undefined,
+        deadline: deadline !== undefined ? (deadline ? new Date(deadline as string) : null) : undefined,
+        targetStartDate: targetStartDate !== undefined ? (targetStartDate ? new Date(targetStartDate as string) : null) : undefined,
         departmentId: departmentId === '' ? null : (departmentId ? (departmentId as string) : undefined),
         positionId: positionId === '' ? null : (positionId ? (positionId as string) : undefined),
         salaryRange: salaryRange !== undefined ? (salaryRange as string) : undefined,

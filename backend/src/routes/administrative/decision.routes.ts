@@ -99,12 +99,12 @@ router.post('/', hrManagerOnly, async (req: any, res: Response): Promise<any> =>
       return res.status(400).json({ error: 'Vui lòng điền đủ Tiêu đề, Loại quyết định và Nhân sự áp dụng' });
     }
 
-    // Tự sinh số quyết định nếu không nhập (VD: QĐ-2026/001)
+    // Tự sinh số quyết định nếu không nhập (VD: QĐ-2026/001/LLA)
     let finalDecNumber = decisionNumber ? String(decisionNumber).trim().toUpperCase() : null;
     if (!finalDecNumber) {
       const year = new Date().getFullYear();
       const count = await prisma.decision.count();
-      finalDecNumber = `QĐ-${year}/${String(count + 1).padStart(3, '0')}`;
+      finalDecNumber = `QĐ-${year}/${String(count + 1).padStart(3, '0')}/LLA`;
     }
 
     // Lấy thông tin hiện tại của nhân sự để lưu snapshot

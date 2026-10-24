@@ -112,13 +112,43 @@ export const PayrollMgmt = () => {
     }
   };
 
+  const handleTogglePaymentLock = async (payslip, lock) => {
+    const actionText = lock ? 'TẠM KHÓA CHI TRẢ' : 'MỞ KHÓA CHI TRẢ';
+    const confirmText = lock 
+      ? `Bạn có chắc muốn TẠM KHÓA chi trả lương của nhân sự ${payslip.employee?.fullName}? (Chế tài SOP-25: Kế toán sẽ không thể xuất lệnh chuyển tiền cho nhân sự này)`
+      : `Bạn có xác nhận nhân sự ${payslip.employee?.fullName} đã nộp đầy đủ hồ sơ gốc bản cứng (CCCD sao y, Sơ yếu lý lịch, Giấy KSK) để MỞ KHÓA CHI TRẢ?`;
+
+    const result = await Swal.fire({
+      title: `${actionText} (SOP-25)?`,
+      text: confirmText,
+      icon: lock ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonText: `${actionText} ngay`,
+      cancelButtonText: 'Đóng',
+      confirmButtonColor: lock ? '#EF4444' : '#10B981'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.post(`http://localhost:5000/api/payroll/payslip/${payslip.id}/toggle-payment-hold`, {
+          lock,
+          reason: lock ? 'Tạm khóa chi trả do chậm nộp hồ sơ gốc cứng quá 7 ngày theo SOP-25' : 'HR xác nhận đã thu đủ hồ sơ cứng. Mở khóa chi trả.'
+        });
+        toast.success(`Đã ${actionText.toLowerCase()} thành công!`);
+        fetchData();
+      } catch (err) {
+        toast.error('Lỗi khi cập nhật trạng thái chi trả');
+      }
+    }
+  };
+
   const handleExportExcel = () => {
     if (payrolls.length === 0) return toast.error("Không có dữ liệu để xuất");
     
     const headers = [
       "Mã NV", "Họ và tên", "Phòng ban", "Chức vụ", 
       "Lương cơ bản (VND)", "Số ngày công thực tế", "Lương Gross (VND)", 
-      "BHXH/YT/TN (10.5%)", "Thuế TNCN (VND)", "Thực lãnh (VND)", "Trạng thái"
+      "BHXH/YT/TN (10.5%)", "Thuế TNCN (VND)", "Thực lãnh (VND)", "Chế tài SOP-25", "Trạng thái kỳ"
     ];
 
     const rows = payrolls.map(pr => {
@@ -135,6 +165,7 @@ export const PayrollMgmt = () => {
         ins,
         tax,
         pr.netSalary || 0,
+        pr.isPaymentLocked ? `"TẠM KHÓA (${pr.paymentLockReason || 'SOP-25'})"` : '"SẴN SÀNG CHI TRẢ"',
         periodInfo.status === 'LOCKED' ? '"Đã khóa sổ"' : '"Bản nháp"'
       ];
     });
@@ -165,6 +196,7 @@ export const PayrollMgmt = () => {
   const totalInsurance = useMemo(() => payrolls.reduce((sum, p) => sum + Number(p.insuranceDeduction || 0), 0), [payrolls]);
   const totalTax = useMemo(() => payrolls.reduce((sum, p) => sum + Number(p.taxDeduction || 0), 0), [payrolls]);
   const totalDeduction = totalInsurance + totalTax;
+  const lockedCount = useMemo(() => payrolls.filter(p => p.isPaymentLocked).length, [payrolls]);
 
   // Danh sách phòng ban duy nhất
   const departments = useMemo(() => {
@@ -319,6 +351,40 @@ export const PayrollMgmt = () => {
         </div>
       </div>
 
+      {/* Cảnh Báo Chế Tài SOP-25 (Khóa chi trả do trễ nộp hồ sơ gốc cứng > 7 ngày) */}
+      {lockedCount > 0 && (
+        <div style={{
+          backgroundColor: '#FEF2F2',
+          border: '1px solid #FECACA',
+          borderRadius: '14px',
+          padding: '1rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          color: '#991B1B',
+          boxShadow: '0 2px 4px rgba(239, 68, 68, 0.08)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <ShieldAlert size={22} color="#DC2626" />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                CHẾ TÀI SOP-25: Phát hiện {lockedCount} nhân sự bị TẠM KHÓA CHI TRẢ LƯƠNG
+                <span className="badge badge-danger font-bold" style={{ fontSize: '0.7rem' }}>SOP-25 / OBJ-02</span>
+              </div>
+              <div style={{ fontSize: '0.825rem', color: '#B91C1C', marginTop: '0.2rem' }}>
+                Theo Quy chế Quản lý Hồ sơ Nhân sự (SOP-25): Nhân viên mới quá 7 ngày làm việc chưa nộp đủ hồ sơ gốc bản cứng (CCCD sao y, Giấy KSK, Bằng tốt nghiệp công chứng) sẽ tự động bị giữ lệnh chi trả kỳ lương đầu tiên cho đến khi HR gỡ khóa.
+              </div>
+            </div>
+          </div>
+          <span className="badge badge-danger font-bold" style={{ padding: '0.35rem 0.8rem', fontSize: '0.825rem' }}>
+            {lockedCount} nhân sự bị giữ lương
+          </span>
+        </div>
+      )}
+
       {/* 2. Bốn Thẻ Tổng Quan Chỉ Số Tài Chính (Metrics Grid) */}
       <div className="grid grid-cols-4 gap-4">
         {/* Card 1: Base Salary */}
@@ -439,20 +505,21 @@ export const PayrollMgmt = () => {
                 <th className="text-right" style={{ color: 'var(--error)' }}>BHXH (10.5%)</th>
                 <th className="text-right" style={{ color: 'var(--error)' }}>THUẾ TNCN</th>
                 <th className="text-right" style={{ backgroundColor: 'rgba(16, 185, 129, 0.06)' }}>THỰC LÃNH (NET)</th>
+                <th className="text-center" style={{ width: '150px' }}>CHẾ TÀI SOP-25</th>
                 <th className="text-center" style={{ width: '100px' }}>THAO TÁC</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="text-center p-12 text-muted">
+                  <td colSpan="10" className="text-center p-12 text-muted">
                     <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
                     Đang tải dữ liệu bảng lương...
                   </td>
                 </tr>
               ) : currentPayrolls.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center p-12 text-muted">
+                  <td colSpan="10" className="text-center p-12 text-muted">
                     {payrolls.length === 0 
                       ? 'Chưa tính bảng lương cho tháng này. Hãy bấm "Chạy Bảng Lương" phía trên!' 
                       : 'Không tìm thấy nhân viên phù hợp với bộ lọc tìm kiếm.'}
@@ -506,6 +573,44 @@ export const PayrollMgmt = () => {
 
                       <td className="text-right money-text" style={{ color: 'var(--success)', fontWeight: 800, fontSize: '1rem', backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>
                         {formatCurrency(pr.netSalary)}
+                      </td>
+
+                      {/* Cột Chế tài SOP-25 */}
+                      <td className="text-center">
+                        {pr.isPaymentLocked ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                            <span 
+                              className="badge badge-danger flex items-center gap-1 font-bold" 
+                              style={{ fontSize: '0.7rem', padding: '2px 6px', cursor: 'pointer' }}
+                              title={pr.paymentLockReason || 'Tạm khóa do chưa nộp đủ hồ sơ gốc'}
+                            >
+                              <Lock size={10} /> TẠM KHÓA (SOP-25)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePaymentLock(pr, false)}
+                              className="btn btn-outline"
+                              style={{ padding: '2px 8px', fontSize: '0.7rem', color: '#059669', borderColor: '#10B981', display: 'flex', alignItems: 'center', gap: '3px', borderRadius: '4px' }}
+                              title="Xác nhận nhân sự đã nộp đủ hồ sơ gốc bản cứng và mở khóa chi trả"
+                            >
+                              <Unlock size={11} /> Mở khóa
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                            <span className="badge badge-success flex items-center gap-1 font-bold" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
+                              <CheckCircle size={10} /> SẴN SÀNG CHI
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePaymentLock(pr, true)}
+                              style={{ background: 'transparent', border: 'none', color: '#94A3B8', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                              title="Tạm khóa chi trả nhân sự này theo SOP-25"
+                            >
+                              <Lock size={10} /> Tạm khóa
+                            </button>
+                          </div>
+                        )}
                       </td>
 
                       <td className="text-center">

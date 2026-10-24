@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Search, Plus, Filter, Edit2, Trash2, X, AlertTriangle, Lock, Unlock, Sparkles } from 'lucide-react';
+import { Briefcase, Search, Plus, Filter, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -79,16 +79,25 @@ const generatePositionCode = (title, deptCode = '') => {
   }
 
   const prefix = (deptCode || '').trim().toUpperCase();
-  if (!prefix) {
-    return roleCode;
+  let baseCode = roleCode;
+  if (prefix) {
+    if (roleCode === prefix || roleCode.startsWith(`${prefix}-`)) {
+      baseCode = roleCode;
+    } else {
+      baseCode = `${prefix}-${roleCode}`;
+    }
   }
 
-  // Tránh lặp tiền tố nếu roleCode đã trùng tiền tố phòng ban (VD: HR-HR -> HR)
-  if (roleCode === prefix || roleCode.startsWith(`${prefix}-`)) {
-    return roleCode;
+  // 3. Tự động kiểm tra trùng lặp và thêm hậu tố nếu cần
+  let finalCode = baseCode;
+  let counter = 2;
+  const isCodeTaken = (c) => existingPositions.some(p => p.code?.toUpperCase() === c.toUpperCase() && p.id !== currentId);
+  while (isCodeTaken(finalCode)) {
+    finalCode = `${baseCode}_${counter}`;
+    counter++;
   }
 
-  return `${prefix}-${roleCode}`;
+  return finalCode;
 };
 
 // Danh mục chuẩn các cấp bậc thâm niên trong doanh nghiệp
@@ -132,8 +141,8 @@ export const Positions = () => {
   const [modalMode, setModalMode] = useState('add');
   const [editingId, setEditingId] = useState('');
   const [formData, setFormData] = useState({ code: '', title: '', description: '', level: 'Staff', minSalary: 0, maxSalary: 0, departmentId: '', status: 'ACTIVE' });
-  const [isManualCode, setIsManualCode] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [lockTarget, setLockTarget] = useState(null);
 
   useEffect(() => {
     fetchPositions();
@@ -159,7 +168,6 @@ export const Positions = () => {
 
   const handleOpenAdd = () => {
     setModalMode('add');
-    setIsManualCode(false);
     setFormData({ code: '', title: '', description: '', level: 'Staff', minSalary: 0, maxSalary: 0, departmentId: '', status: 'ACTIVE' });
     setShowModal(true);
   };
@@ -167,7 +175,6 @@ export const Positions = () => {
   const handleOpenEdit = (pos) => {
     setModalMode('edit');
     setEditingId(pos.id);
-    setIsManualCode(true);
     setFormData({
       code: pos.code || '',
       title: pos.title || '',
@@ -181,58 +188,42 @@ export const Positions = () => {
     setShowModal(true);
   };
 
-  // Tự động sinh mã khi nhập Tên vị trí
+  // Tự động sinh mã vị trí khi nhập Tên vị trí
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
-    const updated = { ...formData, title: newTitle };
-    if (!isManualCode && modalMode === 'add') {
-      const deptCode = getDeptCode(formData.departmentId);
-      updated.code = generatePositionCode(newTitle, deptCode);
-    }
-    setFormData(updated);
+    const deptCode = getDeptCode(formData.departmentId);
+    const autoCode = modalMode === 'add' ? generatePositionCode(newTitle, deptCode, positions, editingId) : formData.code;
+    setFormData({
+      ...formData,
+      title: newTitle,
+      code: autoCode
+    });
   };
 
-  // Cập nhật lại mã nếu đổi Phòng ban trực thuộc (khi chưa sửa tay)
+  // Cập nhật lại mã nếu đổi Phòng ban trực thuộc
   const handleDepartmentChange = (e) => {
     const newDeptId = e.target.value;
-    const updated = { ...formData, departmentId: newDeptId };
-    if (!isManualCode && modalMode === 'add') {
-      const deptCode = getDeptCode(newDeptId);
-      updated.code = generatePositionCode(formData.title, deptCode);
-    }
-    setFormData(updated);
-  };
-
-  // Người dùng tùy chỉnh mã: Cưỡng chế in hoa, lọc ký tự hợp lệ
-  const handleCodeChange = (e) => {
-    const raw = e.target.value;
-    const sanitized = removeVietnameseTones(raw)
-      .toUpperCase()
-      .replace(/[^A-Z0-9_\-]/g, '');
-    setFormData({ ...formData, code: sanitized });
-    setIsManualCode(true);
-  };
-
-  // Nút chủ động sinh lại mã gợi ý
-  const handleRegenerateCode = () => {
-    if (!formData.title.trim()) {
-      toast('Vui lòng nhập Tên vị trí trước khi sinh mã!', { icon: 'ℹ️' });
-      return;
-    }
-    const deptCode = getDeptCode(formData.departmentId);
-    const autoCode = generatePositionCode(formData.title, deptCode);
-    setFormData(prev => ({ ...prev, code: autoCode }));
-    setIsManualCode(false);
-    toast.success(`Đã sinh mã gợi ý: ${autoCode}`);
+    const deptCode = getDeptCode(newDeptId);
+    const autoCode = modalMode === 'add' ? generatePositionCode(formData.title, deptCode, positions, editingId) : formData.code;
+    setFormData({
+      ...formData,
+      departmentId: newDeptId,
+      code: autoCode
+    });
   };
 
   const handleSave = () => {
     const cleanTitle = formData.title.trim();
-    const cleanCode = formData.code.trim().toUpperCase();
+    let cleanCode = formData.code ? formData.code.trim().toUpperCase() : '';
 
     if (!cleanTitle) {
       toast.error('Vui lòng nhập Tên vị trí / Chức danh!');
       return;
+    }
+
+    if (!cleanCode) {
+      const deptCode = getDeptCode(formData.departmentId);
+      cleanCode = generatePositionCode(cleanTitle, deptCode, positions, editingId);
     }
 
     if (!cleanCode || cleanCode.length < 2) {
@@ -279,11 +270,20 @@ export const Positions = () => {
     }
   };
 
-  const handleToggleStatus = (pos) => {
-    const newStatus = pos.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    axios.put(`http://localhost:5000/api/positions/${pos.id}`, { ...pos, status: newStatus })
-      .then(() => fetchPositions())
-      .catch(err => toast.error(err.response?.data?.error || 'Lỗi cập nhật trạng thái'));
+  const handleConfirmToggleStatus = () => {
+    if (!lockTarget) return;
+    const isCurrentlyActive = lockTarget.status === 'ACTIVE';
+    const newStatus = isCurrentlyActive ? 'INACTIVE' : 'ACTIVE';
+    axios.put(`http://localhost:5000/api/positions/${lockTarget.id}`, { ...lockTarget, status: newStatus })
+      .then(() => {
+        toast.success(newStatus === 'ACTIVE' ? 'Đã mở khóa vị trí!' : 'Đã khóa vị trí!');
+        fetchPositions();
+        setLockTarget(null);
+      })
+      .catch(err => {
+        toast.error(err.response?.data?.error || 'Lỗi cập nhật trạng thái');
+        setLockTarget(null);
+      });
   };
 
   const handleDelete = () => {
@@ -363,7 +363,8 @@ export const Positions = () => {
           <table>
             <thead>
               <tr>
-                <th>Tiêu đề / Mã</th>
+                <th>Mã vị trí</th>
+                <th>Tên vị trí / Chức danh</th>
                 <th>Phòng ban</th>
                 <th>Cấp bậc</th>
                 <th>Khung lương (VND)</th>
@@ -374,20 +375,22 @@ export const Positions = () => {
             <tbody>
               {paginatedPositions.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center text-muted py-8">Không tìm thấy vị trí nào</td>
+                  <td colSpan="7" className="text-center text-muted py-8">Không tìm thấy vị trí nào</td>
                 </tr>
               ) : (
                 paginatedPositions.map(pos => (
                   <tr key={pos.id}>
                     <td>
+                      <span style={{ color: 'var(--primary)', fontWeight: 600, fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                        {pos.code}
+                      </span>
+                    </td>
+                    <td>
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                           <Briefcase size={16} color="var(--accent)" />
                         </div>
-                        <div className="flex-col">
-                          <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{pos.title}</span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{pos.code}</span>
-                        </div>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{pos.title}</span>
                       </div>
                     </td>
                     <td>{pos.department?.name || 'Chung (Toàn công ty)'}</td>
@@ -409,7 +412,7 @@ export const Positions = () => {
                     </td>
                     <td className="text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => handleToggleStatus(pos)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title={pos.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}>
+                        <button onClick={() => setLockTarget(pos)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title={pos.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}>
                           {pos.status === 'ACTIVE' ? <Unlock size={16} color="var(--success)" /> : <Lock size={16} color="var(--warning)" />}
                         </button>
                         <button onClick={() => handleOpenEdit(pos)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title="Chỉnh sửa">
@@ -484,7 +487,7 @@ export const Positions = () => {
                   className="form-input w-full"
                   value={formData.title}
                   onChange={handleTitleChange}
-                  placeholder="Ví dụ: Frontend Developer, Chuyên viên Tuyển dụng..."
+                  placeholder="Nhập tên vị trí / chức danh..."
                 />
               </div>
 
@@ -503,34 +506,20 @@ export const Positions = () => {
                 </select>
               </div>
 
-              {/* Row 2: Mã vị trí (với nút Gợi ý) & Cấp bậc */}
+              {/* Row 2: Mã vị trí & Cấp bậc */}
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-[var(--text-muted)]">
-                    Mã vị trí <span style={{ color: 'var(--error)' }}>*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleRegenerateCode}
-                    className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
-                    title="Gợi ý mã chuẩn theo tên vị trí và phòng ban"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <Sparkles size={13} />
-                    <span>Sinh mã gợi ý</span>
-                  </button>
-                </div>
+                <label className="text-sm font-medium text-[var(--text-muted)]">
+                  Mã vị trí <span className="text-xs text-[var(--text-muted)] font-normal">(Hệ thống tự sinh)</span>
+                </label>
                 <input
                   type="text"
+                  readOnly
+                  disabled
                   className="form-input w-full font-mono font-semibold"
                   value={formData.code}
-                  onChange={handleCodeChange}
-                  placeholder="Ví dụ: DEV-FE, HR-REC..."
-                  style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
+                  placeholder="Hệ thống tự sinh theo vị trí..."
+                  style={{ textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.75, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }}
                 />
-                <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '0.75rem', marginTop: '-2px' }}>
-                  💡 Tự động in hoa, không dấu (Cấu trúc: [PB]-[VỊ_TRÍ])
-                </span>
               </div>
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
@@ -566,9 +555,6 @@ export const Positions = () => {
                   onChange={e => setFormData({ ...formData, minSalary: Math.max(0, parseInt(e.target.value) || 0) })}
                   placeholder="0"
                 />
-                <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '0.75rem', marginTop: '-2px' }}>
-                  {formData.minSalary === 0 ? '💡 Nhập 0 = Mức lương thỏa thuận' : `💰 Quy đổi: ${formatSalaryText(formData.minSalary)}`}
-                </span>
               </div>
 
               <div className="flex-col gap-2" style={{ gridColumn: 'span 1' }}>
@@ -589,9 +575,6 @@ export const Positions = () => {
                   onChange={e => setFormData({ ...formData, maxSalary: Math.max(0, parseInt(e.target.value) || 0) })}
                   placeholder="0"
                 />
-                <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '0.75rem', marginTop: '-2px' }}>
-                  {formData.maxSalary === 0 ? '💡 Nhập 0 = Không giới hạn trần' : `💰 Quy đổi: ${formatSalaryText(formData.maxSalary)}`}
-                </span>
               </div>
 
               {/* Row 4: Mô tả công việc */}
@@ -602,7 +585,7 @@ export const Positions = () => {
                   style={{ minHeight: '80px', padding: '0.75rem' }}
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Mô tả tóm tắt vai trò..."
+                  placeholder="Nhập mô tả công việc..."
                 />
               </div>
             </div>
@@ -610,6 +593,48 @@ export const Positions = () => {
             <div className="flex justify-end" style={{ gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'var(--bg-hover)' }}>
               <button onClick={() => setShowModal(false)} className="btn btn-outline">Hủy bỏ</button>
               <button onClick={handleSave} className="btn btn-primary">Lưu thông tin</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Lock/Unlock Confirmation Modal */}
+      {lockTarget && createPortal(
+        <div className="flex items-center justify-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: 'rgba(67, 89, 113, 0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="card glass flex-col items-center justify-center text-center gap-4" style={{ width: '420px', padding: '1.5rem', animation: 'zoomIn 0.2s ease-out' }}>
+            <div className="flex items-center justify-center mb-2" style={{ width: '4rem', height: '4rem', borderRadius: '50%', backgroundColor: lockTarget.status === 'ACTIVE' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)' }}>
+              {lockTarget.status === 'ACTIVE' ? (
+                <Lock size={32} color="#F59E0B" />
+              ) : (
+                <Unlock size={32} color="#10B981" />
+              )}
+            </div>
+            <h3 className="text-xl font-bold text-[var(--text-main)]">
+              {lockTarget.status === 'ACTIVE' ? 'Xác nhận khóa vị trí?' : 'Xác nhận mở khóa vị trí?'}
+            </h3>
+            <p className="text-[var(--text-muted)] text-sm mb-4">
+              {lockTarget.status === 'ACTIVE' ? (
+                <>Vị trí <strong>{lockTarget.title}</strong> ({lockTarget.code}) sẽ chuyển sang trạng thái <strong>Ngưng hoạt động</strong>. Bạn có chắc chắn muốn khóa?</>
+              ) : (
+                <>Vị trí <strong>{lockTarget.title}</strong> ({lockTarget.code}) sẽ được mở khóa và chuyển sang trạng thái <strong>Hoạt động</strong>.</>
+              )}
+            </p>
+
+            <div className="flex justify-center w-full" style={{ gap: '0.75rem' }}>
+              <button onClick={() => setLockTarget(null)} className="btn btn-outline" style={{ flex: 1 }}>Hủy</button>
+              <button 
+                onClick={handleConfirmToggleStatus} 
+                className="btn" 
+                style={{ 
+                  flex: 1, 
+                  backgroundColor: lockTarget.status === 'ACTIVE' ? '#F59E0B' : '#10B981', 
+                  color: 'white',
+                  border: 'none'
+                }}
+              >
+                {lockTarget.status === 'ACTIVE' ? 'Xác nhận khóa' : 'Xác nhận mở khóa'}
+              </button>
             </div>
           </div>
         </div>,

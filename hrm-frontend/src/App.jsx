@@ -19,6 +19,7 @@ import { Departments } from './pages/internal/organization/Departments';
 import { Positions } from './pages/internal/organization/Positions';
 import { OrgChart } from './pages/internal/organization/OrgChart';
 import { OnboardingMgmt } from './pages/internal/onboarding/OnboardingMgmt';
+import { PreOnboardingHub } from './pages/internal/onboarding/PreOnboardingHub';
 
 import { Requisitions } from './pages/internal/recruitment/Requisitions';
 import { Interviews } from './pages/internal/recruitment/Interviews';
@@ -90,7 +91,8 @@ const internalLinks = [
   {
     to: '/internal/onboarding', label: 'Hội nhập', icon: <CheckSquare size={20} />,
     children: [
-      { to: '/internal/onboarding/newbies', label: 'Trung tâm Hội nhập' },
+      { to: '/internal/onboarding/pre-onboarding', label: 'Tiếp nhận Ứng viên' },
+      { to: '/internal/onboarding/checklist', label: 'Tiến độ Checklist' },
     ]
   },
   {
@@ -206,9 +208,11 @@ function App() {
               <Route path="recruitment/interviews" element={<Interviews />} />
               <Route path="recruitment/offers" element={<Offers />} />
 
-              <Route path="onboarding" element={<Navigate to="onboarding/newbies" replace />} />
-              <Route path="onboarding/newbies" element={<OnboardingMgmt />} />
-              <Route path="onboarding/checklist" element={<ChecklistMgmt />} />
+              <Route path="onboarding" element={<Navigate to="onboarding/checklist" replace />} />
+              <Route path="onboarding/pre-onboarding" element={<PreOnboardingHub />} />
+              <Route path="onboarding/checklist" element={<OnboardingMgmt />} />
+              <Route path="onboarding/newbies" element={<Navigate to="/internal/onboarding/checklist" replace />} />
+              <Route path="onboarding/compliance" element={<Navigate to="/internal/onboarding/checklist" replace />} />
               <Route path="onboarding/equipment" element={<EquipmentProvision />} />
               <Route path="onboarding/accounts" element={<SystemAccounts />} />
               <Route path="onboarding/contracts" element={<Contracts />} />

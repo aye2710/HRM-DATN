@@ -12,6 +12,8 @@ import {
   Clock,
   ShieldCheck,
   CheckCircle2,
+  CheckCheck,
+  Check,
   XCircle,
   Building,
   User,
@@ -19,14 +21,43 @@ import {
   Award,
   Filter,
   ExternalLink,
-  Trash2
+  Trash2,
+  ArrowRight,
+  Edit3,
+  RotateCcw,
+  Mail,
+  FileCheck
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { useNavigate } from 'react-router-dom';
+
+// Avatar styling helpers (Bảng màu pastel hiện đại & monogram chữ cái)
+const getAvatarStyle = (name) => {
+  const styles = [
+    { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE' }, // Blue
+    { bg: '#F5F3FF', text: '#7C3AED', border: '#DDD6FE' }, // Purple
+    { bg: '#ECFDF5', text: '#059669', border: '#A7F3D0' }, // Emerald
+    { bg: '#FFF7ED', text: '#EA580C', border: '#FED7AA' }, // Orange
+    { bg: '#FDF2F8', text: '#DB2777', border: '#FBCFE8' }, // Pink
+    { bg: '#F0FDFA', text: '#0D9488', border: '#99F6E4' }, // Teal
+  ];
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) hash += name.charCodeAt(i);
+  return styles[Math.abs(hash) % styles.length];
+};
+
+const getInitials = (name) => {
+  if (!name) return 'UV';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 export const Offers = () => {
+  const navigate = useNavigate();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,6 +106,11 @@ export const Offers = () => {
 
   // Tiếp nhận nhân sự khi ứng viên đến nhận việc
   const handleOpenOnboard = async (candidate) => {
+    if (candidate.status === 'HIRED') {
+      toast.error('Ứng viên này đã được tiếp nhận thành nhân viên chính thức trước đó!');
+      return;
+    }
+
     const isIntern =
       candidate.jobPosting?.position?.level?.toLowerCase() === 'intern' ||
       candidate.offer?.contractType === 'INTERNSHIP';
@@ -218,7 +254,9 @@ export const Offers = () => {
       const matchStatus =
         !filterStatus ||
         (filterStatus === 'NO_OFFER' && !c.offer) ||
-        (c.offer && c.offer.status === filterStatus);
+        (filterStatus === 'HIRED' && c.status === 'HIRED') ||
+        (filterStatus === 'ACCEPTED' && c.offer?.status === 'ACCEPTED' && c.status !== 'HIRED') ||
+        (filterStatus !== 'HIRED' && filterStatus !== 'ACCEPTED' && c.offer && c.offer.status === filterStatus);
 
       const matchJob = !filterJob || c.jobPosting?.title === filterJob;
 
@@ -259,132 +297,23 @@ export const Offers = () => {
               <Briefcase size={20} />
             </div>
             <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0, letterSpacing: '-0.02em' }}>
-              Quản lý Offer & Tiếp nhận Nhân sự
+              Quản lý Thỏa thuận Offer
             </h1>
           </div>
           <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Theo dõi thỏa thuận tuyển dụng hai chiều, thời hạn phản hồi 24h và kích hoạt hồ sơ nhân sự mới.
+            Theo dõi thỏa thuận tuyển dụng hai chiều, thời hạn phản hồi 24h và bàn giao ứng viên sang phân hệ Hội nhập.
           </p>
         </div>
       </div>
 
-      {/* 2. Top Metric Cards: 4 Thẻ KPI Chuẩn Doanh Nghiệp */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-        
-        {/* KPI 1: Tổng hồ sơ Offer */}
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-          display: 'flex', alignItems: 'center', gap: '1rem'
-        }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: '10px',
-            backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <Users size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>
-              Tổng ứng viên Offer
-            </div>
-            <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
-              {stats.total}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>
-              Hồ sơ trong giai đoạn chốt
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 2: Chờ phản hồi 24h */}
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-          display: 'flex', alignItems: 'center', gap: '1rem'
-        }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: '10px',
-            backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <Clock size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>
-              Chờ phản hồi (24h)
-            </div>
-            <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
-              {stats.pending}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>
-              Đang đếm ngược hạn chót
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3: Đã đồng ý Offer */}
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-          display: 'flex', alignItems: 'center', gap: '1rem'
-        }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: '10px',
-            backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <CheckCircle2 size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>
-              Đã đồng ý nhận việc
-            </div>
-            <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
-              {stats.accepted}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>
-              Sẵn sàng tiếp nhận onboarding
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 4: Từ chối hoặc quá hạn */}
-        <div style={{
-          backgroundColor: '#FFFFFF', padding: '1rem 1.25rem', borderRadius: '12px',
-          border: '1px solid var(--border)', boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-          display: 'flex', alignItems: 'center', gap: '1rem'
-        }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: '10px',
-            backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <XCircle size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>
-              Từ chối / Quá hạn
-            </div>
-            <div style={{ fontSize: '1.65rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
-              {stats.rejected}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>
-              Quá 24h hoặc từ chối
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Toolbar & Bộ lọc Tìm kiếm (1 hàng chia 4 ô đều nhau) */}
+      {/* 2. Toolbar & Bộ lọc Tìm kiếm (Flex gọn gàng, không bị kéo dãn) */}
       <div style={{
         backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '0.75rem 1.25rem',
-        border: '1px solid var(--border)', display: 'grid',
-        gridTemplateColumns: (searchQuery || filterStatus || filterJob || filterDepartment) ? 'repeat(4, minmax(0, 1fr)) auto' : 'repeat(4, minmax(0, 1fr))',
+        border: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap',
         gap: '0.75rem', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
       }}>
         {/* Ô 1: Tìm Kiếm */}
-        <div style={{ position: 'relative', width: '100%' }}>
+        <div style={{ position: 'relative', width: '280px', maxWidth: '100%' }}>
           <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
           <input 
             type="text" 
@@ -397,7 +326,7 @@ export const Offers = () => {
         </div>
 
         {/* Ô 2: Lọc Trạng thái Offer */}
-        <div style={{ width: '100%' }}>
+        <div style={{ width: '210px', maxWidth: '100%' }}>
           <select 
             className="form-input" 
             style={{ height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC', width: '100%' }}
@@ -406,6 +335,7 @@ export const Offers = () => {
           >
             <option value="">Tất cả trạng thái Offer</option>
             <option value="ACCEPTED">Đã đồng ý Offer</option>
+            <option value="HIRED">Đã tiếp nhận thành Nhân viên</option>
             <option value="PENDING">Chờ phản hồi (24h)</option>
             <option value="REJECTED">Từ chối / Quá hạn 24h</option>
             <option value="NO_OFFER">Chưa gửi Offer</option>
@@ -413,7 +343,7 @@ export const Offers = () => {
         </div>
 
         {/* Ô 3: Lọc theo Vị trí tuyển dụng */}
-        <div style={{ width: '100%' }}>
+        <div style={{ width: '220px', maxWidth: '100%' }}>
           <select 
             className="form-input" 
             style={{ height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC', width: '100%' }}
@@ -428,7 +358,7 @@ export const Offers = () => {
         </div>
 
         {/* Ô 4: Lọc theo Phòng ban */}
-        <div style={{ width: '100%' }}>
+        <div style={{ width: '200px', maxWidth: '100%' }}>
           <select 
             className="form-input" 
             style={{ height: 38, fontSize: '0.85rem', backgroundColor: '#F8FAFC', width: '100%' }}
@@ -468,23 +398,23 @@ export const Offers = () => {
         overflow: 'hidden',
         boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)'
       }}>
-        <div className="table-container" style={{ margin: 0 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="table-container" style={{ margin: 0, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '940px', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed' }}>
             <thead>
-              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '0.85rem 1rem', fontSize: '0.78rem', fontWeight: 600, color: '#64748B', minWidth: '220px' }}>
+              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', height: 44 }}>
+                <th style={{ padding: '0.75rem 1.25rem', fontSize: '0.72rem', fontWeight: 700, color: '#475569', width: '26%', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Ứng viên
                 </th>
-                <th style={{ padding: '0.85rem 1rem', fontSize: '0.78rem', fontWeight: 600, color: '#64748B', minWidth: '200px' }}>
+                <th style={{ padding: '0.75rem 1rem', fontSize: '0.72rem', fontWeight: 700, color: '#475569', width: '21%', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Vị trí tuyển dụng
                 </th>
-                <th style={{ padding: '0.85rem 1rem', fontSize: '0.78rem', fontWeight: 600, color: '#64748B', minWidth: '190px' }}>
+                <th style={{ padding: '0.75rem 1rem', fontSize: '0.72rem', fontWeight: 700, color: '#475569', width: '21%', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Gói thỏa thuận Offer
                 </th>
-                <th style={{ padding: '0.85rem 1rem', fontSize: '0.78rem', fontWeight: 600, color: '#64748B', minWidth: '200px' }}>
-                  Phản hồi ứng viên (24h)
+                <th style={{ padding: '0.75rem 1rem', fontSize: '0.72rem', fontWeight: 700, color: '#475569', width: '18%', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Tình trạng Offer
                 </th>
-                <th style={{ padding: '0.85rem 1rem', fontSize: '0.78rem', fontWeight: 600, color: '#64748B', width: '150px', textAlign: 'right' }}>
+                <th style={{ padding: '0.75rem 1.25rem', fontSize: '0.72rem', fontWeight: 700, color: '#475569', width: '14%', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Thao tác
                 </th>
               </tr>
@@ -513,244 +443,239 @@ export const Offers = () => {
                 paginatedCandidates.map((c, idx) => {
                   const offer = c.offer;
                   const po = c.preOnboarding;
+                  const isHired = c.status === 'HIRED';
                   const isAccepted = offer?.status === 'ACCEPTED';
                   const isRejected = offer?.status === 'REJECTED';
                   const isPending = offer?.status === 'PENDING';
 
                   const expiresAt = offer?.expiresAt ? new Date(offer.expiresAt) : null;
                   const remainingHours = expiresAt ? Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / (3600 * 1000))) : null;
+                  const avatar = getAvatarStyle(c.name);
+                  const initials = getInitials(c.name);
 
                   return (
                     <tr 
                       key={c.id} 
                       style={{ 
-                        borderBottom: '1px solid var(--border)',
+                        borderBottom: '1px solid #F1F5F9',
                         backgroundColor: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA',
                         transition: 'background-color 0.15s ease'
                       }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'}
                     >
                       {/* Cột 1: Ứng viên */}
-                      <td style={{ padding: '1rem', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <td style={{ padding: '0.85rem 1.25rem', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{
-                            width: 34, height: 34, borderRadius: '50%',
-                            backgroundColor: '#F1F5F9', color: '#334155',
+                            width: 38, height: 38, borderRadius: '10px',
+                            backgroundColor: avatar.bg, color: avatar.text,
+                            border: `1px solid ${avatar.border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontWeight: 700, fontSize: '0.85rem', flexShrink: 0
+                            fontWeight: 800, fontSize: '0.85rem', flexShrink: 0,
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
                           }}>
-                            {c.name.charAt(0).toUpperCase()}
+                            {initials}
                           </div>
-                          <div style={{ overflow: 'hidden' }}>
-                            <div style={{ fontWeight: 600, color: '#0F172A', fontSize: '0.88rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                          <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.88rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                               {c.name}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748B', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                              {c.email}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#64748B', marginTop: '2px' }}>
+                              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={c.email}>
+                                {c.email}
+                              </span>
+                              {c.phone && (
+                                <>
+                                  <span style={{ color: '#CBD5E1' }}>•</span>
+                                  <span style={{ whiteSpace: 'nowrap' }}>{c.phone}</span>
+                                </>
+                              )}
                             </div>
-                            {c.phone && (
-                              <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
-                                {c.phone}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </td>
 
                       {/* Cột 2: Vị trí tuyển dụng */}
-                      <td style={{ padding: '1rem', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A', lineHeight: 1.35 }}>
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+                          <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={c.jobPosting?.title}>
                             {c.jobPosting?.title || 'Chưa gán vị trí'}
                           </div>
-                          <div style={{ fontSize: '0.73rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Building size={12} color="#64748B" />
-                            <span>{c.jobPosting?.department?.name || 'Chung (Toàn công ty)'}</span>
+                          <div>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              backgroundColor: '#F1F5F9', border: '1px solid #E2E8F0',
+                              padding: '2px 8px', borderRadius: '4px',
+                              fontSize: '0.73rem', fontWeight: 500, color: '#475569'
+                            }}>
+                              <Building size={11} color="#64748B" />
+                              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '170px' }}>
+                                {c.jobPosting?.department?.name || 'Toàn công ty'}
+                              </span>
+                            </span>
                           </div>
                         </div>
                       </td>
 
                       {/* Cột 3: Gói Thỏa thuận Offer */}
-                      <td style={{ padding: '1rem', verticalAlign: 'middle' }}>
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle' }}>
                         {offer ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.9rem', letterSpacing: '-0.01em' }}>
-                              {Number(offer.baseSalary).toLocaleString('vi-VN')} ₫
-                              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B', marginLeft: '4px' }}>/tháng</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                              <span style={{ fontWeight: 800, color: '#0F172A', fontSize: '0.92rem' }}>
+                                {Number(offer.baseSalary).toLocaleString('vi-VN')}
+                              </span>
+                              <span style={{ fontSize: '0.74rem', fontWeight: 600, color: '#2563EB' }}>₫/tháng</span>
                             </div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748B', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                              <span>Bắt đầu: {new Date(offer.startDate).toLocaleDateString('vi-VN')}</span>
-                              <span>•</span>
-                              <span>Thử việc: {offer.probationRate || 85}%</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#64748B' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <Calendar size={11} color="#94A3B8" />
+                                <span>{new Date(offer.startDate).toLocaleDateString('vi-VN')}</span>
+                              </span>
+                              <span style={{ color: '#CBD5E1' }}>•</span>
+                              <span style={{ backgroundColor: '#F8FAFC', padding: '1px 5px', borderRadius: '3px', border: '1px solid #E2E8F0', fontWeight: 500 }}>
+                                Thử việc {offer.probationRate || 85}%
+                              </span>
                             </div>
                           </div>
                         ) : (
-                          <span style={{
-                            display: 'inline-block',
-                            backgroundColor: '#F8FAFC',
-                            color: '#94A3B8',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontSize: '0.74rem',
-                            fontWeight: 500,
-                            border: '1px solid #E2E8F0'
-                          }}>
+                          <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontStyle: 'italic' }}>
                             Chưa tạo Offer
                           </span>
                         )}
                       </td>
 
-                      {/* Cột 4: Phản hồi Ứng viên (24h) */}
-                      <td style={{ padding: '1rem', verticalAlign: 'middle' }}>
-                        {isAccepted ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '4px',
-                              backgroundColor: '#F0FDF4', color: '#15803D',
-                              padding: '2px 8px', borderRadius: '4px',
-                              fontSize: '0.75rem', fontWeight: 500, border: '1px solid #BBF7D0',
-                              width: 'fit-content'
+                      {/* Cột 4: Tình trạng Offer */}
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle' }}>
+                        {isHired ? (
+                          <div>
+                            <div style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              backgroundColor: '#ECFDF5', color: '#047857',
+                              padding: '3px 9px', borderRadius: '12px',
+                              fontSize: '0.74rem', fontWeight: 700, border: '1px solid #A7F3D0'
                             }}>
-                              <CheckCircle2 size={12} /> Đã đồng ý Offer
-                            </span>
-                            {po && (
-                              <button
-                                onClick={() => handleViewProfile(c)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  border: 'none',
-                                  background: 'transparent',
-                                  color: '#2563EB',
-                                  fontSize: '0.74rem',
-                                  fontWeight: 500,
-                                  cursor: 'pointer',
-                                  marginTop: '2px',
-                                  padding: 0
-                                }}
-                              >
-                                <FileText size={12} /> Xem hồ sơ Onboarding
-                              </button>
-                            )}
+                              <CheckCircle2 size={13} />
+                              <span>Đã tiếp nhận</span>
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: '3px', fontWeight: 500, paddingLeft: '2px' }}>
+                              Đã là Nhân viên
+                            </div>
+                          </div>
+                        ) : isAccepted ? (
+                          <div>
+                            <div style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              backgroundColor: '#EFF6FF', color: '#1D4ED8',
+                              padding: '3px 9px', borderRadius: '12px',
+                              fontSize: '0.74rem', fontWeight: 700, border: '1px solid #BFDBFE'
+                            }}>
+                              <CheckCheck size={13} />
+                              <span>Đã đồng ý Offer</span>
+                            </div>
+                            <div style={{ fontSize: '0.72rem', marginTop: '3px', paddingLeft: '2px' }}>
+                              {po ? (
+                                <span style={{ color: '#2563EB', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 500 }}>
+                                  <FileCheck size={11} /> Có hồ sơ Online
+                                </span>
+                              ) : (
+                                <span style={{ color: '#64748B' }}>Chờ hồ sơ Online</span>
+                              )}
+                            </div>
                           </div>
                         ) : isPending ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          <div>
+                            <div style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
                               backgroundColor: '#FFFBEB', color: '#B45309',
-                              padding: '2px 8px', borderRadius: '4px',
-                              fontSize: '0.75rem', fontWeight: 500, border: '1px solid #FDE68A',
-                              width: 'fit-content'
+                              padding: '3px 9px', borderRadius: '12px',
+                              fontSize: '0.74rem', fontWeight: 700, border: '1px solid #FDE68A'
                             }}>
-                              <Clock size={12} /> Chờ phản hồi {remainingHours !== null && `(còn ${remainingHours}h)`}
-                            </span>
-                            {offer?.expiresAt && (
-                              <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>
-                                Hạn: {new Date(offer.expiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} {new Date(offer.expiresAt).toLocaleDateString('vi-VN')}
-                              </div>
-                            )}
+                              <Clock size={13} />
+                              <span>Chờ phản hồi</span>
+                            </div>
+                            <div style={{
+                              fontSize: '0.72rem', marginTop: '3px', paddingLeft: '2px',
+                              color: remainingHours !== null && remainingHours <= 6 ? '#DC2626' : '#92400E',
+                              fontWeight: 600
+                            }}>
+                              {remainingHours !== null ? `Còn ${remainingHours}h phản hồi` : 'Trong hạn 24h'}
+                            </div>
                           </div>
                         ) : isRejected ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '4px',
-                              backgroundColor: '#F8FAFC', color: '#64748B',
-                              padding: '2px 8px', borderRadius: '4px',
-                              fontSize: '0.75rem', fontWeight: 500, border: '1px solid #E2E8F0',
-                              width: 'fit-content'
-                            }}>
-                              <XCircle size={12} /> {offer?.declineReason?.includes('24') ? 'Quá hạn 24h (Tự hủy)' : 'Ứng viên từ chối'}
-                            </span>
-                            {offer?.declineReason && (
-                              <div style={{ fontSize: '0.7rem', color: '#94A3B8', maxWidth: '180px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={offer.declineReason}>
-                                {offer.declineReason}
-                              </div>
-                            )}
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            backgroundColor: '#FEF2F2', color: '#991B1B',
+                            padding: '3px 9px', borderRadius: '12px',
+                            fontSize: '0.74rem', fontWeight: 600, border: '1px solid #FECACA'
+                          }}>
+                            <XCircle size={13} />
+                            <span>{offer?.declineReason?.includes('24') ? 'Quá hạn 24h' : 'Từ chối Offer'}</span>
                           </div>
                         ) : (
-                          <span style={{
-                            display: 'inline-block',
-                            backgroundColor: '#F8FAFC',
-                            color: '#94A3B8',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontSize: '0.74rem',
-                            fontWeight: 500,
-                            border: '1px solid #E2E8F0'
-                          }}>
+                          <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
                             Chờ gửi thư mời
                           </span>
                         )}
                       </td>
 
                       {/* Cột 5: Thao tác */}
-                      <td style={{ padding: '1rem', verticalAlign: 'middle', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                          {isAccepted ? (
+                      <td style={{ padding: '0.85rem 1.25rem', verticalAlign: 'middle', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                          {isHired ? (
+                            po ? (
+                              <button
+                                onClick={() => handleViewProfile(c)}
+                                className="btn btn-outline"
+                                style={{ height: 32, padding: '0 9px', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, borderColor: '#CBD5E1', color: '#334155' }}
+                                title="Xem hồ sơ khai báo sơ bộ"
+                              >
+                                <FileText size={12} /> Xem hồ sơ
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <Check size={13} /> Hoàn tất
+                              </span>
+                            )
+                          ) : isAccepted ? (
                             <button
-                              onClick={() => handleOpenOnboard(c)}
+                              onClick={() => navigate('/internal/onboarding/pre-onboarding')}
+                              className="btn btn-primary"
                               style={{
-                                height: 32,
-                                padding: '0 0.85rem',
-                                fontSize: '0.78rem',
-                                fontWeight: 600,
-                                backgroundColor: '#0F172A',
-                                color: '#FFFFFF',
-                                border: '1px solid #0F172A',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px'
+                                height: 32, padding: '0 11px', fontSize: '0.75rem', fontWeight: 700,
+                                display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap',
+                                boxShadow: '0 1px 2px rgba(37,99,235,0.2)'
                               }}
+                              title="Ứng viên đã chấp nhận Offer. Bàn giao sang phân hệ Hội nhập."
                             >
-                              <UserCheck size={14} /> Tiếp nhận NV
+                              <span>Bàn giao Hội nhập</span>
+                              <ArrowRight size={13} />
                             </button>
                           ) : (
-                            <button
-                              onClick={() => handleOpenSendOffer(c)}
-                              style={{
-                                height: 32,
-                                padding: '0 0.85rem',
-                                fontSize: '0.78rem',
-                                fontWeight: 500,
-                                backgroundColor: '#FFFFFF',
-                                color: '#334155',
-                                border: '1px solid #E2E8F0',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px'
-                              }}
-                            >
-                              <Send size={13} /> {offer ? 'Sửa Offer' : 'Gửi Offer'}
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleOpenSendOffer(c)}
+                                className="btn btn-outline"
+                                style={{ height: 32, padding: '0 9px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                              >
+                                <Edit3 size={12} /> {offer ? 'Sửa' : 'Gửi'}
+                              </button>
+                              <button
+                                onClick={() => handleReject(c.id)}
+                                title="Hủy Offer"
+                                style={{
+                                  height: 32, width: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  backgroundColor: '#FFFFFF', color: '#94A3B8', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.backgroundColor = '#FEF2F2'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = '#94A3B8'; e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+                              >
+                                <X size={13} />
+                              </button>
+                            </>
                           )}
-
-                          <button
-                            onClick={() => handleReject(c.id)}
-                            title="Hủy Offer"
-                            style={{
-                              height: 32,
-                              width: 32,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backgroundColor: '#FFFFFF',
-                              color: '#94A3B8',
-                              border: '1px solid #E2E8F0',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.borderColor = '#FECACA'; }}
-                            onMouseLeave={e => { e.currentTarget.style.color = '#94A3B8'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
-                          >
-                            <X size={14} />
-                          </button>
                         </div>
                       </td>
                     </tr>

@@ -176,6 +176,29 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       });
     }
 
+    // 3. Kiểm tra trần năm (Điều 107 Khoản 2 Điểm c BLLĐ 2019: Tối đa 200 giờ/năm)
+    const yearStart = new Date(otDate.getFullYear(), 0, 1);
+    const yearEnd = new Date(otDate.getFullYear(), 11, 31, 23, 59, 59);
+
+    const existingYearOT = await prisma.oTRequest.findMany({
+      where: {
+        employeeId: empId,
+        date: { gte: yearStart, lte: yearEnd },
+        status: { in: ['APPROVED', 'PENDING'] }
+      }
+    });
+
+    const yearAccumulatedHours = existingYearOT.reduce(
+      (sum, r) => sum + Number(r.status === 'APPROVED' ? (r.actualHours || r.requestHours) : r.requestHours),
+      0
+    );
+
+    if (yearAccumulatedHours + hours > 200) {
+      return res.status(400).json({
+        error: `Vượt quá trần làm thêm giờ cả năm theo luật định (Điều 107 Khoản 2 Điểm c BLLĐ 2019): Tổng số giờ làm thêm lũy kế trong năm ${otDate.getFullYear()} đã đạt ${yearAccumulatedHours}h. Giới hạn pháp luật cho phép tối đa 200 giờ/năm.`
+      });
+    }
+
     const newRequest = await prisma.oTRequest.create({
       data: {
         employeeId: empId,

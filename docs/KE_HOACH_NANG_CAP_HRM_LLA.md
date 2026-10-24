@@ -127,15 +127,15 @@ Tuyệt đối không cho phép sửa trực tiếp lương và chức danh trê
 
 ---
 
-### 🏢 GIAI ĐOẠN 3: ĐA PHÁP NHÂN NGANG HÀNG (ENTERPRISE HOLDING – MỞ RỘNG DÀI HẠN)
-*Mục tiêu: Mở rộng quy mô doanh nghiệp đa công ty thành viên theo chuẩn Lexora OBJ-01.*
+### 🏢 GIAI ĐOẠN 3: QUẢN TRỊ THỜI GIAN & WFM (WORKFORCE MANAGEMENT)
+*Mục tiêu: Hoàn thiện quản trị nhân sự chuyên sâu cho Công ty TNHH LLA theo chuẩn BLLĐ 2019.*
 
-1. **Bộ chuyển đổi Ngữ cảnh Doanh nghiệp (Company Context Switcher):**
-   * Một tài khoản Back Office quản lý liền mạch 3 công ty con (`LLA Technology`, `LLA Global`, `LLA Academy`) trên thanh Topbar với thời gian chuyển đổi $< 1\text{s}$ mà không cần đăng xuất.
-2. **Tự động sinh Mã nhân viên theo Tiền tố Công ty:**
-   * `LLA-NV-xxx`, `LLAG-NV-xxx`, `LLAA-NV-xxx`.
-3. **Quản lý Kiêm nhiệm Chéo Công ty:**
-   * Cho phép nhân viên có hợp đồng chính ở công ty A, đồng thời kiêm nhiệm vị trí chuyên môn ở công ty B.
+1. **Chế độ Làm Việc Từ Xa (WFH - Work From Home):**
+   * Tuân thủ Điều 105 Bộ luật Lao động 2019: Hệ số ngày công WFH tính bằng **1.0 ngày công** tương đương làm việc tại văn phòng.
+2. **Chốt Chặn Giám Sát Quân Số Trực Tiếp (WFH Guardrail):**
+   * Tự động tính tỷ lệ nhân viên WFH theo từng phòng ban; nếu tỷ lệ WFH vượt quá **30% quân số phòng ban** trong ngày $\rightarrow$ Kích hoạt cảnh báo đỏ để Quản lý rà soát phê duyệt nhằm đảm bảo tiến độ trực tiếp.
+3. **Thống kê & Báo cáo Chấm công Linh hoạt:**
+   * Tích hợp theo dõi WFH vào thẻ KPI dải đầu trang và phân tích hoàn thành công chuẩn tháng (22 ngày công).
 
 ---
 
@@ -171,22 +171,27 @@ Quy trình đón tiếp tân binh tự động hóa 5 bước (SOP-101 / BRD Ite
 
 ## 7. BẢNG ĐỐI CHIẾU HIỆN TRẠNG CODEBASE & KẾ HOẠCH TRIỂN KHAI NGAY
 
-| Hạng mục Nâng cấp | Mức độ Hoàn thiện | Vị trí File trong Codebase | Kế hoạch Hành động Ngay |
+| Hạng mục Nâng cấp | Mức độ Hoàn thiện | Vị trí File trong Codebase | Trạng thái Nghiệp vụ |
 | :--- | :---: | :--- | :--- |
-| **1. Quota Định biên (F37)** | **90%** | `backend/.../job-posting.routes.ts`<br>`hrm-frontend/.../Requisitions.jsx` | Gắn nhãn F37 chính thức lên tiêu đề và form. |
-| **2. Quyết định Nhân sự (SOP-99)** | **85%** | `backend/.../decision.routes.ts`<br>`hrm-frontend/.../Decisions.jsx` | Tinh chỉnh giao diện `Decisions.jsx` làm nổi bật số hiệu tự sinh `QĐ-YYYY/XXX/LLA`. |
-| **3. Chốt chặn OT (BLLĐ 2019)** | **80%** | `backend/.../ot.routes.ts`<br>`hrm-frontend/.../Adjustments.jsx` | **Bổ sung chốt chặn $\le 200$h/năm** vào API `ot.routes.ts`. |
-| **4. Chuẩn hóa F-Codes LLA** | **50%** | Toàn bộ 4 trang Frontend tương ứng | Cập nhật nhãn F37, F11, F32, F03 lên tiêu đề. |
-| **5. 14 Tab Core HR (ERD)** | **75%** | `hrm-frontend/.../EmployeeDetail.jsx` | Rà soát và hoàn thiện giao diện 14 tab theo chuẩn ERD PostgreSQL. |
-| **6. Khóa lương trễ hồ sơ 7 ngày** | **30%** | `backend/.../payroll.routes.ts`<br>`backend/.../onboarding.routes.ts` | Bổ sung cờ `isLocked` trên bảng lương và kiểm tra điều kiện $> 7$ ngày. |
-| **7. Mẫu BM-01 & BM-02** | **40%** | `hrm-frontend/.../EquipmentProvision.jsx` | Bổ sung giao diện xuất in ấn Biên bản bàn giao tài sản. |
+| **1. Quota Định biên (F37)** | **100%** | `backend/.../job-posting.routes.ts`<br>`hrm-frontend/.../Requisitions.jsx` | Đã gắn nhãn MẪU F37 - LLA (SOP-100) và kiểm soát định biên phòng ban. |
+| **2. Quyết định Nhân sự (SOP-99)** | **100%** | `backend/.../decision.routes.ts`<br>`hrm-frontend/.../Decisions.jsx` | Đã chuẩn hóa số `QĐ-YYYY/XXX/LLA` và tự động đồng bộ lương vào HĐLĐ. |
+| **3. Chốt chặn OT (BLLĐ 2019)** | **100%** | `backend/.../ot.routes.ts` | Đã chặn trần 3 tầng: $\le 4$h/ngày, $\le 40$h/tháng, $\le 200$h/năm. |
+| **4. Chuẩn hóa F-Codes LLA** | **100%** | 4 màn hình: Tuyển dụng, Nghỉ phép, Đánh giá, Thôi việc | Đã gắn nhận diện chuẩn F37, F11, F32, F03. |
+| **5. 14 Tab Core HR (ERD)** | **100%** | `hrm-frontend/.../EmployeeDetail.jsx` | Đã mở rộng Tab Tài sản (BM-01/BM-02) và Tab Quyết định biến động. |
+| **6. Khóa lương trễ hồ sơ 7 ngày** | **100%** | `backend/.../payroll.routes.ts`<br>`hrm-frontend/.../Payroll.jsx` | Chế tài SOP-25: Bật cờ khóa thanh toán và cho phép HR mở khóa sau khi thu đủ hồ sơ. |
+| **7. Mẫu BM-01 & BM-02** | **100%** | `hrm-frontend/.../AssetManagement.jsx`<br>`hrm-frontend/.../Terminations.jsx` | Đã có mẫu in ấn Biên bản bàn giao BM-01 và Biên bản thu hồi BM-02 (SOP-26). |
+| **8. Bảo vệ Dữ liệu PII** | **100%** | `hrm-frontend/.../EmployeeList.jsx` | Tuân thủ Nghị định 13/2023/NĐ-CP: Che mờ (mask) CCCD kèm nút xem bảo mật. |
+| **9. Khóa tài khoản 18:00 (SOP-26)**| **100%** | `backend/.../employee.routes.ts`<br>`hrm-frontend/.../Terminations.jsx` | Tự động khóa an ninh tài khoản thôi việc và cung cấp cơ chế rà soát tự động. |
+| **10. WFM Remote & Cảnh báo WFH**| **100%** | `hrm-frontend/.../Attendance.jsx` | Ghi nhận WFH hệ số 1.0 (Điều 105 BLLĐ 2019) và kích hoạt cảnh báo đỏ khi tỷ lệ WFH phòng ban vượt ngưỡng 30%. |
 
 ---
 
-### 🎯 HÀNH ĐỘNG THỰC HIỆN NGAY BÂY GIỜ (GIAI ĐOẠN 1):
-1. Bổ sung điều kiện **$\le 200$h OT/năm** vào [ot.routes.ts](file:///c:/Users/truclh/Desktop/HRM-ĐATN/backend/src/routes/attendance/ot.routes.ts).
-2. Gắn nhãn **Biểu mẫu F-Codes LLA** (F37, F11, F32, F03) vào 4 màn hình chính.
-3. Rà soát màn hình [Decisions.jsx](file:///c:/Users/truclh/Desktop/HRM-ĐATN/hrm-frontend/src/pages/internal/employees/Decisions.jsx) và xác minh luồng tự sinh số Quyết định và đồng bộ hồ sơ.
+### 🎯 TRẠNG THÁI HIỆN TẠI:
+- **Phạm vi triển khai:** Tập trung chuyên sâu cho **1 pháp nhân duy nhất: Công ty TNHH LLA** (chuẩn hóa tinh gọn theo đúng phạm vi Đồ án Tốt nghiệp & thực tế doanh nghiệp).
+- **Giai đoạn 1 (Điểm nhấn nghiệp vụ lõi):** ĐÃ HOÀN THÀNH 100% tại local.
+- **Giai đoạn 2 (Chế tài hành chính & An ninh dữ liệu):** ĐÃ HOÀN THÀNH 100% tại local.
+- **Giai đoạn 3 (Quản trị thời gian WFM & Remote):** ĐÃ HOÀN THÀNH 100% tại local.
+- *Lưu ý quy trình:* Toàn bộ thay đổi đang được giữ nguyên tại local working tree (chưa `git commit` / `git push` theo đúng yêu cầu bảo lưu của người dùng) để người dùng nghiệm thu và đánh giá.
 
 ---
 *Tài liệu này là căn cứ kỹ thuật chính thức phục vụ nghiệm thu dự án và bảo vệ ĐATN.*

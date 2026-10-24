@@ -82,10 +82,17 @@ export const LeaveMgmt = () => {
     <div className="animate-fade-in" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)', margin: '0 0 0.25rem 0' }}>
-            Duyệt Nghỉ Phép
-          </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Quản lý và phê duyệt đơn xin nghỉ phép của nhân sự. Nếu duyệt loại Có lương, hệ thống sẽ tự trừ quỹ phép.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)', margin: 0 }}>
+              Duyệt Nghỉ Phép
+            </h2>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+              MẪU F11 - LLA (SOP-110)
+            </span>
+          </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>
+            Quản lý và phê duyệt đơn xin nghỉ phép của nhân sự. Nếu duyệt loại Có lương, hệ thống sẽ tự động trừ quỹ phép năm.
+          </p>
         </div>
       </div>
 

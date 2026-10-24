@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Clock, Search, Download, RefreshCw, Calendar, Users, 
   CheckCircle2, AlertTriangle, XCircle, ArrowUpRight, 
-  FileSpreadsheet, Filter, Check, X, ShieldAlert, Zap, Edit3, Plus
+  FileSpreadsheet, Filter, Check, X, ShieldAlert, Zap, Edit3, Plus, Laptop, Building2
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
@@ -88,11 +88,33 @@ export const AttendanceMgmt = () => {
     const onTime = recordsOnDay.filter(r => r.status === 'NORMAL').length;
     const late = recordsOnDay.filter(r => r.status === 'LATE').length;
     const absent = recordsOnDay.filter(r => r.status === 'ABSENT').length;
-    const presentCount = onTime + late;
+    const wfh = recordsOnDay.filter(r => r.status === 'WFH').length;
+    const presentCount = onTime + late + wfh;
     const presentRate = totalActive > 0 ? Math.round((presentCount / totalActive) * 100) : 0;
 
-    return { totalActive, presentCount, onTime, late, absent, presentRate };
+    return { totalActive, presentCount, onTime, late, absent, wfh, presentRate };
   }, [attendances, employees, selectedDate]);
+
+  // WFM Remote / WFH Guardrail Check (Cảnh báo định mức 30% quân số theo BLLĐ 2019 Điều 105 & SOP WFM)
+  const wfhAlertDepartments = useMemo(() => {
+    const recordsOnDay = attendances.filter(att => (att.date && att.date.split('T')[0]) === selectedDate);
+    const alerts = [];
+    departments.forEach(dept => {
+      const deptEmployees = employees.filter(e => e.departmentId === dept.id);
+      if (deptEmployees.length === 0) return;
+      const deptWfh = recordsOnDay.filter(r => r.status === 'WFH' && r.employee?.departmentId === dept.id).length;
+      const rate = deptWfh / deptEmployees.length;
+      if (rate > 0.30) {
+        alerts.push({
+          deptName: dept.name,
+          wfhCount: deptWfh,
+          total: deptEmployees.length,
+          ratePercent: Math.round(rate * 100)
+        });
+      }
+    });
+    return alerts;
+  }, [attendances, employees, departments, selectedDate]);
 
   // Monthly Aggregated Summary per Employee
   const monthlySummary = useMemo(() => {
@@ -107,6 +129,7 @@ export const AttendanceMgmt = () => {
       const totalActualDays = empRecords.reduce((sum, r) => sum + (Number(r.workingDay) || 0), 0);
       const lateCount = empRecords.filter(r => r.status === 'LATE').length;
       const absentCount = empRecords.filter(r => r.status === 'ABSENT').length;
+      const wfhCount = empRecords.filter(r => r.status === 'WFH').length;
       const standardDays = 22; // chuẩn doanh nghiệp
       const completionRate = standardDays > 0 ? Math.min(100, Math.round((totalActualDays / standardDays) * 100)) : 0;
 
@@ -116,6 +139,7 @@ export const AttendanceMgmt = () => {
         totalActualDays: totalActualDays.toFixed(1),
         lateCount,
         absentCount,
+        wfhCount,
         completionRate
       };
     }).filter(item => {
@@ -224,7 +248,7 @@ export const AttendanceMgmt = () => {
         `"${new Date(r.date).toLocaleDateString('vi-VN')}"`,
         `"${r.checkIn ? new Date(r.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}"`,
         `"${r.checkOut ? new Date(r.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}"`,
-        `"${r.status === 'NORMAL' ? 'Đúng giờ' : r.status === 'LATE' ? 'Đi muộn' : 'Vắng mặt'}"`,
+        `"${r.status === 'NORMAL' ? 'Đúng giờ' : r.status === 'LATE' ? 'Đi muộn' : r.status === 'WFH' ? 'Làm từ xa (WFH)' : 'Vắng mặt'}"`,
         Number(r.workingDay)
       ]);
       const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -387,7 +411,19 @@ export const AttendanceMgmt = () => {
           </div>
         </div>
 
-        {/* Card 5: Tỷ lệ có mặt */}
+        {/* Card 5: Làm việc từ xa WFH */}
+        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+          <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#CFFAFE', color: '#0E7490', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Laptop size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0E7490', textTransform: 'uppercase' }}>Làm từ xa (WFH)</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0E7490' }}>{stats.wfh}</div>
+            <div style={{ fontSize: '0.75rem', color: '#0891B2' }}>Hệ số 1.0 công (Điều 105)</div>
+          </div>
+        </div>
+
+        {/* Card 6: Tỷ lệ có mặt */}
         <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
           <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#EFF6FF', color: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ArrowUpRight size={20} />
@@ -399,6 +435,41 @@ export const AttendanceMgmt = () => {
           </div>
         </div>
       </div>
+
+      {/* 2.5. WFM Guardrail Alerts */}
+
+      {wfhAlertDepartments.length > 0 && (
+        <div style={{
+          backgroundColor: '#FFFBEB',
+          border: '1px solid #FCD34D',
+          borderRadius: '0.75rem',
+          padding: '0.85rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.875rem',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        }}>
+          <div style={{ width: 38, height: 38, borderRadius: '8px', backgroundColor: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <ShieldAlert size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: '#92400E', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              CẢNH BÁO QUY CHẾ WFM / WFH (VƯỢT ĐỊNH MỨC 30% QUÂN SỐ PHÒNG BAN)
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#B45309', padding: '1px 8px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
+                BLLĐ 2019 Điều 105 & SOP WFM
+              </span>
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#B45309', marginTop: '2px' }}>
+              {wfhAlertDepartments.map((a, idx) => (
+                <span key={idx} style={{ marginRight: '1rem' }}>
+                  • <strong>{a.deptName}:</strong> {a.wfhCount}/{a.total} nhân sự ({a.ratePercent}%) làm việc từ xa.
+                </span>
+              ))}
+              <span>Yêu cầu Trưởng bộ phận rà soát phê duyệt để đảm bảo vận hành trực tiếp.</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3. Tab Bar & Filter Controls */}
       <div style={{
@@ -511,6 +582,7 @@ export const AttendanceMgmt = () => {
               <option value="ALL">Tất cả trạng thái</option>
               <option value="NORMAL">Đúng giờ</option>
               <option value="LATE">Đi muộn</option>
+              <option value="WFH">Làm việc từ xa (WFH)</option>
               <option value="ABSENT">Vắng mặt</option>
             </select>
           )}
@@ -631,6 +703,11 @@ export const AttendanceMgmt = () => {
                           )}
                           {att.status === 'LATE' && (
                             <span className="badge badge-warning" style={{ padding: '3px 8px', fontSize: '0.75rem' }}>Đi muộn</span>
+                          )}
+                          {att.status === 'WFH' && (
+                            <span className="badge" style={{ backgroundColor: '#CFFAFE', color: '#0E7490', border: '1px solid #A5F3FC', padding: '3px 8px', fontSize: '0.75rem', fontWeight: 600 }}>
+                              🏠 WFH (Từ xa)
+                            </span>
                           )}
                           {att.status === 'ABSENT' && (
                             <span className="badge badge-error" style={{ padding: '3px 8px', fontSize: '0.75rem' }}>Vắng mặt</span>
@@ -956,6 +1033,7 @@ export const AttendanceMgmt = () => {
                 >
                   <option value="NORMAL">Đúng giờ (NORMAL)</option>
                   <option value="LATE">Đi muộn (LATE)</option>
+                  <option value="WFH">Làm việc từ xa (WFH - Hệ số 1.0)</option>
                   <option value="ABSENT">Vắng mặt (ABSENT)</option>
                 </select>
               </div>
