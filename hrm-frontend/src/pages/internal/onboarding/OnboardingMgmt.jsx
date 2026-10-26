@@ -388,11 +388,11 @@ export const OnboardingMgmt = () => {
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontWeight: 800, fontSize: '1rem'
                       }}>
-                        {emp.fullName.charAt(0)}
+                        {(emp.fullName || 'N').charAt(0)}
                       </div>
                       <div>
                         <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '2px' }}>
-                          {emp.fullName}
+                          {emp.fullName || 'Nhân sự'}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ fontWeight: 600 }}>{emp.code}</span>
@@ -446,68 +446,6 @@ export const OnboardingMgmt = () => {
                       }} />
                     </div>
                   </div>
-
-                  {/* 7-Day Payroll Lock Engine Status (SOP-25 / FE-G05) */}
-                  {(() => {
-                    const lockInfo = getPayrollLockStatus(emp, empTasks);
-                    if (lockInfo.status === 'ACTIVE') {
-                      return (
-                        <div style={{
-                          padding: '6px 10px', borderRadius: '6px', backgroundColor: '#F0FDF4',
-                          border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center',
-                          justifyContent: 'space-between', fontSize: '0.74rem'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#15803D', fontWeight: 600 }}>
-                            <CheckCircle2 size={13} />
-                            <span>Hồ sơ gốc: Đã nộp đủ (Lương: Mở)</span>
-                          </div>
-                          <span style={{ fontSize: '0.7rem', color: '#15803D' }}>SOP-25</span>
-                        </div>
-                      );
-                    } else if (lockInfo.status === 'LOCKED') {
-                      return (
-                        <div style={{
-                          padding: '6px 10px', borderRadius: '6px', backgroundColor: '#FEF2F2',
-                          border: '1px solid #FECACA', display: 'flex', alignItems: 'center',
-                          justifyContent: 'space-between', fontSize: '0.74rem'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#DC2626', fontWeight: 600 }}>
-                            <Lock size={13} />
-                            <span>Khóa chi trả lương (Quá 7 ngày)</span>
-                          </div>
-                          <span style={{ fontSize: '0.7rem', color: '#DC2626', fontWeight: 700 }}>FE-G05</span>
-                        </div>
-                      );
-                    } else if (lockInfo.status === 'UNLOCKED') {
-                      return (
-                        <div style={{
-                          padding: '6px 10px', borderRadius: '6px', backgroundColor: '#F5F3FF',
-                          border: '1px solid #DDD6FE', display: 'flex', alignItems: 'center',
-                          justifyContent: 'space-between', fontSize: '0.74rem'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#7C3AED', fontWeight: 600 }}>
-                            <Unlock size={13} />
-                            <span>BOD Mở khóa ngoại lệ</span>
-                          </div>
-                          <span style={{ fontSize: '0.7rem', color: '#7C3AED' }}>FE-G06</span>
-                        </div>
-                      );
-                    } else {
-                      return (
-                        <div style={{
-                          padding: '6px 10px', borderRadius: '6px', backgroundColor: '#FFFBEB',
-                          border: '1px solid #FDE68A', display: 'flex', alignItems: 'center',
-                          justifyContent: 'space-between', fontSize: '0.74rem'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#B45309', fontWeight: 600 }}>
-                            <Clock size={13} />
-                            <span>Hồ sơ gốc: Còn {lockInfo.daysRemaining} ngày nộp</span>
-                          </div>
-                          <span style={{ fontSize: '0.7rem', color: '#B45309' }}>SOP-25</span>
-                        </div>
-                      );
-                    }
-                  })()}
 
                   {/* Action Link */}
                   <div style={{

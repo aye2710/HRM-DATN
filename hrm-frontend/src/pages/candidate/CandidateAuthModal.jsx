@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Lock, Mail, User, Phone, CheckCircle, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { X, Lock, Mail, User, Phone, CheckCircle, ArrowRight, ShieldCheck, Sparkles, KeyRound, RotateCcw, ArrowLeft, MailCheck } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
 export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
   const [tab, setTab] = useState('login'); // 'login' | 'register'
   const [loading, setLoading] = useState(false);
+  const [registerStep, setRegisterStep] = useState('form'); // 'form' | 'otp'
+  const [otp, setOtp] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({
@@ -16,6 +20,14 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
     password: '',
     confirmPassword: ''
   });
+
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   if (!isOpen) return null;
 
@@ -37,13 +49,41 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
     }
   };
 
-  const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
+  const handleRequestOtp = async (e) => {
+    if (e) e.preventDefault();
+    if (!registerData.name?.trim()) {
+      return toast.error('Vui lòng nhập họ và tên của bạn.');
+    }
+    if (!registerData.email?.trim()) {
+      return toast.error('Vui lòng nhập địa chỉ email hợp lệ.');
+    }
     if (registerData.password !== registerData.confirmPassword) {
       return toast.error('Mật khẩu xác nhận không khớp.');
     }
     if (registerData.password.length < 6) {
       return toast.error('Mật khẩu phải có ít nhất 6 ký tự.');
+    }
+
+    setSendingOtp(true);
+    try {
+      const res = await axios.post('http://localhost:5000/api/candidate-auth/send-register-otp', {
+        name: registerData.name,
+        email: registerData.email
+      });
+      toast.success(res.data.message || 'Mã xác thực OTP đã được gửi về email của bạn!');
+      setRegisterStep('otp');
+      setCountdown(60);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Không thể gửi mã xác thực. Vui lòng kiểm tra lại email.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtpAndRegister = async (e) => {
+    e.preventDefault();
+    if (!otp || otp.trim().length !== 6) {
+      return toast.error('Vui lòng nhập chính xác 6 chữ số mã OTP.');
     }
 
     setLoading(true);
@@ -52,16 +92,17 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
         name: registerData.name,
         email: registerData.email,
         phone: registerData.phone,
-        password: registerData.password
+        password: registerData.password,
+        otp: otp.trim()
       });
       const { token, user } = res.data;
       localStorage.setItem('candidateToken', token);
       localStorage.setItem('candidateUser', JSON.stringify(user));
-      toast.success('Đăng ký tài khoản thành công!');
+      toast.success('Xác thực email và tạo tài khoản ứng viên thành công!');
       onAuthSuccess(user);
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Đăng ký thất bại. Vui lòng thử lại.');
+      toast.error(err.response?.data?.error || 'Xác thực OTP thất bại. Vui lòng kiểm tra lại.');
     } finally {
       setLoading(false);
     }
@@ -161,7 +202,7 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
           >
             <button
               type="button"
-              onClick={() => setTab('login')}
+              onClick={() => { setTab('login'); setRegisterStep('form'); setOtp(''); }}
               style={{
                 flex: 1,
                 border: 'none',
@@ -257,8 +298,9 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
                 )}
               </button>
             </form>
-          ) : (
-            <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          ) : registerStep === 'form' ? (
+            /* BƯỚC 1: ĐIỀN THÔNG TIN ĐĂNG KÝ */
+            <form onSubmit={handleRequestOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               <div>
                 <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Họ và tên *</label>
                 <div style={{ position: 'relative' }}>
@@ -276,7 +318,7 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
               </div>
 
               <div>
-                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Email *</label>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Email chính chủ (nhận mã OTP) *</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
                   <input
@@ -335,7 +377,7 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={sendingOtp}
                 className="btn btn-primary"
                 style={{
                   width: '100%',
@@ -347,9 +389,143 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
                   boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
                 }}
               >
-                {loading ? 'Đang khởi tạo...' : (
+                {sendingOtp ? 'Đang gửi mã OTP...' : (
                   <>
-                    <CheckCircle size={16} /> Tạo tài khoản ứng viên
+                    Tiếp tục: Nhận mã OTP <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* BƯỚC 2: NHẬP MÃ XÁC THỰC OTP */
+            <form onSubmit={handleVerifyOtpAndRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <button
+                  type="button"
+                  onClick={() => setRegisterStep('form')}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.8125rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: 0
+                  }}
+                >
+                  <ArrowLeft size={14} /> Sửa thông tin
+                </button>
+                <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <ShieldCheck size={14} /> Bước 2/2: Xác thực email
+                </span>
+              </div>
+
+              <div style={{
+                backgroundColor: '#F0FDF4',
+                border: '1px solid #BBF7D0',
+                borderRadius: '0.75rem',
+                padding: '0.875rem 1rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.35rem' }}>
+                  <div style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    backgroundColor: '#DCFCE7',
+                    color: '#15803D',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <MailCheck size={20} />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534', marginBottom: '2px' }}>
+                  Kiểm tra hộp thư đến
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#374151' }}>
+                  Mã 6 chữ số đã gửi đến: <strong style={{ color: '#1E40AF' }}>{registerData.email}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, textAlign: 'center', display: 'block', marginBottom: '0.5rem' }}>
+                  Nhập mã xác thực OTP (6 chữ số)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <KeyRound size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    maxLength={6}
+                    placeholder="• • • • • •"
+                    className="form-input"
+                    style={{
+                      height: '48px',
+                      paddingLeft: '2.5rem',
+                      borderRadius: '0.625rem',
+                      textAlign: 'center',
+                      fontSize: '1.4rem',
+                      fontWeight: 800,
+                      letterSpacing: '8px',
+                      fontFamily: 'monospace',
+                      color: 'var(--primary)'
+                    }}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Không nhận được mã?</span>
+                {countdown > 0 ? (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    Gửi lại sau <strong>{countdown}s</strong>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRequestOtp}
+                    disabled={sendingOtp}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--primary)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <RotateCcw size={13} /> Gửi lại mã OTP
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || otp.trim().length !== 6}
+                className="btn btn-primary"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  borderRadius: '0.625rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                  cursor: (loading || otp.trim().length !== 6) ? 'not-allowed' : 'pointer',
+                  opacity: (otp.trim().length !== 6 && !loading) ? 0.65 : 1
+                }}
+              >
+                {loading ? 'Đang kích hoạt...' : (
+                  <>
+                    <CheckCircle size={16} /> Xác nhận & Đăng ký
                   </>
                 )}
               </button>

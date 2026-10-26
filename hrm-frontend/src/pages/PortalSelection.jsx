@@ -15,6 +15,14 @@ export const PortalSelection = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Cập nhật title theo yêu cầu
+  useEffect(() => {
+    document.title = "Hệ Thống Quản Trị Nhân Sự Doanh Nghiệp (HRM)";
+    return () => {
+      document.title = "HRM Pro";
+    };
+  }, []);
+
   // Kiểm tra phiên đăng nhập hiện tại
   const currentToken = localStorage.getItem('token');
   const currentRole = localStorage.getItem('role');
@@ -36,7 +44,7 @@ export const PortalSelection = () => {
 
     try {
       const res = await axios.post('http://localhost:5000/api/auth/login', { 
-        username: loginUser, 
+        username: loginUser.trim(), 
         password: loginPass 
       });
       
@@ -53,6 +61,7 @@ export const PortalSelection = () => {
 
       // Điều hướng theo phân quyền vai trò
       if (user.role === 'EMPLOYEE') {
+        toast('Tài khoản Nhân viên: Đang chuyển vào Cổng Nhân sự...', { icon: 'ℹ️' });
         navigate('/employee');
       } else {
         navigate('/internal');
@@ -74,163 +83,62 @@ export const PortalSelection = () => {
     executeLogin(username, password);
   };
 
-  // Tính năng 1-Click Demo Login
-  const handleQuickLogin = (demoRole) => {
-    if (demoRole === 'ADMIN') {
-      setUsername('admin');
-      setPassword('123456');
-      executeLogin('admin', '123456');
-    } else {
-      setUsername('emp01');
-      setPassword('123456');
-      executeLogin('emp01', '123456');
-    }
-  };
-
   return (
     <div style={{ 
       minHeight: '100vh', 
       display: 'flex', 
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2.5rem 1rem',
       backgroundColor: '#F8FAFC',
-      fontFamily: 'Inter, sans-serif'
+      backgroundImage: `
+        radial-gradient(at 15% 15%, rgba(37, 99, 235, 0.08) 0px, transparent 50%),
+        radial-gradient(at 85% 85%, rgba(99, 102, 241, 0.08) 0px, transparent 50%)
+      `,
+      fontFamily: 'Inter, sans-serif',
+      position: 'relative'
     }}>
-      
-      {/* CỘT TRÁI: Brand & Feature Highlights (Split Layout đẳng cấp) */}
-      <div style={{ 
-        flex: '1.1', 
-        background: 'linear-gradient(145deg, #0F172A 0%, #1E293B 100%)', 
-        color: '#FFFFFF', 
-        padding: '3.5rem 4rem', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'space-between',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* Ambient background glow */}
-        <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '450px', height: '450px', background: '#2563EB', opacity: 0.15, filter: 'blur(120px)', borderRadius: '50%', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '450px', height: '450px', background: '#7C3AED', opacity: 0.12, filter: 'blur(120px)', borderRadius: '50%', pointerEvents: 'none' }} />
-
-        {/* Top Brand Logo */}
-        <div style={{ position: 'relative', zIndex: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1.5rem' }}>
-            <div style={{ 
-              width: 44, height: 44, 
-              background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)', 
-              borderRadius: '0.75rem', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              color: '#FFFFFF', fontWeight: 800, fontSize: '1.4rem',
-              boxShadow: '0 8px 16px rgba(37, 99, 235, 0.35)'
-            }}>
-              L
-            </div>
-            <div>
-              <span style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1.1 }}>
-                LLA Enterprise HRM
-              </span>
-              <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 500 }}>
-                Hệ Thống Quản Trị Nhân Sự Doanh Nghiệp Toàn Diện
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Center Content: Features List */}
-        <div style={{ position: 'relative', zIndex: 10, maxWidth: '520px', margin: '2rem 0' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.3rem 0.85rem', borderRadius: '9999px', backgroundColor: 'rgba(37, 99, 235, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#60A5FA', fontSize: '0.75rem', fontWeight: 600, marginBottom: '1.5rem' }}>
-            <Sparkles size={14} /> Nền tảng số hóa quản trị nhân lực 2026
-          </div>
-
-          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, lineHeight: 1.25, marginBottom: '1.25rem', letterSpacing: '-0.025em' }}>
-            Tự động hóa vận hành, <br/>
-            <span style={{ background: 'linear-gradient(135deg, #60A5FA 0%, #A78BFA 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              tối ưu hiệu suất tổ chức.
-            </span>
-          </h2>
-          
-          <p style={{ color: '#94A3B8', fontSize: '0.95rem', lineHeight: 1.65, marginBottom: '2.5rem' }}>
-            Hệ sinh thái kết nối xuyên suốt từ Tuyển dụng thông minh (ATS), Hồ sơ điện tử, Ca kíp & Chấm công, Tính lương tự động đến Quản trị mục tiêu KPI.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(34, 197, 94, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ADE80', marginTop: '2px', flexShrink: 0 }}>
-                <CheckCircle2 size={16} />
-              </div>
-              <div>
-                <strong style={{ fontSize: '0.9rem', color: '#F1F5F9', display: 'block' }}>Hồ sơ Core HR & Cơ cấu Tổ chức</strong>
-                <span style={{ fontSize: '0.8125rem', color: '#94A3B8' }}>Phân cấp phòng ban, chức vụ, hợp đồng và lộ trình hội nhập Onboarding.</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60A5FA', marginTop: '2px', flexShrink: 0 }}>
-                <Clock size={16} />
-              </div>
-              <div>
-                <strong style={{ fontSize: '0.9rem', color: '#F1F5F9', display: 'block' }}>Chấm công & Tính lương Đa nguồn</strong>
-                <span style={{ fontSize: '0.8125rem', color: '#94A3B8' }}>Xử lý ca kíp linh hoạt, ân hạn đi muộn, tính thuế TNCN và bảo hiểm tự động.</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(168, 85, 247, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C084FC', marginTop: '2px', flexShrink: 0 }}>
-                <BarChart3 size={16} />
-              </div>
-              <div>
-                <strong style={{ fontSize: '0.9rem', color: '#F1F5F9', display: 'block' }}>Đánh giá Hiệu suất KPI & RBAC</strong>
-                <span style={{ fontSize: '0.8125rem', color: '#94A3B8' }}>Thiết lập chu kỳ KPI, chấm điểm minh bạch và phân quyền bảo mật chặt chẽ.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer info bên trái */}
-        <div style={{ position: 'relative', zIndex: 10, fontSize: '0.8125rem', color: '#64748B', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.5rem' }}>
-          <span>© 2026 LLA HRM Enterprise v2.4</span>
-          <span>Bảo mật chuẩn ISO/IEC 27001</span>
-        </div>
-      </div>
-
-      {/* CỘT PHẢI: Form Đăng Nhập Sang Trọng & Chuẩn CSS */}
-      <div style={{ 
-        flex: '0.9', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        padding: '3rem 2.5rem',
+      <div style={{
+        width: '100%',
+        maxWidth: '460px',
         backgroundColor: '#FFFFFF',
+        borderRadius: '20px',
+        boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+        padding: '2.5rem 2.25rem',
         position: 'relative'
       }}>
-        
-        {/* Nút quay lại Cổng Tuyển Dụng trên góc trái */}
-        <button 
-          onClick={() => navigate('/')}
-          style={{
-            position: 'absolute',
-            top: '2rem',
-            left: '2.5rem',
-            border: 'none',
-            background: 'transparent',
-            color: '#64748B',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            transition: 'all 0.2s ease'
-          }}
-          className="hover:bg-slate-100"
-        >
-          <ArrowLeft size={16} /> Về Cổng Tuyển Dụng LLA
-        </button>
+        {/* Top Header Link */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button 
+            type="button"
+            onClick={() => navigate('/')}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: '#64748B',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: 0
+            }}
+          >
+            <ArrowLeft size={16} /> Trang chủ Tuyển dụng
+          </button>
 
-        {/* Container Form */}
-        <div style={{ width: '100%', maxWidth: '420px' }}>
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            color: '#1E40AF',
+            backgroundColor: '#EFF6FF',
+            padding: '4px 10px',
+            borderRadius: '9999px'
+          }}>
+            Admin Portal
+          </span>
+        </div>
           
           {/* Header Tiêu Đề Form */}
           <div style={{ marginBottom: '2rem' }}>
@@ -248,7 +156,7 @@ export const PortalSelection = () => {
               Đăng Nhập Quản Trị
             </h1>
             <p style={{ margin: 0, color: '#64748B', fontSize: '0.925rem' }}>
-              Dành cho Quản trị viên (Admin) và Cán bộ Nhân viên nội bộ
+              Hệ Thống Quản Trị Nhân Sự Doanh Nghiệp (HRM) - Dành riêng cho Ban Giám Đốc, Quản lý & HR Admin
             </p>
           </div>
 
@@ -487,71 +395,16 @@ export const PortalSelection = () => {
             </button>
           </form>
 
-          {/* Phân Cách & Tính Năng Đăng Nhập Nhanh 1-Chạm (Dành cho Chấm thi / Demo ĐATN) */}
-          <div style={{ marginTop: '2rem', paddingTop: '1.75rem', borderTop: '1px solid #E2E8F0' }}>
-            <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                ĐĂNG NHẬP NHANH (DÀNH CHO HỘI ĐỒNG / DEMO)
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <button 
-                type="button"
-                onClick={() => handleQuickLogin('ADMIN')}
-                disabled={loading}
-                style={{
-                  padding: '0.75rem 0.85rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid #BFDBFE',
-                  backgroundColor: '#EFF6FF',
-                  color: '#1D4ED8',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.2rem',
-                  transition: 'background-color 0.2s'
-                }}
-                className="hover:bg-blue-100"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <Shield size={15} /> Quản trị (Admin)
-                </div>
-                <span style={{ fontSize: '0.7rem', color: '#3B82F6', fontWeight: 500 }}>admin / 123456</span>
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => handleQuickLogin('EMPLOYEE')}
-                disabled={loading}
-                style={{
-                  padding: '0.75rem 0.85rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid #E2E8F0',
-                  backgroundColor: '#F8FAFC',
-                  color: '#334155',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.2rem',
-                  transition: 'background-color 0.2s'
-                }}
-                className="hover:bg-slate-200"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <Users size={15} /> Nhân viên (Emp)
-                </div>
-                <span style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 500 }}>emp01 / 123456</span>
-              </button>
-            </div>
-          </div>
-
+        {/* Footer bản quyền */}
+        <div style={{
+          marginTop: '2rem',
+          paddingTop: '1rem',
+          borderTop: '1px solid #E2E8F0',
+          textAlign: 'center',
+          fontSize: '0.75rem',
+          color: '#94A3B8'
+        }}>
+          © 2026 LLA HR Enterprise • Cổng Quản Trị Hệ Thống
         </div>
 
       </div>

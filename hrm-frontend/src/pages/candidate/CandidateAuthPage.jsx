@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { 
   Lock, Mail, User, Phone, CheckCircle2, ArrowRight, ShieldCheck, 
-  Sparkles, ArrowLeft, Eye, EyeOff, Briefcase, Award, Rocket, Check, HelpCircle
+  Sparkles, ArrowLeft, Eye, EyeOff, Briefcase, Award, Rocket, Check, HelpCircle,
+  KeyRound, RotateCcw, MailCheck
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -18,6 +19,12 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // OTP Verification states
+  const [registerStep, setRegisterStep] = useState('form'); // 'form' | 'otp'
+  const [otp, setOtp] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
   // Form states
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({
@@ -29,32 +36,19 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
   });
 
   useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  useEffect(() => {
     document.title = tab === 'login' 
       ? 'Đăng nhập Ứng viên | Cổng tuyển dụng LLA' 
       : 'Đăng ký tài khoản Ứng viên | Cổng tuyển dụng LLA';
     return () => { document.title = 'HRM Pro'; };
   }, [tab]);
-
-  // Demo fill helper
-  const handleFillDemoCandidate = () => {
-    setLoginData({
-      email: 'candidate@example.com',
-      password: 'admin123'
-    });
-    toast.success('Đã điền tài khoản ứng viên mẫu: candidate@example.com / admin123');
-  };
-
-  const handleFillDemoRegister = () => {
-    const randomId = Math.floor(100 + Math.random() * 900);
-    setRegisterData({
-      name: `Ứng Viên Demo ${randomId}`,
-      email: `ungvien${randomId}@example.com`,
-      phone: '0988123456',
-      password: 'admin123',
-      confirmPassword: 'admin123'
-    });
-    toast.success('Đã điền thông tin đăng ký mẫu!');
-  };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -73,13 +67,41 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
     }
   };
 
-  const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
+  const handleRequestOtp = async (e) => {
+    if (e) e.preventDefault();
+    if (!registerData.name?.trim()) {
+      return toast.error('Vui lòng nhập họ và tên của bạn.');
+    }
+    if (!registerData.email?.trim()) {
+      return toast.error('Vui lòng nhập địa chỉ email hợp lệ.');
+    }
     if (registerData.password !== registerData.confirmPassword) {
       return toast.error('Mật khẩu xác nhận không khớp.');
     }
     if (registerData.password.length < 6) {
       return toast.error('Mật khẩu phải có ít nhất 6 ký tự.');
+    }
+
+    setSendingOtp(true);
+    try {
+      const res = await axios.post('http://localhost:5000/api/candidate-auth/send-register-otp', {
+        name: registerData.name,
+        email: registerData.email
+      });
+      toast.success(res.data.message || 'Mã xác thực OTP đã được gửi về email của bạn!');
+      setRegisterStep('otp');
+      setCountdown(60);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Không thể gửi mã xác thực. Vui lòng kiểm tra lại email.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtpAndRegister = async (e) => {
+    e.preventDefault();
+    if (!otp || otp.trim().length !== 6) {
+      return toast.error('Vui lòng nhập chính xác 6 chữ số mã OTP.');
     }
 
     setLoading(true);
@@ -88,15 +110,16 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
         name: registerData.name,
         email: registerData.email,
         phone: registerData.phone,
-        password: registerData.password
+        password: registerData.password,
+        otp: otp.trim()
       });
       const { token, user } = res.data;
       localStorage.setItem('candidateToken', token);
       localStorage.setItem('candidateUser', JSON.stringify(user));
-      toast.success('Đăng ký tài khoản ứng viên thành công!');
+      toast.success('Xác thực email và tạo tài khoản ứng viên thành công!');
       navigate(redirectParam);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Đăng ký thất bại. Email có thể đã được sử dụng.');
+      toast.error(err.response?.data?.error || 'Xác thực OTP thất bại. Vui lòng kiểm tra lại.');
     } finally {
       setLoading(false);
     }
@@ -106,299 +129,27 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2.5rem 1rem',
       backgroundColor: '#F8FAFC',
+      backgroundImage: `
+        radial-gradient(at 15% 15%, rgba(37, 99, 235, 0.08) 0px, transparent 50%),
+        radial-gradient(at 85% 85%, rgba(99, 102, 241, 0.08) 0px, transparent 50%)
+      `,
       fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
       position: 'relative'
     }}>
-      <style>{`
-        .candidate-auth-wrapper {
-          display: flex;
-          width: 100%;
-          min-height: 100vh;
-        }
-        .candidate-showcase-panel {
-          flex: 1.1;
-          display: flex;
-          flex-direction: column;
-          justifyContent: space-between;
-          background: linear-gradient(145deg, #0B132B 0%, #1C2541 50%, #1E3A8A 100%);
-          color: #FFFFFF;
-          padding: 3.5rem 3.5rem;
-          position: relative;
-          overflow: hidden;
-        }
-        .candidate-form-panel {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justifyContent: center;
-          alignItems: center;
-          background-color: #FFFFFF;
-          padding: 2.5rem 2rem;
-          position: relative;
-          overflow-y: auto;
-        }
-        @media (max-width: 1024px) {
-          .candidate-showcase-panel {
-            display: none !important;
-          }
-          .candidate-form-panel {
-            flex: 1 1 100% !important;
-            padding: 3rem 1.5rem !important;
-            background-color: #F8FAFC !important;
-          }
-          .candidate-form-card {
-            background-color: #FFFFFF !important;
-            padding: 2.5rem 2rem !important;
-            border-radius: 1.25rem !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 0 0 1px #E2E8F0 !important;
-          }
-        }
-      `}</style>
-
-      <div className="candidate-auth-wrapper">
-        
-        {/* CỘT TRÁI: Showcase Banner Đẳng cấp (Sáng rõ, tương phản cao) */}
-        <div className="candidate-showcase-panel">
-          {/* Ambient Lighting */}
-          <div style={{
-            position: 'absolute',
-            top: '-15%',
-            left: '-15%',
-            width: '450px',
-            height: '450px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, transparent 70%)',
-            pointerEvents: 'none'
-          }} />
-          <div style={{
-            position: 'absolute',
-            bottom: '-15%',
-            right: '-15%',
-            width: '450px',
-            height: '450px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(147, 51, 234, 0.25) 0%, transparent 70%)',
-            pointerEvents: 'none'
-          }} />
-
-          {/* Top Brand Info */}
-          <div style={{ position: 'relative', zIndex: 2 }}>
-            <Link 
-              to="/" 
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                color: '#93C5FD',
-                textDecoration: 'none',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                marginBottom: '2rem',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(4px)',
-                transition: 'all 0.2s'
-              }}
-            >
-              <ArrowLeft size={16} /> Quay lại Cổng Tuyển dụng LLA
-            </Link>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <div style={{
-                width: 44,
-                height: 44,
-                borderRadius: '0.75rem',
-                background: 'linear-gradient(135deg, #2563EB, #60A5FA)',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                fontSize: '1.25rem',
-                boxShadow: '0 8px 16px rgba(37, 99, 235, 0.4)'
-              }}>
-                LLA
-              </div>
-              <div>
-                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFFFFF', display: 'block', letterSpacing: '-0.01em' }}>
-                  LLA Talent Community
-                </span>
-                <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
-                  Cổng kết nối Cơ hội Việc làm & Nhân tài
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content Highlights */}
-          <div style={{ position: 'relative', zIndex: 2, maxWidth: '520px', margin: '2rem 0' }}>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.35rem 0.85rem',
-              borderRadius: '9999px',
-              backgroundColor: 'rgba(59, 130, 246, 0.25)',
-              border: '1px solid rgba(96, 165, 250, 0.4)',
-              color: '#93C5FD',
-              fontSize: '0.8125rem',
-              fontWeight: 700,
-              marginBottom: '1.5rem'
-            }}>
-              <Sparkles size={15} /> Trải nghiệm Ứng tuyển Số hóa Toàn diện
-            </div>
-
-            {/* CHỮ TIÊU ĐỀ RÕ RÀNG VỚI MÀU TRẮNG TINH KHÔI */}
-            <h2 style={{
-              fontSize: '2.4rem',
-              fontWeight: 800,
-              lineHeight: 1.25,
-              marginBottom: '1.25rem',
-              letterSpacing: '-0.02em',
-              color: '#FFFFFF'
-            }}>
-              Kết nối ước mơ, <br />
-              <span style={{
-                background: 'linear-gradient(90deg, #60A5FA 0%, #C084FC 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                display: 'inline-block'
-              }}>
-                bứt phá sự nghiệp tại LLA.
-              </span>
-            </h2>
-
-            <p style={{ color: '#CBD5E1', fontSize: '0.95rem', lineHeight: 1.65, marginBottom: '2rem' }}>
-              Theo dõi toàn diện quy trình ứng tuyển từ lúc nộp hồ sơ, lịch phỏng vấn đến nhận Offer và chuẩn bị ngày đầu tiên đi làm.
-            </p>
-
-            {/* 3 Khối Tính Năng Nổi Bật */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              
-              <div style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.85rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                padding: '1rem',
-                borderRadius: '0.75rem',
-                border: '1px solid rgba(255, 255, 255, 0.12)'
-              }}>
-                <div style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(59, 130, 246, 0.3)',
-                  color: '#60A5FA',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <Rocket size={19} />
-                </div>
-                <div>
-                  <strong style={{ fontSize: '0.95rem', color: '#FFFFFF', display: 'block', marginBottom: '0.2rem' }}>
-                    Theo dõi tiến độ realtime
-                  </strong>
-                  <span style={{ fontSize: '0.8125rem', color: '#94A3B8', lineHeight: 1.45, display: 'block' }}>
-                    Biết ngay hồ sơ đang ở vòng Sơ loại, Kiểm tra chuyên môn hay Phỏng vấn.
-                  </span>
-                </div>
-              </div>
-
-              <div style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.85rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                padding: '1rem',
-                borderRadius: '0.75rem',
-                border: '1px solid rgba(255, 255, 255, 0.12)'
-              }}>
-                <div style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(34, 197, 94, 0.3)',
-                  color: '#4ADE80',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <Award size={19} />
-                </div>
-                <div>
-                  <strong style={{ fontSize: '0.95rem', color: '#FFFFFF', display: 'block', marginBottom: '0.2rem' }}>
-                    Nhận & Phản hồi Offer trực tuyến
-                  </strong>
-                  <span style={{ fontSize: '0.8125rem', color: '#94A3B8', lineHeight: 1.45, display: 'block' }}>
-                    Minh bạch mức lương, phụ cấp, hợp đồng thử việc và xác nhận nhận việc 1-chạm.
-                  </span>
-                </div>
-              </div>
-
-              <div style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.85rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                padding: '1rem',
-                borderRadius: '0.75rem',
-                border: '1px solid rgba(255, 255, 255, 0.12)'
-              }}>
-                <div style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(245, 158, 11, 0.3)',
-                  color: '#FBBF24',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <CheckCircle2 size={19} />
-                </div>
-                <div>
-                  <strong style={{ fontSize: '0.95rem', color: '#FFFFFF', display: 'block', marginBottom: '0.2rem' }}>
-                    Khảo sát Pre-onboarding tiện lợi
-                  </strong>
-                  <span style={{ fontSize: '0.8125rem', color: '#94A3B8', lineHeight: 1.45, display: 'block' }}>
-                    Đăng ký thiết bị máy tính, size đồng phục trước ngày đi làm đầu tiên.
-                  </span>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* Bottom Trust Badge */}
-          <div style={{
-            position: 'relative',
-            zIndex: 2,
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-            paddingTop: '1.25rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '0.8125rem',
-            color: '#94A3B8'
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <ShieldCheck size={16} color="#4ADE80" /> Bảo mật theo Nghị định 13/2023/NĐ-CP
-            </span>
-            <span>Hotline: 024 8888 9999</span>
-          </div>
-        </div>
-
-        {/* CỘT PHẢI: Form Đăng nhập & Đăng ký (Rộng rãi, dễ đọc, căn giữa hoàn hảo) */}
-        <div className="candidate-form-panel">
-          
-          <div className="candidate-form-card" style={{ width: '100%', maxWidth: '440px', margin: '0 auto' }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '460px',
+        backgroundColor: '#FFFFFF',
+        borderRadius: '20px',
+        boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+        padding: '2.5rem 2.25rem',
+        position: 'relative',
+        zIndex: 2
+      }}>
             
             {/* Header Mobile / Back Link */}
             <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -458,7 +209,7 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
             }}>
               <button
                 type="button"
-                onClick={() => setTab('login')}
+                onClick={() => { setTab('login'); setRegisterStep('form'); setOtp(''); }}
                 style={{
                   flex: 1,
                   padding: '0.65rem',
@@ -609,46 +360,10 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
                 >
                   {loading ? 'Đang xác thực...' : 'Đăng nhập ngay'} <ArrowRight size={17} />
                 </button>
-
-                {/* Nút Demo Autofill Nhanh */}
-                <div style={{
-                  marginTop: '0.5rem',
-                  padding: '0.75rem 1rem',
-                  backgroundColor: '#EFF6FF',
-                  borderRadius: '0.5rem',
-                  border: '1px dashed #60A5FA',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem'
-                }}>
-                  <div style={{ fontSize: '0.78rem', color: '#1E40AF', lineHeight: 1.4 }}>
-                    💡 <strong>Tài khoản Demo:</strong> <code style={{ backgroundColor: '#DBEAFE', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>candidate@example.com</code> / <code style={{ backgroundColor: '#DBEAFE', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>admin123</code>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleFillDemoCandidate}
-                    style={{
-                      border: 'none',
-                      backgroundColor: '#2563EB',
-                      color: '#FFFFFF',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                      boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
-                    }}
-                  >
-                    Điền mẫu
-                  </button>
-                </div>
               </form>
-            ) : (
-              /* TAB: REGISTER */
-              <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.95rem' }}>
+            ) : registerStep === 'form' ? (
+              /* TAB: REGISTER - BƯỚC 1: ĐIỀN THÔNG TIN */
+              <form onSubmit={handleRequestOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.95rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#1E293B', marginBottom: '0.35rem' }}>
                     Họ và tên ứng viên <span style={{ color: '#EF4444' }}>*</span>
@@ -680,7 +395,7 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#1E293B', marginBottom: '0.35rem' }}>
-                      Email <span style={{ color: '#EF4444' }}>*</span>
+                      Email nhận mã OTP <span style={{ color: '#EF4444' }}>*</span>
                     </label>
                     <div style={{ position: 'relative' }}>
                       <Mail size={17} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
@@ -689,7 +404,7 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
                         required
                         value={registerData.email}
                         onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                        placeholder="email@..."
+                        placeholder="ungvien@gmail.com"
                         style={{
                           width: '100%',
                           height: '42px',
@@ -824,12 +539,12 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.75rem', color: '#64748B', marginTop: '0.2rem' }}>
                   <ShieldCheck size={16} color="#10B981" style={{ flexShrink: 0, marginTop: '1px' }} />
-                  <span>Dữ liệu cá nhân được mã hóa và bảo vệ nghiêm ngặt theo Nghị định 13/2023/NĐ-CP.</span>
+                  <span>Dữ liệu cá nhân được mã hóa an toàn và bảo mật theo tiêu chuẩn doanh nghiệp.</span>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={sendingOtp}
                   style={{
                     height: '46px',
                     borderRadius: '0.5rem',
@@ -838,7 +553,7 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
                     color: '#FFFFFF',
                     fontSize: '0.925rem',
                     fontWeight: 700,
-                    cursor: loading ? 'not-allowed' : 'pointer',
+                    cursor: sendingOtp ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -847,47 +562,162 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
                     marginTop: '0.25rem',
                     transition: 'all 0.2s'
                   }}
-                  onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = '#1D4ED8')}
-                  onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = '#2563EB')}
+                  onMouseEnter={(e) => !sendingOtp && (e.currentTarget.style.backgroundColor = '#1D4ED8')}
+                  onMouseLeave={(e) => !sendingOtp && (e.currentTarget.style.backgroundColor = '#2563EB')}
                 >
-                  {loading ? 'Đang tạo tài khoản...' : 'Hoàn tất Đăng ký'} <Sparkles size={17} />
+                  {sendingOtp ? 'Đang gửi mã xác thực...' : 'Tiếp tục: Nhận mã OTP qua Email'} <ArrowRight size={17} />
                 </button>
-
-                {/* Nút Demo Autofill Nhanh cho Đăng ký */}
-                <div style={{
-                  marginTop: '0.35rem',
-                  padding: '0.75rem 1rem',
-                  backgroundColor: '#EFF6FF',
-                  borderRadius: '0.5rem',
-                  border: '1px dashed #60A5FA',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem'
-                }}>
-                  <div style={{ fontSize: '0.78rem', color: '#1E40AF', lineHeight: 1.4 }}>
-                    💡 <strong>Điền nhanh thông tin đăng ký mẫu</strong>
-                  </div>
+              </form>
+            ) : (
+              /* TAB: REGISTER - BƯỚC 2: NHẬP MÃ XÁC THỰC OTP */
+              <form onSubmit={handleVerifyOtpAndRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <button
                     type="button"
-                    onClick={handleFillDemoRegister}
+                    onClick={() => setRegisterStep('form')}
                     style={{
                       border: 'none',
-                      backgroundColor: '#2563EB',
-                      color: '#FFFFFF',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      padding: '6px 12px',
-                      borderRadius: '6px',
+                      background: 'transparent',
+                      color: '#64748B',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
                       cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                      boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: 0
                     }}
                   >
-                    Điền mẫu
+                    <ArrowLeft size={15} /> Sửa thông tin đăng ký
                   </button>
+                  <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <ShieldCheck size={15} /> Bước 2/2: Xác thực email
+                  </span>
                 </div>
+
+                <div style={{
+                  backgroundColor: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
+                  borderRadius: '0.75rem',
+                  padding: '1rem',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.4rem' }}>
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      backgroundColor: '#DCFCE7',
+                      color: '#15803D',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 6px rgba(22, 101, 52, 0.15)'
+                    }}>
+                      <MailCheck size={22} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#166534', marginBottom: '3px' }}>
+                    Kiểm tra hộp thư đến của bạn
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#374151' }}>
+                    Mã xác thực 6 chữ số đã được gửi đến:
+                    <div style={{ fontWeight: 700, color: '#1E40AF', fontSize: '0.9rem', marginTop: '2px' }}>
+                      {registerData.email}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '4px' }}>
+                    (Vui lòng kiểm tra hộp thư đến hoặc hòm thư rác/spam)
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: 700, color: '#1E293B', textAlign: 'center', marginBottom: '0.5rem' }}>
+                    Nhập mã xác thực OTP (6 chữ số)
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <KeyRound size={20} style={{ position: 'absolute', left: '1.1rem', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      maxLength={6}
+                      placeholder="• • • • • •"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                      style={{
+                        width: '100%',
+                        height: '52px',
+                        padding: '0 1rem 0 3rem',
+                        borderRadius: '0.625rem',
+                        border: '2px solid #93C5FD',
+                        fontSize: '1.5rem',
+                        fontWeight: 800,
+                        letterSpacing: '10px',
+                        textAlign: 'center',
+                        fontFamily: 'monospace',
+                        backgroundColor: '#FFFFFF',
+                        color: '#1E40AF',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                  <span style={{ color: '#64748B' }}>Chưa nhận được mã?</span>
+                  {countdown > 0 ? (
+                    <span style={{ color: '#64748B', fontWeight: 500 }}>
+                      Gửi lại sau <strong>{countdown}s</strong>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRequestOtp}
+                      disabled={sendingOtp}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#2563EB',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: 0
+                      }}
+                    >
+                      <RotateCcw size={14} /> Gửi lại mã OTP
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otp.trim().length !== 6}
+                  style={{
+                    height: '46px',
+                    borderRadius: '0.5rem',
+                    border: 'none',
+                    background: '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '0.925rem',
+                    fontWeight: 700,
+                    cursor: (loading || otp.trim().length !== 6) ? 'not-allowed' : 'pointer',
+                    opacity: (otp.trim().length !== 6 && !loading) ? 0.65 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => (!loading && otp.trim().length === 6) && (e.currentTarget.style.backgroundColor = '#1D4ED8')}
+                  onMouseLeave={(e) => (!loading && otp.trim().length === 6) && (e.currentTarget.style.backgroundColor = '#2563EB')}
+                >
+                  {loading ? 'Đang kích hoạt...' : 'Xác nhận & Hoàn tất Đăng ký'} <CheckCircle2 size={17} />
+                </button>
               </form>
             )}
 
@@ -928,11 +758,8 @@ export const CandidateAuthPage = ({ defaultTab = 'login' }) => {
               © 2026 LLA HR Enterprise • Cổng Ứng viên Tuyển dụng
             </div>
 
-          </div>
-
         </div>
 
-      </div>
     </div>
   );
 };

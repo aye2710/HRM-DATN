@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   UserPlus, Search, Filter, CheckCircle2, Clock, AlertCircle, Eye, 
-  ArrowRight, Phone, Mail, Building, Briefcase, FileCheck, Shield, ShieldCheck, ChevronRight, X, Calendar, CreditCard
+  ArrowRight, Phone, Mail, Building, Briefcase, FileCheck, Shield, ShieldCheck, ChevronRight, X, Calendar, CreditCard, Copy
 } from 'lucide-react';
 import axios from 'axios';
 import { createPortal } from 'react-dom';
@@ -50,6 +50,7 @@ export const PreOnboardingHub = () => {
   const [revisionNote, setRevisionNote] = useState('');
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [revokeReason, setRevokeReason] = useState('');
+  const [createdAccountModal, setCreatedAccountModal] = useState(null);
 
   const fetchPreOnboarding = async () => {
     setLoading(true);
@@ -163,14 +164,25 @@ export const PreOnboardingHub = () => {
         contractType: 'PROBATION'
       };
 
-      await axios.post('http://localhost:5000/api/offers/accept', payload);
-      toast.success(`Đã tiếp nhận thành công ứng viên ${acceptingCandidate.name} sang Bảng tiến độ Hội nhập!`);
+      const res = await axios.post('http://localhost:5000/api/offers/accept', payload);
+      toast.success(`Đã tiếp nhận thành công ứng viên ${acceptingCandidate.name}!`);
       setShowAcceptModal(false);
-      setAcceptingCandidate(null);
       fetchPreOnboarding();
-      setTimeout(() => {
-        navigate('/internal/onboarding/checklist');
-      }, 1200);
+
+      if (res.data.account?.temporaryPassword) {
+        setCreatedAccountModal({
+          candidateName: acceptingCandidate.name,
+          email: acceptingCandidate.email,
+          employeeCode: res.data.employee?.code || 'NVxxxx',
+          username: res.data.account.username,
+          temporaryPassword: res.data.account.temporaryPassword
+        });
+      } else {
+        setTimeout(() => {
+          navigate('/internal/onboarding/checklist');
+        }, 1200);
+      }
+      setAcceptingCandidate(null);
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.error || 'Có lỗi xảy ra khi tiếp nhận ứng viên');
@@ -790,6 +802,100 @@ export const PreOnboardingHub = () => {
               >
                 {isSubmitting ? 'Đang tiếp nhận...' : 'Xác nhận Tiếp nhận & Cấp mã NV'}
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* MODAL 3: Bàn giao Tài khoản Cổng Nhân sự & Thông báo Email */}
+      {createdAccountModal && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10001,
+          backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(5px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }} onClick={() => setCreatedAccountModal(null)}>
+          <div
+            style={{
+              backgroundColor: '#FFFFFF', borderRadius: '16px', width: '500px', maxWidth: '95vw',
+              border: '1px solid #E2E8F0', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+              overflow: 'hidden'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+              color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>
+                  🎉 Đã Cấp Tài Khoản Cổng Nhân Sự
+                </h3>
+                <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                  Nhân sự: <strong>{createdAccountModal.candidateName}</strong>
+                </span>
+              </div>
+              <button onClick={() => setCreatedAccountModal(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{
+                padding: '0.85rem 1rem', borderRadius: '10px', backgroundColor: '#EFF6FF',
+                border: '1px solid #BFDBFE', fontSize: '0.825rem', color: '#1E40AF', lineHeight: 1.5
+              }}>
+                ✉️ Hệ thống đã gửi email chào mừng kèm thông tin đăng nhập tới: <strong>{createdAccountModal.email || 'Email nhân viên'}</strong>.
+              </div>
+
+              <div style={{
+                backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '12px', padding: '1.25rem'
+              }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#2563EB', marginBottom: '12px' }}>
+                  Thông tin Tài khoản Đăng nhập
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.875rem' }}>
+                  <span style={{ color: '#64748B' }}>Mã nhân viên:</span>
+                  <strong style={{ color: '#2563EB', fontFamily: 'monospace' }}>{createdAccountModal.employeeCode}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.875rem' }}>
+                  <span style={{ color: '#64748B' }}>Tên đăng nhập (Username):</span>
+                  <strong style={{ color: '#0F172A', fontFamily: 'monospace' }}>{createdAccountModal.username}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+                  <span style={{ color: '#64748B' }}>Mật khẩu khởi tạo:</span>
+                  <span style={{ color: '#DC2626', backgroundColor: '#FEE2E2', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontFamily: 'monospace' }}>
+                    {createdAccountModal.temporaryPassword}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `Kính gửi Anh/Chị ${createdAccountModal.candidateName},\nThông tin tài khoản Cổng Nhân sự LLA HRM của bạn:\n- Mã NV: ${createdAccountModal.employeeCode}\n- Tên đăng nhập: ${createdAccountModal.username}\n- Mật khẩu: ${createdAccountModal.temporaryPassword}\n- Link đăng nhập Cổng Nhân sự: http://localhost:5173/employee/login\nVui lòng đổi mật khẩu ở lần đăng nhập đầu tiên.`;
+                    navigator.clipboard.writeText(text);
+                    toast.success('Đã sao chép thông tin tài khoản vào Clipboard!');
+                  }}
+                  className="btn btn-outline"
+                  style={{ flex: 1, height: 40, fontSize: '0.825rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Copy size={16} /> Sao chép thông tin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedAccountModal(null);
+                    navigate('/internal/onboarding/checklist');
+                  }}
+                  className="btn btn-primary"
+                  style={{ flex: 1, height: 40, fontSize: '0.825rem', fontWeight: 700 }}
+                >
+                  Đến Checklist Hội nhập →
+                </button>
+              </div>
             </div>
           </div>
         </div>,

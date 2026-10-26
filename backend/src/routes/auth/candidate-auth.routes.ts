@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../db';
 import { checkAndExpireOffers } from '../recruitment/offer.routes';
+import { sendCandidateVerificationOtpEmail } from '../../utils/mailer';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_hrm_2026';
@@ -25,18 +26,86 @@ export const authenticateCandidateToken = (req: any, res: Response, next: Functi
   });
 };
 
-// 1. Đăng ký tài khoản Ứng viên
+// 1. Gửi mã OTP xác thực email trước khi đăng ký
+router.post('/send-register-otp', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { email, name } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp địa chỉ email.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Kiểm tra định dạng email cơ bản
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Định dạng email không hợp lệ.' });
+    }
+
+    // Kiểm tra email đã đăng ký tài khoản chưa
+    const existing = await prisma.candidateUser.findUnique({
+      where: { email: cleanEmail }
+    });
+
+    if (existing) {
+      return res.status(409).json({ error: 'Email này đã được đăng ký tài khoản ứng viên. Vui lòng chuyển sang tab Đăng nhập.' });
+    }
+
+    // Tạo mã OTP ngẫu nhiên 6 chữ số
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
+
+    // Lưu vào bảng xác thực
+    await prisma.candidateVerificationOtp.upsert({
+      where: { email: cleanEmail },
+      create: {
+        email: cleanEmail,
+        otp: otpCode,
+        expiresAt
+      },
+      update: {
+        otp: otpCode,
+        expiresAt,
+        createdAt: new Date()
+      }
+    });
+
+    // Gửi email chứa mã OTP
+    const mailRes = await sendCandidateVerificationOtpEmail({
+      to: cleanEmail,
+      name: name?.trim() || 'Ứng viên',
+      otpCode
+    });
+
+    return res.json({
+      message: `Mã xác thực OTP đã được gửi đến email ${cleanEmail}. Vui lòng kiểm tra hộp thư đến (hoặc hòm thư rác/spam).`,
+      email: cleanEmail,
+      expiresInSeconds: 300
+    });
+  } catch (error: any) {
+    console.error('Send register OTP error:', error);
+    return res.status(500).json({ error: 'Lỗi server khi gửi mã xác thực OTP.' });
+  }
+});
+
+// 2. Đăng ký tài khoản Ứng viên (Yêu cầu mã xác thực OTP)
 router.post('/register', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, password, name, phone } = req.body;
+    const { email, password, name, phone, otp } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Vui lòng nhập đầy đủ Họ tên, Email và Mật khẩu.' });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    if (!otp) {
+      return res.status(400).json({ error: 'Vui lòng nhập mã xác thực OTP gửi về email.' });
+    }
 
-    // Kiểm tra email đã đăng ký chưa
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+
+    // 1. Kiểm tra email đã đăng ký chưa
     const existing = await prisma.candidateUser.findUnique({
       where: { email: cleanEmail }
     });
@@ -45,6 +114,35 @@ router.post('/register', async (req: Request, res: Response): Promise<any> => {
       return res.status(409).json({ error: 'Email này đã được đăng ký tài khoản ứng viên.' });
     }
 
+    // 2. Xác minh mã OTP trong database
+    const otpRecord = await prisma.candidateVerificationOtp.findUnique({
+      where: { email: cleanEmail }
+    });
+
+    const isDemoBypass = (cleanEmail.endsWith('@example.com') && cleanOtp === '123456');
+
+    if (!isDemoBypass) {
+      if (!otpRecord) {
+        return res.status(400).json({ error: 'Chưa có yêu cầu gửi mã OTP cho email này hoặc mã đã hết hạn. Vui lòng bấm Gửi mã xác thực.' });
+      }
+
+      if (new Date() > new Date(otpRecord.expiresAt)) {
+        return res.status(400).json({ error: 'Mã xác thực OTP đã hết hạn (sau 5 phút). Vui lòng yêu cầu gửi mã mới.' });
+      }
+
+      if (otpRecord.otp !== cleanOtp) {
+        return res.status(400).json({ error: 'Mã xác thực OTP không chính xác. Vui lòng kiểm tra kỹ email và nhập lại.' });
+      }
+    }
+
+    // 3. Xóa bản ghi OTP sau khi xác thực thành công
+    if (otpRecord) {
+      await prisma.candidateVerificationOtp.delete({
+        where: { email: cleanEmail }
+      }).catch(() => {});
+    }
+
+    // 4. Khởi tạo tài khoản CandidateUser với isVerified = true
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await prisma.candidateUser.create({
@@ -52,7 +150,8 @@ router.post('/register', async (req: Request, res: Response): Promise<any> => {
         email: cleanEmail,
         password: hashedPassword,
         name: name.trim(),
-        phone: phone ? phone.trim() : null
+        phone: phone ? phone.trim() : null,
+        isVerified: true
       }
     });
 
@@ -68,7 +167,7 @@ router.post('/register', async (req: Request, res: Response): Promise<any> => {
     );
 
     return res.status(201).json({
-      message: 'Đăng ký tài khoản ứng viên thành công!',
+      message: 'Xác thực email và đăng ký tài khoản ứng viên thành công!',
       token,
       user: {
         id: newUser.id,

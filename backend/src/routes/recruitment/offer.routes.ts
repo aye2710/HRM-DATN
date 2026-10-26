@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
+import { sendWelcomeAccountEmail } from '../../utils/mailer';
 
 const router = Router();
 router.use(authenticateToken);
@@ -255,6 +257,45 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
         }
       });
 
+      // 3.6. Tự động tạo Tài khoản Cổng nhân sự (Role: EMPLOYEE)
+      let accountInfo: { username: string; temporaryPassword?: string } | null = null;
+      let existingAccount = await tx.account.findUnique({
+        where: { username: finalCode.toLowerCase() }
+      });
+      if (!existingAccount && candidate.email) {
+        existingAccount = await tx.account.findUnique({
+          where: { username: candidate.email }
+        });
+      }
+
+      let employeeRole = await tx.role.findFirst({
+        where: { name: 'EMPLOYEE' }
+      });
+      if (!employeeRole) {
+        employeeRole = await tx.role.create({
+          data: { name: 'EMPLOYEE', description: 'Nhân viên công ty' }
+        });
+      }
+
+      const tempPassword = 'LLA@' + Math.floor(100000 + Math.random() * 900000);
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      const username = finalCode.toLowerCase();
+
+      if (!existingAccount) {
+        await tx.account.create({
+          data: {
+            username,
+            password: hashedPassword,
+            employeeId: newEmployee.id,
+            roleId: employeeRole.id,
+            isActive: true
+          }
+        });
+        accountInfo = { username, temporaryPassword: tempPassword };
+      } else {
+        accountInfo = { username: existingAccount.username };
+      }
+
       // 4. Đổi trạng thái Ứng viên thành HIRED
       await tx.candidate.update({
         where: { id: candidateId },
@@ -285,10 +326,34 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
         }
       }
 
-      return newEmployee;
+      return {
+        newEmployee,
+        accountInfo,
+        candidateEmail: candidate.email,
+        candidateName: candidate.name,
+        positionTitle: candidate.jobPosting?.position?.title,
+        departmentName: candidate.jobPosting?.department?.name
+      };
     });
 
-    return res.status(201).json({ message: 'Kích hoạt hồ sơ nhân viên thành công!', employee: result });
+    // 7. Gửi Email thông tin tài khoản tự động (Chạy nền - Không chặn API response)
+    if (result.accountInfo?.temporaryPassword && result.candidateEmail) {
+      sendWelcomeAccountEmail({
+        to: result.candidateEmail,
+        fullName: result.candidateName,
+        employeeCode: result.newEmployee.code,
+        username: result.accountInfo.username,
+        temporaryPassword: result.accountInfo.temporaryPassword,
+        positionTitle: result.positionTitle || 'Nhân sự mới',
+        departmentName: result.departmentName || 'Công ty TNHH LLA'
+      }).catch((err) => console.error("Lỗi khi gửi email chào mừng:", err));
+    }
+
+    return res.status(201).json({
+      message: 'Kích hoạt hồ sơ nhân viên thành công!',
+      employee: result.newEmployee,
+      account: result.accountInfo
+    });
   } catch (error: any) {
     console.error("Lỗi khi tiếp nhận ứng viên:", error);
     if (error.code === 'P2002') {
