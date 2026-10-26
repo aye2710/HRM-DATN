@@ -34,14 +34,37 @@ export const EmployeeList = () => {
     code: '',
     fullName: '',
     cccd: '',
-    gender: '',
+    cccdIssueDate: '',
+    cccdIssuePlace: '',
+    cccdExpiryDate: '',
+    birthPlace: '',
+    hometown: '',
+    ethnicity: 'Kinh',
+    religion: '',
+    permanentAddress: '',
+    temporaryAddress: '',
+    currentAddress: '',
+    dataConsent: true,
+    gender: 'MALE',
     dateOfBirth: '',
     phone: '',
     email: '',
     joinDate: '',
     status: 'ACTIVE',
     departmentId: '',
-    positionId: ''
+    positionId: '',
+    managementRole: 'STAFF',
+    managerId: '',
+    workLocation: 'Văn phòng chính (Trụ sở)',
+    employmentType: 'FULL_TIME',
+    probationStartDate: '',
+    officialStartDate: '',
+    taxCode: '',
+    socialInsuranceNo: '',
+    bankAccount: '',
+    bankName: '',
+    bankBranch: '',
+    bankAccountHolder: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -109,8 +132,23 @@ export const EmployeeList = () => {
       case 'PROBATION': return <span className="badge badge-warning" style={{ padding: '3px 8px', fontSize: '0.75rem' }}>Thử việc</span>;
       case 'INTERNSHIP': return <span className="badge badge-info" style={{ padding: '3px 8px', fontSize: '0.75rem' }}>Thực tập</span>;
       case 'ONBOARDING': return <span className="badge badge-info" style={{ padding: '3px 8px', fontSize: '0.75rem', backgroundColor: '#e0e7ff', color: '#4338ca' }}>Đang hội nhập</span>;
+      case 'MATERNITY_LEAVE': return <span className="badge" style={{ backgroundColor: '#fdf2f8', color: '#db2777', border: '1px solid #fbcfe8', padding: '3px 8px', fontSize: '0.75rem' }}>Nghỉ thai sản</span>;
+      case 'UNPAID_LEAVE': return <span className="badge" style={{ backgroundColor: '#fffbeb', color: '#d97706', border: '1px solid #fde68a', padding: '3px 8px', fontSize: '0.75rem' }}>Nghỉ không lương</span>;
+      case 'SUSPENDED': return <span className="badge" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '3px 8px', fontSize: '0.75rem' }}>Tạm hoãn HĐ</span>;
       case 'RESIGNED': return <span className="badge badge-error" style={{ padding: '3px 8px', fontSize: '0.75rem' }}>Đã thôi việc</span>;
       default: return <span className="badge badge-purple" style={{ padding: '3px 8px', fontSize: '0.75rem' }}>{status}</span>;
+    }
+  };
+
+  const getManagementRoleBadge = (role) => {
+    switch (role) {
+      case 'BOD': return <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#991b1b', fontSize: '0.7rem', padding: '1px 6px', fontWeight: 600 }}>Ban Giám Đốc</span>;
+      case 'DIRECTOR': return <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#b91c1c', fontSize: '0.7rem', padding: '1px 6px', fontWeight: 600 }}>Giám đốc Khối</span>;
+      case 'DEPUTY_DIRECTOR': return <span className="badge" style={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.7rem', padding: '1px 6px', fontWeight: 600 }}>Phó Giám đốc</span>;
+      case 'MANAGER': return <span className="badge" style={{ backgroundColor: '#e0e7ff', color: '#3730a3', fontSize: '0.7rem', padding: '1px 6px', fontWeight: 600 }}>Trưởng phòng</span>;
+      case 'DEPUTY_MANAGER': return <span className="badge" style={{ backgroundColor: '#ede9fe', color: '#5b21b6', fontSize: '0.7rem', padding: '1px 6px', fontWeight: 600 }}>Phó phòng</span>;
+      case 'TEAM_LEAD': return <span className="badge" style={{ backgroundColor: '#dcfce7', color: '#166534', fontSize: '0.7rem', padding: '1px 6px', fontWeight: 600 }}>Trưởng nhóm</span>;
+      default: return null;
     }
   };
 
@@ -152,6 +190,17 @@ export const EmployeeList = () => {
       code: `NV${Math.floor(1000 + Math.random() * 9000)}`,
       fullName: '',
       cccd: '',
+      cccdIssueDate: '',
+      cccdIssuePlace: 'Cục Cảnh sát QLHC về TTXH',
+      cccdExpiryDate: '',
+      birthPlace: '',
+      hometown: '',
+      ethnicity: 'Kinh',
+      religion: '',
+      permanentAddress: '',
+      temporaryAddress: '',
+      currentAddress: '',
+      dataConsent: true,
       gender: 'MALE',
       dateOfBirth: '',
       phone: '',
@@ -159,7 +208,19 @@ export const EmployeeList = () => {
       joinDate: new Date().toISOString().split('T')[0],
       status: 'ACTIVE',
       departmentId: '',
-      positionId: ''
+      positionId: '',
+      managementRole: 'STAFF',
+      managerId: '',
+      workLocation: 'Văn phòng chính (Trụ sở)',
+      employmentType: 'FULL_TIME',
+      probationStartDate: '',
+      officialStartDate: '',
+      taxCode: '',
+      socialInsuranceNo: '',
+      bankAccount: '',
+      bankName: 'Vietcombank',
+      bankBranch: '',
+      bankAccountHolder: ''
     });
     setShowModal(true);
   };
@@ -171,6 +232,17 @@ export const EmployeeList = () => {
       code: emp.code,
       fullName: emp.fullName,
       cccd: emp.cccd || '',
+      cccdIssueDate: emp.cccdIssueDate ? emp.cccdIssueDate.split('T')[0] : '',
+      cccdIssuePlace: emp.cccdIssuePlace || '',
+      cccdExpiryDate: emp.cccdExpiryDate ? emp.cccdExpiryDate.split('T')[0] : '',
+      birthPlace: emp.birthPlace || '',
+      hometown: emp.hometown || '',
+      ethnicity: emp.ethnicity || 'Kinh',
+      religion: emp.religion || '',
+      permanentAddress: emp.permanentAddress || '',
+      temporaryAddress: emp.temporaryAddress || '',
+      currentAddress: emp.currentAddress || '',
+      dataConsent: emp.dataConsent ?? true,
       gender: emp.gender || '',
       dateOfBirth: emp.dateOfBirth ? emp.dateOfBirth.split('T')[0] : '',
       phone: emp.phone || '',
@@ -178,7 +250,19 @@ export const EmployeeList = () => {
       joinDate: emp.joinDate ? emp.joinDate.split('T')[0] : '',
       status: emp.status,
       departmentId: emp.departmentId || '',
-      positionId: emp.positionId || ''
+      positionId: emp.positionId || '',
+      managementRole: emp.managementRole || 'STAFF',
+      managerId: emp.managerId || '',
+      workLocation: emp.workLocation || 'Văn phòng chính (Trụ sở)',
+      employmentType: emp.employmentType || 'FULL_TIME',
+      probationStartDate: emp.probationStartDate ? emp.probationStartDate.split('T')[0] : '',
+      officialStartDate: emp.officialStartDate ? emp.officialStartDate.split('T')[0] : '',
+      taxCode: emp.taxCode || '',
+      socialInsuranceNo: emp.socialInsuranceNo || '',
+      bankAccount: emp.bankAccount || '',
+      bankName: emp.bankName || '',
+      bankBranch: emp.bankBranch || '',
+      bankAccountHolder: emp.bankAccountHolder || emp.fullName || ''
     });
     setShowModal(true);
   };
@@ -230,16 +314,34 @@ export const EmployeeList = () => {
   // Export CSV
   const handleExportCSV = () => {
     if (filteredEmployees.length === 0) return toast.error('Không có dữ liệu để xuất');
-    const headers = ['Mã NV', 'Họ và Tên', 'CCCD', 'Email', 'SĐT', 'Phòng ban', 'Chức danh', 'Cấp bậc', 'Ngày vào làm', 'Trạng thái'];
+    const headers = [
+      'Mã NV', 'Họ và Tên', 'CCCD (12 số)', 'Ngày cấp CCCD', 'Nơi cấp CCCD',
+      'Nơi sinh', 'Quê quán', 'Dân tộc', 'Email', 'SĐT',
+      'Thường trú', 'Nơi ở hiện tại', 'Phòng ban', 'Chức danh',
+      'Level năng lực', 'Chức vụ quản lý', 'Địa điểm làm việc', 'Loại hình LĐ',
+      'MST cá nhân', 'Số sổ BHXH', 'Ngày vào làm', 'Trạng thái'
+    ];
     const rows = filteredEmployees.map(emp => [
       `"${emp.code}"`,
       `"${emp.fullName}"`,
       `"${emp.cccd || ''}"`,
+      `"${emp.cccdIssueDate ? new Date(emp.cccdIssueDate).toLocaleDateString('vi-VN') : ''}"`,
+      `"${emp.cccdIssuePlace || ''}"`,
+      `"${emp.birthPlace || ''}"`,
+      `"${emp.hometown || ''}"`,
+      `"${emp.ethnicity || 'Kinh'}"`,
       `"${emp.email || ''}"`,
       `"${emp.phone || ''}"`,
+      `"${emp.permanentAddress || ''}"`,
+      `"${emp.currentAddress || ''}"`,
       `"${emp.department?.name || ''}"`,
       `"${emp.position?.title || ''}"`,
       `"${emp.position?.level || ''}"`,
+      `"${emp.managementRole || 'STAFF'}"`,
+      `"${emp.workLocation || ''}"`,
+      `"${emp.employmentType || ''}"`,
+      `"${emp.taxCode || ''}"`,
+      `"${emp.socialInsuranceNo || ''}"`,
       `"${new Date(emp.joinDate).toLocaleDateString('vi-VN')}"`,
       `"${emp.status}"`
     ]);
@@ -357,7 +459,7 @@ export const EmployeeList = () => {
         </div>
 
         {/* Status Filter */}
-        <div style={{ width: 170 }}>
+        <div style={{ width: 175 }}>
           <select 
             className="form-input w-full"
             value={statusFilter}
@@ -369,26 +471,29 @@ export const EmployeeList = () => {
             <option value="PROBATION">Thử việc (Probation)</option>
             <option value="ONBOARDING">Đang hội nhập</option>
             <option value="INTERNSHIP">Thực tập (Intern)</option>
+            <option value="MATERNITY_LEAVE">Nghỉ thai sản</option>
+            <option value="UNPAID_LEAVE">Nghỉ không lương</option>
+            <option value="SUSPENDED">Tạm hoãn HĐ</option>
             <option value="RESIGNED">Đã thôi việc</option>
           </select>
         </div>
 
         {/* Level Filter */}
-        <div style={{ width: 150 }}>
+        <div style={{ width: 155 }}>
           <select 
             className="form-input w-full"
             value={levelFilter}
             onChange={e => setLevelFilter(e.target.value)}
             style={{ fontSize: '0.85rem' }}
           >
-            <option value="">Tất cả cấp bậc</option>
+            <option value="">Cấp bậc chuyên môn</option>
             <option value="Intern">Intern</option>
             <option value="Fresher">Fresher</option>
             <option value="Junior">Junior</option>
             <option value="Middle">Middle</option>
             <option value="Senior">Senior</option>
             <option value="Lead">Lead</option>
-            <option value="Manager">Manager</option>
+            <option value="Expert">Expert</option>
           </select>
         </div>
 
@@ -436,7 +541,7 @@ export const EmployeeList = () => {
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   <th style={{ padding: '0.85rem 1rem', width: 110 }}>Mã NV</th>
                   <th style={{ padding: '0.85rem 1rem', minWidth: 200 }}>Họ và Tên</th>
-                  <th style={{ padding: '0.85rem 1rem', minWidth: 170 }}>Chức danh</th>
+                  <th style={{ padding: '0.85rem 1rem', minWidth: 190 }}>Chức danh & Cấp bậc</th>
                   <th style={{ padding: '0.85rem 1rem', minWidth: 160 }}>Phòng ban</th>
                   <th style={{ padding: '0.85rem 1rem', width: 140 }}>Ngày vào làm</th>
                   <th style={{ padding: '0.85rem 1rem', width: 130 }}>Trạng thái</th>
@@ -457,7 +562,7 @@ export const EmployeeList = () => {
                       </span>
                     </td>
 
-                    {/* 2. Họ và Tên (Không có thông tin định danh linh tinh) */}
+                    {/* 2. Họ và Tên */}
                     <td style={{ padding: '0.85rem 1rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                         <div style={{
@@ -479,16 +584,23 @@ export const EmployeeList = () => {
                       </div>
                     </td>
 
-                    {/* 3. Chức danh */}
+                    {/* 3. Chức danh & Chức vụ quản lý tách biệt */}
                     <td style={{ padding: '0.85rem 1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, color: '#0F172A' }}>
-                          {emp.position?.title || 'Chưa xếp chức danh'}
-                        </span>
-                        {emp.position?.level && (
-                          <span className="badge badge-purple" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
-                            {emp.position.level}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, color: '#0F172A' }}>
+                            {emp.position?.title || 'Chưa xếp chức danh'}
                           </span>
+                          {emp.position?.level && (
+                            <span className="badge badge-purple" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
+                              {emp.position.level}
+                            </span>
+                          )}
+                        </div>
+                        {emp.managementRole && emp.managementRole !== 'STAFF' && (
+                          <div>
+                            {getManagementRoleBadge(emp.managementRole)}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -658,7 +770,9 @@ export const EmployeeList = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} style={{ overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <form onSubmit={handleSubmit} style={{ overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              {/* Section 1 */}
               <div>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: '#2563EB', fontSize: '0.9rem', fontWeight: 700, textTransform: 'uppercase', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.35rem' }}>
                   1. Thông tin Cá nhân & Định danh
@@ -687,13 +801,42 @@ export const EmployeeList = () => {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Số CCCD (9 hoặc 12 số)</label>
+                    <label className="form-label">Số CCCD (12 số)</label>
                     <input 
                       type="text" 
                       className="form-input w-full"
                       value={formData.cccd}
                       onChange={e => setFormData({ ...formData, cccd: e.target.value })}
                       placeholder="VD: 079201012345"
+                      maxLength={12}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Ngày cấp CCCD</label>
+                    <input 
+                      type="date" 
+                      className="form-input w-full"
+                      value={formData.cccdIssueDate}
+                      onChange={e => setFormData({ ...formData, cccdIssueDate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Nơi cấp CCCD</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.cccdIssuePlace}
+                      onChange={e => setFormData({ ...formData, cccdIssuePlace: e.target.value })}
+                      placeholder="Cục Cảnh sát QLHC về TTXH"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Ngày hết hạn CCCD</label>
+                    <input 
+                      type="date" 
+                      className="form-input w-full"
+                      value={formData.cccdExpiryDate}
+                      onChange={e => setFormData({ ...formData, cccdExpiryDate: e.target.value })}
                     />
                   </div>
                   <div>
@@ -706,6 +849,7 @@ export const EmployeeList = () => {
                       <option value="">-- Chọn giới tính --</option>
                       <option value="MALE">Nam</option>
                       <option value="FEMALE">Nữ</option>
+                      <option value="OTHER">Khác</option>
                     </select>
                   </div>
                   <div>
@@ -718,6 +862,36 @@ export const EmployeeList = () => {
                     />
                   </div>
                   <div>
+                    <label className="form-label">Nơi sinh</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.birthPlace}
+                      onChange={e => setFormData({ ...formData, birthPlace: e.target.value })}
+                      placeholder="VD: Hà Nội, TP.HCM..."
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Quê quán</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.hometown}
+                      onChange={e => setFormData({ ...formData, hometown: e.target.value })}
+                      placeholder="VD: Nam Định, Nghệ An..."
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Dân tộc</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.ethnicity}
+                      onChange={e => setFormData({ ...formData, ethnicity: e.target.value })}
+                      placeholder="VD: Kinh, Tày, Mường..."
+                    />
+                  </div>
+                  <div>
                     <label className="form-label">Số điện thoại</label>
                     <input 
                       type="text" 
@@ -727,7 +901,7 @@ export const EmployeeList = () => {
                       placeholder="VD: 0912345678"
                     />
                   </div>
-                  <div style={{ gridColumn: 'span 2' }}>
+                  <div>
                     <label className="form-label">Email công việc</label>
                     <input 
                       type="email" 
@@ -740,9 +914,39 @@ export const EmployeeList = () => {
                 </div>
               </div>
 
+              {/* Section 2: Địa chỉ cư trú */}
               <div>
                 <h4 style={{ margin: '0 0 0.75rem 0', color: '#2563EB', fontSize: '0.9rem', fontWeight: 700, textTransform: 'uppercase', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.35rem' }}>
-                  2. Thông tin Công tác & Vị trí
+                  2. Địa chỉ cư trú
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label className="form-label">Địa chỉ thường trú</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.permanentAddress}
+                      onChange={e => setFormData({ ...formData, permanentAddress: e.target.value })}
+                      placeholder="Số nhà, đường/phố, phường/xã, quận/huyện, tỉnh/thành phố"
+                    />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label className="form-label">Nơi ở hiện tại</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.currentAddress}
+                      onChange={e => setFormData({ ...formData, currentAddress: e.target.value })}
+                      placeholder="Số nhà, đường/phố, phường/xã, nơi đang thực tế cư trú"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Vị trí & Công tác */}
+              <div>
+                <h4 style={{ margin: '0 0 0.75rem 0', color: '#2563EB', fontSize: '0.9rem', fontWeight: 700, textTransform: 'uppercase', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.35rem' }}>
+                  3. Thông tin Công tác & Vị trí Quản lý
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
                   <div>
@@ -769,18 +973,72 @@ export const EmployeeList = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="form-label">Chức danh công việc</label>
+                    <label className="form-label">Chức danh & Cấp bậc năng lực (Level)</label>
                     <select 
                       className="form-input w-full"
                       value={formData.positionId}
                       onChange={e => setFormData({ ...formData, positionId: e.target.value })}
                     >
-                      <option value="">-- Chọn chức vụ & cấp bậc --</option>
+                      <option value="">-- Chọn chức danh --</option>
                       {positions.map(p => (
                         <option key={p.id} value={p.id}>
                           {p.title} {p.level ? `(${p.level})` : ''}
                         </option>
                       ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Chức vụ quản lý (Tách riêng khỏi Level)</label>
+                    <select 
+                      className="form-input w-full"
+                      value={formData.managementRole}
+                      onChange={e => setFormData({ ...formData, managementRole: e.target.value })}
+                    >
+                      <option value="STAFF">Nhân viên / Chuyên viên (Staff)</option>
+                      <option value="TEAM_LEAD">Trưởng nhóm (Team Leader)</option>
+                      <option value="DEPUTY_MANAGER">Phó phòng (Deputy Manager)</option>
+                      <option value="MANAGER">Trưởng phòng (Manager)</option>
+                      <option value="DEPUTY_DIRECTOR">Phó Giám đốc (Deputy Director)</option>
+                      <option value="DIRECTOR">Giám đốc Khối (Director)</option>
+                      <option value="BOD">Ban Giám Đốc (Board of Directors)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Quản lý trực tiếp (Manager)</label>
+                    <select 
+                      className="form-input w-full"
+                      value={formData.managerId}
+                      onChange={e => setFormData({ ...formData, managerId: e.target.value })}
+                    >
+                      <option value="">-- Không có / Báo cáo cấp cao nhất --</option>
+                      {employees.filter(emp => !isEditing || emp.id !== formData.id).map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.fullName} ({m.code}) {m.position?.title ? ` - ${m.position.title}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Địa điểm / Chi nhánh làm việc</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.workLocation}
+                      onChange={e => setFormData({ ...formData, workLocation: e.target.value })}
+                      placeholder="VD: Trụ sở chính LLA, Chi nhánh HCM..."
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Loại hình lao động</label>
+                    <select 
+                      className="form-input w-full"
+                      value={formData.employmentType}
+                      onChange={e => setFormData({ ...formData, employmentType: e.target.value })}
+                    >
+                      <option value="FULL_TIME">Toàn thời gian (Full-time)</option>
+                      <option value="PART_TIME">Bán thời gian (Part-time)</option>
+                      <option value="COLLABORATOR">Cộng tác viên (CTV)</option>
+                      <option value="INTERN">Thực tập sinh (Intern)</option>
                     </select>
                   </div>
                   <div>
@@ -795,11 +1053,84 @@ export const EmployeeList = () => {
                       <option value="PROBATION">Thử việc (Probation)</option>
                       <option value="ONBOARDING">Đang hội nhập (Onboarding)</option>
                       <option value="INTERNSHIP">Thực tập (Internship)</option>
+                      <option value="MATERNITY_LEAVE">Nghỉ thai sản (Maternity Leave)</option>
+                      <option value="UNPAID_LEAVE">Nghỉ không lương (Unpaid Leave)</option>
+                      <option value="SUSPENDED">Tạm hoãn HĐ (Suspended)</option>
                       <option value="RESIGNED">Đã thôi việc (Resigned)</option>
                     </select>
                   </div>
                 </div>
               </div>
+
+              {/* Section 4: Thuế, Bảo hiểm & Ngân hàng */}
+              <div>
+                <h4 style={{ margin: '0 0 0.75rem 0', color: '#2563EB', fontSize: '0.9rem', fontWeight: 700, textTransform: 'uppercase', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.35rem' }}>
+                  4. Thuế TNCN, Bảo hiểm & Tài khoản Ngân hàng
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                  <div>
+                    <label className="form-label">Mã số thuế cá nhân (MST)</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.taxCode}
+                      onChange={e => setFormData({ ...formData, taxCode: e.target.value })}
+                      placeholder="VD: 8012345678"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Số sổ BHXH (10 số)</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.socialInsuranceNo}
+                      onChange={e => setFormData({ ...formData, socialInsuranceNo: e.target.value })}
+                      placeholder="VD: 7912345678"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Ngân hàng thụ hưởng</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.bankName}
+                      onChange={e => setFormData({ ...formData, bankName: e.target.value })}
+                      placeholder="VD: Vietcombank, Techcombank..."
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Số tài khoản</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.bankAccount}
+                      onChange={e => setFormData({ ...formData, bankAccount: e.target.value })}
+                      placeholder="VD: 0071000123456"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Chi nhánh ngân hàng</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.bankBranch}
+                      onChange={e => setFormData({ ...formData, bankBranch: e.target.value })}
+                      placeholder="VD: Chi nhánh TP.HCM"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Chủ tài khoản</label>
+                    <input 
+                      type="text" 
+                      className="form-input w-full"
+                      value={formData.bankAccountHolder}
+                      onChange={e => setFormData({ ...formData, bankAccountHolder: e.target.value })}
+                      placeholder="VD: NGUYEN VAN A"
+                    />
+                  </div>
+                </div>
+              </div>
+
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #F1F5F9', paddingTop: '1rem' }}>
                 <button 

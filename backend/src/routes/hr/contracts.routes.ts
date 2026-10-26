@@ -28,6 +28,9 @@ router.get('/', async (req: Request, res: Response) => {
       include: {
         employee: {
           select: { fullName: true, code: true, department: { select: { name: true } }, position: { select: { title: true } } }
+        },
+        appendices: {
+          orderBy: { effectiveDate: 'desc' }
         }
       },
       orderBy: { startDate: 'desc' }
@@ -41,7 +44,10 @@ router.get('/', async (req: Request, res: Response) => {
 // POST: Tạo Hợp đồng mới (CB/HR Only + Ràng buộc BLLĐ 2019)
 router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
   try {
-    const { employeeId, contractType, baseSalary, startDate, endDate, evaluationResult, fileUrl } = req.body;
+    const { 
+      employeeId, contractNumber, contractType, baseSalary, allowance, insuranceSalary, paymentMethod,
+      startDate, endDate, signBy, signDate, workLocation, appendixNote, evaluationResult, fileUrl 
+    } = req.body;
     
     if (!employeeId || !contractType || !baseSalary || !startDate) {
       return res.status(400).json({ error: 'Vui lòng điền đầy đủ: Nhân viên, loại hợp đồng, lương cơ bản và ngày bắt đầu.' });
@@ -65,15 +71,32 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ error: 'Ngày kết thúc hợp đồng không thể trước ngày bắt đầu.' });
     }
 
-    // Tuân thủ Điều 27 Bộ luật Lao động 2019: Thời hạn thử việc tối đa không quá 60 ngày
+    // Tuân thủ Khoản 2 Điều 20 Bộ luật Lao động 2019:
+    // Tối đa 02 lần ký Hợp đồng xác định thời hạn (OFFICIAL_1Y), lần tiếp theo phải là Không xác định thời hạn (INDEFINITE)
+    if (contractType === 'OFFICIAL_1Y') {
+      const definiteCount = await prisma.contract.count({
+        where: {
+          employeeId,
+          contractType: 'OFFICIAL_1Y',
+          status: { in: ['ACTIVE', 'EXPIRED'] }
+        }
+      });
+      if (definiteCount >= 2) {
+        return res.status(400).json({ 
+          error: `Theo Khoản 2 Điều 20 Bộ luật Lao động 2019, nhân sự này đã ký đủ 02 lần Hợp đồng xác định thời hạn. Lần ký tiếp theo bắt buộc phải là Hợp đồng không xác định thời hạn (INDEFINITE).` 
+        });
+      }
+    }
+
+    // Tuân thủ Điều 25 Bộ luật Lao động 2019: Thời hạn thử việc tối đa không quá 180 ngày
     if (contractType === 'PROBATION') {
       if (!end) {
-        return res.status(400).json({ error: 'Hợp đồng thử việc bắt buộc phải có ngày kết thúc (Điều 27 BLLĐ 2019).' });
+        return res.status(400).json({ error: 'Hợp đồng thử việc bắt buộc phải có ngày kết thúc (Điều 25 BLLĐ 2019).' });
       }
       const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays > 60) {
+      if (diffDays > 180) {
         return res.status(400).json({ 
-          error: `Thời gian thử việc không được vượt quá 60 ngày theo Điều 27 Bộ luật Lao động 2019 (Hiện tại: ${diffDays} ngày).` 
+          error: `Thời gian thử việc không được vượt quá 180 ngày theo Điều 25 Bộ luật Lao động 2019 (Hiện tại: ${diffDays} ngày).` 
         });
       }
     }
@@ -85,7 +108,6 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
 
     const result = await prisma.$transaction(async (tx) => {
       // Quy tắc BR-CHR-02-01 (Tính độc quyền hiệu lực):
-      // Chỉ chuyển hợp đồng cũ sang EXPIRED nếu hợp đồng mới đã đến ngày hiệu lực (startDate <= now)
       if (contractStart <= now) {
         await tx.contract.updateMany({
           where: {
@@ -102,10 +124,18 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
       const newContract = await tx.contract.create({
         data: {
           employeeId,
+          contractNumber: contractNumber ? String(contractNumber).trim() : `HĐLĐ-${new Date().getFullYear()}/${Math.floor(100 + Math.random() * 900)}/LLA`,
           contractType,
           baseSalary: Number(baseSalary),
+          allowance: allowance !== undefined ? Number(allowance) : 0,
+          insuranceSalary: insuranceSalary !== undefined && insuranceSalary !== '' ? Number(insuranceSalary) : Number(baseSalary),
+          paymentMethod: paymentMethod || 'BANK_TRANSFER',
           startDate: start,
           endDate: end,
+          signBy: signBy ? String(signBy).trim() : 'Ban Giám Đốc',
+          signDate: signDate ? new Date(signDate) : new Date(),
+          workLocation: workLocation ? String(workLocation).trim() : (emp.workLocation || 'Trụ sở chính'),
+          appendixNote: appendixNote ? String(appendixNote).trim() : null,
           fileUrl: fileUrl || null,
           status: 'ACTIVE'
         }
@@ -117,14 +147,13 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
         if (contractType === 'OFFICIAL_1Y' || contractType === 'INDEFINITE') {
           updatedEmployee = await tx.employee.update({
             where: { id: employeeId },
-            data: { status: 'ACTIVE' }
+            data: { status: 'ACTIVE', officialJoinDate: start }
           });
         }
       } else if (evaluationResult === 'FAILED') {
-        // Thử việc không đạt -> Chuyển nhân viên sang RESIGNED
         updatedEmployee = await tx.employee.update({
           where: { id: employeeId },
-          data: { status: 'RESIGNED' }
+          data: { status: 'RESIGNED', resignationDate: end || now, resignationReason: 'Không đạt đánh giá thử việc' }
         });
       }
 
@@ -142,7 +171,10 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
 router.patch('/:id', cbOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
-    const { fileUrl, status, contractType, baseSalary, startDate, endDate } = req.body;
+    const { 
+      fileUrl, status, contractType, contractNumber, baseSalary, allowance, insuranceSalary, 
+      paymentMethod, startDate, endDate, signBy, signDate, workLocation, appendixNote 
+    } = req.body;
     
     const updated = await prisma.contract.update({
       where: { id },
@@ -150,9 +182,17 @@ router.patch('/:id', cbOnly, async (req: Request, res: Response): Promise<any> =
         ...(fileUrl !== undefined && { fileUrl }),
         ...(status !== undefined && { status }),
         ...(contractType !== undefined && { contractType }),
-        ...(baseSalary !== undefined && { baseSalary }),
+        ...(contractNumber !== undefined && { contractNumber: contractNumber ? String(contractNumber).trim() : null }),
+        ...(baseSalary !== undefined && { baseSalary: Number(baseSalary) }),
+        ...(allowance !== undefined && { allowance: Number(allowance) }),
+        ...(insuranceSalary !== undefined && { insuranceSalary: insuranceSalary ? Number(insuranceSalary) : null }),
+        ...(paymentMethod !== undefined && { paymentMethod }),
         ...(startDate !== undefined && { startDate: new Date(startDate) }),
-        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null })
+        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+        ...(signBy !== undefined && { signBy: signBy ? String(signBy).trim() : null }),
+        ...(signDate !== undefined && { signDate: signDate ? new Date(signDate) : null }),
+        ...(workLocation !== undefined && { workLocation: workLocation ? String(workLocation).trim() : null }),
+        ...(appendixNote !== undefined && { appendixNote: appendixNote ? String(appendixNote).trim() : null })
       }
     });
 

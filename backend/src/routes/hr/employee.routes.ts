@@ -40,7 +40,7 @@ router.get('/me', async (req: any, res: Response): Promise<any> => {
       include: {
         department: true,
         position: true,
-        contracts: { orderBy: { startDate: 'desc' } },
+        contracts: { orderBy: { startDate: 'desc' }, include: { appendices: { orderBy: { effectiveDate: 'desc' } } } },
         relatives: true,
         degrees: true,
         certificates: true
@@ -78,12 +78,14 @@ router.get('/', async (req: Request, res: Response) => {
       include: {
         department: true,
         position: true,
-        contracts: { orderBy: { startDate: 'desc' } }
+        manager: { select: { id: true, fullName: true, code: true } },
+        contracts: { orderBy: { startDate: 'desc' }, include: { appendices: { orderBy: { effectiveDate: 'desc' } } } }
       },
       orderBy: { joinDate: 'desc' }
     });
     res.json(employees);
   } catch (error) {
+    console.error('Error in GET /api/employees:', error);
     res.status(500).json({ error: 'Lỗi khi lấy danh sách nhân viên' });
   }
 });
@@ -105,10 +107,20 @@ router.get('/history', async (req: Request, res: Response) => {
   }
 });
 
-// 2. Add employee (HR Only + Quota Check + Input Validation)
+// 2. Add employee (HR Only + Quota Check + Input Validation + Comprehensive Fields)
 router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
-    const { code, fullName, cccd, email, phone, joinDate, departmentId, positionId } = req.body;
+    const { 
+      code, fullName, cccd, cccdIssueDate, cccdIssuePlace, cccdExpiryDate,
+      birthPlace, hometown, ethnicity, religion, dataConsent, dataConsentDate,
+      email, phone, gender, dateOfBirth, address, permanentAddress, temporaryAddress, currentAddress,
+      nationality, maritalStatus, taxCode, bankName, bankBranch, bankAccount, bankAccountHolder,
+      socialInsurance, healthInsurance, emergencyContactName, emergencyContactPhone, emergencyContactRelation,
+      emergencyContacts, highestEducation, workExperience, attachedFiles,
+      status, managementRole, managerId, workLocation, employmentType,
+      probationStartDate, probationEndDate, officialJoinDate, resignationDate, resignationReason,
+      joinDate, departmentId, positionId 
+    } = req.body;
     
     if (!code?.trim() || !fullName?.trim() || !joinDate) {
       return res.status(400).json({ error: 'Mã nhân viên, Họ và tên và Ngày vào làm không được để trống.' });
@@ -117,9 +129,11 @@ router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
     const cleanCode = String(code).trim().toUpperCase();
     const cleanCccd = cccd ? String(cccd).trim() : null;
     const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+    const cleanPhone = phone ? String(phone).trim() : null;
+    const cleanTaxCode = taxCode ? String(taxCode).trim() : null;
 
     if (cleanCccd && !/^\d{9}(\d{3})?$/.test(cleanCccd)) {
-      return res.status(400).json({ error: 'Số CCCD/CMND không hợp lệ (yêu cầu 9 hoặc 12 chữ số).' });
+      return res.status(400).json({ error: 'Số CCCD không hợp lệ (yêu cầu 9 hoặc 12 chữ số).' });
     }
 
     // Kiểm tra định biên phòng ban
@@ -135,21 +149,23 @@ router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
       }
     }
 
-    // Kiểm tra trùng lặp
+    // Kiểm tra trùng lặp đa trường (Code, CCCD, Email, Phone, MST)
+    const orConditions: any[] = [{ code: cleanCode }];
+    if (cleanCccd) orConditions.push({ cccd: cleanCccd });
+    if (cleanEmail) orConditions.push({ email: cleanEmail });
+    if (cleanPhone) orConditions.push({ phone: cleanPhone });
+    if (cleanTaxCode) orConditions.push({ taxCode: cleanTaxCode });
+
     const existing = await prisma.employee.findFirst({
-      where: {
-        OR: [
-          { code: cleanCode },
-          ...(cleanCccd ? [{ cccd: cleanCccd }] : []),
-          ...(cleanEmail ? [{ email: cleanEmail }] : [])
-        ]
-      }
+      where: { OR: orConditions }
     });
 
     if (existing) {
       if (existing.code === cleanCode) return res.status(400).json({ error: 'Mã nhân viên đã tồn tại trong hệ thống.' });
       if (cleanCccd && existing.cccd === cleanCccd) return res.status(400).json({ error: 'Số CCCD đã tồn tại trong hệ thống.' });
       if (cleanEmail && existing.email === cleanEmail) return res.status(400).json({ error: 'Địa chỉ Email đã tồn tại trong hệ thống.' });
+      if (cleanPhone && existing.phone === cleanPhone) return res.status(400).json({ error: 'Số điện thoại đã tồn tại trong hệ thống.' });
+      if (cleanTaxCode && existing.taxCode === cleanTaxCode) return res.status(400).json({ error: 'Mã số thuế đã tồn tại trong hệ thống.' });
     }
 
     const newEmployee = await prisma.$transaction(async (tx) => {
@@ -158,12 +174,56 @@ router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
           code: cleanCode,
           fullName: String(fullName).trim(),
           cccd: cleanCccd,
+          cccdIssueDate: cccdIssueDate ? new Date(cccdIssueDate) : null,
+          cccdIssuePlace: cccdIssuePlace ? String(cccdIssuePlace).trim() : null,
+          cccdExpiryDate: cccdExpiryDate ? new Date(cccdExpiryDate) : null,
+          birthPlace: birthPlace ? String(birthPlace).trim() : null,
+          hometown: hometown ? String(hometown).trim() : null,
+          ethnicity: ethnicity ? String(ethnicity).trim() : null,
+          religion: religion ? String(religion).trim() : null,
+          dataConsent: dataConsent !== undefined ? Boolean(dataConsent) : true,
+          dataConsentDate: dataConsentDate ? new Date(dataConsentDate) : new Date(),
+
           email: cleanEmail,
-          phone: phone ? String(phone).trim() : null,
+          phone: cleanPhone,
+          gender: gender || null,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+          address: permanentAddress || address || null,
+          permanentAddress: permanentAddress ? String(permanentAddress).trim() : (address || null),
+          temporaryAddress: temporaryAddress ? String(temporaryAddress).trim() : null,
+          currentAddress: currentAddress ? String(currentAddress).trim() : null,
+          nationality: nationality ? String(nationality).trim() : 'Việt Nam',
+          maritalStatus: maritalStatus || null,
+          taxCode: cleanTaxCode,
+          bankName: bankName ? String(bankName).trim() : null,
+          bankBranch: bankBranch ? String(bankBranch).trim() : null,
+          bankAccount: bankAccount ? String(bankAccount).trim() : null,
+          bankAccountHolder: bankAccountHolder ? String(bankAccountHolder).trim() : null,
+          socialInsurance: socialInsurance ? String(socialInsurance).trim() : null,
+          healthInsurance: healthInsurance ? String(healthInsurance).trim() : null,
+          emergencyContactName: emergencyContactName ? String(emergencyContactName).trim() : null,
+          emergencyContactPhone: emergencyContactPhone ? String(emergencyContactPhone).trim() : null,
+          emergencyContactRelation: emergencyContactRelation ? String(emergencyContactRelation).trim() : null,
+          emergencyContacts: emergencyContacts ? (typeof emergencyContacts === 'string' ? emergencyContacts : JSON.stringify(emergencyContacts)) : null,
+          
+          highestEducation: highestEducation || null,
+          workExperience: workExperience ? (typeof workExperience === 'string' ? workExperience : JSON.stringify(workExperience)) : null,
+          attachedFiles: attachedFiles ? (typeof attachedFiles === 'string' ? attachedFiles : JSON.stringify(attachedFiles)) : null,
+          
+          status: status || 'ACTIVE',
+          managementRole: managementRole || 'STAFF',
+          managerId: managerId || null,
+          workLocation: workLocation || 'Trụ sở chính',
+          employmentType: employmentType || 'FULL_TIME',
+          probationStartDate: probationStartDate ? new Date(probationStartDate) : null,
+          probationEndDate: probationEndDate ? new Date(probationEndDate) : null,
+          officialJoinDate: officialJoinDate ? new Date(officialJoinDate) : null,
+          resignationDate: resignationDate ? new Date(resignationDate) : null,
+          resignationReason: resignationReason ? String(resignationReason).trim() : null,
+          
           joinDate: new Date(joinDate),
           departmentId: departmentId || null,
-          positionId: positionId || null,
-          status: 'ACTIVE'
+          positionId: positionId || null
         }
       });
       
@@ -183,9 +243,145 @@ router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
   } catch (error: any) {
     console.error('Error adding employee:', error);
     if (error.code === 'P2002') {
-      return res.status(400).json({ error: 'Mã nhân viên, CCCD hoặc Email đã tồn tại.' });
+      return res.status(400).json({ error: 'Mã nhân viên, CCCD, Email, SĐT hoặc MST đã tồn tại.' });
     }
     return res.status(500).json({ error: 'Lỗi khi thêm nhân viên' });
+  }
+});
+
+// 2.1 Get all pending profile change requests across all employees (HR Only)
+router.get('/change-requests/pending', hrOnly, async (req: Request, res: Response) => {
+  try {
+    const requests = await prisma.profileChangeRequest.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            code: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            department: { select: { name: true } },
+            position: { select: { title: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching pending change requests:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách yêu cầu chờ duyệt' });
+  }
+});
+
+// 2.2 Approve a profile change request (HR Only)
+router.put('/change-requests/:requestId/approve', hrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const { requestId } = req.params;
+    const request = await prisma.profileChangeRequest.findUnique({
+      where: { id: requestId },
+      include: { employee: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ error: 'Không tìm thấy yêu cầu thay đổi hồ sơ.' });
+    }
+
+    if (request.status !== 'PENDING') {
+      return res.status(400).json({ error: `Yêu cầu này đã được xử lý trước đó (${request.status}).` });
+    }
+
+    const proposed = JSON.parse(request.proposedData || '{}');
+    const reviewerName = req.user?.fullName || req.user?.username || 'Cán bộ Nhân sự';
+
+    // Xử lý các trường ngày tháng nếu có
+    const updatePayload: any = { ...proposed };
+    if (updatePayload.dateOfBirth) updatePayload.dateOfBirth = new Date(updatePayload.dateOfBirth);
+    if (updatePayload.cccdIssueDate) updatePayload.cccdIssueDate = new Date(updatePayload.cccdIssueDate);
+    if (updatePayload.cccdExpiryDate) updatePayload.cccdExpiryDate = new Date(updatePayload.cccdExpiryDate);
+
+    // Cập nhật dữ liệu vào Employee và chuyển trạng thái Request sang APPROVED
+    await prisma.$transaction([
+      prisma.employee.update({
+        where: { id: request.employeeId },
+        data: updatePayload
+      }),
+      prisma.profileChangeRequest.update({
+        where: { id: requestId },
+        data: {
+          status: 'APPROVED',
+          reviewedBy: reviewerName,
+          reviewedAt: new Date()
+        }
+      })
+    ]);
+
+    return res.json({
+      success: true,
+      message: 'Đã phê duyệt và cập nhật thành công các thông tin vào hồ sơ nhân viên!'
+    });
+  } catch (error) {
+    console.error('Error approving change request:', error);
+    return res.status(500).json({ error: 'Lỗi khi phê duyệt yêu cầu thay đổi' });
+  }
+});
+
+// 2.3 Reject a profile change request (HR Only)
+router.put('/change-requests/:requestId/reject', hrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const { requestId } = req.params;
+    const { rejectReason } = req.body;
+    const reviewerName = req.user?.fullName || req.user?.username || 'Cán bộ Nhân sự';
+
+    const request = await prisma.profileChangeRequest.findUnique({
+      where: { id: requestId }
+    });
+
+    if (!request) {
+      return res.status(404).json({ error: 'Không tìm thấy yêu cầu thay đổi hồ sơ.' });
+    }
+
+    if (request.status !== 'PENDING') {
+      return res.status(400).json({ error: `Yêu cầu này đã được xử lý trước đó (${request.status}).` });
+    }
+
+    await prisma.profileChangeRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'REJECTED',
+        rejectReason: rejectReason || 'Thông tin chưa chính xác hoặc thiếu tài liệu minh chứng.',
+        reviewedBy: reviewerName,
+        reviewedAt: new Date()
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Đã từ chối yêu cầu thay đổi hồ sơ của nhân viên.'
+    });
+  } catch (error) {
+    console.error('Error rejecting change request:', error);
+    return res.status(500).json({ error: 'Lỗi khi từ chối yêu cầu thay đổi' });
+  }
+});
+
+// 2.4 Get change requests for a specific employee
+router.get('/:id/change-requests', async (req: any, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    if (!canManageOrSelf(req, id)) {
+      return res.status(403).json({ error: 'Không có quyền xem yêu cầu này.' });
+    }
+
+    const requests = await prisma.profileChangeRequest.findMany({
+      where: { employeeId: id },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(requests);
+  } catch (error) {
+    res.status(500).json({ error: 'Lỗi khi lấy lịch sử yêu cầu của nhân viên' });
   }
 });
 
@@ -213,7 +409,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       include: {
         department: true,
         position: true,
-        contracts: { orderBy: { startDate: 'desc' } },
+        manager: { select: { id: true, fullName: true, code: true, position: { select: { title: true } } } },
+        contracts: { orderBy: { startDate: 'desc' }, include: { appendices: { orderBy: { effectiveDate: 'desc' } } } },
         account: true,
         relatives: true,
         degrees: true,
@@ -232,6 +429,9 @@ router.get('/:id', async (req: Request, res: Response) => {
         employmentHistories: {
           include: { department: true, position: true },
           orderBy: { effectiveDate: 'desc' }
+        },
+        profileChangeRequests: {
+          orderBy: { createdAt: 'desc' }
         }
       }
     });
@@ -243,29 +443,130 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// 3. Update employee (HR Only)
-router.put('/:id', hrOnly, async (req: Request, res: Response): Promise<any> => {
+// 3. Update employee (HR Full Update OR Employee Self-Service Personal Update with Approval Workflow)
+router.put('/:id', async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
+    if (!canManageOrSelf(req, id)) {
+      return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa hồ sơ nhân sự này.' });
+    }
+
+    const userRole = req.user?.role?.toUpperCase();
+    const isHR = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'HR_STAFF', 'CB_SPECIALIST'].includes(userRole);
     const { 
-      code, fullName, cccd, email, phone, gender, dateOfBirth, address, status, joinDate, departmentId, positionId,
-      nationality, maritalStatus, taxCode, bankName, bankAccount, socialInsurance, healthInsurance,
-      emergencyContactName, emergencyContactPhone, emergencyContactRelation
+      code, fullName, cccd, cccdIssueDate, cccdIssuePlace, cccdExpiryDate,
+      birthPlace, hometown, ethnicity, religion, dataConsent, dataConsentDate,
+      email, personalEmail, phone, gender, dateOfBirth, address, permanentAddress, temporaryAddress, currentAddress,
+      nationality, maritalStatus, taxCode, bankName, bankBranch, bankAccount, bankAccountHolder,
+      socialInsurance, healthInsurance, emergencyContactName, emergencyContactPhone, emergencyContactRelation,
+      emergencyContacts, highestEducation, workExperience, attachedFiles,
+      status, managementRole, managerId, workLocation, employmentType,
+      probationStartDate, probationEndDate, officialJoinDate, resignationDate, resignationReason,
+      joinDate, departmentId, positionId 
     } = req.body;
     
     const cleanCode = code ? String(code).trim().toUpperCase() : undefined;
     const cleanCccd = cccd ? String(cccd).trim() : null;
     const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+    const cleanPersonalEmail = personalEmail ? String(personalEmail).trim().toLowerCase() : null;
+    const cleanPhone = phone ? String(phone).trim() : null;
+    const cleanTaxCode = taxCode ? String(taxCode).trim() : null;
 
     if (cleanCccd && !/^\d{9}(\d{3})?$/.test(cleanCccd)) {
-      return res.status(400).json({ error: 'Số CCCD/CMND không hợp lệ (yêu cầu 9 hoặc 12 chữ số).' });
+      return res.status(400).json({ error: 'Số CCCD không hợp lệ (yêu cầu 9 hoặc 12 chữ số).' });
     }
 
-    // Check if code, cccd, or email already exists for another employee
+    // NẾU LÀ NHÂN VIÊN TỰ SỬA QUA CỔNG ESS:
+    if (!isHR) {
+      const currentEmp = await prisma.employee.findUnique({ where: { id } });
+      if (!currentEmp) return res.status(404).json({ error: 'Không tìm thấy nhân viên' });
+
+      // 🟢 1. Các trường tự sửa trực tiếp có hiệu lực ngay
+      const immediateUpdate: any = {};
+      if (phone !== undefined) immediateUpdate.phone = cleanPhone;
+      if (personalEmail !== undefined) immediateUpdate.personalEmail = cleanPersonalEmail;
+      if (currentAddress !== undefined) immediateUpdate.currentAddress = currentAddress?.trim() || null;
+      if (emergencyContactName !== undefined) immediateUpdate.emergencyContactName = emergencyContactName?.trim() || null;
+      if (emergencyContactPhone !== undefined) immediateUpdate.emergencyContactPhone = emergencyContactPhone?.trim() || null;
+      if (emergencyContactRelation !== undefined) immediateUpdate.emergencyContactRelation = emergencyContactRelation?.trim() || null;
+
+      // 🟡 2. Các trường nhạy cảm cần HR phê duyệt
+      const sensitiveFields = [
+        'fullName', 'gender', 'dateOfBirth', 'nationality', 'ethnicity',
+        'birthPlace', 'hometown', 'maritalStatus', 'permanentAddress',
+        'cccd', 'cccdIssueDate', 'cccdExpiryDate', 'cccdIssuePlace',
+        'highestEducation', 'bankName', 'bankBranch', 'bankAccount',
+        'bankAccountHolder', 'taxCode', 'socialInsurance', 'healthInsurance'
+      ];
+
+      const proposedChanges: any = {};
+      for (const field of sensitiveFields) {
+        if (req.body[field] !== undefined) {
+          const newVal = req.body[field];
+          const oldVal = (currentEmp as any)[field];
+
+          if (['dateOfBirth', 'cccdIssueDate', 'cccdExpiryDate'].includes(field)) {
+            const oldStr = oldVal ? new Date(oldVal).toISOString().split('T')[0] : '';
+            const newStr = newVal ? new Date(newVal).toISOString().split('T')[0] : '';
+            if (oldStr !== newStr && newStr) {
+              proposedChanges[field] = newStr;
+            }
+          } else {
+            const oldStr = String(oldVal || '').trim();
+            const newStr = String(newVal || '').trim();
+            if (oldStr !== newStr && newStr) {
+              proposedChanges[field] = newStr;
+            }
+          }
+        }
+      }
+
+      // Cập nhật các trường immediate
+      const updated = await prisma.employee.update({
+        where: { id },
+        data: immediateUpdate,
+        include: { department: true, position: true }
+      });
+
+      // Tạo ProfileChangeRequest nếu có thay đổi nhạy cảm
+      let createdRequest = null;
+      if (Object.keys(proposedChanges).length > 0) {
+        // Hủy các request PENDING cũ cùng loại nếu có
+        await prisma.profileChangeRequest.updateMany({
+          where: { employeeId: id, status: 'PENDING' },
+          data: { status: 'REJECTED', rejectReason: 'Được thay thế bởi yêu cầu cập nhật mới hơn.' }
+        });
+
+        createdRequest = await prisma.profileChangeRequest.create({
+          data: {
+            employeeId: id,
+            requestType: 'PROFILE_UPDATE',
+            proposedData: JSON.stringify(proposedChanges),
+            note: req.body.requestNote || 'Đề xuất cập nhật hồ sơ cá nhân qua Cổng tự phục vụ',
+            attachmentUrl: req.body.attachmentUrl || null,
+            status: 'PENDING'
+          }
+        });
+      }
+
+      return res.json({
+        success: true,
+        hasPendingApproval: createdRequest !== null,
+        message: createdRequest 
+          ? 'Thông tin liên hệ cơ bản đã được cập nhật. Các thông tin định danh & tài chính (CCCD, Ngân hàng, MST, BHXH...) đã gửi đến Ban Nhân sự chờ phê duyệt!'
+          : 'Hồ sơ cá nhân đã được cập nhật thành công!',
+        employee: updated,
+        changeRequest: createdRequest
+      });
+    }
+
+    // NẾU LÀ ADMIN / HR QUẢN TRỊ: Cập nhật trực tiếp toàn quyền
     const orConditions: any[] = [];
     if (cleanCode) orConditions.push({ code: cleanCode });
     if (cleanCccd) orConditions.push({ cccd: cleanCccd });
     if (cleanEmail) orConditions.push({ email: cleanEmail });
+    if (cleanPhone) orConditions.push({ phone: cleanPhone });
+    if (cleanTaxCode) orConditions.push({ taxCode: cleanTaxCode });
 
     if (orConditions.length > 0) {
       const existing = await prisma.employee.findFirst({
@@ -279,6 +580,8 @@ router.put('/:id', hrOnly, async (req: Request, res: Response): Promise<any> => 
         if (cleanCode && existing.code === cleanCode) return res.status(400).json({ error: 'Mã nhân viên đã tồn tại ở hồ sơ khác.' });
         if (cleanCccd && existing.cccd === cleanCccd) return res.status(400).json({ error: 'Số CCCD đã tồn tại ở hồ sơ khác.' });
         if (cleanEmail && existing.email === cleanEmail) return res.status(400).json({ error: 'Email đã tồn tại ở hồ sơ khác.' });
+        if (cleanPhone && existing.phone === cleanPhone) return res.status(400).json({ error: 'Số điện thoại đã tồn tại ở hồ sơ khác.' });
+        if (cleanTaxCode && existing.taxCode === cleanTaxCode) return res.status(400).json({ error: 'Mã số thuế đã tồn tại ở hồ sơ khác.' });
       }
     }
 
@@ -288,29 +591,68 @@ router.put('/:id', hrOnly, async (req: Request, res: Response): Promise<any> => 
         ...(cleanCode && { code: cleanCode }),
         ...(fullName && { fullName: String(fullName).trim() }),
         cccd: cleanCccd,
+        cccdIssueDate: cccdIssueDate ? new Date(cccdIssueDate) : null,
+        cccdIssuePlace: cccdIssuePlace ? String(cccdIssuePlace).trim() : null,
+        cccdExpiryDate: cccdExpiryDate ? new Date(cccdExpiryDate) : null,
+        birthPlace: birthPlace ? String(birthPlace).trim() : null,
+        hometown: hometown ? String(hometown).trim() : null,
+        ethnicity: ethnicity ? String(ethnicity).trim() : null,
+        religion: religion ? String(religion).trim() : null,
+        ...(dataConsent !== undefined && { dataConsent: Boolean(dataConsent) }),
+        ...(dataConsentDate && { dataConsentDate: new Date(dataConsentDate) }),
+
         email: cleanEmail,
-        phone: phone ? String(phone).trim() : null,
-        gender: gender ? gender : null,
+        phone: cleanPhone,
+        gender: gender || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        address: address ? address : null,
-        nationality: nationality ? nationality : null,
-        maritalStatus: maritalStatus ? maritalStatus : null,
-        taxCode: taxCode ? String(taxCode).trim() : null,
-        bankName: bankName ? bankName : null,
+        address: permanentAddress || address || null,
+        permanentAddress: permanentAddress ? String(permanentAddress).trim() : (address || null),
+        temporaryAddress: temporaryAddress ? String(temporaryAddress).trim() : null,
+        currentAddress: currentAddress ? String(currentAddress).trim() : null,
+        nationality: nationality ? String(nationality).trim() : null,
+        maritalStatus: maritalStatus || null,
+        taxCode: cleanTaxCode,
+        bankName: bankName ? String(bankName).trim() : null,
+        bankBranch: bankBranch ? String(bankBranch).trim() : null,
         bankAccount: bankAccount ? String(bankAccount).trim() : null,
-        socialInsurance: socialInsurance ? socialInsurance : null,
-        healthInsurance: healthInsurance ? healthInsurance : null,
-        emergencyContactName: emergencyContactName ? emergencyContactName : null,
-        emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone : null,
-        emergencyContactRelation: emergencyContactRelation ? emergencyContactRelation : null,
-        ...(status && { status }),
-        joinDate: joinDate ? new Date(joinDate) : undefined,
-        departmentId: departmentId || null,
-        positionId: positionId || null
+        bankAccountHolder: bankAccountHolder ? String(bankAccountHolder).trim() : null,
+        socialInsurance: socialInsurance ? String(socialInsurance).trim() : null,
+        healthInsurance: healthInsurance ? String(healthInsurance).trim() : null,
+        emergencyContactName: emergencyContactName ? String(emergencyContactName).trim() : null,
+        emergencyContactPhone: emergencyContactPhone ? String(emergencyContactPhone).trim() : null,
+        emergencyContactRelation: emergencyContactRelation ? String(emergencyContactRelation).trim() : null,
+        ...(emergencyContacts !== undefined && { 
+          emergencyContacts: emergencyContacts ? (typeof emergencyContacts === 'string' ? emergencyContacts : JSON.stringify(emergencyContacts)) : null 
+        }),
+        
+        highestEducation: highestEducation || null,
+        ...(workExperience !== undefined && { 
+          workExperience: workExperience ? (typeof workExperience === 'string' ? workExperience : JSON.stringify(workExperience)) : null 
+        }),
+        ...(attachedFiles !== undefined && { 
+          attachedFiles: attachedFiles ? (typeof attachedFiles === 'string' ? attachedFiles : JSON.stringify(attachedFiles)) : null 
+        }),
+        
+        ...(isHR && {
+          ...(status && { status }),
+          ...(managementRole && { managementRole }),
+          managerId: managerId !== undefined ? (managerId || null) : undefined,
+          ...(workLocation && { workLocation }),
+          ...(employmentType && { employmentType }),
+          ...(probationStartDate !== undefined && { probationStartDate: probationStartDate ? new Date(probationStartDate) : null }),
+          ...(probationEndDate !== undefined && { probationEndDate: probationEndDate ? new Date(probationEndDate) : null }),
+          ...(officialJoinDate !== undefined && { officialJoinDate: officialJoinDate ? new Date(officialJoinDate) : null }),
+          ...(resignationDate !== undefined && { resignationDate: resignationDate ? new Date(resignationDate) : null }),
+          ...(resignationReason !== undefined && { resignationReason: resignationReason ? String(resignationReason).trim() : null }),
+          ...(joinDate && { joinDate: new Date(joinDate) }),
+          ...(departmentId !== undefined && { departmentId: departmentId || null }),
+          ...(positionId !== undefined && { positionId: positionId || null })
+        })
       },
       include: {
         department: true,
-        position: true
+        position: true,
+        manager: { select: { id: true, fullName: true, code: true, position: { select: { title: true } } } }
       }
     });
     return res.json(updatedEmployee);
@@ -465,14 +807,14 @@ router.post('/cron/auto-lock-resigned', hrOnly, async (req: Request, res: Respon
   }
 });
 
-// 6. Transfer employee (Điều chuyển công tác - HR Only + Quota Check)
+// 6. Transfer employee (Điều chuyển công tác - HR Only + Quota Check + Salary/Appendix Support)
 router.post('/:id/transfer', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
-    const { departmentId, positionId, changeReason } = req.body;
+    const { departmentId, positionId, changeReason, newSalary } = req.body;
 
-    if (!departmentId && !positionId) {
-      return res.status(400).json({ error: 'Vui lòng chọn phòng ban hoặc vị trí chức danh mới cần điều chuyển.' });
+    if (!departmentId && !positionId && !newSalary) {
+      return res.status(400).json({ error: 'Vui lòng chọn phòng ban, vị trí chức danh mới hoặc mức lương mới cần điều chuyển.' });
     }
 
     // Kiểm tra định biên phòng ban đích
@@ -492,24 +834,62 @@ router.post('/:id/transfer', hrOnly, async (req: Request, res: Response): Promis
     }
     
     const updated = await prisma.$transaction(async (tx) => {
-      const currentEmp = await tx.employee.findUnique({ where: { id } });
+      const currentEmp = await tx.employee.findUnique({ 
+        where: { id },
+        include: { contracts: { where: { status: 'ACTIVE' } } }
+      });
       if (!currentEmp) throw new Error('Không tìm thấy nhân viên');
+
+      const empUpdateData: any = {};
+      if (departmentId) empUpdateData.departmentId = departmentId;
+      if (positionId) empUpdateData.positionId = positionId;
 
       const emp = await tx.employee.update({
         where: { id },
-        data: { 
-          departmentId: departmentId || currentEmp.departmentId, 
-          positionId: positionId || currentEmp.positionId 
-        },
+        data: empUpdateData,
         include: { department: true, position: true }
       });
+
+      // Nếu có hợp đồng ACTIVE và có thay đổi vị trí / lương -> Tự động sinh Phụ lục HĐLĐ
+      const activeContract = currentEmp.contracts[0];
+      if (activeContract && (positionId || newSalary || departmentId)) {
+        const appendixCount = await tx.contractAppendix.count({ where: { contractId: activeContract.id } });
+        const year = new Date().getFullYear();
+        const appNumber = `PLHĐ-${year}/${String(appendixCount + 1).padStart(2, '0')}/${activeContract.contractNumber ? activeContract.contractNumber.split('/')[0] : 'LLA'}`;
+
+        const changes = [];
+        if (positionId && emp.position) changes.push(`chức danh mới: ${emp.position.title}`);
+        if (departmentId && emp.department) changes.push(`đơn vị mới: ${emp.department.name}`);
+        if (newSalary) changes.push(`mức lương mới: ${Number(newSalary).toLocaleString('vi-VN')} VNĐ/tháng (mức cũ: ${Number(activeContract.baseSalary).toLocaleString('vi-VN')} VNĐ)`);
+
+        await tx.contractAppendix.create({
+          data: {
+            appendixNumber: appNumber,
+            contractId: activeContract.id,
+            title: `Phụ lục điều chuyển vị trí công tác`,
+            changeType: newSalary ? 'SALARY_ADJUSTMENT' : 'POSITION_CHANGE',
+            oldSalary: activeContract.baseSalary,
+            newSalary: newSalary ? Number(newSalary) : activeContract.baseSalary,
+            effectiveDate: new Date(),
+            content: `Hai bên thống nhất điều chuyển và áp dụng ${changes.join(', ')} kể từ ngày ${new Date().toLocaleDateString('vi-VN')}.`
+          }
+        });
+
+        if (newSalary) {
+          await tx.contract.update({
+            where: { id: activeContract.id },
+            data: { baseSalary: Number(newSalary) }
+          });
+        }
+      }
       
       await tx.employmentHistory.create({
         data: {
           employeeId: id,
           departmentId: departmentId || currentEmp.departmentId,
           positionId: positionId || currentEmp.positionId,
-          changeReason: changeReason || 'Điều chuyển công tác (Transfer)',
+          changeReason: changeReason || `Điều chuyển công tác (Transfer)${newSalary ? ` - Lương mới: ${Number(newSalary).toLocaleString()} VNĐ` : ''}`,
+          salary: newSalary ? Number(newSalary) : (activeContract?.baseSalary ? Number(activeContract.baseSalary) : undefined),
           effectiveDate: new Date()
         }
       });
@@ -555,7 +935,7 @@ router.post('/:id/relatives', async (req: any, res: Response): Promise<any> => {
       return res.status(403).json({ error: 'Bạn không có quyền thêm người thân cho nhân viên này.' });
     }
 
-    const { fullName, relation, dateOfBirth, taxCode, isDependent } = req.body;
+    const { fullName, relation, dateOfBirth, taxCode, isDependent, cccd, taxDeductionStart, taxDeductionEnd, proofDocument } = req.body;
 
     if (!fullName || !relation) {
       return res.status(400).json({ error: 'Họ tên và mối quan hệ không được để trống' });
@@ -568,7 +948,11 @@ router.post('/:id/relatives', async (req: any, res: Response): Promise<any> => {
         relation: String(relation).trim(),
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         taxCode: taxCode ? String(taxCode).trim() : null,
-        isDependent: Boolean(isDependent)
+        isDependent: Boolean(isDependent),
+        cccd: cccd ? String(cccd).trim() : null,
+        taxDeductionStart: taxDeductionStart ? new Date(taxDeductionStart) : null,
+        taxDeductionEnd: taxDeductionEnd ? new Date(taxDeductionEnd) : null,
+        proofDocument: proofDocument ? String(proofDocument).trim() : null
       }
     });
 
@@ -587,7 +971,7 @@ router.put('/:id/relatives/:relativeId', async (req: any, res: Response): Promis
       return res.status(403).json({ error: 'Bạn không có quyền sửa thông tin người thân của nhân viên này.' });
     }
 
-    const { fullName, relation, dateOfBirth, taxCode, isDependent } = req.body;
+    const { fullName, relation, dateOfBirth, taxCode, isDependent, cccd, taxDeductionStart, taxDeductionEnd, proofDocument } = req.body;
 
     const updated = await prisma.relative.update({
       where: { id: relativeId },
@@ -596,7 +980,11 @@ router.put('/:id/relatives/:relativeId', async (req: any, res: Response): Promis
         ...(relation && { relation: String(relation).trim() }),
         ...(dateOfBirth !== undefined && { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null }),
         ...(taxCode !== undefined && { taxCode: taxCode ? String(taxCode).trim() : null }),
-        ...(isDependent !== undefined && { isDependent: Boolean(isDependent) })
+        ...(isDependent !== undefined && { isDependent: Boolean(isDependent) }),
+        ...(cccd !== undefined && { cccd: cccd ? String(cccd).trim() : null }),
+        ...(taxDeductionStart !== undefined && { taxDeductionStart: taxDeductionStart ? new Date(taxDeductionStart) : null }),
+        ...(taxDeductionEnd !== undefined && { taxDeductionEnd: taxDeductionEnd ? new Date(taxDeductionEnd) : null }),
+        ...(proofDocument !== undefined && { proofDocument: proofDocument ? String(proofDocument).trim() : null })
       }
     });
 
@@ -651,7 +1039,7 @@ router.post('/:id/degrees', async (req: any, res: Response): Promise<any> => {
       return res.status(403).json({ error: 'Bạn không có quyền thêm bằng cấp cho nhân viên này.' });
     }
 
-    const { degreeName, major, institution, gradYear } = req.body;
+    const { degreeName, major, institution, gradYear, classification, fileUrl } = req.body;
 
     if (!degreeName || !major || !institution) {
       return res.status(400).json({ error: 'Tên bằng cấp, chuyên ngành và trường đào tạo không được để trống' });
@@ -663,7 +1051,9 @@ router.post('/:id/degrees', async (req: any, res: Response): Promise<any> => {
         degreeName: String(degreeName).trim(),
         major: String(major).trim(),
         institution: String(institution).trim(),
-        gradYear: gradYear ? parseInt(String(gradYear)) : null
+        gradYear: gradYear ? parseInt(String(gradYear)) : null,
+        classification: classification ? String(classification).trim() : null,
+        fileUrl: fileUrl || null
       }
     });
 
@@ -718,7 +1108,7 @@ router.post('/:id/certificates', async (req: any, res: Response): Promise<any> =
       return res.status(403).json({ error: 'Bạn không có quyền thêm chứng chỉ cho nhân viên này.' });
     }
 
-    const { name, issuedBy, issueDate, expiryDate } = req.body;
+    const { name, issuedBy, issueDate, expiryDate, fileUrl } = req.body;
 
     if (!name || !issuedBy) {
       return res.status(400).json({ error: 'Tên chứng chỉ và đơn vị cấp không được để trống' });
@@ -730,7 +1120,8 @@ router.post('/:id/certificates', async (req: any, res: Response): Promise<any> =
         name: String(name).trim(),
         issuedBy: String(issuedBy).trim(),
         issueDate: issueDate ? new Date(issueDate) : null,
-        expiryDate: expiryDate ? new Date(expiryDate) : null
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        fileUrl: fileUrl || null
       }
     });
 
