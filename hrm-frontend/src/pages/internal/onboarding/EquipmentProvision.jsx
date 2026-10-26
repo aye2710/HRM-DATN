@@ -1,8 +1,8 @@
 import React from 'react';
-import { AssetManagement } from '../assets/AssetManagement';
+import { AssetAssignments } from '../assets/AssetAssignments';
 
 export const EquipmentProvision = () => {
-  return <AssetManagement />;
+  return <AssetAssignments />;
 };
 
 export default EquipmentProvision;

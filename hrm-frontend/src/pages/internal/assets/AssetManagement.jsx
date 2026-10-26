@@ -110,7 +110,9 @@ export const AssetManagement = () => {
       case 'MAINTENANCE':
         return <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={12} /> Bảo hành / Sửa</span>;
       case 'DISPOSED':
-        return <span className="badge badge-danger">Đã thanh lý</span>;
+        return <span className="badge" style={{ background: 'rgba(100, 116, 139, 0.15)', color: '#64748b' }}>Đã thanh lý</span>;
+      case 'LOST':
+        return <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fee2e2', color: '#dc2626' }}><AlertTriangle size={12} /> Báo mất</span>;
       default:
         return <span className="badge">{status}</span>;
     }
@@ -145,16 +147,43 @@ export const AssetManagement = () => {
     }
   };
 
-  // Handle Delete Asset
+  // Handle Complete Maintenance (1-chạm đưa máy về kho)
+  const handleCompleteMaintenance = async (asset) => {
+    const cost = window.prompt(`Xác nhận hoàn tất bảo trì cho [${asset.code}] ${asset.name}.\nNhập chi phí sửa chữa / bảo hành (VNĐ, để trống nếu 0đ):`, '0');
+    if (cost === null) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/assets/${asset.id}/maintenance-complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          maintenanceCost: Number(cost) || 0,
+          condition: 'Đã hoàn tất bảo dưỡng / sửa chữa, hoạt động tốt 100%'
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Lỗi khi cập nhật bảo trì');
+      }
+
+      toast.success(`Đã đưa tài sản [${asset.code}] về kho sẵn sàng cấp phát!`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  // Handle Delete Asset (Xóa mềm / Chuyển thanh lý)
   const handleDeleteAsset = async (id, name) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa tài sản "${name}"?`)) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn chuyển tài sản "${name}" sang trạng thái Thanh lý (Xóa mềm)?\nLịch sử cấp phát cũ sẽ được bảo toàn nguyên vẹn cho kiểm toán.`)) return;
     try {
       const res = await fetch(`http://localhost:5000/api/assets/${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Không thể xóa');
       }
-      toast.success('Đã xóa tài sản');
+      toast.success('Đã chuyển tài sản sang trạng thái thanh lý');
       fetchData();
     } catch (err) {
       toast.error(err.message);
@@ -189,7 +218,7 @@ export const AssetManagement = () => {
     }
   };
 
-  // Handle Return (Thu hồi)
+  // Handle Return (Thu hồi có bồi thường & an toàn dữ liệu)
   const handleReturnSubmit = async (e) => {
     e.preventDefault();
     if (!returnAssignmentTarget) return;
@@ -198,7 +227,16 @@ export const AssetManagement = () => {
       const res = await fetch(`http://localhost:5000/api/assets/assignments/${returnAssignmentTarget.id}/return`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(returnForm)
+        body: JSON.stringify({
+          returnedDate: returnForm.returnedDate,
+          conditionOnReturn: returnForm.conditionOnReturn,
+          notes: returnForm.notes,
+          nextAssetStatus: returnForm.nextAssetStatus,
+          compensationAmount: returnForm.hasCompensation ? Number(returnForm.compensationAmount || 0) : 0,
+          compensationReason: returnForm.hasCompensation ? returnForm.compensationReason : null,
+          securityWiped: returnForm.securityWiped,
+          dataWipeNotes: returnForm.dataWipeNotes
+        })
       });
 
       if (!res.ok) {
@@ -206,10 +244,19 @@ export const AssetManagement = () => {
         throw new Error(err.error || 'Không thể thu hồi');
       }
 
+      const data = await res.json();
       toast.success('Thu hồi và nhập lại kho thành công');
       setShowReturnModal(false);
-      setReturnAssignmentTarget(null);
       fetchData();
+
+      // Mở ngay biên bản BM02 cho người dùng xem & in ấn
+      if (data.assignment) {
+        setViewBm02Doc({
+          ...returnAssignmentTarget,
+          ...data.assignment
+        });
+      }
+      setReturnAssignmentTarget(null);
     } catch (err) {
       toast.error(err.message);
     }
@@ -423,6 +470,7 @@ export const AssetManagement = () => {
               <option value="AVAILABLE">Sẵn sàng (Kho)</option>
               <option value="ASSIGNED">Đang cấp phát</option>
               <option value="MAINTENANCE">Bảo dưỡng/Sửa</option>
+              <option value="LOST">Đã báo mất</option>
               <option value="DISPOSED">Đã thanh lý</option>
             </select>
           </div>
@@ -541,6 +589,16 @@ export const AssetManagement = () => {
                                 <ArrowRight size={14} /> Bàn giao
                               </button>
                             )}
+                            {asset.status === 'MAINTENANCE' && (
+                              <button
+                                className="btn btn-outline"
+                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', gap: 4, color: '#10b981', borderColor: '#10b981' }}
+                                title="Hoàn tất bảo trì, đưa máy về kho"
+                                onClick={() => handleCompleteMaintenance(asset)}
+                              >
+                                <CheckCircle size={14} /> Sửa xong
+                              </button>
+                            )}
                             <button
                               className="btn btn-outline"
                               style={{ padding: '0.35rem 0.5rem', color: 'var(--primary)' }}
@@ -568,7 +626,7 @@ export const AssetManagement = () => {
                               <button
                                 className="btn btn-outline"
                                 style={{ padding: '0.35rem 0.5rem', color: 'var(--danger)' }}
-                                title="Xóa tài sản"
+                                title="Chuyển sang thanh lý / Xóa mềm"
                                 onClick={() => handleDeleteAsset(asset.id, asset.name)}
                               >
                                 <Trash2 size={14} />
@@ -1024,6 +1082,7 @@ export const AssetManagement = () => {
                   >
                     <option value="AVAILABLE">Sẵn sàng cấp tiếp (Còn tốt)</option>
                     <option value="MAINTENANCE">Cần bảo dưỡng / Sửa chữa</option>
+                    <option value="LOST">Báo mất thiết bị (Không thu hồi được)</option>
                     <option value="DISPOSED">Thanh lý / Hủy bỏ</option>
                   </select>
                 </div>
@@ -1039,6 +1098,64 @@ export const AssetManagement = () => {
                   value={returnForm.conditionOnReturn}
                   onChange={(e) => setReturnForm({ ...returnForm, conditionOnReturn: e.target.value })}
                 />
+              </div>
+
+              {/* Bồi thường thiệt hại (Điều 129 BLLĐ 2019) */}
+              <div style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '0.85rem', borderRadius: 8, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                <label className="flex items-center gap-2 cursor-pointer font-semibold text-xs" style={{ color: '#dc2626' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={returnForm.hasCompensation}
+                    onChange={(e) => setReturnForm({ ...returnForm, hasCompensation: e.target.checked })}
+                  />
+                  <span>Phát sinh trách nhiệm vật chất / Bồi thường thiệt hại (Điều 129 BLLĐ 2019)</span>
+                </label>
+
+                {returnForm.hasCompensation && (
+                  <div className="flex-col gap-2 mt-3 pt-2 border-t border-red-200">
+                    <div>
+                      <label className="text-xs font-medium text-gray-700 mb-1 block">Số tiền bồi thường thỏa thuận (VNĐ) *</label>
+                      <input 
+                        type="number"
+                        placeholder="VD: 2500000"
+                        className="form-input"
+                        value={returnForm.compensationAmount}
+                        onChange={(e) => setReturnForm({ ...returnForm, compensationAmount: e.target.value })}
+                        required={returnForm.hasCompensation}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-700 mb-1 block">Căn cứ & Lý do bồi thường</label>
+                      <input 
+                        type="text"
+                        placeholder="VD: Vỡ góc màn hình do làm rơi, khấu trừ vào lương tháng cuối"
+                        className="form-input"
+                        value={returnForm.compensationReason}
+                        onChange={(e) => setReturnForm({ ...returnForm, compensationReason: e.target.value })}
+                        required={returnForm.hasCompensation}
+                      />
+                    </div>
+                    <span className="text-xs text-muted italic">
+                      * Khoản bồi thường sẽ được kẹp vào Biên bản BM-02 làm căn cứ kế toán khấu trừ lương thôi việc (không quá 30% lương theo Điều 102 BLLĐ 2019).
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* An toàn thông tin & Dữ liệu (Nghị định 13/2023/NĐ-CP) */}
+              <div style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '0.85rem', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                <label className="flex items-center gap-2 cursor-pointer font-semibold text-xs" style={{ color: '#059669' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={returnForm.securityWiped}
+                    onChange={(e) => setReturnForm({ ...returnForm, securityWiped: e.target.checked })}
+                  />
+                  <span>Xác nhận An toàn Thông tin & Bảo vệ Dữ liệu (Nghị định 13/2023/NĐ-CP)</span>
+                </label>
+                <div className="text-xs text-gray-600 mt-2 pl-5 space-y-1">
+                  <div>✓ Đã thu hồi toàn bộ tài khoản công vụ (Google Workspace, Slack, VPN, GitHub)</div>
+                  <div>✓ Đã sao lưu dữ liệu công việc và tiến hành xóa sạch dữ liệu (Remote Wipe / Factory Reset) trên máy</div>
+                </div>
               </div>
 
               <div>
@@ -1057,7 +1174,7 @@ export const AssetManagement = () => {
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary" style={{ gap: 6, background: '#f59e0b', borderColor: '#f59e0b' }}>
-                  <RotateCcw size={16} /> Hoàn tất thu hồi
+                  <RotateCcw size={16} /> Hoàn tất thu hồi & Xuất BM-02
                 </button>
               </div>
             </form>
@@ -1294,13 +1411,33 @@ export const AssetManagement = () => {
               </table>
             </div>
 
+            {/* Responsibilities & Compensation (Điều 129 BLLĐ 2019) */}
+            <div className="my-3 text-xs leading-relaxed">
+              {Number(viewBm02Doc.compensationAmount || 0) > 0 ? (
+                <div style={{ background: '#fef2f2', padding: '0.85rem', borderRadius: 6, border: '1px solid #fecaca', color: '#991b1b' }}>
+                  <div className="font-bold text-red-900 uppercase mb-1">
+                    ⚖️ XỬ LÝ TRÁCH NHIỆM VẬT CHẤT & BỒI THƯỜNG (ĐIỀU 129 BLLĐ 2019):
+                  </div>
+                  <div>• Căn cứ / Thiệt hại ghi nhận: <strong>{viewBm02Doc.compensationReason || 'Thiệt hại linh kiện thiết bị trong quá trình sử dụng'}</strong></div>
+                  <div>• Số tiền người lao động cam kết bồi thường: <strong className="text-red-700" style={{ fontSize: '0.95rem' }}>{Number(viewBm02Doc.compensationAmount).toLocaleString('vi-VN')} VNĐ</strong></div>
+                  <div className="italic text-gray-600 mt-1">
+                    * Căn cứ Điều 102 Bộ luật Lao động 2019, số tiền bồi thường này được hai bên thống nhất khấu trừ trực tiếp vào đợt thanh toán lương và trợ cấp thôi việc cuối cùng.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ background: '#f0fdf4', padding: '0.75rem', borderRadius: 6, border: '1px solid #bbf7d0', color: '#166534' }}>
+                  <strong>Xác nhận tình trạng tài sản:</strong> Thiết bị hoàn trả đầy đủ phụ kiện, hoạt động bình thường, không phát sinh chi phí bồi thường trách nhiệm vật chất.
+                </div>
+              )}
+            </div>
+
             {/* Confirmation & Compliance */}
             <div className="text-xs text-gray-600 leading-relaxed bg-blue-50 p-3 rounded border border-blue-200">
-              <strong>Xác nhận điều kiện thanh toán & an ninh bảo mật:</strong>
+              <strong>Xác nhận An ninh Dữ liệu (Nghị định 13/2023/NĐ-CP) & Điều kiện thanh toán thôi việc:</strong>
               <ul className="list-disc ml-5 mt-1">
-                <li>Bộ phận IT xác nhận nhân sự đã bàn giao đầy đủ thiết bị, đã xóa toàn bộ dữ liệu nội bộ trên máy cá nhân.</li>
+                <li>Bộ phận IT xác nhận nhân sự đã bàn giao đầy đủ thiết bị, đã xóa toàn bộ dữ liệu nội bộ trên máy cá nhân và thu hồi tài khoản công vụ.</li>
                 <li>Đúng 18:00 ngày làm việc cuối cùng, hệ thống tự động khóa tài khoản đăng nhập và thu hồi phiên làm việc theo quy trình SOP-26.</li>
-                <li>Biên bản này là chứng từ hợp lệ để Phòng Kế toán thực hiện quyết toán trợ cấp và tiền lương thôi việc.</li>
+                <li>Biên bản này là chứng từ hợp lệ để Phòng Kế toán thực hiện quyết toán trợ cấp và tiền lương thôi việc theo Điều 48 BLLĐ 2019.</li>
               </ul>
             </div>
 

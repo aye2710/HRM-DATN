@@ -53,7 +53,8 @@ import { AuditLogs } from './pages/internal/system/AuditLogs';
 
 import { ReportsDashboard } from './pages/internal/reports/ReportsDashboard';
 import { KPITemplates } from './pages/internal/performance/KPITemplates';
-import { AssetManagement } from './pages/internal/assets/AssetManagement';
+import { AssetInventory } from './pages/internal/assets/AssetInventory';
+import { AssetAssignments } from './pages/internal/assets/AssetAssignments';
 import { SystemParameters } from './pages/internal/system/SystemParameters';
 import { OffboardingChecklist } from './pages/internal/offboarding/OffboardingChecklist';
 import { OffboardingInitiate } from './pages/internal/offboarding/OffboardingInitiate';
@@ -142,7 +143,13 @@ const internalLinks = [
       { to: '/internal/payroll/payslips', label: 'Bảng lương' },
     ]
   },
-  { to: '/internal/assets', label: 'Tài sản & Thiết bị', icon: <Laptop size={20} /> },
+  {
+    to: '/internal/assets', label: 'Tài sản & Thiết bị', icon: <Laptop size={20} />,
+    children: [
+      { to: '/internal/assets/inventory', label: 'Kho thiết bị' },
+      { to: '/internal/assets/assignments', label: 'Bàn giao & Thu hồi' },
+    ]
+  },
   {
     to: '/internal/offboarding', label: 'Thôi việc & Bàn giao', icon: <UserMinus size={20} />,
     children: [
@@ -270,7 +277,9 @@ function App() {
               <Route path="payroll/periods" element={<PayrollPeriods />} />
               <Route path="payroll/payslips" element={<PayrollMgmt />} />
 
-              <Route path="assets" element={<AssetManagement />} />
+              <Route path="assets" element={<Navigate to="/internal/assets/inventory" replace />} />
+              <Route path="assets/inventory" element={<AssetInventory />} />
+              <Route path="assets/assignments" element={<AssetAssignments />} />
               <Route path="reports" element={<ReportsDashboard />} />
 
               <Route path="system/parameters" element={<SystemParameters />} />

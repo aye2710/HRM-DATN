@@ -68,13 +68,14 @@ router.get('/stats', async (req: Request, res: Response) => {
   try {
     await seedDemoAssets();
 
-    const [total, available, assigned, maintenance, disposed, assets] = await Promise.all([
-      prisma.asset.count(),
-      prisma.asset.count({ where: { status: AssetStatus.AVAILABLE } }),
-      prisma.asset.count({ where: { status: AssetStatus.ASSIGNED } }),
-      prisma.asset.count({ where: { status: AssetStatus.MAINTENANCE } }),
-      prisma.asset.count({ where: { status: AssetStatus.DISPOSED } }),
-      prisma.asset.findMany({ select: { price: true } })
+    const [total, available, assigned, maintenance, disposed, lost, assets] = await Promise.all([
+      prisma.asset.count({ where: { isDeleted: false } }),
+      prisma.asset.count({ where: { status: AssetStatus.AVAILABLE, isDeleted: false } }),
+      prisma.asset.count({ where: { status: AssetStatus.ASSIGNED, isDeleted: false } }),
+      prisma.asset.count({ where: { status: AssetStatus.MAINTENANCE, isDeleted: false } }),
+      prisma.asset.count({ where: { status: AssetStatus.DISPOSED, isDeleted: false } }),
+      prisma.asset.count({ where: { status: ('LOST' as any), isDeleted: false } }),
+      prisma.asset.findMany({ where: { isDeleted: false }, select: { price: true } })
     ]);
 
     const totalValue = assets.reduce((sum, a) => sum + Number(a.price || 0), 0);
@@ -85,6 +86,7 @@ router.get('/stats', async (req: Request, res: Response) => {
       assigned,
       maintenance,
       disposed,
+      lost,
       totalValue
     });
   } catch (error: any) {
@@ -100,7 +102,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     const { search, category, status } = req.query;
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (category && category !== 'ALL') {
       where.category = category as AssetCategory;
     }
@@ -285,7 +287,7 @@ router.put('/:id', itOrHrOnly, async (req: any, res: Response): Promise<any> => 
   }
 });
 
-// 6. DELETE /api/assets/:id - Xóa tài sản (IT/HR Only - Chặn xóa nếu đang được bàn giao)
+// 6. DELETE /api/assets/:id - Xóa mềm tài sản / Chuyển sang thanh lý (IT/HR Only - Chặn xóa nếu đang được bàn giao)
 router.delete('/:id', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
@@ -302,37 +304,61 @@ router.delete('/:id', itOrHrOnly, async (req: any, res: Response): Promise<any> 
       return res.status(400).json({ error: 'Tài sản đang được nhân viên sử dụng. Hãy làm thủ tục thu hồi trước khi xóa!' });
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.assetAssignment.deleteMany({ where: { assetId: id } });
-      await tx.asset.delete({ where: { id } });
+    // Xóa mềm: Chuyển cờ isDeleted = true và status = DISPOSED (Thanh lý) để bảo toàn 100% lịch sử kiểm toán
+    await prisma.asset.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        status: AssetStatus.DISPOSED
+      }
     });
 
     await createAuditLog({
-      action: 'DELETE_ASSET',
+      action: 'SOFT_DELETE_ASSET',
       tableName: 'Asset',
       recordId: id,
       accountId: req.user?.accountId,
-      details: `Xóa tài sản khỏi danh mục kho: [${asset.code}] ${asset.name}`
+      details: `Chuyển tài sản sang trạng thái Thanh lý (Xóa mềm): [${asset.code}] ${asset.name}`
     });
 
-    return res.json({ message: 'Xóa tài sản thành công' });
+    return res.json({ message: 'Đã chuyển tài sản sang trạng thái thanh lý và lưu trữ lịch sử thành công.' });
   } catch (error: any) {
     console.error('Error deleting asset:', error);
     return res.status(500).json({ error: error.message });
   }
 });
 
-// 7. POST /api/assets/assign - Bàn giao tài sản cho nhân sự (Biểu mẫu BM01 - IT/HR Only)
+// 7. POST /api/assets/assign - Bàn giao tài sản cho nhân sự (Biểu mẫu BM01 / BBBG-LLA cho nhân viên mới Onboard)
 router.post('/assign', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
-    const { assetId, employeeId, assignedDate, conditionOnAssign, handoverDocCode, notes } = req.body;
+    const { 
+      assetId, 
+      employeeId, 
+      assignedDate, 
+      conditionOnAssign, 
+      handoverDocCode, 
+      notes,
+      items,
+      handoverPerson,
+      handoverPersonRole
+    } = req.body;
 
-    if (!assetId || !employeeId) {
-      return res.status(400).json({ error: 'Vui lòng chọn tài sản và nhân viên nhận bàn giao' });
+    if (!employeeId) {
+      return res.status(400).json({ error: 'Vui lòng chọn nhân viên nhận bàn giao' });
+    }
+
+    if (!assetId && (!Array.isArray(items) || items.length === 0)) {
+      return res.status(400).json({ error: 'Vui lòng chọn tài sản hoặc nhập danh sách thiết bị bàn giao' });
     }
 
     // Kiểm tra nhân viên còn đang làm việc
-    const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
+    const emp = await prisma.employee.findUnique({ 
+      where: { id: employeeId },
+      include: {
+        department: { select: { name: true } },
+        position: { select: { title: true } }
+      }
+    });
     if (!emp) {
       return res.status(404).json({ error: 'Không tìm thấy thông tin nhân viên nhận bàn giao' });
     }
@@ -340,41 +366,66 @@ router.post('/assign', itOrHrOnly, async (req: any, res: Response): Promise<any>
       return res.status(400).json({ error: 'Không thể bàn giao tài sản cho nhân sự đã thôi việc (RESIGNED)!' });
     }
 
-    const docCode = handoverDocCode || `BB-BG-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const docCode = handoverDocCode || `${Math.floor(1000 + Math.random() * 9000)}/2026/BBBG-LLA`;
+    const serializedItems = Array.isArray(items) && items.length > 0 ? JSON.stringify(items) : null;
 
     const assignment = await prisma.$transaction(async (tx) => {
-      const asset = await tx.asset.findUnique({ where: { id: assetId } });
-      if (!asset) throw new Error('Tài sản không tồn tại');
+      let linkedAsset = null;
+      if (assetId) {
+        linkedAsset = await tx.asset.findUnique({ where: { id: assetId } });
+        if (!linkedAsset) throw new Error('Tài sản không tồn tại');
 
-      if (asset.status === AssetStatus.ASSIGNED) {
-        throw new Error('Tài sản này đang được bàn giao cho nhân sự khác');
+        if (linkedAsset.status === AssetStatus.ASSIGNED) {
+          throw new Error('Tài sản này đang được bàn giao cho nhân sự khác');
+        }
+
+        if (linkedAsset.status === AssetStatus.MAINTENANCE || linkedAsset.status === AssetStatus.DISPOSED || (linkedAsset.status as string) === 'LOST') {
+          throw new Error('Tài sản đang bảo trì, đã thanh lý hoặc báo mất, không thể bàn giao');
+        }
+
+        await tx.asset.update({
+          where: { id: assetId },
+          data: { status: AssetStatus.ASSIGNED }
+        });
       }
 
-      if (asset.status === AssetStatus.MAINTENANCE || asset.status === AssetStatus.DISPOSED) {
-        throw new Error('Tài sản đang bảo trì hoặc đã thanh lý, không thể bàn giao');
+      // Nếu trong items có các assetId cụ thể từ kho, cập nhật tất cả sang ASSIGNED
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (item.assetId && item.assetId !== assetId) {
+            await tx.asset.update({
+              where: { id: item.assetId },
+              data: { status: AssetStatus.ASSIGNED }
+            }).catch(() => {});
+          }
+        }
       }
 
       const newAssignment = await tx.assetAssignment.create({
         data: {
-          assetId,
+          assetId: assetId || null,
           employeeId,
           assignedDate: assignedDate ? new Date(assignedDate) : new Date(),
           conditionOnAssign: conditionOnAssign || 'Thiết bị hoạt động bình thường, đầy đủ phụ kiện',
           handoverDocCode: docCode,
           notes: notes ? String(notes).trim() : null,
-          status: AssignmentStatus.ACTIVE
+          status: AssignmentStatus.ACTIVE,
+          itemsJson: serializedItems,
+          handoverPerson: handoverPerson ? String(handoverPerson).trim() : 'Đỗ Thị Nguyệt',
+          handoverPersonRole: handoverPersonRole ? String(handoverPersonRole).trim() : 'Hành chính - Kế toán'
         },
         include: {
           asset: true,
           employee: {
-            select: { id: true, code: true, fullName: true, department: { select: { name: true } } }
+            select: { 
+              id: true, 
+              code: true, 
+              fullName: true, 
+              department: { select: { name: true } },
+              position: { select: { title: true } }
+            }
           }
         }
-      });
-
-      await tx.asset.update({
-        where: { id: assetId },
-        data: { status: AssetStatus.ASSIGNED }
       });
 
       return newAssignment;
@@ -385,7 +436,7 @@ router.post('/assign', itOrHrOnly, async (req: any, res: Response): Promise<any>
       tableName: 'AssetAssignment',
       recordId: assignment.id,
       accountId: req.user?.accountId,
-      details: `Bàn giao tài sản [${assignment.asset.name} - ${assignment.asset.code}] cho nhân viên [${assignment.employee.fullName}] theo biên bản ${docCode}`
+      details: `Lập Biên bản bàn giao tài sản [${docCode}] cho nhân viên [${assignment.employee.fullName}]`
     });
 
     return res.status(201).json(assignment);
@@ -395,11 +446,20 @@ router.post('/assign', itOrHrOnly, async (req: any, res: Response): Promise<any>
   }
 });
 
-// 8. POST /api/assets/assignments/:id/return - Thu hồi / Hoàn trả tài sản (Biểu mẫu BM02 - IT/HR Only)
+// 8. POST /api/assets/assignments/:id/return - Thu hồi / Hoàn trả tài sản (Biểu mẫu BM02 - IT/HR Only, có xử lý bồi thường và an toàn dữ liệu)
 router.post('/assignments/:id/return', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
-    const { returnedDate, conditionOnReturn, notes, nextAssetStatus } = req.body;
+    const { 
+      returnedDate, 
+      conditionOnReturn, 
+      notes, 
+      nextAssetStatus,
+      compensationAmount,
+      compensationReason,
+      securityWiped,
+      dataWipeNotes
+    } = req.body;
 
     const result = await prisma.$transaction(async (tx) => {
       const assignment = await tx.assetAssignment.findUnique({
@@ -411,17 +471,25 @@ router.post('/assignments/:id/return', itOrHrOnly, async (req: any, res: Respons
         throw new Error('Không tìm thấy phiếu bàn giao');
       }
 
-      if (assignment.status === AssignmentStatus.RETURNED) {
-        throw new Error('Tài sản này đã được thu hồi trước đó');
+      if (assignment.status === AssignmentStatus.RETURNED || (assignment.status as string) === 'LOST') {
+        throw new Error('Tài sản này đã được thu hồi hoặc báo mất trước đó');
       }
+
+      const targetAssignmentStatus = nextAssetStatus === 'LOST' 
+        ? ('LOST' as any) 
+        : (conditionOnReturn && conditionOnReturn.toLowerCase().includes('hỏng') ? AssignmentStatus.DAMAGED : AssignmentStatus.RETURNED);
 
       const updatedAssignment = await tx.assetAssignment.update({
         where: { id },
         data: {
           returnedDate: returnedDate ? new Date(returnedDate) : new Date(),
           conditionOnReturn: conditionOnReturn || 'Thiết bị hoàn trả nguyên vẹn',
+          compensationAmount: compensationAmount ? Number(compensationAmount) : 0,
+          compensationReason: compensationReason ? String(compensationReason).trim() : null,
+          securityWiped: securityWiped !== undefined ? Boolean(securityWiped) : true,
+          dataWipeNotes: dataWipeNotes ? String(dataWipeNotes).trim() : null,
           notes: notes ? `${assignment.notes ? assignment.notes + ' | ' : ''}Thu hồi: ${notes}` : assignment.notes,
-          status: AssignmentStatus.RETURNED
+          status: targetAssignmentStatus
         }
       });
 
@@ -429,12 +497,17 @@ router.post('/assignments/:id/return', itOrHrOnly, async (req: any, res: Respons
       await tx.asset.update({
         where: { id: assignment.assetId },
         data: {
-          status: targetStatus,
+          status: targetStatus as any,
           condition: conditionOnReturn || assignment.asset?.condition
         }
       });
 
-      return { updatedAssignment, assetName: assignment.asset.name, employeeName: assignment.employee.fullName };
+      return { 
+        updatedAssignment, 
+        assetName: assignment.asset.name, 
+        employeeName: assignment.employee.fullName,
+        compensation: compensationAmount ? Number(compensationAmount) : 0
+      };
     });
 
     await createAuditLog({
@@ -442,13 +515,54 @@ router.post('/assignments/:id/return', itOrHrOnly, async (req: any, res: Respons
       tableName: 'AssetAssignment',
       recordId: id,
       accountId: req.user?.accountId,
-      details: `Thu hồi tài sản [${result.assetName}] từ nhân viên [${result.employeeName}]`
+      details: `Thu hồi tài sản [${result.assetName}] từ nhân viên [${result.employeeName}]${result.compensation > 0 ? ` (Bồi thường: ${result.compensation.toLocaleString('vi-VN')} đ)` : ''}`
     });
 
     return res.json({ message: 'Thu hồi tài sản thành công', assignment: result.updatedAssignment });
   } catch (error: any) {
     console.error('Error returning asset:', error);
     return res.status(400).json({ error: error.message || 'Lỗi khi thu hồi tài sản' });
+  }
+});
+
+// 9. POST /api/assets/:id/maintenance-complete - Hoàn tất bảo trì 1-chạm (Đưa thiết bị về kho AVAILABLE)
+router.post('/:id/maintenance-complete', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const { condition, maintenanceCost, notes } = req.body;
+
+    const asset = await prisma.asset.findUnique({ where: { id } });
+    if (!asset) {
+      return res.status(404).json({ error: 'Không tìm thấy tài sản.' });
+    }
+
+    if (asset.status !== AssetStatus.MAINTENANCE) {
+      return res.status(400).json({ error: 'Chỉ có thể hoàn tất bảo trì cho thiết bị đang ở trạng thái MAINTENANCE.' });
+    }
+
+    const updated = await prisma.asset.update({
+      where: { id },
+      data: {
+        status: AssetStatus.AVAILABLE,
+        condition: condition || 'Đã bảo trì / sửa chữa hoàn tất, hoạt động tốt 100%',
+        notes: notes 
+          ? `${asset.notes ? asset.notes + ' | ' : ''}Bảo trì (${new Date().toLocaleDateString('vi-VN')}): ${notes}${maintenanceCost ? ` - Chi phí: ${Number(maintenanceCost).toLocaleString('vi-VN')} đ` : ''}` 
+          : (maintenanceCost ? `${asset.notes ? asset.notes + ' | ' : ''}Chi phí bảo trì: ${Number(maintenanceCost).toLocaleString('vi-VN')} đ` : asset.notes)
+      }
+    });
+
+    await createAuditLog({
+      action: 'MAINTENANCE_COMPLETE',
+      tableName: 'Asset',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Hoàn tất bảo trì tài sản [${asset.code}] ${asset.name}. Đã chuyển về kho AVAILABLE.`
+    });
+
+    return res.json({ message: 'Hoàn tất bảo trì và đã đưa thiết bị về kho.', asset: updated });
+  } catch (error: any) {
+    console.error('Error completing maintenance:', error);
+    return res.status(500).json({ error: error.message });
   }
 });
 

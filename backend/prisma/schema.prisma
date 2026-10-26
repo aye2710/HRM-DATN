@@ -781,12 +781,14 @@ enum AssetStatus {
   ASSIGNED
   MAINTENANCE
   DISPOSED
+  LOST
 }
 
 enum AssignmentStatus {
   ACTIVE
   RETURNED
   DAMAGED
+  LOST
 }
 
 model Asset {
@@ -802,6 +804,7 @@ model Asset {
   condition       String?           @default("Mới 100%")
   location        String?           @default("Kho CNTT - Tầng 5")
   notes           String?           @db.Text
+  isDeleted       Boolean           @default(false)
   assignments     AssetAssignment[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -809,8 +812,8 @@ model Asset {
 
 model AssetAssignment {
   id                 String           @id @default(uuid())
-  assetId            String
-  asset              Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetId            String?
+  asset              Asset?           @relation(fields: [assetId], references: [id], onDelete: Cascade)
   employeeId         String
   employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   assignedDate       DateTime         @default(now())
@@ -819,7 +822,14 @@ model AssetAssignment {
   conditionOnAssign  String?          @default("Hoạt động tốt, nguyên tem bảo hành")
   conditionOnReturn  String?
   handoverDocCode    String?
+  compensationAmount Decimal?         @default(0)
+  compensationReason String?          @db.Text
+  securityWiped      Boolean          @default(true)
+  dataWipeNotes      String?          @db.Text
   notes              String?          @db.Text
+  itemsJson          String?          @db.Text
+  handoverPerson     String?          @default("Đỗ Thị Nguyệt")
+  handoverPersonRole String?          @default("Hành chính - Kế toán")
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 }
