@@ -107,7 +107,7 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
 // 3. Nhân viên nộp đơn xin nghỉ phép (Anti-negative Balance & Soft Locking trong Transaction)
 router.post('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
-    const { employeeId, leaveType, startDate, endDate, reason } = req.body;
+    const { employeeId, leaveType, startDate, endDate, reason, session } = req.body;
     const userRole = req.user?.role?.toUpperCase();
     
     let empId = employeeId;
@@ -127,7 +127,8 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
     }
     
     // Tính toán số ngày làm việc thực tế
-    const workingDaysCount = await calculateWorkingDays(start, end);
+    const isHalfDay = (session === 'MORNING' || session === 'AFTERNOON') && start.toDateString() === end.toDateString();
+    const workingDaysCount = isHalfDay ? 0.5 : await calculateWorkingDays(start, end);
 
     if (workingDaysCount <= 0) {
       return res.status(400).json({ 
@@ -169,6 +170,7 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
         data: {
           employeeId: empId,
           leaveType,
+          session: isHalfDay ? session : 'ALL_DAY',
           startDate: start,
           endDate: end,
           reason: reason ? String(reason).trim() : null,
@@ -184,7 +186,7 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       tableName: 'LeaveRequest',
       recordId: result.id,
       accountId: req.user?.accountId,
-      details: `Đăng ký nghỉ phép (${leaveType}): ${workingDaysCount} ngày công từ ${startDate} đến ${endDate}.`
+      details: `Đăng ký nghỉ phép (${leaveType}${isHalfDay ? ` - ${session}` : ''}): ${workingDaysCount} ngày công từ ${startDate} đến ${endDate}.`
     });
 
     return res.status(201).json({
@@ -227,7 +229,8 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
       const leaveReq = await tx.leaveRequest.findUnique({ where: { id } });
       if (!leaveReq) throw new Error('Không tìm thấy đơn phép');
 
-      const workingDaysCount = await calculateWorkingDays(leaveReq.startDate, leaveReq.endDate);
+      const isHalfDay = leaveReq.session === 'MORNING' || leaveReq.session === 'AFTERNOON';
+      const workingDaysCount = isHalfDay ? 0.5 : await calculateWorkingDays(leaveReq.startDate, leaveReq.endDate);
 
       // Nếu TỪ CHỐI đơn PAID -> HOÀN LẠI số ngày phép đã trừ tạm thời
       if (status === 'REJECTED' && leaveReq.leaveType === 'PAID') {
@@ -250,7 +253,7 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
         data: { status, approverId }
       });
 
-      // Nếu duyệt -> Đồng bộ vào bảng Attendance một cách an toàn (tránh Duplicate)
+      // Nếu duyệt -> Đồng bộ vào bảng Attendance với trạng thái chuẩn ON_LEAVE
       if (status === 'APPROVED') {
         const holidays = await tx.holiday.findMany({
           where: {
@@ -282,16 +285,20 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
               }
             });
 
-            const workingDayValue = leaveReq.leaveType === 'PAID' ? 1.0 : 0.0;
+            const workingDayValue = leaveReq.leaveType === 'PAID' ? (isHalfDay ? 0.5 : 1.0) : 0.0;
 
             if (existingAtt) {
+              // Nếu nghỉ nửa ngày và đã có công nửa ngày làm việc thực tế, cộng dồn
+              let finalWorkingDay = workingDayValue;
+              if (isHalfDay && Number(existingAtt.workingDay) > 0 && Number(existingAtt.workingDay) < 1.0) {
+                finalWorkingDay = Math.min(1.0, Number(existingAtt.workingDay) + workingDayValue);
+              }
+
               await tx.attendance.update({
                 where: { id: existingAtt.id },
                 data: {
-                  status: 'ABSENT',
-                  workingDay: workingDayValue,
-                  checkIn: null,
-                  checkOut: null
+                  status: 'ON_LEAVE',
+                  workingDay: finalWorkingDay
                 }
               });
             } else {
@@ -299,7 +306,7 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
                 data: {
                   employeeId: leaveReq.employeeId,
                   date: attDate,
-                  status: 'ABSENT',
+                  status: 'ON_LEAVE',
                   workingDay: workingDayValue
                 }
               });

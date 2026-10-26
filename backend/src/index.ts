@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 // Gắn kết toàn bộ các phân hệ API của hệ thống HRM
 app.use('/api', apiRouter);
 
-// Khởi chạy máy chủ
+// Khởi chạy máy chủ API
 app.listen(PORT, () => {
   console.log(`[SERVER] LLA Enterprise HRM Backend is listening on port ${PORT}`);
 });

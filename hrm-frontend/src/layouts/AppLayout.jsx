@@ -97,8 +97,13 @@ const Sidebar = ({ links }) => {
 
   const handleLogout = (e) => {
     e.preventDefault();
+    const role = localStorage.getItem('role');
     localStorage.clear();
-    navigate('/login');
+    if (role === 'EMPLOYEE') {
+      navigate('/employee/login');
+    } else {
+      navigate('/admin');
+    }
   };
 
   return (

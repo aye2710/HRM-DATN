@@ -16,6 +16,7 @@ import departmentRoutes from './hr/department.routes';
 import positionRoutes from './hr/position.routes';
 import contractRoutes from './hr/contracts.routes';
 import onboardingRoutes from './hr/onboarding.routes';
+import offboardingRoutes from './hr/offboarding.routes';
 
 // 4. Phân hệ Ca kíp, Chấm công & Nghỉ phép (Time & Attendance)
 import attendanceRoutes from './attendance/attendance.routes';
@@ -55,6 +56,7 @@ apiRouter.use('/departments', departmentRoutes);
 apiRouter.use('/positions', positionRoutes);
 apiRouter.use('/contracts', contractRoutes);
 apiRouter.use('/onboarding', onboardingRoutes);
+apiRouter.use('/offboarding', offboardingRoutes);
 
 // [Domain 4: Time & Attendance]
 apiRouter.use('/attendance', attendanceRoutes);

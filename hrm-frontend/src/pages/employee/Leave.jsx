@@ -17,6 +17,7 @@ export const EmployeeLeave = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     leaveType: 'PAID',
+    session: 'ALL_DAY',
     startDate: '',
     endDate: '',
     reason: ''
@@ -61,7 +62,7 @@ export const EmployeeLeave = () => {
       });
       toast.success('Đã gửi đơn xin nghỉ phép thành công!');
       setShowModal(false);
-      setFormData({ leaveType: 'PAID', startDate: '', endDate: '', reason: '' });
+      setFormData({ leaveType: 'PAID', session: 'ALL_DAY', startDate: '', endDate: '', reason: '' });
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Lỗi khi nộp đơn xin nghỉ');
@@ -77,8 +78,11 @@ export const EmployeeLeave = () => {
     });
   };
 
-  const calculateDays = (start, end) => {
+  const calculateDays = (start, end, session = 'ALL_DAY') => {
     if (!start || !end) return 0;
+    if (start === end && (session === 'MORNING' || session === 'AFTERNOON')) {
+      return 0.5;
+    }
     const diffTime = Math.abs(new Date(end) - new Date(start));
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
@@ -401,7 +405,7 @@ export const EmployeeLeave = () => {
                 {filteredRequests.map((req, idx) => {
                   const typeBadge = getLeaveTypeBadge(req.leaveType);
                   const statusBadge = getStatusBadge(req.status);
-                  const countDays = calculateDays(req.startDate, req.endDate);
+                  const countDays = calculateDays(req.startDate, req.endDate, req.session);
 
                   return (
                     <tr 
@@ -426,6 +430,7 @@ export const EmployeeLeave = () => {
                           fontWeight: 600
                         }}>
                           {typeBadge.text}
+                          {req.session === 'MORNING' ? ' • Nửa ngày sáng' : req.session === 'AFTERNOON' ? ' • Nửa ngày chiều' : ''}
                         </span>
                       </td>
                       <td style={{ padding: '1rem 1.25rem', color: '#1E293B', fontWeight: 500 }}>
@@ -556,6 +561,39 @@ export const EmployeeLeave = () => {
                 </div>
               </div>
 
+              {formData.startDate && formData.endDate && formData.startDate === formData.endDate && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                    Thời gian nghỉ trong ngày
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                    {[
+                      { value: 'ALL_DAY', label: 'Cả ngày (1.0)' },
+                      { value: 'MORNING', label: 'Sáng (0.5)' },
+                      { value: 'AFTERNOON', label: 'Chiều (0.5)' }
+                    ].map(opt => (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => setFormData({ ...formData, session: opt.value })}
+                        style={{
+                          padding: '0.5rem',
+                          borderRadius: '6px',
+                          border: formData.session === opt.value ? '2px solid #2563EB' : '1px solid #E2E8F0',
+                          backgroundColor: formData.session === opt.value ? '#EFF6FF' : '#FFFFFF',
+                          color: formData.session === opt.value ? '#1D4ED8' : '#475569',
+                          fontWeight: formData.session === opt.value ? 700 : 500,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {formData.startDate && formData.endDate && (
                 <div style={{
                   padding: '0.65rem 0.85rem',
@@ -569,7 +607,7 @@ export const EmployeeLeave = () => {
                 }}>
                   <span>Tổng số ngày đăng ký nghỉ:</span>
                   <strong style={{ fontSize: '0.95rem' }}>
-                    {calculateDays(formData.startDate, formData.endDate)} ngày
+                    {calculateDays(formData.startDate, formData.endDate, formData.session)} ngày
                   </strong>
                 </div>
               )}

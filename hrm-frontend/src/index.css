@@ -690,3 +690,9 @@ tbody tr:hover td {
   flex-direction: column;
   gap: 0.25rem;
 }
+
+/* SweetAlert2 Popup Global Z-Index Fix */
+.swal2-container {
+  z-index: 99999 !important;
+}
+

@@ -101,6 +101,9 @@ enum EmployeeStatus {
   INTERNSHIP
   PROBATION
   ACTIVE
+  MATERNITY_LEAVE
+  UNPAID_LEAVE
+  SUSPENDED
   RESIGNED
 }
 
@@ -109,23 +112,56 @@ model Employee {
   code           String         @unique 
   fullName       String
   cccd           String?        @unique
+  cccdIssueDate  DateTime?
+  cccdIssuePlace String?
+  cccdExpiryDate DateTime?
+  birthPlace     String?
+  hometown       String?
+  ethnicity      String?
+  religion       String?
+  dataConsent    Boolean        @default(true)
+  dataConsentDate DateTime?
+  
   email          String?        @unique
+  personalEmail  String?
   phone          String?
   gender         String?        // 'MALE', 'FEMALE', 'OTHER'
   dateOfBirth    DateTime?
   address        String?
+  permanentAddress String?
+  temporaryAddress String?
+  currentAddress   String?
   nationality    String?
   maritalStatus  String?
   taxCode        String?
   bankName       String?
+  bankBranch     String?
   bankAccount    String?
+  bankAccountHolder String?
   socialInsurance String?
   healthInsurance String?
   emergencyContactName String?
   emergencyContactPhone String?
   emergencyContactRelation String?
+  emergencyContacts String?     @db.Text
+  
+  highestEducation String?
+  workExperience   String?      @db.Text
+  attachedFiles    String?      @db.Text
   
   status         EmployeeStatus @default(ACTIVE)
+  managementRole String?        @default("STAFF")
+  managerId      String?
+  manager        Employee?      @relation("DirectManagement", fields: [managerId], references: [id])
+  subordinates   Employee[]     @relation("DirectManagement")
+  workLocation   String?        @default("Trụ sở chính")
+  employmentType String?        @default("FULL_TIME")
+  probationStartDate DateTime?
+  probationEndDate   DateTime?
+  officialJoinDate   DateTime?
+  resignationDate    DateTime?
+  resignationReason  String?
+  
   joinDate       DateTime
   
   departmentId   String?
@@ -151,6 +187,33 @@ model Employee {
   attendanceAdjustments AttendanceAdjustment[]
   decisions           Decision[]
   assetAssignments    AssetAssignment[]
+  profileChangeRequests ProfileChangeRequest[]
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ProfileChangeRequest {
+  id            String              @id @default(uuid())
+  employeeId    String
+  employee      Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  requestType   String              @default("PROFILE_UPDATE")
+  proposedData  String              @db.Text
+  attachmentUrl String?
+  note          String?
+  
+  status        ChangeRequestStatus @default(PENDING)
+  rejectReason  String?
+  
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 }
 
 enum DecisionType {
@@ -167,6 +230,7 @@ enum DecisionStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED
 }
 
 model Decision {
@@ -192,32 +256,48 @@ model Decision {
   effectiveDate   DateTime       @default(now())
   status          DecisionStatus @default(PENDING)
   
+  fileUrl         String?        @db.Text
   signBy          String?
   signDate        DateTime?
+  
+  // Thông tin khen thưởng & kỷ luật có cấu trúc
+  rewardAmount        Decimal?
+  disciplineForm      String?
+  disciplineDuration  String?
+  
+  // Thông tin thu hồi / đính chính
+  revokeReason    String?        @db.Text
+  revokedAt       DateTime?
   
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
 
 model Relative {
-  id          String    @id @default(uuid())
-  employeeId  String
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  fullName    String
-  relation    String
-  dateOfBirth DateTime?
-  taxCode     String?
-  isDependent Boolean   @default(false)
+  id                String    @id @default(uuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fullName          String
+  relation          String
+  dateOfBirth       DateTime?
+  taxCode           String?
+  isDependent       Boolean   @default(false)
+  cccd              String?
+  taxDeductionStart DateTime?
+  taxDeductionEnd   DateTime?
+  proofDocument     String?
 }
 
 model Degree {
-  id          String    @id @default(uuid())
-  employeeId  String
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  degreeName  String
-  major       String
-  institution String
-  gradYear    Int?
+  id             String    @id @default(uuid())
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  degreeName     String
+  major          String
+  institution    String
+  gradYear       Int?
+  classification String?
+  fileUrl        String?
 }
 
 model Certificate {
@@ -228,6 +308,7 @@ model Certificate {
   issuedBy    String
   issueDate   DateTime?
   expiryDate  DateTime?
+  fileUrl     String?
 }
 
 model OnboardingTask {
@@ -270,17 +351,43 @@ enum ContractStatus {
 }
 
 model Contract {
-  id            String         @id @default(uuid())
-  employeeId    String
-  employee      Employee       @relation(fields: [employeeId], references: [id])
-  contractType  ContractType
-  baseSalary    Decimal
-  startDate     DateTime
-  endDate       DateTime?
-  status        ContractStatus @default(ACTIVE)
-  fileUrl       String?        @db.Text
-  createdAt     DateTime       @default(now())
+  id              String         @id @default(uuid())
+  contractNumber  String?
+  employeeId      String
+  employee        Employee       @relation(fields: [employeeId], references: [id])
+  contractType    ContractType
+  baseSalary      Decimal
+  allowance       Decimal?       @default(0)
+  insuranceSalary Decimal?
+  paymentMethod   String?        @default("BANK_TRANSFER")
+  startDate       DateTime
+  endDate         DateTime?
+  signBy          String?
+  signDate        DateTime?
+  workLocation    String?
+  appendixNote    String?        @db.Text
+  status          ContractStatus @default(ACTIVE)
+  fileUrl         String?        @db.Text
+  appendices      ContractAppendix[]
+  createdAt       DateTime       @default(now())
 }
+
+model ContractAppendix {
+  id              String         @id @default(uuid())
+  appendixNumber  String
+  contractId      String
+  contract        Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  decisionId      String?
+  title           String
+  changeType      String         @default("SALARY_ADJUSTMENT") // 'SALARY_ADJUSTMENT', 'POSITION_CHANGE', 'TERMS_UPDATE'
+  oldSalary       Decimal?
+  newSalary       Decimal?
+  effectiveDate   DateTime       @default(now())
+  content         String?        @db.Text
+  fileUrl         String?        @db.Text
+  createdAt       DateTime       @default(now())
+}
+
 
 // ==========================================
 // 3. TIME & ATTENDANCE (Chấm công)
@@ -305,6 +412,9 @@ model Holiday {
 enum AttendanceStatus {
   NORMAL
   LATE
+  EARLY_LEAVE
+  ON_LEAVE
+  HOLIDAY
   ABSENT
 }
 
@@ -361,6 +471,7 @@ model LeaveRequest {
   employeeId    String
   employee      Employee      @relation(fields: [employeeId], references: [id])
   leaveType     LeaveType
+  session       String?       @default("ALL_DAY") // ALL_DAY, MORNING, AFTERNOON
   startDate     DateTime
   endDate       DateTime
   status        RequestStatus @default(PENDING)
@@ -525,13 +636,22 @@ model Candidate {
 }
 
 model CandidateUser {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  name       String
+  phone      String?
+  isVerified Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model CandidateVerificationOtp {
   id        String   @id @default(uuid())
   email     String   @unique
-  password  String
-  name      String
-  phone     String?
+  otp       String
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model PreOnboardingProfile {

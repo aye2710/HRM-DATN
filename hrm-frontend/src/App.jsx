@@ -30,11 +30,13 @@ import { EquipmentProvision } from './pages/internal/onboarding/EquipmentProvisi
 import { SystemAccounts } from './pages/internal/onboarding/SystemAccounts';
 import { OnboardingProgress } from './pages/internal/onboarding/OnboardingProgress';
 
-import { EmploymentHistory } from './pages/internal/employees/EmploymentHistory';
 import { Decisions } from './pages/internal/employees/Decisions';
+import { DecisionCreate } from './pages/internal/employees/DecisionCreate';
+import { DecisionDetail } from './pages/internal/employees/DecisionDetail';
 import { Contracts } from './pages/internal/employees/Contracts';
+import { ContractDetail } from './pages/internal/employees/ContractDetail';
 import { Transfers } from './pages/internal/employees/Transfers';
-import { Terminations } from './pages/internal/employees/Terminations';
+import { TransferDetail } from './pages/internal/employees/TransferDetail';
 
 import { Shifts } from './pages/internal/attendance/Shifts';
 import { Adjustments } from './pages/internal/attendance/Adjustments';
@@ -53,6 +55,9 @@ import { ReportsDashboard } from './pages/internal/reports/ReportsDashboard';
 import { KPITemplates } from './pages/internal/performance/KPITemplates';
 import { AssetManagement } from './pages/internal/assets/AssetManagement';
 import { SystemParameters } from './pages/internal/system/SystemParameters';
+import { OffboardingChecklist } from './pages/internal/offboarding/OffboardingChecklist';
+import { OffboardingInitiate } from './pages/internal/offboarding/OffboardingInitiate';
+import { OffboardingHistory } from './pages/internal/offboarding/OffboardingHistory';
 
 import { PlaceholderPage } from './components/PlaceholderPage';
 
@@ -62,12 +67,13 @@ import { EmployeeProfile } from './pages/employee/Profile';
 import { EmployeeLeave } from './pages/employee/Leave';
 import { EmployeePayslip } from './pages/employee/Payslip';
 import { EmployeeKPI } from './pages/employee/KPI';
+import { EmployeeLogin } from './pages/employee/EmployeeLogin';
 
 // Candidate Portal (Standalone)
 import { CandidateLandingPage } from './pages/candidate/LandingPage';
 import { CandidateAuthPage } from './pages/candidate/CandidateAuthPage';
 
-import { LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, ShieldCheck, Target, Shield, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, ShieldCheck, Target, Shield, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User, UserMinus } from 'lucide-react';
 
 const internalLinks = [
   { to: '/internal/dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
@@ -100,10 +106,8 @@ const internalLinks = [
     children: [
       { to: '/internal/employees/profiles', label: 'Hồ sơ cá nhân' },
       { to: '/internal/employees/decisions', label: 'Quyết định nhân sự' },
-      { to: '/internal/employees/jobs', label: 'Quản lý việc làm' },
       { to: '/internal/employees/contracts', label: 'Hợp đồng lao động' },
       { to: '/internal/employees/transfers', label: 'Điều chuyển' },
-      { to: '/internal/employees/terminations', label: 'Nghỉ việc' },
     ]
   },
   {
@@ -139,6 +143,14 @@ const internalLinks = [
     ]
   },
   { to: '/internal/assets', label: 'Tài sản & Thiết bị', icon: <Laptop size={20} /> },
+  {
+    to: '/internal/offboarding', label: 'Thôi việc & Bàn giao', icon: <UserMinus size={20} />,
+    children: [
+      { to: '/internal/offboarding/checklist', label: 'Tiến độ Bàn giao (Checklist)' },
+      { to: '/internal/offboarding/initiate', label: 'Khởi tạo Thôi việc' },
+      { to: '/internal/offboarding/history', label: 'Sổ Lịch sử Thôi việc' },
+    ]
+  },
   { to: '/internal/reports', label: 'Báo cáo', icon: <BarChart2 size={20} /> },
   {
     to: '/internal/system', label: 'Hệ thống', icon: <ShieldCheck size={20} />,
@@ -165,12 +177,12 @@ const ProtectedRoute = ({ allowedRole }) => {
   const role = localStorage.getItem('role');
 
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={allowedRole === 'EMPLOYEE' ? '/employee/login' : '/admin'} replace />;
   }
 
-  // Nếu tài khoản nhân viên cố vào trang Quản trị Admin, đưa về trang đăng nhập để đăng nhập tài khoản Quản trị
+  // Nếu tài khoản nhân viên cố vào trang Quản trị Admin, đưa về trang đăng nhập Quản trị Admin
   if (allowedRole === 'ADMIN' && role === 'EMPLOYEE') {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin" replace />;
   }
 
   return <Outlet />;
@@ -182,16 +194,22 @@ function App() {
       <Toaster position="top-right" />
       <Router>
         <Routes>
-          {/* 1. Mặc định vào gốc website là Cổng Tuyển dụng Công khai */}
+          {/* 1. Cổng Tuyển Dụng & Đăng Nhập Ứng Viên */}
           <Route path="/" element={<CandidateLandingPage />} />
           <Route path="/candidate" element={<Navigate to="/" replace />} />
           <Route path="/candidate/login" element={<CandidateAuthPage defaultTab="login" />} />
           <Route path="/candidate/register" element={<CandidateAuthPage defaultTab="register" />} />
           
-          {/* 2. Trang Đăng nhập Hệ thống Quản trị / Nhân sự */}
-          <Route path="/login" element={<PortalSelection />} />
+          {/* 2. Cổng Quản Trị Doanh Nghiệp (Admin Portal) */}
           <Route path="/admin" element={<PortalSelection />} />
           <Route path="/admin/login" element={<PortalSelection />} />
+          <Route path="/login" element={<PortalSelection />} />
+
+          {/* 3. Cổng Nhân Sự / Cán Bộ Nhân Viên (Employee Portal - Tách riêng biệt) */}
+          <Route path="/employee/login" element={<EmployeeLogin />} />
+          <Route path="/auth/login" element={<EmployeeLogin />} />
+          <Route path="/auth" element={<EmployeeLogin />} />
+          <Route path="/employee-login" element={<EmployeeLogin />} />
           
           {/* Admin / Internal Portal */}
           <Route element={<ProtectedRoute allowedRole="ADMIN" />}>
@@ -218,13 +236,22 @@ function App() {
               <Route path="onboarding/contracts" element={<Contracts />} />
               <Route path="onboarding/progress" element={<OnboardingProgress />} />
 
+              <Route path="offboarding" element={<Navigate to="checklist" replace />} />
+              <Route path="offboarding/checklist" element={<OffboardingChecklist />} />
+              <Route path="offboarding/initiate" element={<OffboardingInitiate />} />
+              <Route path="offboarding/history" element={<OffboardingHistory />} />
+
               <Route path="employees/profiles" element={<EmployeeList />} />
               <Route path="employees/profiles/:id" element={<EmployeeDetail />} />
               <Route path="employees/decisions" element={<Decisions />} />
-              <Route path="employees/jobs" element={<EmploymentHistory />} />
+              <Route path="employees/decisions/create" element={<DecisionCreate />} />
+              <Route path="employees/decisions/:id" element={<DecisionDetail />} />
+              <Route path="employees/jobs" element={<Navigate to="/internal/employees/decisions" replace />} />
               <Route path="employees/contracts" element={<Contracts />} />
+              <Route path="employees/contracts/:id" element={<ContractDetail />} />
               <Route path="employees/transfers" element={<Transfers />} />
-              <Route path="employees/terminations" element={<Terminations />} />
+              <Route path="employees/transfers/:id" element={<TransferDetail />} />
+              <Route path="employees/terminations" element={<Navigate to="/internal/offboarding/checklist" replace />} />
 
               <Route path="attendance/shifts" element={<Shifts />} />
               <Route path="attendance/records" element={<AttendanceMgmt />} />

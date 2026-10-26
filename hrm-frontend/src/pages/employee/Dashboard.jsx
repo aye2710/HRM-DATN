@@ -231,12 +231,17 @@ export const EmployeeDashboard = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Clock size={20} color="#2563EB" />
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
-                  Điểm danh & Chấm công hôm nay
-                </h3>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
+                    Điểm danh & Chấm công hôm nay
+                  </h3>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                    Khung giờ chuẩn: <strong>08:30 - 17:30</strong> (Ân hạn vào ca đến 08:45)
+                  </div>
+                </div>
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, backgroundColor: '#F1F5F9', padding: '3px 8px', borderRadius: '4px' }}>
-                Ca HC (08:00 - 17:30)
+              <span style={{ fontSize: '0.75rem', color: '#1E40AF', fontWeight: 600, backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 8px', borderRadius: '4px' }}>
+                Ca HC (08:30 - 17:30)
               </span>
             </div>
 
@@ -482,16 +487,36 @@ export const EmployeeDashboard = () => {
                     {rec.workHours || 8} giờ
                   </td>
                   <td style={{ padding: '0.85rem 1.25rem' }}>
-                    <span style={{
-                      backgroundColor: rec.status === 'LATE' ? '#FEF3C7' : '#ECFDF5',
-                      color: rec.status === 'LATE' ? '#D97706' : '#059669',
-                      padding: '3px 8px',
-                      borderRadius: '9999px',
-                      fontSize: '0.75rem',
-                      fontWeight: 700
-                    }}>
-                      {rec.status === 'LATE' ? 'Đi muộn 14p' : 'Đúng giờ'}
-                    </span>
+                    {rec.status === 'NORMAL' && (
+                      <span style={{ backgroundColor: '#DCFCE7', color: '#15803D', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                        Đúng giờ
+                      </span>
+                    )}
+                    {rec.status === 'LATE' && (
+                      <span style={{ backgroundColor: '#FEF3C7', color: '#B45309', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                        Đi muộn
+                      </span>
+                    )}
+                    {rec.status === 'EARLY_LEAVE' && (
+                      <span style={{ backgroundColor: '#FFEDD5', color: '#C2410C', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                        Về sớm
+                      </span>
+                    )}
+                    {rec.status === 'ON_LEAVE' && (
+                      <span style={{ backgroundColor: '#E0E7FF', color: '#4338CA', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                        Nghỉ phép
+                      </span>
+                    )}
+                    {rec.status === 'HOLIDAY' && (
+                      <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                        Ngày Lễ
+                      </span>
+                    )}
+                    {rec.status === 'ABSENT' && (
+                      <span style={{ backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                        Vắng mặt
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

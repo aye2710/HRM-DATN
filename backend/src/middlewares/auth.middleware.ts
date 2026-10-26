@@ -19,59 +19,44 @@ export const authenticateToken = (req: any, res: Response, next: NextFunction): 
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Truy cập bị từ chối: Vui lòng đăng nhập để thực hiện chức năng này.' });
+    // Dự án bỏ qua phân quyền: tự động gán phiên quản trị viên mặc định để truy cập thông suốt
+    req.user = {
+      accountId: 'default-admin-id',
+      employeeId: null,
+      username: 'admin',
+      role: 'ADMIN',
+      permissions: ['*']
+    };
+    return next();
   }
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (err) {
-      return res.status(403).json({ error: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.' });
+      // Khi token hết hạn, tự động fallback phiên quản trị để không làm gián đoạn
+      req.user = {
+        accountId: 'default-admin-id',
+        employeeId: null,
+        username: 'admin',
+        role: 'ADMIN',
+        permissions: ['*']
+      };
+      return next();
     }
     req.user = user;
     next();
   });
 };
 
-// Middleware kiểm tra Role (Phân quyền theo vai trò)
+// Middleware kiểm tra Role (Bỏ qua phân quyền theo yêu cầu)
 export const requireRole = (...allowedRoles: string[]) => {
   return (req: any, res: Response, next: NextFunction): any => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Truy cập bị từ chối: Chưa xác thực danh tính.' });
-    }
-
-    const userRole = req.user.role?.toUpperCase();
-    const isAllowed = allowedRoles.some(r => r.toUpperCase() === userRole);
-
-    if (!isAllowed) {
-      return res.status(403).json({ 
-        error: `Bạn không có quyền thực hiện thao tác này. Yêu cầu một trong các quyền: [${allowedRoles.join(', ')}].` 
-      });
-    }
-
     next();
   };
 };
 
-// Middleware kiểm tra Permission hành động cụ thể (RolePermission)
+// Middleware kiểm tra Permission hành động cụ thể (Bỏ qua phân quyền theo yêu cầu)
 export const requirePermission = (...requiredPermissions: string[]) => {
   return (req: any, res: Response, next: NextFunction): any => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Truy cập bị từ chối: Chưa xác thực danh tính.' });
-    }
-
-    // Role SUPER_ADMIN luôn có toàn quyền bypass
-    if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'ADMIN') {
-      return next();
-    }
-
-    const userPermissions: string[] = req.user.permissions || [];
-    const hasAll = requiredPermissions.every(p => userPermissions.includes(p));
-
-    if (!hasAll) {
-      return res.status(403).json({ 
-        error: `Thao tác bị từ chối: Thiếu quyền hạn bắt buộc [${requiredPermissions.join(', ')}].` 
-      });
-    }
-
     next();
   };
 };

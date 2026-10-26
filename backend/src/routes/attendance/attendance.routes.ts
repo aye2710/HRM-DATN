@@ -134,8 +134,8 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
     });
 
     if (existing) {
-      if (existing.status === 'ABSENT') {
-        return res.status(400).json({ error: 'Bạn đã đăng ký nghỉ phép hôm nay!' });
+      if (existing.status === 'ABSENT' || (existing.status === 'ON_LEAVE' && Number(existing.workingDay) >= 1.0)) {
+        return res.status(400).json({ error: 'Bạn đã đăng ký nghỉ phép cả ngày hôm nay!' });
       }
       if (existing.checkIn) {
         return res.status(400).json({ error: 'Hôm nay bạn đã Check-in rồi!' });
@@ -147,7 +147,9 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
     const minutes = checkInTime.getMinutes();
     
     // Nếu check-in sau 8h45 sáng -> LATE (Ân hạn 15 phút từ 8h30)
-    const status = hours > 8 || (hours === 8 && minutes > 45) ? 'LATE' : 'NORMAL';
+    // Nếu nhân viên có đơn nghỉ phép nửa ngày sáng và check-in ca chiều thì giữ ON_LEAVE
+    const isHalfDayOnLeave = existing?.status === 'ON_LEAVE';
+    const status = isHalfDayOnLeave ? 'ON_LEAVE' : (hours > 8 || (hours === 8 && minutes > 45) ? 'LATE' : 'NORMAL');
 
     let record;
     if (existing) {
@@ -180,7 +182,7 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
 router.post('/check-in', authenticateToken, handleCheckIn);
 router.post('/checkin', authenticateToken, handleCheckIn);
 
-// 4. Check-out (Tự động tính ngày công: >=7.5h -> 1.0, >=3.5h -> 0.5, <3.5h -> 0)
+// 4. Check-out (Tự động tính ngày công: >=7.5h -> 1.0, >=3.5h -> 0.5, <3.5h -> 0; phát hiện Về sớm EARLY_LEAVE)
 const handleCheckOut = async (req: any, res: Response): Promise<any> => {
   try {
     const userRole = req.user?.role?.toUpperCase();
@@ -209,26 +211,46 @@ const handleCheckOut = async (req: any, res: Response): Promise<any> => {
     }
 
     const checkOutTime = new Date();
+    const checkOutHour = checkOutTime.getHours();
+    const isEarlyLeave = checkOutHour < 17; // Về sớm trước 17:00 (ca chuẩn kết thúc 17:30)
     
     // Tính toán công theo số giờ thực tế
     const diffHours = (checkOutTime.getTime() - record.checkIn.getTime()) / (1000 * 60 * 60);
     
-    let workingDay = 0;
+    let workEarned = 0;
     if (diffHours >= 7.5) {
-      workingDay = 1.0;
+      workEarned = 1.0;
     } else if (diffHours >= 3.5) {
-      workingDay = 0.5;
+      workEarned = 0.5;
+    }
+
+    // Nếu trước đó đã có công từ nghỉ phép nửa ngày, cộng dồn nhưng không vượt quá 1.0
+    const priorLeaveDay = record.status === 'ON_LEAVE' ? Number(record.workingDay) : 0;
+    const finalWorkingDay = Math.min(1.0, priorLeaveDay + workEarned);
+
+    // Cập nhật trạng thái: Nếu đi đúng giờ nhưng về sớm -> EARLY_LEAVE
+    let finalStatus = record.status;
+    if (record.status === 'NORMAL' && isEarlyLeave) {
+      finalStatus = 'EARLY_LEAVE';
     }
 
     const updated = await prisma.attendance.update({
       where: { id: record.id },
       data: {
         checkOut: checkOutTime,
-        workingDay: workingDay
+        status: finalStatus,
+        workingDay: finalWorkingDay
       }
     });
 
-    return res.json({ message: 'Check-out thành công', updated, workingDay, hoursWorked: Number(diffHours.toFixed(2)) });
+    return res.json({ 
+      message: 'Check-out thành công', 
+      updated, 
+      workingDay: finalWorkingDay, 
+      status: finalStatus,
+      isEarlyLeave,
+      hoursWorked: Number(diffHours.toFixed(2)) 
+    });
   } catch (error: any) {
     console.error('Check-out error:', error);
     return res.status(500).json({ error: 'Lỗi server khi Check-out' });
@@ -349,6 +371,17 @@ router.post('/adjustments', authenticateToken, async (req: any, res: Response): 
     const adjustmentDate = new Date(date);
     adjustmentDate.setHours(0, 0, 0, 0);
 
+    // BR-ATT-02: Kiểm tra kỳ công / kỳ lương đã KHÓA SỔ (LOCKED) chưa
+    const periodMonthYear = `${adjustmentDate.getMonth() + 1}-${adjustmentDate.getFullYear()}`;
+    const lockedPeriod = await prisma.payrollPeriod.findUnique({
+      where: { monthYear: periodMonthYear }
+    });
+    if (lockedPeriod && lockedPeriod.status === 'LOCKED') {
+      return res.status(400).json({
+        error: `Kỳ lương tháng ${periodMonthYear} đã được Giám đốc phê duyệt và KHÓA SỔ (LOCKED). Không thể nộp đơn giải trình công cho kỳ này!`
+      });
+    }
+
     const adjustment = await prisma.attendanceAdjustment.create({
       data: {
         employeeId: empId,
@@ -393,6 +426,18 @@ router.put('/adjustments/:id/status', authenticateToken, managerOrHr, async (req
 
     if (adjCheck.status !== 'PENDING') {
       return res.status(400).json({ error: 'Yêu cầu này đã được xử lý trước đó' });
+    }
+
+    // BR-ATT-02: Kiểm tra kỳ lương của ngày giải trình đã KHÓA SỔ chưa
+    const adjDate = new Date(adjCheck.date);
+    const periodMonthYear = `${adjDate.getMonth() + 1}-${adjDate.getFullYear()}`;
+    const lockedPeriod = await prisma.payrollPeriod.findUnique({
+      where: { monthYear: periodMonthYear }
+    });
+    if (lockedPeriod && lockedPeriod.status === 'LOCKED') {
+      return res.status(400).json({
+        error: `Kỳ lương tháng ${periodMonthYear} đã KHÓA SỔ (LOCKED). Không thể phê duyệt thay đổi công của kỳ này!`
+      });
     }
 
     // Chống tự phê duyệt
@@ -535,6 +580,17 @@ router.post('/manual', authenticateToken, hrOnly, async (req: any, res: Response
     const attDate = new Date(date);
     attDate.setHours(0, 0, 0, 0);
 
+    // BR-ATT-02: Kiểm tra kỳ lương đã KHÓA SỔ chưa
+    const periodMonthYear = `${attDate.getMonth() + 1}-${attDate.getFullYear()}`;
+    const lockedPeriod = await prisma.payrollPeriod.findUnique({
+      where: { monthYear: periodMonthYear }
+    });
+    if (lockedPeriod && lockedPeriod.status === 'LOCKED') {
+      return res.status(400).json({
+        error: `Kỳ lương tháng ${periodMonthYear} đã KHÓA SỔ (LOCKED). Không thể ghi nhận/điều chỉnh công thủ công cho kỳ này!`
+      });
+    }
+
     const existing = await prisma.attendance.findFirst({
       where: { employeeId, date: attDate }
     });
@@ -573,7 +629,7 @@ router.post('/manual', authenticateToken, hrOnly, async (req: any, res: Response
       tableName: 'Attendance',
       recordId: result.id,
       accountId: req.user?.accountId,
-      details: `HR/Admin ghi nhận công thủ công cho nhân viên ${employeeId} ngày ${date}: ${parsedWorkingDay} công. Ghi chú: ${note || 'Không'}`
+      details: `HR/Admin ghi nhận công thủ công cho nhân viên ${employeeId} ngày ${date}: ${parsedWorkingDay} công (Trạng thái: ${parsedStatus}). Ghi chú: ${note || 'Không'}`
     });
 
     return res.status(200).json({ message: 'Ghi nhận chấm công thủ công thành công', record: result });
@@ -613,13 +669,22 @@ router.post('/daily-sweep', authenticateToken, hrOnly, async (req: any, res: Res
         });
 
         if (holiday) {
-          // Ngày Lễ: Đảm bảo toàn bộ nhân sự được tính 1.0 công
+          // Ngày Lễ: Đảm bảo toàn bộ nhân sự được tính 1.0 công với trạng thái HOLIDAY
           if (!att) {
             await tx.attendance.create({
               data: {
                 employeeId: emp.id,
                 date: targetDate,
-                status: 'NORMAL',
+                status: 'HOLIDAY',
+                workingDay: 1.0
+              }
+            });
+            processedCount++;
+          } else if (att.status !== 'HOLIDAY') {
+            await tx.attendance.update({
+              where: { id: att.id },
+              data: {
+                status: 'HOLIDAY',
                 workingDay: 1.0
               }
             });
@@ -637,7 +702,7 @@ router.post('/daily-sweep', authenticateToken, hrOnly, async (req: any, res: Res
               }
             });
             processedCount++;
-          } else if (att.checkIn && !att.checkOut && att.status !== 'ABSENT') {
+          } else if (att.checkIn && !att.checkOut && att.status !== 'ABSENT' && att.status !== 'ON_LEAVE') {
             // Có Check-in nhưng quên Check-out -> workingDay = 0 (Chờ giải trình)
             await tx.attendance.update({
               where: { id: att.id },

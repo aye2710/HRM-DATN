@@ -87,12 +87,15 @@ export const AttendanceMgmt = () => {
     const recordsOnDay = attendances.filter(att => (att.date && att.date.split('T')[0]) === selectedDate);
     const onTime = recordsOnDay.filter(r => r.status === 'NORMAL').length;
     const late = recordsOnDay.filter(r => r.status === 'LATE').length;
+    const earlyLeave = recordsOnDay.filter(r => r.status === 'EARLY_LEAVE').length;
+    const onLeave = recordsOnDay.filter(r => r.status === 'ON_LEAVE').length;
+    const holiday = recordsOnDay.filter(r => r.status === 'HOLIDAY').length;
     const absent = recordsOnDay.filter(r => r.status === 'ABSENT').length;
     const wfh = recordsOnDay.filter(r => r.status === 'WFH').length;
-    const presentCount = onTime + late + wfh;
+    const presentCount = onTime + late + earlyLeave + wfh;
     const presentRate = totalActive > 0 ? Math.round((presentCount / totalActive) * 100) : 0;
 
-    return { totalActive, presentCount, onTime, late, absent, wfh, presentRate };
+    return { totalActive, presentCount, onTime, late, earlyLeave, onLeave, holiday, absent, wfh, presentRate };
   }, [attendances, employees, selectedDate]);
 
   // WFM Remote / WFH Guardrail Check (Cảnh báo định mức 30% quân số theo BLLĐ 2019 Điều 105 & SOP WFM)
@@ -128,6 +131,9 @@ export const AttendanceMgmt = () => {
 
       const totalActualDays = empRecords.reduce((sum, r) => sum + (Number(r.workingDay) || 0), 0);
       const lateCount = empRecords.filter(r => r.status === 'LATE').length;
+      const earlyLeaveCount = empRecords.filter(r => r.status === 'EARLY_LEAVE').length;
+      const onLeaveCount = empRecords.filter(r => r.status === 'ON_LEAVE').length;
+      const holidayCount = empRecords.filter(r => r.status === 'HOLIDAY').length;
       const absentCount = empRecords.filter(r => r.status === 'ABSENT').length;
       const wfhCount = empRecords.filter(r => r.status === 'WFH').length;
       const standardDays = 22; // chuẩn doanh nghiệp
@@ -138,6 +144,9 @@ export const AttendanceMgmt = () => {
         standardDays,
         totalActualDays: totalActualDays.toFixed(1),
         lateCount,
+        earlyLeaveCount,
+        onLeaveCount,
+        holidayCount,
         absentCount,
         wfhCount,
         completionRate
@@ -387,39 +396,41 @@ export const AttendanceMgmt = () => {
           </div>
         </div>
 
-        {/* Card 3: Đi muộn */}
+        {/* Card 3: Đi muộn & Về sớm */}
         <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
           <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#FEF3C7', color: '#92400e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AlertTriangle size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#92400e', textTransform: 'uppercase' }}>Đi muộn (Late)</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#92400e' }}>{stats.late}</div>
-            <div style={{ fontSize: '0.75rem', color: '#B45309' }}>Check-in &gt; 08:45</div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#92400e', textTransform: 'uppercase' }}>Muộn / Về sớm</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#92400e' }}>
+              {stats.late} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748B' }}>/ {stats.earlyLeave} sớm</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#B45309' }}>Check-in &gt; 08:45 hoặc ra &lt; 17:00</div>
           </div>
         </div>
 
-        {/* Card 4: Vắng mặt */}
+        {/* Card 4: Nghỉ phép hợp lệ */}
+        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+          <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#E0E7FF', color: '#4338CA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Calendar size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4338CA', textTransform: 'uppercase' }}>Nghỉ phép (On Leave)</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#4338CA' }}>{stats.onLeave}</div>
+            <div style={{ fontSize: '0.75rem', color: '#6366F1' }}>Có đơn xin nghỉ được duyệt</div>
+          </div>
+        </div>
+
+        {/* Card 5: Vắng mặt không phép */}
         <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
           <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#FEE2E2', color: '#991B1B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <XCircle size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#991B1B', textTransform: 'uppercase' }}>Vắng mặt / Nghỉ</div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#991B1B', textTransform: 'uppercase' }}>Vắng mặt (Absent)</div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#991B1B' }}>{stats.absent}</div>
-            <div style={{ fontSize: '0.75rem', color: '#B91C1C' }}>Chưa check-in hoặc có phép</div>
-          </div>
-        </div>
-
-        {/* Card 5: Làm việc từ xa WFH */}
-        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-          <div style={{ width: 42, height: 42, borderRadius: '8px', backgroundColor: '#CFFAFE', color: '#0E7490', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Laptop size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0E7490', textTransform: 'uppercase' }}>Làm từ xa (WFH)</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0E7490' }}>{stats.wfh}</div>
-            <div style={{ fontSize: '0.75rem', color: '#0891B2' }}>Hệ số 1.0 công (Điều 105)</div>
+            <div style={{ fontSize: '0.75rem', color: '#B91C1C' }}>Không check-in & không phép</div>
           </div>
         </div>
 
@@ -582,8 +593,11 @@ export const AttendanceMgmt = () => {
               <option value="ALL">Tất cả trạng thái</option>
               <option value="NORMAL">Đúng giờ</option>
               <option value="LATE">Đi muộn</option>
+              <option value="EARLY_LEAVE">Về sớm</option>
+              <option value="ON_LEAVE">Nghỉ phép</option>
+              <option value="HOLIDAY">Ngày Lễ</option>
               <option value="WFH">Làm việc từ xa (WFH)</option>
-              <option value="ABSENT">Vắng mặt</option>
+              <option value="ABSENT">Vắng mặt (Không phép)</option>
             </select>
           )}
 
@@ -703,6 +717,21 @@ export const AttendanceMgmt = () => {
                           )}
                           {att.status === 'LATE' && (
                             <span className="badge badge-warning" style={{ padding: '3px 8px', fontSize: '0.75rem' }}>Đi muộn</span>
+                          )}
+                          {att.status === 'EARLY_LEAVE' && (
+                            <span className="badge" style={{ backgroundColor: '#FFEDD5', color: '#C2410C', border: '1px solid #FED7AA', padding: '3px 8px', fontSize: '0.75rem', fontWeight: 600 }}>
+                              ⏱️ Về sớm
+                            </span>
+                          )}
+                          {att.status === 'ON_LEAVE' && (
+                            <span className="badge" style={{ backgroundColor: '#E0E7FF', color: '#4338CA', border: '1px solid #C7D2FE', padding: '3px 8px', fontSize: '0.75rem', fontWeight: 600 }}>
+                              🏖️ Nghỉ phép
+                            </span>
+                          )}
+                          {att.status === 'HOLIDAY' && (
+                            <span className="badge" style={{ backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FDE68A', padding: '3px 8px', fontSize: '0.75rem', fontWeight: 600 }}>
+                              🎉 Ngày Lễ
+                            </span>
                           )}
                           {att.status === 'WFH' && (
                             <span className="badge" style={{ backgroundColor: '#CFFAFE', color: '#0E7490', border: '1px solid #A5F3FC', padding: '3px 8px', fontSize: '0.75rem', fontWeight: 600 }}>
@@ -1033,6 +1062,9 @@ export const AttendanceMgmt = () => {
                 >
                   <option value="NORMAL">Đúng giờ (NORMAL)</option>
                   <option value="LATE">Đi muộn (LATE)</option>
+                  <option value="EARLY_LEAVE">Về sớm (EARLY_LEAVE)</option>
+                  <option value="ON_LEAVE">Nghỉ phép (ON_LEAVE)</option>
+                  <option value="HOLIDAY">Ngày Lễ (HOLIDAY)</option>
                   <option value="WFH">Làm việc từ xa (WFH - Hệ số 1.0)</option>
                   <option value="ABSENT">Vắng mặt (ABSENT)</option>
                 </select>

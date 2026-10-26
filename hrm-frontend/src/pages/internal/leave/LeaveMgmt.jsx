@@ -220,6 +220,8 @@ export const LeaveMgmt = () => {
                         <span className={`badge ${lr.leaveType === 'PAID' ? 'badge-success' : 'badge-warning'}`} style={{ background: 'transparent', border: `1px solid ${lr.leaveType === 'PAID' ? 'var(--success)' : 'var(--warning)'}` }}>
                           {lr.leaveType === 'PAID' ? 'Có Lương' : 'Không Lương'}
                         </span>
+                        {lr.session === 'MORNING' && <div style={{ fontSize: '0.75rem', color: '#4338CA', marginTop: '2px', fontWeight: 600 }}>Nửa ngày (Sáng)</div>}
+                        {lr.session === 'AFTERNOON' && <div style={{ fontSize: '0.75rem', color: '#4338CA', marginTop: '2px', fontWeight: 600 }}>Nửa ngày (Chiều)</div>}
                       </td>
                       <td>{new Date(lr.startDate).toLocaleDateString('vi-VN')}</td>
                       <td>{new Date(lr.endDate).toLocaleDateString('vi-VN')}</td>
