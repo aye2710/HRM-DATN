@@ -1,11 +1,11 @@
 # KẾ HOẠCH NÂNG CẤP HỆ THỐNG HRM CHUẨN DOANH NGHIỆP (MASTER BLUEPRINT)
-## Hợp Nhất Đặc Tả CSDL PostgreSQL (14 Tab Core HR, 11 Quyết Định, Bảng Lương 42 Cột) & Bộ Quy Trình SOPs CTY LLA
+## Hợp Nhất Đặc Tả CSDL PostgreSQL (14 Tab Core HR, 11 Quyết Định, Bảng Lương 42 Cột) & Quy Trình Quản Trị CTY LLA
 
 > **Dự án:** Hệ thống Quản trị Nguồn nhân lực Doanh nghiệp (Enterprise HRM - GHC.Lexora)  
 > **Căn cứ tài liệu kỹ thuật & pháp lý:**  
 > 1. Thiết kế CSDL chi tiết PostgreSQL (`01_ERD_Chi_tiet_HRM_Nhan_su_PostgreSQL.md`) – 14 Tab Core HR & Ánh xạ API.  
 > 2. Bộ Đặc tả Nghiệp vụ BRD Master v44 (`GHC-HRM-BRD-01`) & Danh mục 142 Tính năng Doanh nghiệp.  
-> 3. Bộ 24 Quy trình Thao tác Chuẩn (Global SOPs) & Hệ thống Biểu mẫu F-Forms – CTY TNHH LLA.  
+> 3. Quy trình Vận hành Tiêu chuẩn & Hệ thống Biểu mẫu Doanh nghiệp – CTY TNHH LLA.  
 > 4. Bộ luật Lao động Việt Nam 2019 (Điều 107 về OT) & Nghị định 13/2023/NĐ-CP (Bảo vệ dữ liệu cá nhân).  
 > **Ngày cập nhật:** 24/10/2026 | **Phiên bản:** v3.0 (Full Unified Edition)
 
@@ -31,7 +31,7 @@ flowchart TD
     A["1. Tuyển dụng & Quota (F37)<br>Kiểm tra trần định biên phòng ban"] --> B["2. Landing Page & Chấp nhận Offer<br>Ứng viên nộp thông tin online"]
     B --> C["3. Onboarding 5 Bước<br>Cấp mail IT + Cấp thiết bị BM-01"]
     C --> D["4. Hồ sơ Core HR 14 Tab<br>Theo dõi quá trình làm việc"]
-    D --> E["5. 11 Loại Quyết định (SOP-99)<br>Tự sinh Phụ lục HĐLĐ PDF & sync Lương"]
+    D --> E["5. 11 Loại Quyết định<br>Tự sinh Phụ lục HĐLĐ PDF & sync Lương"]
     D --> F["6. Chấm công & Đơn từ<br>Chốt chặn OT (4h/40h/200h) & WFH 1.0"]
     E --> G["7. Bảng lương 42 Cột<br>Chế tài khóa lương nếu trễ hồ sơ cứng"]
     F --> G
@@ -48,7 +48,7 @@ flowchart TD
 | **Tab 1** | **Thông tin công việc**<br>`FE-H02 / FE-H03` | `employee`, `employee_identity`, `employee_contact`, `employee_assignment` | * Mã nhân viên (tự tăng theo prefix), Họ tên, Email công vụ, SĐT.<br>* Phòng ban, Vị trí chức danh, Điểm làm việc (`work_location`).<br>* Quản lý trực tiếp (Reporting Manager line), Quyết định bổ nhiệm gắn liền (`decision_id`). |
 | **Tab 2** | **Thông tin riêng tư**<br>`FE-H04` | `employee_address`, `employee_bank`, `employee_insurance`, `employee_tax` | * Địa chỉ thường trú, tạm trú (quận/huyện, tỉnh/thành).<br>* Số CCCD (che mờ bảo mật theo NĐ 13/2023), Ngày cấp, Nơi cấp.<br>* Tài khoản ngân hàng (Số TK, Tên NH, Chi nhánh chi trả lương).<br>* Mã số thuế TNCN, Mã số sổ BHXH, Tình trạng cư trú thuế. |
 | **Tab 3** | **Người thân & Phụ thuộc**<br>`FE-H05` | `employee_relative` | * Họ tên người thân, Mối quan hệ (Bố, Mẹ, Vợ, Con).<br>* Cờ xác nhận người phụ thuộc giảm trừ gia cảnh (`is_dependent = true`), ngày bắt đầu/kết thúc giảm trừ thuế. |
-| **Tab 4** | **Lịch sử đào tạo**<br>`FE-H06` | `employee_training` | * Khóa đào tạo nội bộ và bên ngoài do công ty cử đi.<br>* Chi phí đào tạo, Cam kết thời gian phục vụ sau đào tạo (SOP-105). |
+| **Tab 4** | **Lịch sử đào tạo**<br>`FE-H06` | `employee_training` | * Khóa đào tạo nội bộ và bên ngoài do công ty cử đi.<br>* Chi phí đào tạo, Cam kết thời gian phục vụ sau đào tạo (Quy chế đào tạo). |
 | **Tab 5** | **Khen thưởng**<br>`FE-H07` | Đọc từ `decision` (`type = REWARD`) | * Hình thức khen thưởng, Số tiền thưởng, Số quyết định khen thưởng, Cấp ký duyệt. |
 | **Tab 6** | **Kỷ luật**<br>`FE-H08` | Đọc từ `decision` (`type = DISCIPLINE`) | * Hình thức kỷ luật (Khiển trách, Kéo dài hạn nâng lương, Cách chức, Sa thải theo BLLĐ), Biên bản xử lý kỷ luật. |
 | **Tab 7** | **Quá trình công tác kê khai**<br>`FE-H09` | `employee_prior_work` | * Kinh nghiệm làm việc tại các đơn vị trước đây, Chức vụ cũ, Lý do chuyển việc. |
@@ -64,7 +64,7 @@ flowchart TD
 ---
 
 ## 3. DANH MỤC 11 LOẠI QUYẾT ĐỊNH NHÂN SỰ & TỰ ĐỘNG SINH PHỤ LỤC HĐLĐ
-*(Căn cứ theo SOP-99 & BRD Master Mục 1.2 / Item 8 – Màn hình `Decisions.jsx`)*
+*(Căn cứ theo BRD Master Mục 1.2 / Item 8 – Màn hình `Decisions.jsx`)*
 
 Tuyệt đối không cho phép sửa trực tiếp lương và chức danh trên hồ sơ. Mọi thay đổi bắt buộc phải ban hành qua **1 trong 11 loại Quyết định chuẩn hóa**:
 
@@ -94,13 +94,13 @@ Tuyệt đối không cho phép sửa trực tiếp lương và chức danh trê
 ### 🚀 GIAI ĐOẠN 1: NÂNG CẤP ĐIỂM NHẤN NGHIỆP VỤ LÕI (ƯU TIÊN CAO – 1 TUẦN)
 *Mục tiêu: Đóng các lỗ hổng nghiệp vụ lớn nhất, đưa hệ thống vào trạng thái hoàn chỉnh trước hội đồng.*
 
-1. **Kiểm soát Định biên Nhân sự (Headcount Quota - SOP-100 / F37):**
+1. **Kiểm soát Định biên Nhân sự (Headcount Quota):**
    * Kiểm tra điều kiện ngặt: $$\text{Nhân sự thực tế} + \text{Số lượng cần tuyển} \le \text{Quota phòng ban}$$
    * Hiển thị thanh tiến độ định biên trên form tạo Phiếu tuyển dụng F37. Chặn gửi nếu vượt trần.
-2. **Hoàn thiện Trục Quyết định Nhân sự $\rightarrow$ Tự động cập nhật Hồ sơ (SOP-99):**
+2. **Hoàn thiện Trục Quyết định Nhân sự $\rightarrow$ Tự động cập nhật Hồ sơ:**
    * Hoàn thiện giao diện phê duyệt tại `Decisions.jsx`.
    * Kiểm tra chốt chặn: Chặn duyệt Thôi việc nếu nhân sự chưa trả hết tài sản.
-3. **Chốt chặn Giới hạn Làm thêm giờ OT (SOP-92 / Điều 107 BLLĐ 2019):**
+3. **Chốt chặn Giới hạn Làm thêm giờ OT (Điều 107 BLLĐ 2019):**
    * Chặn không cho tạo đơn nếu vượt 3 trần: **$\le 4$h/ngày**, **$\le 40$h/tháng**, **$\le 200$h/năm**.
 4. **Chuẩn hóa Bộ Biểu mẫu LLA (F-Codes):**
    * Gắn nhãn F-Codes lên tiêu đề:
@@ -114,11 +114,11 @@ Tuyệt đối không cho phép sửa trực tiếp lương và chức danh trê
 ### 🛡️ GIAI ĐOẠN 2: CHẾ TÀI HÀNH CHÍNH & AN NINH DỮ LIỆU (2 TUẦN)
 *Mục tiêu: Đảm bảo tính pháp lý, tuân thủ an toàn dữ liệu và kiểm toán doanh nghiệp.*
 
-1. **Cơ chế Khóa Chi Trả Lương do Chậm Nộp Hồ Sơ Gốc (SOP-25 / Lexora OBJ-02):**
+1. **Cơ chế Khóa Chi Trả Lương do Chậm Nộp Hồ Sơ Gốc:**
    * Nhân sự có **7 ngày làm việc** để nộp đủ hồ sơ giấy tờ gốc (CCCD sao y, bằng cấp, giấy khám sức khỏe).
    * Quá 7 ngày $\rightarrow$ Bật cờ `isLocked = true` trên bảng lương; kế toán không thể duyệt lệnh chuyển tiền kỳ lương đầu tiên cho đến khi HR gỡ khóa.
-2. **Tự động Thu Hồi Quyền & Khóa Tài Khoản đúng 18:00 (SOP-26):**
-   * Khi duyệt đơn thôi việc với ngày làm việc cuối là $D_0$: Vào đúng **18:00 ngày $D_0$**, hệ thống tự động khóa tài khoản đăng nhập (`isActive = false`) và thu hồi toàn bộ token truy cập.
+2. **Tự động Thu Hồi Quyền & Khóa Tài Khoản khi Thôi việc:**
+   * Khi duyệt đơn thôi việc với ngày làm việc cuối là $D_0$: Vào cuối ngày $D_0$, hệ thống tự động khóa tài khoản đăng nhập (`isActive = false`) và thu hồi toàn bộ token truy cập.
 3. **Xuất Mẫu Biên Bản Bàn Giao & Thu Hồi Tài Sản (BM-01 & BM-02):**
    * Cấp phát tài sản tại Onboarding: Cho phép xem/in mẫu **BM-01**.
    * Khi nhân viên thôi việc: Bắt buộc hoàn tất ký xác nhận thu hồi đủ thiết bị theo mẫu **BM-02** mới cho phép sang bước quyết toán thanh lý.
@@ -141,7 +141,7 @@ Tuyệt đối không cho phép sửa trực tiếp lương và chức danh trê
 
 ## 5. QUY TRÌNH ONBOARDING 5 BƯỚC & KHO TÀI SẢN BM-01 / BM-02
 
-Quy trình đón tiếp tân binh tự động hóa 5 bước (SOP-101 / BRD Item 4):
+Quy trình đón tiếp tân binh tự động hóa 5 bước:
 1. **Bước 1 (Khai báo E-Form):** Ứng viên chấp nhận Offer trên Landing Page $\rightarrow$ Điền form thông tin cá nhân sơ bộ.
 2. **Bước 2 (Tạo Task IT & Hành chính):** Hệ thống tự động tạo task cho IT (cấp email `@lla.vn`, cấp tài khoản phần mềm) và Hành chính (chuẩn bị vị trí ngồi, laptop).
 3. **Bước 3 (Bàn giao thiết bị BM-01):** Ngày đầu đi làm, Hành chính bàn giao tài sản và in biên bản BM-01 có chữ ký hai bên.
@@ -173,15 +173,15 @@ Quy trình đón tiếp tân binh tự động hóa 5 bước (SOP-101 / BRD Ite
 
 | Hạng mục Nâng cấp | Mức độ Hoàn thiện | Vị trí File trong Codebase | Trạng thái Nghiệp vụ |
 | :--- | :---: | :--- | :--- |
-| **1. Quota Định biên (F37)** | **100%** | `backend/.../job-posting.routes.ts`<br>`hrm-frontend/.../Requisitions.jsx` | Đã gắn nhãn MẪU F37 - LLA (SOP-100) và kiểm soát định biên phòng ban. |
-| **2. Quyết định Nhân sự (SOP-99)** | **100%** | `backend/.../decision.routes.ts`<br>`hrm-frontend/.../Decisions.jsx` | Đã chuẩn hóa số `QĐ-YYYY/XXX/LLA` và tự động đồng bộ lương vào HĐLĐ. |
+| **1. Quota Định biên (F37)** | **100%** | `backend/.../job-posting.routes.ts`<br>`hrm-frontend/.../Requisitions.jsx` | Đã kiểm soát định biên phòng ban theo yêu cầu tuyển dụng. |
+| **2. Quyết định Nhân sự** | **100%** | `backend/.../decision.routes.ts`<br>`hrm-frontend/.../Decisions.jsx` | Đã chuẩn hóa số `QĐ-YYYY/XXX/LLA` và tự động đồng bộ lương vào HĐLĐ. |
 | **3. Chốt chặn OT (BLLĐ 2019)** | **100%** | `backend/.../ot.routes.ts` | Đã chặn trần 3 tầng: $\le 4$h/ngày, $\le 40$h/tháng, $\le 200$h/năm. |
 | **4. Chuẩn hóa F-Codes LLA** | **100%** | 4 màn hình: Tuyển dụng, Nghỉ phép, Đánh giá, Thôi việc | Đã gắn nhận diện chuẩn F37, F11, F32, F03. |
 | **5. 14 Tab Core HR (ERD)** | **100%** | `hrm-frontend/.../EmployeeDetail.jsx` | Đã mở rộng Tab Tài sản (BM-01/BM-02) và Tab Quyết định biến động. |
-| **6. Khóa lương trễ hồ sơ 7 ngày** | **100%** | `backend/.../payroll.routes.ts`<br>`hrm-frontend/.../Payroll.jsx` | Chế tài SOP-25: Bật cờ khóa thanh toán và cho phép HR mở khóa sau khi thu đủ hồ sơ. |
-| **7. Mẫu BM-01 & BM-02** | **100%** | `hrm-frontend/.../AssetManagement.jsx`<br>`hrm-frontend/.../Terminations.jsx` | Đã có mẫu in ấn Biên bản bàn giao BM-01 và Biên bản thu hồi BM-02 (SOP-26). |
+| **6. Khóa lương trễ hồ sơ 7 ngày** | **100%** | `backend/.../payroll.routes.ts`<br>`hrm-frontend/.../Payroll.jsx` | Bật cờ khóa thanh toán do chậm hồ sơ và cho phép HR mở khóa sau khi thu đủ. |
+| **7. Mẫu BM-01 & BM-02** | **100%** | `hrm-frontend/.../AssetManagement.jsx`<br>`hrm-frontend/.../Terminations.jsx` | Đã có mẫu in ấn Biên bản bàn giao BM-01 và Biên bản thu hồi BM-02. |
 | **8. Bảo vệ Dữ liệu PII** | **100%** | `hrm-frontend/.../EmployeeList.jsx` | Tuân thủ Nghị định 13/2023/NĐ-CP: Che mờ (mask) CCCD kèm nút xem bảo mật. |
-| **9. Khóa tài khoản 18:00 (SOP-26)**| **100%** | `backend/.../employee.routes.ts`<br>`hrm-frontend/.../Terminations.jsx` | Tự động khóa an ninh tài khoản thôi việc và cung cấp cơ chế rà soát tự động. |
+| **9. Khóa tài khoản an ninh**| **100%** | `backend/.../employee.routes.ts`<br>`hrm-frontend/.../Terminations.jsx` | Tự động khóa an ninh tài khoản thôi việc và cung cấp cơ chế rà soát tự động. |
 | **10. WFM Remote & Cảnh báo WFH**| **100%** | `hrm-frontend/.../Attendance.jsx` | Ghi nhận WFH hệ số 1.0 (Điều 105 BLLĐ 2019) và kích hoạt cảnh báo đỏ khi tỷ lệ WFH phòng ban vượt ngưỡng 30%. |
 
 ---
