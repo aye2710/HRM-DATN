@@ -139,7 +139,7 @@ export const OffboardingHistory = () => {
                       {emp.resignationDate ? new Date(emp.resignationDate).toLocaleDateString('vi-VN') : '—'}
                     </td>
                     <td style={{ fontSize: '0.8rem', color: '#475569', fontStyle: 'italic', maxWidth: '220px' }}>
-                      {emp.resignationReason || 'Nghỉ việc theo quy chế SOP-26'}
+                      {emp.resignationReason || 'Nghỉ việc theo quy định'}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '4px' }}>

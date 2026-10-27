@@ -61,7 +61,7 @@ export const OffboardingChecklist = () => {
     try {
       const res = await axios.post('http://localhost:5000/api/offboarding/trigger-daily-cutoff');
       Swal.fire({
-        title: 'Quét An Ninh 18:00 SOP-26 Hoàn Tất',
+        title: 'Quét An Ninh Hoàn Tất',
         html: `Đã rà soát danh sách nhân sự thôi việc trong ngày.<br/><b>Số tài khoản đã tự động khóa:</b> ${res.data?.lockedCount || 0}`,
         icon: 'success',
         confirmButtonColor: '#b91c1c'
@@ -83,7 +83,7 @@ export const OffboardingChecklist = () => {
               <CheckSquare size={26} color="#dc2626" /> Tiến độ Bàn giao & Checklist Thôi việc
             </h1>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
-              QUY TRÌNH SOP-26 • BM-02
+              QUY TRÌNH BÀN GIAO • BM-02
             </span>
           </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: 0 }}>
@@ -96,9 +96,9 @@ export const OffboardingChecklist = () => {
             onClick={handleRunSecurityCheck}
             className="btn btn-outline"
             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', borderColor: '#FECACA', color: '#DC2626', backgroundColor: '#FEF2F2' }}
-            title="Rà soát và tự động khóa mọi tài khoản nhân sự nghỉ việc lúc 18:00 theo quy định SOP-26"
+            title="Rà soát và tự động khóa mọi tài khoản nhân sự đến ngày thôi việc"
           >
-            <ShieldAlert size={16} /> Quét an ninh 18:00 (SOP-26)
+            <ShieldAlert size={16} /> Quét an ninh khóa tài khoản
           </button>
 
           <button

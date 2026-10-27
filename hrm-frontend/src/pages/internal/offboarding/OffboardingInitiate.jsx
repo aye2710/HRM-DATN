@@ -98,10 +98,10 @@ export const OffboardingInitiate = () => {
           <CheckCircle2 size={20} />
         </div>
         <div style={{ fontSize: '0.84rem', color: '#9a3412', lineHeight: 1.5 }}>
-          <strong>Lưu ý nghiệp vụ Tiếp nhận Thôi việc (Quy trình SOP-26):</strong>
+          <strong>Lưu ý nghiệp vụ Tiếp nhận Thôi việc:</strong>
           <div>
             1. Khi chọn nhân viên và nhập Ngày làm việc cuối cùng, hệ thống sẽ tự động gán bộ <strong>Checklist Bàn giao chuẩn 4 giai đoạn</strong>.<br/>
-            2. Tài khoản của nhân sự sẽ tiếp tục hoạt động cho đến <strong>18:00 của Ngày làm việc cuối cùng</strong> hoặc khi HR thực hiện Chốt thôi việc.<br/>
+            2. Tài khoản của nhân sự sẽ tiếp tục hoạt động cho đến hết <strong>Ngày làm việc cuối cùng</strong> hoặc khi HR thực hiện Chốt thôi việc.<br/>
             3. Nếu nhân viên còn nắm giữ tài sản công ty (Laptop, Thẻ từ...), hệ thống sẽ yêu cầu hoàn tất thu hồi trước khi cho phép chốt hồ sơ thôi việc.
           </div>
         </div>

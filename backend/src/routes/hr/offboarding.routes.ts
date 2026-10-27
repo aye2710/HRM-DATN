@@ -30,7 +30,7 @@ export const DEFAULT_OFFBOARDING_TASKS = [
   { taskName: 'Soạn thảo & Ban hành Quyết định chấm dứt HĐLĐ (trình BGĐ)', category: 'OFFBOARDING_HR' },
   { taskName: 'Chốt ngày công thực tế & quyết toán tiền nghỉ phép năm còn tồn', category: 'OFFBOARDING_HR' },
   { taskName: 'Thanh lý hợp đồng lao động & bàn giao sổ BHXH', category: 'OFFBOARDING_HR' },
-  { taskName: 'Khóa an ninh tài khoản hệ thống đúng 18:00 (SOP-26)', category: 'OFFBOARDING_HR' },
+  { taskName: 'Khóa an ninh tài khoản hệ thống lúc 18:00 ngày làm việc cuối', category: 'OFFBOARDING_HR' },
 ];
 
 // 1. GET /api/offboarding/overview: Lấy tổng quan toàn bộ tiến trình nghỉ việc
@@ -199,7 +199,7 @@ router.post('/initiate', hrOnly, async (req: any, res: Response): Promise<any> =
         where: { id: employeeId },
         data: {
           resignationDate: targetDate,
-          resignationReason: resignationReason || 'Thỏa thuận chấm dứt HĐLĐ (SOP-26)'
+          resignationReason: resignationReason || 'Thỏa thuận chấm dứt HĐLĐ'
         }
       });
 
@@ -292,7 +292,7 @@ router.post('/asset/quick-return', hrOnly, async (req: any, res: Response): Prom
         data: {
           status: 'RETURNED',
           returnedDate: new Date(),
-          conditionOnReturn: conditionOnReturn || 'Đã thu hồi đủ, tình trạng bình thường (SOP-26 / BM-02)',
+          conditionOnReturn: conditionOnReturn || 'Đã thu hồi đủ, tình trạng bình thường (BM-02)',
           notes: notes ? `${assignment.notes ? assignment.notes + ' | ' : ''}Thu hồi: ${notes}` : assignment.notes
         }
       }),
@@ -320,7 +320,7 @@ router.post('/asset/quick-return', hrOnly, async (req: any, res: Response): Prom
   }
 });
 
-// 6. POST /api/offboarding/finalize: Hoàn tất thôi việc chính thức (Kiểm tra an toàn SOP-26)
+// 6. POST /api/offboarding/finalize: Hoàn tất thôi việc chính thức (Kiểm tra an toàn bàn giao)
 router.post('/finalize', hrOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const { employeeId, effectiveDate, terminationReason } = req.body;
@@ -353,7 +353,7 @@ router.post('/finalize', hrOnly, async (req: any, res: Response): Promise<any> =
           departmentId: null,
           positionId: null,
           resignationDate: effDate,
-          resignationReason: terminationReason || currentEmp.resignationReason || 'Nghỉ việc theo quy trình SOP-26'
+          resignationReason: terminationReason || currentEmp.resignationReason || 'Nghỉ việc theo quy trình thôi việc & bàn giao'
         }
       });
 
@@ -378,7 +378,7 @@ router.post('/finalize', hrOnly, async (req: any, res: Response): Promise<any> =
           employeeId,
           departmentId: currentEmp.departmentId,
           positionId: currentEmp.positionId,
-          changeReason: terminationReason || 'Thôi việc & Hoàn tất bàn giao quy trình SOP-26',
+          changeReason: terminationReason || 'Thôi việc & Hoàn tất thủ tục bàn giao',
           effectiveDate: effDate
         }
       });
@@ -395,7 +395,7 @@ router.post('/finalize', hrOnly, async (req: any, res: Response): Promise<any> =
     });
 
     return res.json({
-      message: 'Hoàn tất thủ tục thôi việc thành công! Trạng thái hồ sơ đã chuyển sang RESIGNED và tài khoản đã được khóa an ninh theo quy định SOP-26.',
+      message: 'Hoàn tất thủ tục thôi việc thành công! Trạng thái hồ sơ đã chuyển sang RESIGNED và tài khoản đã được khóa an ninh theo quy định.',
       employee: result
     });
   } catch (error: any) {

@@ -98,7 +98,7 @@ export const AttendanceMgmt = () => {
     return { totalActive, presentCount, onTime, late, earlyLeave, onLeave, holiday, absent, wfh, presentRate };
   }, [attendances, employees, selectedDate]);
 
-  // WFM Remote / WFH Guardrail Check (Cảnh báo định mức 30% quân số theo BLLĐ 2019 Điều 105 & SOP WFM)
+  // WFM Remote / WFH Guardrail Check (Cảnh báo định mức 30% quân số theo quy định nội bộ)
   const wfhAlertDepartments = useMemo(() => {
     const recordsOnDay = attendances.filter(att => (att.date && att.date.split('T')[0]) === selectedDate);
     const alerts = [];
@@ -467,7 +467,7 @@ export const AttendanceMgmt = () => {
             <div style={{ fontWeight: 700, color: '#92400E', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               CẢNH BÁO QUY CHẾ WFM / WFH (VƯỢT ĐỊNH MỨC 30% QUÂN SỐ PHÒNG BAN)
               <span style={{ fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#FEF3C7', color: '#B45309', padding: '1px 8px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
-                BLLĐ 2019 Điều 105 & SOP WFM
+                BLLĐ 2019 Điều 105 & Quy chế nội bộ
               </span>
             </div>
             <div style={{ fontSize: '0.8rem', color: '#B45309', marginTop: '2px' }}>

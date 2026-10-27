@@ -26,33 +26,33 @@ export const Terminations = () => {
   const handleRunSecurityCheck = async () => {
     try {
       const res = await axios.post('http://localhost:5000/api/employees/cron/auto-lock-resigned');
-      toast.success(res.data.message || 'Đã kiểm tra an ninh SOP-26 thành công!');
+      toast.success(res.data.message || 'Đã kiểm tra an ninh thành công!');
       fetchEmployees();
     } catch (err) {
-      toast.error('Lỗi khi chạy kiểm tra an ninh SOP-26');
+      toast.error('Lỗi khi chạy kiểm tra an ninh');
     }
   };
 
   const handleTerminate = async (id, name) => {
     const today = new Date().toISOString().split('T')[0];
     const { value: formValues } = await Swal.fire({
-      title: 'Thanh lý hợp đồng thôi việc (SOP-26)',
+      title: 'Thanh lý hợp đồng thôi việc',
       html: `
         <div style="text-align: left; font-size: 0.875rem; display: flex; flex-direction: column; gap: 0.75rem;">
           <p style="margin: 0; color: #475569;">
             Bạn đang làm thủ tục thôi việc cho nhân sự: <strong style="color: #0F172A;">${name}</strong>
           </p>
           <div style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 0.75rem; border-radius: 6px; font-size: 0.8rem; color: #991B1B;">
-            ⚠️ <strong>Quy trình SOP-26:</strong> Bắt buộc hoàn tất thu hồi trang thiết bị theo mẫu BM-02. Đúng <strong>18:00</strong> ngày làm việc cuối, hệ thống sẽ tự động khóa tài khoản đăng nhập và thu hồi toàn bộ token truy cập.
+            ⚠️ <strong>Quy trình Bàn giao:</strong> Bắt buộc hoàn tất thu hồi trang thiết bị theo mẫu BM-02. Cuối ngày làm việc cuối cùng, hệ thống sẽ tự động khóa tài khoản đăng nhập và thu hồi toàn bộ token truy cập.
           </div>
           <div>
             <label style="font-weight: 600; display: block; margin-bottom: 4px; color: #334155;">Ngày làm việc cuối cùng:</label>
             <input id="swal-last-date" type="date" class="swal2-input" value="${today}" style="width: 100%; margin: 0; height: 38px; font-size: 0.875rem;">
           </div>
           <div>
-            <label style="font-weight: 600; display: block; margin-bottom: 4px; color: #334155;">Lý do thôi việc (Mẫu F03):</label>
+            <label style="font-weight: 600; display: block; margin-bottom: 4px; color: #334155;">Lý do thôi việc:</label>
             <select id="swal-reason" class="swal2-input" style="width: 100%; margin: 0; height: 38px; font-size: 0.875rem;">
-              <option value="Thỏa thuận chấm dứt hợp đồng lao động (SOP-26)">Thỏa thuận chấm dứt hợp đồng lao động</option>
+              <option value="Thỏa thuận chấm dứt hợp đồng lao động">Thỏa thuận chấm dứt hợp đồng lao động</option>
               <option value="Hết hạn hợp đồng lao động không tái ký">Hết hạn hợp đồng lao động không tái ký</option>
               <option value="Người lao động đơn phương xin nghỉ theo quy định">Người lao động đơn phương xin nghỉ</option>
               <option value="Chuyển đổi định hướng cá nhân">Chuyển đổi định hướng cá nhân</option>
@@ -102,11 +102,11 @@ export const Terminations = () => {
               <UserMinus size={24} /> Nghỉ việc & Quyết toán
             </h1>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
-              MẪU F03 - LLA (SOP-26)
+              THÔI VIỆC & QUYẾT TOÁN
             </span>
           </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>
-            Quy trình SOP-26: Quản lý hồ sơ thôi việc, thu hồi tài sản theo biên bản BM-02 và tự động khóa tài khoản lúc 18:00
+            Quản lý hồ sơ thôi việc, thu hồi tài sản theo biên bản BM-02 và tự động khóa tài khoản sau ngày làm việc cuối cùng
           </p>
         </div>
 
@@ -114,9 +114,9 @@ export const Terminations = () => {
           onClick={handleRunSecurityCheck}
           className="btn btn-outline"
           style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', borderColor: '#FECACA', color: '#DC2626', backgroundColor: '#FEF2F2' }}
-          title="Rà soát và tự động khóa mọi tài khoản nhân sự nghỉ việc đúng 18:00 theo quy định SOP-26"
+          title="Rà soát và tự động khóa mọi tài khoản nhân sự nghỉ việc"
         >
-          <ShieldAlert size={16} /> Kiểm tra khóa tài khoản 18:00 (SOP-26)
+          <ShieldAlert size={16} /> Kiểm tra khóa tài khoản an ninh
         </button>
       </div>
 
@@ -176,7 +176,7 @@ export const Terminations = () => {
                         onClick={() => setSelectedBm02Employee(emp)}
                         className="btn btn-outline"
                         style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0284c7', borderColor: '#38bdf8' }}
-                        title="Xem và in Biên bản thu hồi tài sản BM-02 (SOP-26)"
+                        title="Xem và in Biên bản thu hồi tài sản BM-02"
                       >
                         <Printer size={13} /> In BM-02
                       </button>
@@ -238,7 +238,7 @@ export const Terminations = () => {
         </div>
       </div>
 
-      {/* MODAL XUẤT BIÊN BẢN THU HỒI TÀI SẢN BM-02 (SOP-26) */}
+      {/* MODAL XUẤT BIÊN BẢN THU HỒI TÀI SẢN BM-02 */}
       {selectedBm02Employee && createPortal(
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -252,7 +252,7 @@ export const Terminations = () => {
             {/* Action Bar (Top) */}
             <div className="flex justify-between items-center pb-4 border-b border-gray-200">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
-                Hệ thống Quản Trị Nhân Sự Doanh Nghiệp • Biểu mẫu chuẩn BM-02 (SOP-26)
+                Hệ thống Quản Trị Nhân Sự Doanh Nghiệp • Biểu mẫu chuẩn BM-02
               </span>
               <div className="flex gap-2">
                 <button 
@@ -281,7 +281,7 @@ export const Terminations = () => {
                 BIÊN BẢN THU HỒI & HOÀN TRẢ TRANG THIẾT BỊ
               </h2>
               <div className="text-xs italic text-gray-500 font-mono mt-1">
-                (Mẫu BM-02 ban hành theo Quy trình Thôi việc SOP-26 / Mẫu F03 - LLA)
+                (Mẫu BM-02 ban hành theo Quy trình Thôi việc & Bàn giao tài sản)
               </div>
             </div>
 
@@ -339,7 +339,7 @@ export const Terminations = () => {
 
             {/* Legal Confirmation Box */}
             <div className="text-xs text-gray-600 leading-relaxed bg-blue-50 p-3 rounded border border-blue-200">
-              <strong>Quy chế An ninh Dữ liệu & Quyết toán Lương (SOP-26):</strong>
+              <strong>Quy chế An ninh Dữ liệu & Quyết toán Lương:</strong>
               <ul className="list-disc ml-5 mt-1">
                 <li>Bộ phận IT xác nhận nhân sự đã sao lưu bàn giao tài liệu công vụ, xóa các quyền truy cập VPN và tài khoản máy chủ.</li>
                 <li>Đúng 18:00 ngày làm việc cuối cùng, hệ thống tự động khóa tài khoản đăng nhập ESS.</li>

@@ -1158,7 +1158,7 @@ export const AssetAssignments = () => {
         document.body
       )}
 
-      {/* MODAL 4: BIỂU MẪU THU HỒI BM-02 (SOP-26) */}
+      {/* MODAL 4: BIỂU MẪU THU HỒI BM-02 */}
       {viewBm02Doc && createPortal(
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -1172,7 +1172,7 @@ export const AssetAssignments = () => {
             {/* Action Bar (Top) */}
             <div className="flex justify-between items-center pb-4 border-b border-gray-200">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
-                Hệ thống Quản Trị Doanh Nghiệp LLA • Biểu mẫu chuẩn BM-02 (SOP-26)
+                Hệ thống Quản Trị Doanh Nghiệp • Biểu mẫu chuẩn BM-02
               </span>
               <div className="flex gap-2">
                 <button 
@@ -1201,7 +1201,7 @@ export const AssetAssignments = () => {
                 BIÊN BẢN THU HỒI & HOÀN TRẢ TRANG THIẾT BỊ
               </h2>
               <div className="text-xs italic text-gray-500 font-mono mt-1">
-                (Căn cứ Quy trình Thôi việc SOP-26 • Kèm theo biên bản: {viewBm02Doc.handoverDocCode})
+                (Căn cứ Quy trình Thôi việc & Bàn giao tài sản • Kèm theo biên bản: {viewBm02Doc.handoverDocCode})
               </div>
             </div>
 

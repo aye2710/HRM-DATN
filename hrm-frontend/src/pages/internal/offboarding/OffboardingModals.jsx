@@ -87,7 +87,7 @@ export const HandoverDrawerModal = ({
       title: 'Chốt Thôi Việc & Khóa An Ninh?',
       html: `
         <div style="text-align: left; font-size: 0.9rem;">
-          <p>Hệ thống sẽ thực hiện theo <b>Quy trình SOP-26</b>:</p>
+          <p>Hệ thống sẽ thực hiện theo <b>Quy trình Thôi việc & Bàn giao</b>:</p>
           <ul>
             <li>Chuyển trạng thái nhân sự thành <b>ĐÃ NGHỈ VIỆC (RESIGNED)</b></li>
             <li>Chấm dứt hợp đồng lao động hiện tại sang <b>TERMINATED</b></li>
@@ -145,7 +145,7 @@ export const HandoverDrawerModal = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckSquare size={20} color="#b91c1c" /> Phiếu Theo dõi Bàn giao Thôi việc (Checklist SOP-26)
+                <CheckSquare size={20} color="#b91c1c" /> Phiếu Theo dõi Bàn giao Thôi việc (Checklist)
               </h3>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' }}>
                 {progressPercent}% HOÀN THÀNH
@@ -575,7 +575,7 @@ export const HandoverDrawerModal = ({
             className="btn btn-primary"
             style={{ backgroundColor: '#dc2626', borderColor: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <CheckCircle2 size={16} /> Chốt Thôi việc & Khóa An ninh (SOP-26)
+            <CheckCircle2 size={16} /> Chốt Thôi việc & Khóa An ninh
           </button>
         </div>
 
@@ -591,7 +591,7 @@ export const HandoverDrawerModal = ({
 export const InitiateOffboardingModal = ({ employee, onClose, onSuccess }) => {
   const [initiateForm, setInitiateForm] = React.useState({
     resignationDate: new Date().toISOString().split('T')[0],
-    resignationReason: 'Thỏa thuận chấm dứt hợp đồng lao động (SOP-26)'
+    resignationReason: 'Thỏa thuận chấm dứt hợp đồng lao động'
   });
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -621,7 +621,7 @@ export const InitiateOffboardingModal = ({ employee, onClose, onSuccess }) => {
       <div className="card glass animate-scale-up" style={{ width: '520px', maxWidth: '95%', padding: 0, backgroundColor: '#ffffff', overflow: 'hidden' }}>
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fef2f2', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#991b1b', margin: 0 }}>Khởi tạo Hồ sơ Thôi việc (SOP-26)</h3>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#991b1b', margin: 0 }}>Khởi tạo Hồ sơ Thôi việc</h3>
             <span style={{ fontSize: '0.8rem', color: '#7f1d1d' }}>Bắt đầu chu trình bàn giao 4 giai đoạn cho nhân sự</span>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b' }}><X size={20} /></button>
@@ -648,13 +648,13 @@ export const InitiateOffboardingModal = ({ employee, onClose, onSuccess }) => {
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Căn cứ / Lý do thôi việc (Mẫu F03) *</label>
+              <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Căn cứ / Lý do thôi việc *</label>
               <select
                 className="form-select w-full"
                 value={initiateForm.resignationReason}
                 onChange={(e) => setInitiateForm({ ...initiateForm, resignationReason: e.target.value })}
               >
-                <option value="Thỏa thuận chấm dứt hợp đồng lao động (SOP-26)">Thỏa thuận chấm dứt hợp đồng lao động</option>
+                <option value="Thỏa thuận chấm dứt hợp đồng lao động">Thỏa thuận chấm dứt hợp đồng lao động</option>
                 <option value="Hết hạn hợp đồng lao động không tái ký">Hết hạn hợp đồng lao động không tái ký</option>
                 <option value="Người lao động đơn phương xin nghỉ theo quy định">Người lao động đơn phương xin nghỉ</option>
                 <option value="Chuyển đổi định hướng cá nhân">Chuyển đổi định hướng cá nhân</option>
@@ -686,7 +686,7 @@ export const Bm02PrintModal = ({ employee, onClose }) => {
       <div className="card animate-scale-up" style={{ width: '100%', maxWidth: '780px', maxHeight: '92vh', overflowY: 'auto', background: '#ffffff', color: '#1e293b', padding: '2.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
           <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#059669' }}>
-            Hệ thống Quản Trị Doanh Nghiệp • Biểu mẫu chuẩn BM-02 (SOP-26)
+            Hệ thống Quản Trị Doanh Nghiệp • Biểu mẫu chuẩn BM-02
           </span>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button onClick={() => window.print()} className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.8rem', backgroundColor: '#0284c7', borderColor: '#0284c7', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -704,7 +704,7 @@ export const Bm02PrintModal = ({ employee, onClose }) => {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, textTransform: 'uppercase', marginTop: '1rem', color: '#0f172a' }}>
             BIÊN BẢN THU HỒI & HOÀN TRẢ TRANG THIẾT BỊ
           </h2>
-          <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#64748b' }}>(Mẫu BM-02 ban hành theo Quy trình Thôi việc SOP-26 / Mẫu F03 - LLA)</div>
+          <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#64748b' }}>(Mẫu BM-02 ban hành theo Quy trình Thôi việc & Bàn giao tài sản)</div>
         </div>
 
         <div style={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.6, marginBottom: '1rem' }}>

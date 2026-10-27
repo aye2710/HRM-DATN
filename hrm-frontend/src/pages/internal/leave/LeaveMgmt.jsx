@@ -87,7 +87,7 @@ export const LeaveMgmt = () => {
               Duyệt Nghỉ Phép
             </h2>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
-              MẪU F11 - LLA (SOP-110)
+              QUẢN LÝ NGHỈ PHÉP
             </span>
           </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>

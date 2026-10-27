@@ -53,7 +53,7 @@ router.get('/pre-onboarding', async (req: Request, res: Response) => {
   }
 });
 
-// 1c. Giám sát Tuân thủ Hồ sơ & Khóa lương (SOP-25 Compliance & BOD Logs)
+// 1c. Giám sát Tuân thủ Hồ sơ & Khóa chi trả (Hồ sơ nhân sự & BOD Logs)
 router.get('/compliance-overview', async (req: Request, res: Response) => {
   try {
     const newbies = await prisma.employee.findMany({

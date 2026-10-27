@@ -734,7 +734,7 @@ export const AssetManagement = () => {
                             <button
                               className="btn btn-outline"
                               style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', gap: 4, color: '#0284c7', borderColor: '#38bdf8' }}
-                              title="Xem và in Biên bản thu hồi BM-02 (SOP-26)"
+                              title="Xem và in Biên bản thu hồi BM-02"
                               onClick={() => setViewBm02Doc(assign)}
                             >
                               <FileText size={14} /> BM-02
@@ -1311,7 +1311,7 @@ export const AssetManagement = () => {
         document.body
       )}
 
-      {/* MODAL 5: BIỂU MẪU CHÍNH THỨC BM-02 (Biên bản thu hồi & hoàn trả trang thiết bị - SOP-26) */}
+      {/* MODAL 5: BIỂU MẪU CHÍNH THỨC BM-02 (Biên bản thu hồi & hoàn trả trang thiết bị) */}
       {viewBm02Doc && createPortal(
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -1325,7 +1325,7 @@ export const AssetManagement = () => {
             {/* Action Bar (Top) */}
             <div className="flex justify-between items-center pb-4 border-b border-gray-200">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
-                Hệ thống Quản Trị Nhân Sự Doanh Nghiệp • Biểu mẫu chuẩn BM-02 (SOP-26)
+                Hệ thống Quản Trị Nhân Sự Doanh Nghiệp • Biểu mẫu chuẩn BM-02
               </span>
               <div className="flex gap-2">
                 <button 
@@ -1354,7 +1354,7 @@ export const AssetManagement = () => {
                 BIÊN BẢN THU HỒI & HOÀN TRẢ TRANG THIẾT BỊ
               </h2>
               <div className="text-xs italic text-gray-500 font-mono mt-1">
-                (Căn cứ Quy trình Thôi việc SOP-26 • Số biên bản: {viewBm02Doc.handoverDocCode ? `TH-${viewBm02Doc.handoverDocCode}` : 'BM-02-2026/01'})
+                (Căn cứ Quy trình Thôi việc & Bàn giao tài sản • Số biên bản: {viewBm02Doc.handoverDocCode ? `TH-${viewBm02Doc.handoverDocCode}` : 'BM-02-2026/01'})
               </div>
             </div>
 
@@ -1436,7 +1436,7 @@ export const AssetManagement = () => {
               <strong>Xác nhận An ninh Dữ liệu (Nghị định 13/2023/NĐ-CP) & Điều kiện thanh toán thôi việc:</strong>
               <ul className="list-disc ml-5 mt-1">
                 <li>Bộ phận IT xác nhận nhân sự đã bàn giao đầy đủ thiết bị, đã xóa toàn bộ dữ liệu nội bộ trên máy cá nhân và thu hồi tài khoản công vụ.</li>
-                <li>Đúng 18:00 ngày làm việc cuối cùng, hệ thống tự động khóa tài khoản đăng nhập và thu hồi phiên làm việc theo quy trình SOP-26.</li>
+                <li>Vào cuối ngày làm việc cuối cùng, hệ thống tự động khóa tài khoản đăng nhập và thu hồi phiên làm việc theo quy định an ninh.</li>
                 <li>Biên bản này là chứng từ hợp lệ để Phòng Kế toán thực hiện quyết toán trợ cấp và tiền lương thôi việc theo Điều 48 BLLĐ 2019.</li>
               </ul>
             </div>

@@ -190,7 +190,7 @@ router.post('/', hrManagerOnly, async (req: any, res: Response): Promise<any> =>
           { taskName: 'Soạn thảo & Ban hành Quyết định chấm dứt HĐLĐ (trình BGĐ)', category: 'OFFBOARDING_HR' },
           { taskName: 'Chốt ngày công thực tế & quyết toán tiền nghỉ phép năm còn tồn', category: 'OFFBOARDING_HR' },
           { taskName: 'Thanh lý hợp đồng lao động & bàn giao sổ BHXH', category: 'OFFBOARDING_HR' },
-          { taskName: 'Khóa an ninh tài khoản hệ thống đúng 18:00 (SOP-26)', category: 'OFFBOARDING_HR' }
+          { taskName: 'Khóa an ninh tài khoản hệ thống vào cuối ngày làm việc cuối cùng', category: 'OFFBOARDING_HR' }
         ];
 
         await prisma.onboardingTask.createMany({
@@ -432,7 +432,7 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
         });
       }
 
-      // D. THÔI VIỆC / CHẤM DỨT HỢP ĐỒNG (Kích hoạt quy trình bàn giao SOP-26)
+      // D. THÔI VIỆC / CHẤM DỨT HỢP ĐỒNG (Kích hoạt quy trình bàn giao thôi việc)
       if (decision.type === 'TERMINATION') {
         // Cập nhật ngày nghỉ và lý do, nhưng VẪN GIỮ trạng thái ACTIVE để nhân sự bàn giao
         await tx.employee.update({
@@ -465,7 +465,7 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
             { taskName: 'Soạn thảo & Ban hành Quyết định chấm dứt HĐLĐ (trình BGĐ)', category: 'OFFBOARDING_HR' },
             { taskName: 'Chốt ngày công thực tế & quyết toán tiền nghỉ phép năm còn tồn', category: 'OFFBOARDING_HR' },
             { taskName: 'Thanh lý hợp đồng lao động & bàn giao sổ BHXH', category: 'OFFBOARDING_HR' },
-            { taskName: 'Khóa an ninh tài khoản hệ thống đúng 18:00 (SOP-26)', category: 'OFFBOARDING_HR' }
+            { taskName: 'Khóa an ninh tài khoản hệ thống vào cuối ngày làm việc cuối cùng', category: 'OFFBOARDING_HR' }
           ];
 
           await tx.onboardingTask.createMany({
@@ -495,7 +495,7 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
         await tx.employmentHistory.create({
           data: {
             employeeId: empId,
-            changeReason: `Ban hành Quyết định thôi việc ${decision.decisionNumber} (Đang tiến hành bàn giao SOP-26)`,
+            changeReason: `Ban hành Quyết định thôi việc ${decision.decisionNumber} (Đang tiến hành quy trình bàn giao thôi việc)`,
             effectiveDate: effDate
           }
         });

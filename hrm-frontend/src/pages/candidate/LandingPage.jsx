@@ -1106,7 +1106,7 @@ export const CandidateLandingPage = () => {
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>BƯỚC 2</span>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A', margin: '0.25rem 0 0.5rem 0' }}>Phỏng vấn 3 vòng chuẩn LLA</h3>
               <div style={{ display: 'inline-block', backgroundColor: '#ECFDF5', color: '#047857', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-                ⚡ Chuẩn hóa theo SOP-100
+                ⚡ Chuẩn hóa quy trình
               </div>
               <p style={{ fontSize: '0.875rem', color: '#64748B', lineHeight: 1.6, margin: 0 }}>
                 Vòng 1 (HR Văn hóa & Kỳ vọng) ➔ Vòng 2 (Chuyên môn & Live Test với Tech Lead) ➔ Vòng 3 (Gặp gỡ Ban Giám đốc).
@@ -1123,13 +1123,13 @@ export const CandidateLandingPage = () => {
                 ⚡ Thư mời trong 24 giờ
               </div>
               <p style={{ fontSize: '0.875rem', color: '#64748B', lineHeight: 1.6, margin: 0 }}>
-                Nhận Offer letter điện tử, ký xác nhận online, chuẩn bị cấp tài khoản và thiết bị MacBook/Dell XPS theo SOP-25.
+                Nhận Offer letter điện tử, ký xác nhận online, chuẩn bị cấp tài khoản và trang thiết bị làm việc.
               </p>
             </div>
 
           </div>
 
-          {/* Cam kết Minh bạch & Pháp lý chuẩn BLLĐ 2019 (SOP-100) */}
+          {/* Cam kết Minh bạch & Pháp lý chuẩn BLLĐ 2019 */}
           <div style={{
             marginTop: '3rem',
             padding: '1.75rem 2rem',
@@ -1145,7 +1145,7 @@ export const CandidateLandingPage = () => {
                   Cam kết Tuyển dụng Minh bạch & Tuân thủ Bộ luật Lao động 2019
                 </h4>
                 <span style={{ fontSize: '0.8125rem', color: '#047857' }}>
-                  Tiêu chuẩn tuyển dụng công bằng, bảo vệ tối đa quyền lợi ứng viên theo SOP-100 LLA
+                  Tiêu chuẩn tuyển dụng công bằng, bảo vệ tối đa quyền lợi ứng viên
                 </span>
               </div>
             </div>

@@ -115,11 +115,11 @@ export const PayrollMgmt = () => {
   const handleTogglePaymentLock = async (payslip, lock) => {
     const actionText = lock ? 'TẠM KHÓA CHI TRẢ' : 'MỞ KHÓA CHI TRẢ';
     const confirmText = lock 
-      ? `Bạn có chắc muốn TẠM KHÓA chi trả lương của nhân sự ${payslip.employee?.fullName}? (Chế tài SOP-25: Kế toán sẽ không thể xuất lệnh chuyển tiền cho nhân sự này)`
+      ? `Bạn có chắc muốn TẠM KHÓA chi trả lương của nhân sự ${payslip.employee?.fullName}? (Chế tài chậm hồ sơ: Kế toán sẽ không thể xuất lệnh chuyển tiền cho nhân sự này)`
       : `Bạn có xác nhận nhân sự ${payslip.employee?.fullName} đã nộp đầy đủ hồ sơ gốc bản cứng (CCCD sao y, Sơ yếu lý lịch, Giấy KSK) để MỞ KHÓA CHI TRẢ?`;
 
     const result = await Swal.fire({
-      title: `${actionText} (SOP-25)?`,
+      title: `${actionText}?`,
       text: confirmText,
       icon: lock ? 'warning' : 'question',
       showCancelButton: true,
@@ -132,7 +132,7 @@ export const PayrollMgmt = () => {
       try {
         await axios.post(`http://localhost:5000/api/payroll/payslip/${payslip.id}/toggle-payment-hold`, {
           lock,
-          reason: lock ? 'Tạm khóa chi trả do chậm nộp hồ sơ gốc cứng quá 7 ngày theo SOP-25' : 'HR xác nhận đã thu đủ hồ sơ cứng. Mở khóa chi trả.'
+          reason: lock ? 'Tạm khóa chi trả do chậm nộp hồ sơ gốc cứng quá 7 ngày' : 'HR xác nhận đã thu đủ hồ sơ cứng. Mở khóa chi trả.'
         });
         toast.success(`Đã ${actionText.toLowerCase()} thành công!`);
         fetchData();
@@ -148,7 +148,7 @@ export const PayrollMgmt = () => {
     const headers = [
       "Mã NV", "Họ và tên", "Phòng ban", "Chức vụ", 
       "Lương cơ bản (VND)", "Số ngày công thực tế", "Lương Gross (VND)", 
-      "BHXH/YT/TN (10.5%)", "Thuế TNCN (VND)", "Thực lãnh (VND)", "Chế tài SOP-25", "Trạng thái kỳ"
+      "BHXH/YT/TN (10.5%)", "Thuế TNCN (VND)", "Thực lãnh (VND)", "Trạng thái chi trả", "Trạng thái kỳ"
     ];
 
     const rows = payrolls.map(pr => {
@@ -165,7 +165,7 @@ export const PayrollMgmt = () => {
         ins,
         tax,
         pr.netSalary || 0,
-        pr.isPaymentLocked ? `"TẠM KHÓA (${pr.paymentLockReason || 'SOP-25'})"` : '"SẴN SÀNG CHI TRẢ"',
+        pr.isPaymentLocked ? `"TẠM KHÓA (${pr.paymentLockReason || 'Chậm nộp hồ sơ'})"` : '"SẴN SÀNG CHI TRẢ"',
         periodInfo.status === 'LOCKED' ? '"Đã khóa sổ"' : '"Bản nháp"'
       ];
     });
@@ -351,7 +351,7 @@ export const PayrollMgmt = () => {
         </div>
       </div>
 
-      {/* Cảnh Báo Chế Tài SOP-25 (Khóa chi trả do trễ nộp hồ sơ gốc cứng > 7 ngày) */}
+      {/* Cảnh Báo Khóa chi trả do trễ nộp hồ sơ gốc cứng > 7 ngày */}
       {lockedCount > 0 && (
         <div style={{
           backgroundColor: '#FEF2F2',
@@ -371,11 +371,11 @@ export const PayrollMgmt = () => {
             </div>
             <div>
               <div style={{ fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                CHẾ TÀI SOP-25: Phát hiện {lockedCount} nhân sự bị TẠM KHÓA CHI TRẢ LƯƠNG
-                <span className="badge badge-danger font-bold" style={{ fontSize: '0.7rem' }}>SOP-25 / OBJ-02</span>
+                CHẾ TÀI HỒ SƠ: Phát hiện {lockedCount} nhân sự bị TẠM KHÓA CHI TRẢ LƯƠNG
+                <span className="badge badge-danger font-bold" style={{ fontSize: '0.7rem' }}>CHẬM NỘP HỒ SƠ</span>
               </div>
               <div style={{ fontSize: '0.825rem', color: '#B91C1C', marginTop: '0.2rem' }}>
-                Theo Quy chế Quản lý Hồ sơ Nhân sự (SOP-25): Nhân viên mới quá 7 ngày làm việc chưa nộp đủ hồ sơ gốc bản cứng (CCCD sao y, Giấy KSK, Bằng tốt nghiệp công chứng) sẽ tự động bị giữ lệnh chi trả kỳ lương đầu tiên cho đến khi HR gỡ khóa.
+                Theo Quy chế Quản lý Hồ sơ Nhân sự: Nhân viên mới quá 7 ngày làm việc chưa nộp đủ hồ sơ gốc bản cứng (CCCD sao y, Giấy KSK, Bằng tốt nghiệp công chứng) sẽ tự động bị giữ lệnh chi trả kỳ lương đầu tiên cho đến khi HR gỡ khóa.
               </div>
             </div>
           </div>
@@ -505,7 +505,7 @@ export const PayrollMgmt = () => {
                 <th className="text-right" style={{ color: 'var(--error)' }}>BHXH (10.5%)</th>
                 <th className="text-right" style={{ color: 'var(--error)' }}>THUẾ TNCN</th>
                 <th className="text-right" style={{ backgroundColor: 'rgba(16, 185, 129, 0.06)' }}>THỰC LÃNH (NET)</th>
-                <th className="text-center" style={{ width: '150px' }}>CHẾ TÀI SOP-25</th>
+                <th className="text-center" style={{ width: '150px' }}>TRẠNG THÁI CHI TRẢ</th>
                 <th className="text-center" style={{ width: '100px' }}>THAO TÁC</th>
               </tr>
             </thead>
@@ -575,7 +575,7 @@ export const PayrollMgmt = () => {
                         {formatCurrency(pr.netSalary)}
                       </td>
 
-                      {/* Cột Chế tài SOP-25 */}
+                      {/* Cột Trạng thái chi trả */}
                       <td className="text-center">
                         {pr.isPaymentLocked ? (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
@@ -584,7 +584,7 @@ export const PayrollMgmt = () => {
                               style={{ fontSize: '0.7rem', padding: '2px 6px', cursor: 'pointer' }}
                               title={pr.paymentLockReason || 'Tạm khóa do chưa nộp đủ hồ sơ gốc'}
                             >
-                              <Lock size={10} /> TẠM KHÓA (SOP-25)
+                              <Lock size={10} /> TẠM KHÓA
                             </span>
                             <button
                               type="button"
@@ -605,7 +605,7 @@ export const PayrollMgmt = () => {
                               type="button"
                               onClick={() => handleTogglePaymentLock(pr, true)}
                               style={{ background: 'transparent', border: 'none', color: '#94A3B8', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                              title="Tạm khóa chi trả nhân sự này theo SOP-25"
+                              title="Tạm khóa chi trả nhân sự này"
                             >
                               <Lock size={10} /> Tạm khóa
                             </button>

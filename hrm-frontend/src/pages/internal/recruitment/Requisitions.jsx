@@ -311,13 +311,13 @@ export const Requisitions = () => {
           <div className="flex items-center gap-2.5">
             <h1 className="page-title">Yêu cầu Tuyển dụng</h1>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
-              MẪU F37 - LLA (SOP-100)
+              ĐỊNH BIÊN TUYỂN DỤNG
             </span>
           </div>
           <p className="text-muted text-sm">Quản lý các chiến dịch tuyển dụng và kiểm soát trần định biên nhân sự theo phòng ban</p>
         </div>
         <button onClick={handleOpenAdd} className="btn btn-primary">
-          <Plus size={18} /> Lập Phiếu Tuyển dụng (F37)
+          <Plus size={18} /> Lập Phiếu Tuyển dụng
         </button>
       </div>
 
@@ -529,10 +529,10 @@ export const Requisitions = () => {
             <div className="flex justify-between items-center" style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
               <div>
                 <h3 className="text-xl font-bold text-[var(--text-main)]">
-                  {modalMode === 'add' ? 'Lập Phiếu Yêu Cầu Tuyển Dụng (Mẫu F37)' : 'Cập Nhật Phiếu Yêu Cầu Tuyển Dụng (Mẫu F37)'}
+                  {modalMode === 'add' ? 'Lập Phiếu Yêu Cầu Tuyển Dụng' : 'Cập Nhật Phiếu Yêu Cầu Tuyển Dụng'}
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Quy trình SOP-100: Kiểm tra trần định biên nhân sự phòng ban và bảo vệ ngân sách quỹ lương
+                  Kiểm tra trần định biên nhân sự phòng ban và bảo vệ ngân sách quỹ lương
                 </p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors">

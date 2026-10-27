@@ -182,7 +182,7 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
       orderBy: { employee: { code: 'asc' } }
     });
 
-    // Bổ sung Logic Chế tài SOP-25: Khóa chi trả lương do trễ nộp hồ sơ gốc cứng > 7 ngày
+    // Bổ sung Logic Chế tài: Khóa chi trả lương do trễ nộp hồ sơ gốc cứng > 7 ngày
     const formattedRecords = records.map(p => {
       const holdDetail = p.details.find(d => d.type === 'PAYMENT_HOLD');
       const unlockDetail = p.details.find(d => d.type === 'PAYMENT_UNLOCKED');
@@ -207,7 +207,7 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
 
           if (diffDays > 7 && (hasIncompleteDocTasks || isStillOnboarding)) {
             isPaymentLocked = true;
-            paymentLockReason = `Chậm nộp hồ sơ gốc quá ${diffDays} ngày (SOP-25: Vượt hạn định 7 ngày)`;
+            paymentLockReason = `Chậm nộp hồ sơ gốc quá ${diffDays} ngày (Vượt hạn định 7 ngày)`;
           }
         }
       }
@@ -225,7 +225,7 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
   }
 });
 
-// 4b. POST: Khóa / Mở khóa chi trả lương từng nhân sự (SOP-25 - HR & Kế toán)
+// 4b. POST: Khóa / Mở khóa chi trả lương từng nhân sự (Chậm nộp hồ sơ gốc - HR & Kế toán)
 router.post('/payslip/:id/toggle-payment-hold', authenticateToken, hrOrAccountant, async (req: any, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
@@ -255,7 +255,7 @@ router.post('/payslip/:id/toggle-payment-hold', authenticateToken, hrOrAccountan
             payslipId: id,
             type: 'PAYMENT_HOLD',
             amount: 0,
-            description: reason || 'Tạm khóa chi trả theo quy định SOP-25 (Chậm nộp hồ sơ gốc > 7 ngày)'
+            description: reason || 'Tạm khóa chi trả (Chậm nộp hồ sơ gốc > 7 ngày)'
           }
         });
       } else {
@@ -279,7 +279,7 @@ router.post('/payslip/:id/toggle-payment-hold', authenticateToken, hrOrAccountan
     });
 
     return res.json({ 
-      message: lock ? 'Đã tạm khóa chi trả phiếu lương (SOP-25)' : 'Đã mở khóa chi trả phiếu lương thành công!',
+      message: lock ? 'Đã tạm khóa chi trả phiếu lương' : 'Đã mở khóa chi trả phiếu lương thành công!',
       isPaymentLocked: lock
     });
   } catch (error: any) {

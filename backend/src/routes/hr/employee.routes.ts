@@ -715,19 +715,19 @@ router.delete('/:id', hrOnly, async (req: Request, res: Response): Promise<any> 
   }
 });
 
-// 5. Terminate employee (Thôi việc / Nghỉ việc - SOP-26 / Mẫu F03 - HR Only)
+// 5. Terminate employee (Thôi việc / Nghỉ việc - HR Only)
 router.post('/:id/terminate', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { lastWorkingDate, terminationReason, note } = req.body;
     
-    // Kiểm tra ràng buộc tài sản: Nhân viên còn giữ thiết bị chưa thu hồi thì không cho thôi việc (SOP-26)
+    // Kiểm tra ràng buộc tài sản: Nhân viên còn giữ thiết bị chưa thu hồi thì không cho thôi việc
     const activeAssets = await prisma.assetAssignment.count({
       where: { employeeId: id, status: 'ACTIVE' }
     });
     if (activeAssets > 0) {
       return res.status(400).json({
-        error: `Không thể hoàn tất thủ tục thôi việc! Nhân viên đang nắm giữ ${activeAssets} tài sản/thiết bị chưa hoàn trả. Vui lòng lập Biên bản thu hồi tài sản BM-02 (SOP-26) trước.`
+        error: `Không thể hoàn tất thủ tục thôi việc! Nhân viên đang nắm giữ ${activeAssets} tài sản/thiết bị chưa hoàn trả. Vui lòng lập Biên bản thu hồi tài sản BM-02 trước.`
       });
     }
 
@@ -750,7 +750,7 @@ router.post('/:id/terminate', hrOnly, async (req: Request, res: Response): Promi
         data: { status: 'TERMINATED', endDate: effectiveDate }
       });
 
-      // Tự động thu hồi quyền & Khóa tài khoản lúc 18:00 ngày làm việc cuối cùng (SOP-26 / An toàn bảo mật)
+      // Tự động thu hồi quyền & Khóa tài khoản lúc 18:00 ngày làm việc cuối cùng (An toàn bảo mật)
       await tx.account.updateMany({
         where: { employeeId: id },
         data: { isActive: false }
@@ -762,14 +762,14 @@ router.post('/:id/terminate', hrOnly, async (req: Request, res: Response): Promi
           employeeId: id,
           departmentId: currentEmp.departmentId,
           positionId: currentEmp.positionId,
-          changeReason: terminationReason || 'Nghỉ việc theo quy trình SOP-26 (Mẫu F03)',
+          changeReason: terminationReason || 'Thôi việc & Hoàn tất thủ tục bàn giao',
           effectiveDate
         }
       });
     });
     
     return res.json({ 
-      message: `Đã hoàn tất thủ tục thôi việc (SOP-26 / Mẫu F03). Tài khoản nhân sự đã được khóa an ninh theo quy định.`,
+      message: `Đã hoàn tất thủ tục thôi việc. Tài khoản nhân sự đã được khóa an ninh theo quy định.`,
       effectiveDate
     });
   } catch (error: any) {
@@ -778,7 +778,7 @@ router.post('/:id/terminate', hrOnly, async (req: Request, res: Response): Promi
   }
 });
 
-// 5b. Cron Check: Tự động khóa tài khoản nhân sự nghỉ việc lúc 18:00 (SOP-26 Security Check)
+// 5b. Cron Check: Tự động khóa tài khoản nhân sự nghỉ việc lúc 18:00 (Security Check)
 router.post('/cron/auto-lock-resigned', hrOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const resignedWithActiveAccounts = await prisma.account.findMany({
@@ -799,7 +799,7 @@ router.post('/cron/auto-lock-resigned', hrOnly, async (req: Request, res: Respon
     }
 
     return res.json({
-      message: `Kiểm tra an ninh SOP-26 hoàn tất: Đã tự động rà soát và khóa ${resignedWithActiveAccounts.length} tài khoản của nhân viên đã thôi việc.`,
+      message: `Kiểm tra an ninh hoàn tất: Đã tự động rà soát và khóa ${resignedWithActiveAccounts.length} tài khoản của nhân viên đã thôi việc.`,
       lockedCount: resignedWithActiveAccounts.length
     });
   } catch (error: any) {
