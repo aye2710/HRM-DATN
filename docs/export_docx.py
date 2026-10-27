@@ -10,8 +10,9 @@ from docx.oxml.ns import nsdecls, qn
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-SRC_MD = r"c:\Users\truclh\Desktop\HRM-ĐATN\docs\Ho_So_DATN\DATN-14-Thuyet-minh.md"
-OUT_DOCX = r"c:\Users\truclh\Desktop\HRM-ĐATN\docs\Ho_So_DATN_Word\DATN-14-Thuyet-minh.docx"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SRC_MD = os.path.join(BASE_DIR, "Ho_So_DATN", "DATN-14-Thuyet-minh.md")
+OUT_DOCX = os.path.join(BASE_DIR, "Ho_So_DATN_Word", "DATN-14-Thuyet-minh.docx")
 
 def set_cell_background(cell, fill_hex):
     shading_elm = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{fill_hex}"/>')

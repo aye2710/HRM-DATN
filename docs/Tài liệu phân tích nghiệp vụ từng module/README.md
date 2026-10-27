@@ -56,7 +56,21 @@ flowchart TD
 
 ---
 
-## 2. Danh mục 10 Phân Hệ Nghiệp vụ & Tài liệu Đặc tả (Master Module Index)
+## 2. Mô hình 3 Tác nhân Chính & Cơ chế Phân quyền Quản trị (3 Primary Actors & RBAC)
+
+Toàn bộ hệ thống quy tụ về **3 Tác nhân chính (Primary Actors)** tương ứng với 3 cổng giao diện độc lập:
+
+1. **👤 Ứng viên (Candidate)** $\rightarrow$ **Cổng Tuyển dụng Công khai** (`/`):
+   * Tra cứu vị trí việc làm, nộp CV trực tuyến, theo dõi tiến độ ứng tuyển, nhận Offer, và khai báo trước thông tin cá nhân (Pre-Onboarding).
+2. **👤 Nhân viên (Employee - ESS)** $\rightarrow$ **Cổng Nhân viên Tự phục vụ** (`/employee`):
+   * Người lao động nội bộ: Điểm danh vào/ra GPS, gửi đơn nghỉ phép/giải trình/OT, xem phiếu lương cá nhân bảo mật (Anti-IDOR), tự đánh giá KPI.
+3. **👔 Quản trị viên (Admin)** $\rightarrow$ **Cổng Quản trị Nội bộ** (`/internal`):
+   * Tác nhân quản trị điều hành toàn bộ phân hệ: Cơ cấu tổ chức, phễu tuyển dụng ATS, hồ sơ & hợp đồng, phê duyệt đơn từ, tài sản BM-01 & BM-02, chạy động cơ tính lương, cấu hình hệ thống.
+   * **Cơ chế Phân quyền Tùy biến (Dynamic RBAC)**: Trang Quản trị của Admin áp dụng cơ chế phân quyền dựa trên vai trò linh hoạt. Tài khoản Admin có thể gán quyền chi tiết theo từng chức năng cho các vai trò nghiệp vụ (HR, Kế toán, Trưởng bộ phận, Cán bộ IT, Ban Giám đốc) mà không cần can thiệp mã nguồn.
+
+---
+
+## 3. Danh mục 10 Phân Hệ Nghiệp vụ & Tài liệu Đặc tả (Master Module Index)
 
 Dưới đây là bảng tra cứu đầy đủ 10 phân hệ nghiệp vụ, kèm đường dẫn truy cập trực tiếp đến tài liệu tổng quan và các hồ sơ đặc tả chức năng con chi tiết:
 
@@ -75,7 +89,7 @@ Dưới đây là bảng tra cứu đầy đủ 10 phân hệ nghiệp vụ, kè
 
 ---
 
-## 3. Khung Quy chuẩn Tuân thủ Pháp luật & Kỹ thuật (Compliance & Standards)
+## 4. Khung Quy chuẩn Tuân thủ Pháp luật & Kỹ thuật (Compliance & Standards)
 
 Toàn bộ các tài liệu phân tích nghiệp vụ trong bộ hồ sơ này được xây dựng bám sát 4 nguyên tắc kỹ thuật cốt lõi:
 

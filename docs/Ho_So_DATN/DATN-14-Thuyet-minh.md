@@ -160,13 +160,10 @@ Xây dựng một hệ thống HRM hiện đại ứng dụng kiến trúc Web C
 * Bảo mật dữ liệu nhân sự qua mô hình phân quyền ma trận RBAC đa cấp.
 
 ### 4. Đối tượng sử dụng và phạm vi đề tài
-* **Đối tượng sử dụng**:
-  * *Ban Giám đốc / Lãnh đạo*: Theo dõi báo cáo thống kê biến động nhân sự, quỹ lương, phê duyệt các đề xuất cấp cao.
-  * *Bộ phận Nhân sự (HR/C&B)*: Quản lý tuyển dụng, hồ sơ, hợp đồng, chấm công, kỳ lương, đánh giá KPI, khen thưởng, kỷ luật.
-  * *Bộ phận CNTT / Hành chính*: Quản lý danh mục thiết bị, kho tài sản, lập biên bản bàn giao và thu hồi tài sản.
-  * *Trưởng phòng ban (Department Manager)*: Phê duyệt đơn xin nghỉ phép, duyệt điều chỉnh công, đánh giá KPI nhân viên thuộc phòng.
-  * *Nhân viên (Employee)*: Chấm công trực tuyến, tra cứu phiếu lương điện tử, nộp đơn xin nghỉ phép trên cổng ESS.
-  * *Ứng viên (Candidate)*: Tra cứu vị trí tuyển dụng, nộp hồ sơ ứng tuyển trên cổng ứng viên.
+* **Đối tượng sử dụng (3 Tác nhân chính)**:
+  * *1. Ứng viên Tuyển dụng (Job Candidate)*: Người dùng bên ngoài doanh nghiệp, truy cập **Cổng Tuyển dụng Công khai** (`/`) để tra cứu vị trí tuyển dụng, nộp hồ sơ CV, theo dõi trạng thái ứng tuyển và hoàn tất khai báo Pre-Onboarding.
+  * *2. Nhân viên Doanh nghiệp (Employee - ESS)*: Người lao động nội bộ, truy cập **Cổng Nhân viên Tự phục vụ (ESS)** (`/employee`) để chấm công trực tuyến, tra cứu phiếu lương điện tử bảo mật, nộp đơn xin nghỉ phép/giải trình/OT và tự đánh giá KPI.
+  * *3. Quản trị viên (Admin - Quản trị nội bộ)*: Người dùng thuộc bộ máy quản lý, vận hành và lãnh đạo doanh nghiệp, truy cập **Cổng Quản trị Nội bộ** (`/internal`). Thông qua cơ chế **Phân quyền dựa trên vai trò (RBAC)** linh hoạt, tài khoản Admin có thể phân quyền tùy ý cho từng chức danh nghiệp vụ cụ thể (Ban Giám đốc, Bộ phận Nhân sự HR, Kế toán Tiền lương, Trưởng bộ phận, Bộ phận CNTT/Tài sản) để quản trị các phân hệ tương ứng.
 * **Phạm vi đề tài**: Hệ thống bao quát 12 phân hệ nghiệp vụ nội bộ doanh nghiệp kết hợp 3 cổng thông tin riêng biệt, triển khai theo mô hình Web Application đáp ứng truy cập trên máy tính và thiết bị di động.
 
 ### 5. Mục tiêu cụ thể của đồ án
@@ -302,8 +299,6 @@ Hệ thống Quản trị Nguồn nhân lực Doanh nghiệp (Enterprise HRM) ph
 flowchart TB
     %% Styling Classes
     classDef actorAdmin fill:#1e293b,stroke:#0f172a,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef actorHR fill:#0284c7,stroke:#0369a1,stroke-width:2px,color:#ffffff,font-weight:bold;
-    classDef actorMgr fill:#7c3aed,stroke:#6d28d9,stroke-width:2px,color:#ffffff,font-weight:bold;
     classDef actorEmp fill:#059669,stroke:#047857,stroke-width:2px,color:#ffffff,font-weight:bold;
     classDef actorCan fill:#ea580c,stroke:#c2410c,stroke-width:2px,color:#ffffff,font-weight:bold;
 
@@ -319,11 +314,9 @@ flowchart TB
     classDef pkgESS fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#075985,font-weight:bold;
     classDef pkgPortal fill:#ffedd5,stroke:#ea580c,stroke-width:2px,color:#9a3412,font-weight:bold;
 
-    %% Actors
-    ActorAdmin(["👑 Quản trị viên Hệ thống\n(System Admin)"]):::actorAdmin
-    ActorHR(["👔 Quản lý Nhân sự & C&B\n(HR Manager / Staff)"]):::actorHR
-    ActorMgr(["🧑‍💼 Trưởng bộ phận\n(Line Manager)"]):::actorMgr
-    ActorEmp(["👤 Nhân viên Doanh nghiệp\n(Employee)"]):::actorEmp
+    %% 3 Tác nhân chính (Primary Actors)
+    ActorAdmin(["👑 Quản trị viên\n(Admin - Quản trị nội bộ & RBAC)"]):::actorAdmin
+    ActorEmp(["👤 Nhân viên Doanh nghiệp\n(Employee - ESS)"]):::actorEmp
     ActorCan(["🧑‍🎓 Ứng viên Tuyển dụng\n(Job Candidate)"]):::actorCan
 
     %% Subsystem Packages
@@ -341,38 +334,31 @@ flowchart TB
         PKG_PORTAL["🌐 Cổng Tuyển dụng Công khai\n- Xem việc làm & Thương hiệu\n- Nộp hồ sơ CV trực tuyến\n- Tra cứu tiến độ ứng tuyển"]:::pkgPortal
     end
 
-    %% Interactions
+    %% Interactions (3 Tác nhân -> Phân hệ tương ứng)
     ActorAdmin --> PKG_SYS
     ActorAdmin --> PKG_ORG
+    ActorAdmin --> PKG_REC
+    ActorAdmin --> PKG_CORE
+    ActorAdmin --> PKG_TIME
+    ActorAdmin --> PKG_LEAVE
+    ActorAdmin --> PKG_PAY
+    ActorAdmin --> PKG_KPI
     ActorAdmin --> PKG_ASSET
-
-    ActorHR --> PKG_ORG
-    ActorHR --> PKG_REC
-    ActorHR --> PKG_CORE
-    ActorHR --> PKG_TIME
-    ActorHR --> PKG_LEAVE
-    ActorHR --> PKG_PAY
-    ActorHR --> PKG_KPI
-    ActorHR --> PKG_ASSET
-
-    ActorMgr --> PKG_REC
-    ActorMgr --> PKG_TIME
-    ActorMgr --> PKG_LEAVE
-    ActorMgr --> PKG_KPI
 
     ActorEmp --> PKG_ESS
     ActorCan --> PKG_PORTAL
 ```
 
-#### Bảng ma trận Trách nhiệm và Phân quyền Tác nhân (Actor Responsibility Matrix)
+#### Bảng ma trận 3 Tác nhân Chính của Hệ thống
 
-| Tác nhân (Actor) | Vai trò hệ thống | Trách nhiệm và Phạm vi tương tác chính | Phân hệ tham gia |
-|---|---|---|---|
-| **System Admin** | Quản trị viên tối cao | Cấu hình tham số nghiệp vụ toàn hệ thống (tỷ lệ BHXH, mức thuế, ngày công chuẩn); Phân quyền qua Interactive RBAC Matrix; Giám sát toàn vẹn CSDL và Audit Logs. | Hệ thống, Phân quyền, Tham số động, Tài sản |
-| **HR Manager / C&B** | Quản lý Nhân sự & Tiền lương | Quản lý danh mục tổ chức; Điều hành chiến dịch tuyển dụng & Offer; Tiếp nhận Onboarding; Quản lý hồ sơ & Hợp đồng; Vận hành động cơ tính lương (Payroll Engine) và duyệt lương. | Tổ chức, Tuyển dụng ATS, Core HR, Chấm công, Nghỉ phép, Tiền lương, KPI, Tài sản |
-| **Line Manager** | Trưởng bộ phận | Phê duyệt yêu cầu tuyển dụng cho phòng ban; Tham gia phỏng vấn chuyên môn và chấm điểm ứng viên; Phê duyệt đơn xin nghỉ phép/OT của nhân viên cấp dưới; Đánh giá KPI cuối kỳ. | Tuyển dụng ATS, Chấm công, Nghỉ phép & OT, Đánh giá KPI |
-| **Employee** | Nhân viên doanh nghiệp | Sử dụng Cổng Tự phục vụ (ESS): Điểm danh Check-in/Check-out GPS; Nộp đơn xin nghỉ phép và tăng ca; Xem lịch làm việc cá nhân; Tra cứu và tải phiếu lương hàng tháng; Tự đánh giá KPI. | Cổng Nhân viên Tự phục vụ (ESS) |
-| **Job Candidate** | Ứng viên tự do | Truy cập Cổng tuyển dụng công khai (Public Career Portal): Tìm kiếm tin tuyển dụng; Nộp hồ sơ và tải lên file CV; Theo dõi trạng thái hồ sơ tuyển dụng thời gian thực. | Cổng Tuyển dụng Công khai (Career Portal) |
+| STT | Tác nhân (Actor) | Cổng truy cập | Trách nhiệm và Phạm vi tương tác chính | Phân hệ tham gia |
+| :---: | :--- | :--- | :--- | :--- |
+| **1** | **Quản trị viên (Admin)** | **Cổng Quản trị Nội bộ** (`/internal`) | Tác nhân quản trị và điều hành toàn bộ phân hệ nội bộ: Cơ cấu tổ chức, phễu tuyển dụng ATS, hồ sơ & hợp đồng, phê duyệt đơn từ chấm công/nghỉ phép/OT, kiểm soát kho tài sản bàn giao (BM-01 & BM-02), chạy động cơ tính lương tự động, cấu hình tham số hệ thống và phân quyền RBAC. | Tổ chức, Tuyển dụng ATS, Core HR, Chấm công, Nghỉ phép & OT, Tiền lương, KPI, Tài sản, Cấu hình Tham số động, Phân quyền RBAC & Audit Log |
+| **2** | **Nhân viên (Employee)** | **Cổng Tự phục vụ Nhân viên (ESS)** (`/employee`) | Người lao động nội bộ: Điểm danh Check-in/Check-out GPS; Nộp đơn xin nghỉ phép và tăng ca OT; Xem lịch làm việc và bảng công cá nhân; Tra cứu phiếu lương hàng tháng (bảo mật IDOR); Tự chấm điểm đánh giá KPI định kỳ. | Cổng Nhân viên Tự phục vụ (ESS) |
+| **3** | **Ứng viên (Job Candidate)** | **Cổng Tuyển dụng Công khai** (`/`) | Người ứng tuyển bên ngoài: Tra cứu tin tuyển dụng; Nộp hồ sơ CV trực tuyến; Theo dõi trạng thái hồ sơ thời gian thực; Nhận thư mời phỏng vấn & Offer nhận việc; Hoàn thiện thông tin Pre-Onboarding trước ngày nhận việc. | Cổng Tuyển dụng Công khai (Career Portal) |
+
+> 📌 **Cơ chế Phân quyền Quản trị Tùy biến (Dynamic RBAC) trên Cổng Admin:**  
+> Toàn bộ các chức danh quản lý chuyên môn như *Ban Giám Đốc, Trưởng phòng Nhân sự, Chuyên viên Tuyển dụng, Trưởng bộ phận, Kế toán Tiền lương, Cán bộ IT & Tài sản* đều được quản lý thông qua cơ chế phân quyền ma trận **Dynamic RBAC** trên Cổng Quản trị của Admin. Tài khoản Admin có thể gán quyền chi tiết (Xem, Thêm, Sửa, Xóa, Duyệt, Khóa sổ) cho từng tài khoản tùy theo mô hình tổ chức doanh nghiệp.
 
 ---
 
