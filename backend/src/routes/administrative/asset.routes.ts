@@ -493,18 +493,20 @@ router.post('/assignments/:id/return', itOrHrOnly, async (req: any, res: Respons
         }
       });
 
-      const targetStatus = nextAssetStatus || AssetStatus.AVAILABLE;
-      await tx.asset.update({
-        where: { id: assignment.assetId },
-        data: {
-          status: targetStatus as any,
-          condition: conditionOnReturn || assignment.asset?.condition
-        }
-      });
+      if (assignment.assetId) {
+        const targetStatus = nextAssetStatus || AssetStatus.AVAILABLE;
+        await tx.asset.update({
+          where: { id: assignment.assetId },
+          data: {
+            status: targetStatus as any,
+            condition: conditionOnReturn || assignment.asset?.condition
+          }
+        });
+      }
 
       return { 
         updatedAssignment, 
-        assetName: assignment.asset.name, 
+        assetName: assignment.asset?.name || 'Tài sản', 
         employeeName: assignment.employee.fullName,
         compensation: compensationAmount ? Number(compensationAmount) : 0
       };

@@ -286,7 +286,7 @@ router.post('/asset/quick-return', hrOnly, async (req: any, res: Response): Prom
       return res.status(400).json({ error: 'Tài sản này đã được thu hồi trước đó' });
     }
 
-    await prisma.$transaction([
+    const updates: any[] = [
       prisma.assetAssignment.update({
         where: { id: assignmentId },
         data: {
@@ -295,25 +295,35 @@ router.post('/asset/quick-return', hrOnly, async (req: any, res: Response): Prom
           conditionOnReturn: conditionOnReturn || 'Đã thu hồi đủ, tình trạng bình thường (BM-02)',
           notes: notes ? `${assignment.notes ? assignment.notes + ' | ' : ''}Thu hồi: ${notes}` : assignment.notes
         }
-      }),
-      prisma.asset.update({
-        where: { id: assignment.assetId },
-        data: {
-          status: 'AVAILABLE',
-          condition: conditionOnReturn || assignment.asset.condition
-        }
       })
-    ]);
+    ];
+
+    if (assignment.assetId) {
+      updates.push(
+        prisma.asset.update({
+          where: { id: assignment.assetId },
+          data: {
+            status: 'AVAILABLE',
+            condition: conditionOnReturn || assignment.asset?.condition || 'Hoạt động tốt'
+          }
+        })
+      );
+    }
+
+    await prisma.$transaction(updates);
+
+    const assetName = assignment.asset?.name || 'Tài sản';
+    const assetCode = assignment.asset?.code || '';
 
     await createAuditLog({
       action: 'OFFBOARDING_ASSET_RETURN',
       tableName: 'AssetAssignment',
       recordId: assignmentId,
       accountId: req.user?.accountId,
-      details: `Thu hồi thiết bị [${assignment.asset.name}] (${assignment.asset.code}) từ nhân sự [${assignment.employee?.fullName}] trong tiến trình thôi việc`
+      details: `Thu hồi thiết bị [${assetName}] (${assetCode}) từ nhân sự [${assignment.employee?.fullName}] trong tiến trình thôi việc`
     });
 
-    return res.json({ message: `Đã thu hồi tài sản ${assignment.asset.name} (${assignment.asset.code}) thành công!` });
+    return res.json({ message: `Đã thu hồi tài sản ${assetName} (${assetCode}) thành công!` });
   } catch (error: any) {
     console.error('Error in POST /api/offboarding/asset/quick-return:', error);
     return res.status(500).json({ error: error.message || 'Lỗi khi thu hồi tài sản' });
