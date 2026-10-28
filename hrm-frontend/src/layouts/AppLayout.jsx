@@ -1,28 +1,28 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, 
-  UserCircle, Menu, Bell, ChevronDown, ChevronRight, CheckSquare, Target, DollarSign, 
-  BarChart2, Shield, LogOut, Building, UserPlus, FileSignature, Monitor, Building2, Check, Sparkles 
+  Settings, Menu, ChevronDown, ChevronRight, Shield, LogOut
 } from 'lucide-react';
-const TopHeader = ({ portalName }) => {
-  const fullName = localStorage.getItem('fullName') || 'Unknown User';
-  const role = localStorage.getItem('role') || 'EMPLOYEE';
+
+const TopHeader = ({ portalName, onToggleSidebar }) => {
+  const fullName = localStorage.getItem('fullName') || 'Quản trị viên';
+  const role = localStorage.getItem('role') || 'ADMIN';
   const initial = fullName.charAt(0).toUpperCase();
 
   return (
     <div className="top-header" style={{ padding: '0 2rem' }}>
       <div className="flex items-center gap-4">
-        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', border: 'none', background: 'transparent' }}>
+        <button
+          onClick={onToggleSidebar}
+          title="Thu gọn / Mở rộng menu"
+          className="btn btn-outline"
+          style={{ padding: '0.25rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer' }}
+        >
           <Menu size={20} color="var(--text-main)" />
         </button>
         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{portalName}</h2>
       </div>
       <div className="flex items-center gap-6">
-        <div style={{ position: 'relative', cursor: 'pointer' }}>
-          <Bell size={20} color="var(--text-muted)" />
-          <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', backgroundColor: 'var(--error)', borderRadius: '50%' }}></span>
-        </div>
         <div className="flex items-center gap-3">
           <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.9rem' }}>{initial}</div>
           <div className="flex-col">
@@ -38,7 +38,6 @@ const TopHeader = ({ portalName }) => {
 const NavItem = ({ item }) => {
   const location = useLocation();
   const isActive = location.pathname.startsWith(item.to);
-  const isExactActive = location.pathname === item.to;
   const [isOpen, setIsOpen] = useState(isActive);
 
   React.useEffect(() => {
@@ -92,8 +91,13 @@ const NavItem = ({ item }) => {
   );
 };
 
-const Sidebar = ({ links }) => {
+const Sidebar = ({ links, collapsed }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isEmployeePortal = location.pathname.startsWith('/employee');
+  const settingsPath = isEmployeePortal ? '/employee/profile' : '/internal/system/parameters';
+
+  if (collapsed) return null;
 
   const handleLogout = (e) => {
     e.preventDefault();
@@ -127,23 +131,31 @@ const Sidebar = ({ links }) => {
       </nav>
       
       <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-         <NavLink to="#" style={{ color: '#a1b0cb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
-           <Settings size={18} /> Cài đặt
-         </NavLink>
-         <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: '#a1b0cb', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', cursor: 'pointer', padding: 0 }}>
-           <LogOut size={18} /> Đăng xuất
-         </button>
+        <NavLink
+          to={settingsPath}
+          style={{ color: '#a1b0cb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', marginBottom: '1rem' }}
+        >
+          <Settings size={18} /> {isEmployeePortal ? 'Thông tin tài khoản' : 'Cấu hình tham số'}
+        </NavLink>
+        <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: '#a1b0cb', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', cursor: 'pointer', padding: 0 }}>
+          <LogOut size={18} /> Đăng xuất
+        </button>
       </div>
     </div>
   );
 };
 
 export const AppLayout = ({ portalName, navLinks }) => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
     <div className="app-layout">
-      <Sidebar links={navLinks} />
+      <Sidebar links={navLinks} collapsed={sidebarCollapsed} />
       <div className="main-content">
-        <TopHeader portalName={portalName} />
+        <TopHeader
+          portalName={portalName}
+          onToggleSidebar={() => setSidebarCollapsed(prev => !prev)}
+        />
         <div className="page-content" style={{ backgroundColor: 'var(--bg-main)' }}>
           <Outlet />
         </div>
@@ -151,4 +163,3 @@ export const AppLayout = ({ portalName, navLinks }) => {
     </div>
   );
 };
-

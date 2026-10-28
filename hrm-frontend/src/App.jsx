@@ -14,7 +14,6 @@ import { PayrollMgmt } from './pages/internal/payroll/Payroll';
 import { RecruitmentATS } from './pages/internal/recruitment/RecruitmentATS';
 import { Performance } from './pages/internal/performance/Performance';
 import { KPIAssignments } from './pages/internal/performance/KPIAssignments';
-import { SettingsRBAC } from './pages/internal/system/SettingsRBAC';
 import { Departments } from './pages/internal/organization/Departments';
 import { Positions } from './pages/internal/organization/Positions';
 import { OrgChart } from './pages/internal/organization/OrgChart';
@@ -24,11 +23,6 @@ import { PreOnboardingHub } from './pages/internal/onboarding/PreOnboardingHub';
 import { Requisitions } from './pages/internal/recruitment/Requisitions';
 import { Interviews } from './pages/internal/recruitment/Interviews';
 import { Offers } from './pages/internal/recruitment/Offers';
-
-import { ChecklistMgmt } from './pages/internal/onboarding/ChecklistMgmt';
-import { EquipmentProvision } from './pages/internal/onboarding/EquipmentProvision';
-import { SystemAccounts } from './pages/internal/onboarding/SystemAccounts';
-import { OnboardingProgress } from './pages/internal/onboarding/OnboardingProgress';
 
 import { Decisions } from './pages/internal/employees/Decisions';
 import { DecisionCreate } from './pages/internal/employees/DecisionCreate';
@@ -46,16 +40,13 @@ import { LeavePolicies } from './pages/internal/leave/LeavePolicies';
 import { Holidays } from './pages/internal/leave/Holidays';
 
 import { PayrollPeriods } from './pages/internal/payroll/PayrollPeriods';
-
-import { ApprovalWorkflows } from './pages/internal/system/ApprovalWorkflows';
-import { Notifications } from './pages/internal/system/Notifications';
 import { AuditLogs } from './pages/internal/system/AuditLogs';
+import { SystemParameters } from './pages/internal/system/SystemParameters';
 
 import { ReportsDashboard } from './pages/internal/reports/ReportsDashboard';
 import { KPITemplates } from './pages/internal/performance/KPITemplates';
 import { AssetInventory } from './pages/internal/assets/AssetInventory';
 import { AssetAssignments } from './pages/internal/assets/AssetAssignments';
-import { SystemParameters } from './pages/internal/system/SystemParameters';
 import { OffboardingChecklist } from './pages/internal/offboarding/OffboardingChecklist';
 import { OffboardingInitiate } from './pages/internal/offboarding/OffboardingInitiate';
 import { OffboardingHistory } from './pages/internal/offboarding/OffboardingHistory';
@@ -74,7 +65,7 @@ import { EmployeeLogin } from './pages/employee/EmployeeLogin';
 import { CandidateLandingPage } from './pages/candidate/LandingPage';
 import { CandidateAuthPage } from './pages/candidate/CandidateAuthPage';
 
-import { LayoutDashboard, Users, Clock, CalendarRange, Briefcase, FileText, Settings, ShieldCheck, Target, Shield, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User, UserMinus } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, CalendarRange, FileText, ShieldCheck, Target, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User, UserMinus } from 'lucide-react';
 
 const internalLinks = [
   { to: '/internal/dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
@@ -163,10 +154,7 @@ const internalLinks = [
     to: '/internal/system', label: 'Hệ thống', icon: <ShieldCheck size={20} />,
     children: [
       { to: '/internal/system/parameters', label: 'Tham số nghiệp vụ' },
-      { to: '/internal/system/workflows', label: 'Trung tâm phê duyệt' },
-      { to: '/internal/system/notifications', label: 'Thông báo' },
-      { to: '/internal/system/audit', label: 'Nhật ký kiểm toán' },
-      { to: '/internal/system/rbac', label: 'Phân quyền (RBAC)' },
+      { to: '/internal/system/audit', label: 'Nhật ký hệ thống' },
     ]
   }
 ];
@@ -238,10 +226,7 @@ function App() {
               <Route path="onboarding/checklist" element={<OnboardingMgmt />} />
               <Route path="onboarding/newbies" element={<Navigate to="/internal/onboarding/checklist" replace />} />
               <Route path="onboarding/compliance" element={<Navigate to="/internal/onboarding/checklist" replace />} />
-              <Route path="onboarding/equipment" element={<EquipmentProvision />} />
-              <Route path="onboarding/accounts" element={<SystemAccounts />} />
               <Route path="onboarding/contracts" element={<Contracts />} />
-              <Route path="onboarding/progress" element={<OnboardingProgress />} />
 
               <Route path="offboarding" element={<Navigate to="checklist" replace />} />
               <Route path="offboarding/checklist" element={<OffboardingChecklist />} />
@@ -282,11 +267,9 @@ function App() {
               <Route path="assets/assignments" element={<AssetAssignments />} />
               <Route path="reports" element={<ReportsDashboard />} />
 
+              <Route path="system" element={<Navigate to="system/parameters" replace />} />
               <Route path="system/parameters" element={<SystemParameters />} />
-              <Route path="system/workflows" element={<ApprovalWorkflows />} />
-              <Route path="system/notifications" element={<Notifications />} />
               <Route path="system/audit" element={<AuditLogs />} />
-              <Route path="system/rbac" element={<SettingsRBAC />} />
               
               <Route path="*" element={<PlaceholderPage title="404" description="Không tìm thấy module này" />} />
             </Route>
@@ -313,4 +296,3 @@ function App() {
 }
 
 export default App;
-
