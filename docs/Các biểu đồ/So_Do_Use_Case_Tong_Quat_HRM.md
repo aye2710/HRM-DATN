@@ -8,7 +8,7 @@
 | STT | Tác nhân (Actor) | Cổng truy cập | Thư mục Code Frontend | Vai trò chính trên hệ thống |
 | :-: | :--- | :--- | :--- | :--- |
 | **1** | **Ứng viên (Candidate)** | Cổng Tuyển dụng (`/`, `/candidate/*`) | `src/pages/candidate/` | Xem tin tuyển dụng, nộp CV ứng tuyển, theo dõi tiến trình phỏng vấn, xác nhận thư mời nhận việc (Offer) và khai báo hồ sơ Pre-Onboarding. |
-| **2** | **Nhân viên (Employee)** | Cổng Nhân viên (`/employee/*`) | `src/pages/employee/` | Chấm công hàng ngày, xem & cập nhật hồ sơ cá nhân, gửi đơn xin nghỉ phép, gửi giải trình công, tự đánh giá KPI và xem phiếu lương điện tử. |
+| **2** | **Nhân viên (Employee)** | Cổng Nhân viên (`/employee/*`) | `src/pages/employee/` | Tra cứu dữ liệu chấm công cá nhân (đồng bộ từ máy chấm công), gửi đơn giải trình công, xem & cập nhật hồ sơ cá nhân, gửi đơn xin nghỉ phép, tự đánh giá KPI và xem phiếu lương điện tử. |
 | **3** | **Quản trị viên (Admin)** | Cổng Quản trị (`/internal/*`) | `src/pages/internal/` | Vận hành toàn bộ 11 module quản trị nội bộ: Tổ chức, Tuyển dụng, Hội nhập, Nhân sự, Chấm công, Nghỉ phép, KPI, Lương thưởng, Tài sản, Thôi việc, Báo cáo & Hệ thống. |
 
 ---
@@ -30,7 +30,7 @@ flowchart LR
         end
 
         subgraph PORTAL_EMP ["Cổng Tự phục vụ Nhân viên (employee/)"]
-            UC_E1(["Chấm công hàng ngày & gửi giải trình"])
+            UC_E1(["Tra cứu bảng công cá nhân & gửi giải trình"])
             UC_E2(["Xem & cập nhật hồ sơ cá nhân"])
             UC_E3(["Đăng ký & theo dõi nghỉ phép"])
             UC_E4(["Tra cứu phiếu lương điện tử"])
@@ -412,16 +412,16 @@ flowchart LR
 
 ## 3.5 MODULE 5: CHẤM CÔNG (`attendance/` & `employee/Dashboard.jsx`)
 
-### 3.5.1 Use Case: Chấm công & Giải trình trên Cổng Nhân viên (`employee/Dashboard.jsx`)
+### 3.5.1 Use Case: Tra cứu Bảng công & Giải trình trên Cổng Nhân viên (`employee/Dashboard.jsx`)
 
 ```mermaid
 flowchart LR
     EMP["👤 Nhân viên"]
 
-    subgraph UC_EMP_ATT_BOX ["Chấm công Cá nhân"]
-        UC_EATT(["Thực hiện chấm công cá nhân"])
-        UC_EATT_1(["Bấm chấm công vào / ra (Check-in / Check-out)"])
-        UC_EATT_2(["Xem bảng công cá nhân trong tháng"])
+    subgraph UC_EMP_ATT_BOX ["Tra cứu Công & Giải trình Cá nhân"]
+        UC_EATT(["Tra cứu bảng công cá nhân"])
+        UC_EATT_1(["Xem giờ Vào / Ra đồng bộ từ máy chấm công"])
+        UC_EATT_2(["Kiểm tra các ngày cảnh báo thiếu giờ ra / đi muộn"])
         UC_EATT_3(["Gửi đơn giải trình bổ sung công"])
     end
 
@@ -452,23 +452,25 @@ flowchart LR
     UC_SHF_4 -.->|<<extend>>| UC_SHF
 ```
 
-### 3.5.3 Use Case: Quản lý Bảng công Tổng hợp (`Attendance.jsx`)
+### 3.5.3 Use Case: Quản lý & Đồng bộ Bảng công Ma trận (`Attendance.jsx`)
 
 ```mermaid
 flowchart LR
     ADMIN["👔 Quản trị viên"]
 
-    subgraph UC_ATTMGMT_BOX ["Quản lý Bảng công"]
-        UC_ATTM(["Quản lý bảng công tổng hợp"])
-        UC_ATTM_1(["Tra cứu & lọc bảng công theo tháng / phòng ban"])
-        UC_ATTM_2(["Thêm / Chỉnh sửa bản ghi chấm công thủ công"])
-        UC_ATTM_3(["Xuất báo cáo bảng công"])
+    subgraph UC_ATTMGMT_BOX ["Quản lý & Đồng bộ Bảng công"]
+        UC_ATTM(["Quản lý bảng công ma trận"])
+        UC_ATTM_1(["Đồng bộ / Import dữ liệu từ máy chấm công"])
+        UC_ATTM_2(["Tra cứu & lọc bảng công theo tuần / tháng / phòng ban"])
+        UC_ATTM_3(["Điều chỉnh giờ chấm công trực tiếp trên ô ngày"])
+        UC_ATTM_4(["Xuất báo cáo bảng công Excel / CSV"])
     end
 
     ADMIN --> UC_ATTM
-    UC_ATTM_1 -.->|<<include>>| UC_ATTM
-    UC_ATTM_2 -.->|<<extend>>| UC_ATTM
+    UC_ATTM_2 -.->|<<include>>| UC_ATTM
+    UC_ATTM_1 -.->|<<extend>>| UC_ATTM
     UC_ATTM_3 -.->|<<extend>>| UC_ATTM
+    UC_ATTM_4 -.->|<<extend>>| UC_ATTM
 ```
 
 ### 3.5.4 Use Case: Quản lý Điều chỉnh & Giải trình Công (`Adjustments.jsx`)
