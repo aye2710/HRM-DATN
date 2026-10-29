@@ -433,41 +433,40 @@ export const Transfers = () => {
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                             
-                            {/* Nút Xem Lịch sử điều chuyển (giống bên Hợp đồng) */}
                             <button
                               onClick={() => navigate(`/internal/employees/transfers/${emp.id}`)}
                               className="btn btn-outline"
                               style={{ 
-                                padding: '4px 8px', 
-                                fontSize: '0.75rem', 
+                                height: 28,
+                                width: 28,
+                                padding: 0,
                                 display: 'inline-flex', 
                                 alignItems: 'center', 
-                                gap: '3px',
+                                justifyContent: 'center',
                                 borderRadius: '6px',
                                 color: '#475569',
                                 border: '1px solid #cbd5e1'
                               }}
                               title="Xem toàn bộ lịch sử biến động công tác của nhân sự này"
                             >
-                              Lịch sử <ChevronRight size={13} />
+                              <History size={14} />
                             </button>
 
-                            {/* Nút Lập Quyết định điều chuyển */}
                             <button
                               onClick={() => navigate(`/internal/employees/decisions/create?type=TRANSFER&employeeId=${emp.id}`)}
                               className="btn btn-primary"
                               style={{ 
-                                padding: '4px 10px', 
-                                fontSize: '0.75rem', 
+                                height: 28,
+                                width: 28,
+                                padding: 0,
                                 display: 'inline-flex', 
                                 alignItems: 'center', 
-                                gap: '4px',
-                                borderRadius: '6px',
-                                fontWeight: 600
+                                justifyContent: 'center',
+                                borderRadius: '6px'
                               }}
                               title="Lập Quyết định Điều chuyển chính thức để Ban Giám Đốc phê duyệt"
                             >
-                              <FileSignature size={13} /> Lập QĐ
+                              <FileSignature size={14} />
                             </button>
 
                           </div>
@@ -729,10 +728,10 @@ export const Transfers = () => {
                           <button
                             onClick={() => navigate(`/internal/employees/transfers/${hist.employeeId}`)}
                             className="btn btn-outline"
-                            style={{ padding: '3px 7px', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                            style={{ height: 26, width: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                             title="Xem toàn bộ lịch sử nhân sự này"
                           >
-                            Chi tiết <ChevronRight size={12} />
+                            <History size={13} />
                           </button>
                         )}
                       </td>

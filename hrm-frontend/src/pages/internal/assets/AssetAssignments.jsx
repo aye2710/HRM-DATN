@@ -537,29 +537,28 @@ export const AssetAssignments = () => {
                         </div>
                       </td>
                       <td className="text-right">
-                        <div className="flex gap-2 justify-end">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 28px)', gap: '5px', justifyContent: 'flex-end', alignItems: 'center' }}>
                           <button
                             className="btn btn-outline"
-                            style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', gap: 4 }}
+                            style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', borderColor: '#bfdbfe' }}
                             title="Xem và in Biên bản bàn giao BBBG-LLA"
                             onClick={() => setViewBm01Doc(assign)}
                           >
-                            <FileText size={14} /> In BBBG
+                            <FileText size={14} />
                           </button>
-                          {assign.status === 'RETURNED' && (
+                          {assign.status === 'RETURNED' ? (
                             <button
                               className="btn btn-outline"
-                              style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', gap: 4, color: '#0284c7', borderColor: '#38bdf8' }}
+                              style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', borderColor: '#38bdf8' }}
                               title="Xem và in Biên bản thu hồi BM-02"
                               onClick={() => setViewBm02Doc(assign)}
                             >
-                              <FileText size={14} /> BM-02
+                              <FileCheck size={14} />
                             </button>
-                          )}
-                          {assign.status === 'ACTIVE' && (
+                          ) : assign.status === 'ACTIVE' ? (
                             <button
                               className="btn btn-outline"
-                              style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', gap: 4, color: 'var(--warning)', borderColor: 'var(--warning)' }}
+                              style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#d97706', borderColor: '#fde68a' }}
                               title="Lập thủ tục thu hồi lại kho khi thôi việc"
                               onClick={() => {
                                 setReturnAssignmentTarget(assign);
@@ -577,8 +576,10 @@ export const AssetAssignments = () => {
                                 setShowReturnModal(true);
                               }}
                             >
-                              <RotateCcw size={14} /> Thu hồi
+                              <RotateCcw size={14} />
                             </button>
+                          ) : (
+                            <div style={{ width: 28, height: 28 }} />
                           )}
                         </div>
                       </td>

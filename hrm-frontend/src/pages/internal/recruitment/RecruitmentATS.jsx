@@ -400,8 +400,8 @@ export const RecruitmentATS = () => {
       {viewMode === 'kanban' ? (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(6, minmax(280px, 1fr))',
-          gap: '1rem',
+          gridTemplateColumns: 'repeat(6, minmax(225px, 1fr))',
+          gap: '0.75rem',
           overflowX: 'auto',
           paddingBottom: '1rem',
           minHeight: '560px'
@@ -558,7 +558,7 @@ export const RecruitmentATS = () => {
                             )}
                           </div>
 
-                          {/* Action Foot: View CV & Action Buttons */}
+                          {/* Action Foot: View CV & Action Buttons (Pure Icon Buttons) */}
                           <div style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                             paddingTop: '0.5rem', borderTop: '1px solid #F1F5F9', marginTop: '2px'
@@ -569,23 +569,36 @@ export const RecruitmentATS = () => {
                                 target="_blank" 
                                 rel="noreferrer" 
                                 style={{
-                                  fontSize: '0.72rem', fontWeight: 500, color: '#475569',
-                                  display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none',
-                                  padding: '3px 7px', borderRadius: '5px',
+                                  height: 28, width: 28, padding: 0,
+                                  borderRadius: '6px',
                                   backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  color: '#475569', textDecoration: 'none',
                                   transition: 'all 0.15s ease'
                                 }}
                                 onMouseEnter={e => { e.currentTarget.style.color = '#0F172A'; e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
                                 onMouseLeave={e => { e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
                                 onClick={(e) => e.stopPropagation()}
+                                title="Xem hồ sơ / CV ứng viên"
                               >
-                                <FileText size={12} color="#64748B" /> Xem CV
+                                <FileText size={14} />
                               </a>
                             ) : (
-                              <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Chưa có CV</span>
+                              <span 
+                                style={{
+                                  height: 28, width: 28, padding: 0,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#F8FAFC', border: '1px dashed #E2E8F0',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  color: '#CBD5E1', cursor: 'not-allowed'
+                                }}
+                                title="Chưa đính kèm hồ sơ CV"
+                              >
+                                <FileText size={14} />
+                              </span>
                             )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                               {nextStep && (
                                 <button
                                   onClick={(e) => {
@@ -593,19 +606,27 @@ export const RecruitmentATS = () => {
                                     handleDirectTransition(c, nextStep.target);
                                   }}
                                   style={{
-                                    padding: '4px 9px', borderRadius: '6px',
-                                    fontSize: '0.72rem', fontWeight: 600,
-                                    backgroundColor: '#0F172A', color: '#FFFFFF',
+                                    height: 28, width: 28, padding: 0,
+                                    borderRadius: '6px',
+                                    backgroundColor: nextStep.target === 'HIRED' ? '#16A34A' : '#0F172A',
+                                    color: '#FFFFFF',
                                     border: 'none', cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', gap: '3px',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                     transition: 'background-color 0.15s ease'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#334155'}
-                                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0F172A'}
-                                  title={`Chuyển sang: ${nextStep.label}`}
+                                  onMouseEnter={e => e.currentTarget.style.backgroundColor = nextStep.target === 'HIRED' ? '#15803D' : '#334155'}
+                                  onMouseLeave={e => e.currentTarget.style.backgroundColor = nextStep.target === 'HIRED' ? '#16A34A' : '#0F172A'}
+                                  title={`Chuyển bước tiếp theo: ${nextStep.label}`}
                                 >
-                                  <span>{nextStep.label}</span>
-                                  <ChevronRight size={12} />
+                                  {nextStep.target === 'HIRED' ? (
+                                    <UserCheck size={14} />
+                                  ) : nextStep.target === 'OFFERING' ? (
+                                    <Briefcase size={14} />
+                                  ) : nextStep.target === 'INTERVIEWING' ? (
+                                    <Calendar size={14} />
+                                  ) : (
+                                    <ChevronRight size={15} />
+                                  )}
                                 </button>
                               )}
 
@@ -616,11 +637,11 @@ export const RecruitmentATS = () => {
                                     handleDirectTransition(c, 'REJECTED');
                                   }}
                                   style={{
-                                    padding: '4px 6px', borderRadius: '6px',
-                                    fontSize: '0.72rem',
+                                    height: 28, width: 28, padding: 0,
+                                    borderRadius: '6px',
                                     backgroundColor: '#FFFFFF', color: '#94A3B8',
                                     border: '1px solid #E2E8F0', cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                     transition: 'all 0.15s ease'
                                   }}
                                   onMouseEnter={e => {
@@ -635,7 +656,7 @@ export const RecruitmentATS = () => {
                                   }}
                                   title="Từ chối hồ sơ ứng viên"
                                 >
-                                  <UserX size={13} />
+                                  <UserX size={14} />
                                 </button>
                               )}
                             </div>
@@ -728,23 +749,39 @@ export const RecruitmentATS = () => {
                             <div style={{ fontSize: '0.82rem', color: '#334155' }}>{c.email}</div>
                             <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{c.phone || 'Chưa có SĐT'}</div>
                           </td>
-                          <td>
+                          <td style={{ textAlign: 'center' }}>
                             {c.cvUrl ? (
                               <a 
                                 href={c.cvUrl} 
                                 target="_blank" 
                                 rel="noreferrer" 
                                 style={{
-                                  fontSize: '0.78rem', fontWeight: 500, color: '#475569',
-                                  display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none',
-                                  padding: '3px 7px', borderRadius: '5px',
-                                  backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0'
+                                  height: 28, width: 28, padding: 0,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  color: '#475569', textDecoration: 'none',
+                                  transition: 'all 0.15s ease'
                                 }}
+                                onMouseEnter={e => { e.currentTarget.style.color = '#0F172A'; e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
+                                title="Mở file CV ứng viên"
                               >
-                                <FileText size={12} color="#64748B" /> Xem CV
+                                <FileText size={14} />
                               </a>
                             ) : (
-                              <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Không đính kèm</span>
+                              <span 
+                                style={{
+                                  height: 28, width: 28, padding: 0,
+                                  borderRadius: '6px',
+                                  backgroundColor: '#F8FAFC', border: '1px dashed #E2E8F0',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  color: '#CBD5E1', cursor: 'not-allowed'
+                                }}
+                                title="Không đính kèm CV"
+                              >
+                                <FileText size={14} />
+                              </span>
                             )}
                           </td>
                           <td>
@@ -768,26 +805,39 @@ export const RecruitmentATS = () => {
                             </select>
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                               {nextStep && (
                                 <button
                                   onClick={() => handleDirectTransition(c, nextStep.target)}
                                   style={{
-                                    padding: '4px 10px', fontSize: '0.75rem', height: 'auto',
-                                    backgroundColor: '#0F172A', color: '#FFFFFF',
-                                    border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer'
+                                    height: 28, width: 28, padding: 0,
+                                    backgroundColor: nextStep.target === 'HIRED' ? '#16A34A' : '#0F172A',
+                                    color: '#FFFFFF',
+                                    border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
                                   }}
+                                  title={`Chuyển bước tiếp theo: ${nextStep.label}`}
                                 >
-                                  {nextStep.label}
+                                  {nextStep.target === 'HIRED' ? (
+                                    <UserCheck size={14} />
+                                  ) : nextStep.target === 'OFFERING' ? (
+                                    <Briefcase size={14} />
+                                  ) : nextStep.target === 'INTERVIEWING' ? (
+                                    <Calendar size={14} />
+                                  ) : (
+                                    <ChevronRight size={15} />
+                                  )}
                                 </button>
                               )}
                               {c.status !== 'REJECTED' && c.status !== 'HIRED' && (
                                 <button
                                   onClick={() => handleDirectTransition(c, 'REJECTED')}
                                   style={{
-                                    padding: '4px 8px', borderRadius: '6px',
+                                    height: 28, width: 28, padding: 0,
+                                    borderRadius: '6px',
                                     backgroundColor: '#FFFFFF', color: '#94A3B8',
-                                    border: '1px solid #E2E8F0', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500
+                                    border: '1px solid #E2E8F0', cursor: 'pointer',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
                                   }}
                                   onMouseEnter={e => {
                                     e.currentTarget.style.backgroundColor = '#FEF2F2';
@@ -801,7 +851,7 @@ export const RecruitmentATS = () => {
                                   }}
                                   title="Từ chối ứng viên"
                                 >
-                                  Từ chối
+                                  <UserX size={14} />
                                 </button>
                               )}
                             </div>

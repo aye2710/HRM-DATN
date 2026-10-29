@@ -253,9 +253,10 @@ export const OffboardingChecklist = () => {
                           <button
                             onClick={() => openHandoverDrawer(emp)}
                             className="btn btn-outline"
-                            style={{ padding: '4px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0284c7', borderColor: '#38bdf8' }}
+                            style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', borderColor: '#38bdf8' }}
+                            title="Mở Phiếu Bàn giao Checklist thôi việc"
                           >
-                            <CheckSquare size={13} /> Mở Phiếu Bàn giao
+                            <CheckSquare size={14} />
                           </button>
                         </div>
                       </td>

@@ -475,18 +475,19 @@ export const PreOnboardingHub = () => {
                           <button
                             onClick={() => setSelectedCandidate(c)}
                             className="btn btn-outline"
-                            style={{ height: 32, fontSize: '0.74rem', padding: '0 9px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, borderColor: '#CBD5E1', color: '#334155' }}
+                            style={{ height: 30, width: 30, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, borderColor: '#CBD5E1', color: '#334155' }}
                             title="Xem chi tiết hồ sơ kê khai sơ bộ online"
                           >
-                            <Eye size={13} /> Xem hồ sơ
+                            <Eye size={14} />
                           </button>
 
                           <button
                             onClick={() => handleOpenAcceptModal(c)}
                             className="btn btn-primary"
-                            style={{ height: 32, fontSize: '0.75rem', padding: '0 11px', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', fontWeight: 700, boxShadow: '0 1px 2px rgba(37,99,235,0.2)' }}
+                            style={{ height: 30, width: 30, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, boxShadow: '0 1px 2px rgba(37,99,235,0.2)' }}
+                            title="Tiếp nhận ứng viên chính thức"
                           >
-                            <UserPlus size={13} /> Tiếp nhận
+                            <UserPlus size={14} />
                           </button>
                         </div>
                       </td>

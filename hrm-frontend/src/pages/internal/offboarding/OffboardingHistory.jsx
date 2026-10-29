@@ -146,20 +146,20 @@ export const OffboardingHistory = () => {
                         <button
                           onClick={() => setShowBm02Modal(emp)}
                           className="btn btn-outline"
-                          style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#0284c7', borderColor: '#38bdf8' }}
+                          style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', borderColor: '#38bdf8' }}
                           title="In Biên bản thu hồi tài sản BM-02"
                         >
-                          <Printer size={12} /> In BM-02
+                          <Printer size={14} />
                         </button>
 
                         {emp.decisions && emp.decisions.length > 0 && (
                           <Link
                             to={`/internal/employees/decisions/${emp.decisions[0].id}`}
                             className="btn btn-outline"
-                            style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#475569' }}
+                            style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}
                             title="Xem Quyết định thôi việc"
                           >
-                            <FileText size={12} /> Xem QĐ
+                            <FileText size={14} />
                           </Link>
                         )}
                       </div>

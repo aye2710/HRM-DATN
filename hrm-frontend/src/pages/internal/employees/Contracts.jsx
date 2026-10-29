@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, 
-  Eye, EyeOff, ArrowUpDown, ArrowUp, ArrowDown, Plus, CheckCircle2
+  Eye, EyeOff, ArrowUpDown, ArrowUp, ArrowDown, Plus, CheckCircle2, FileText, History
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -317,10 +317,10 @@ export const Contracts = () => {
           </label>
 
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#475569' }}>
-            <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 500 }}>Sắp xếp:</span>
+            <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap' }}>Sắp xếp:</span>
             <select
               className="form-input"
-              style={{ height: '34px', padding: '4px 8px', fontSize: '0.8rem', borderRadius: '8px', backgroundColor: 'white', border: '1px solid #cbd5e1' }}
+              style={{ width: 'auto', height: '34px', padding: '4px 8px', fontSize: '0.8rem', borderRadius: '8px', backgroundColor: 'white', border: '1px solid #cbd5e1' }}
               value={sortField}
               onChange={(e) => {
                 setSortField(e.target.value);
@@ -341,23 +341,23 @@ export const Contracts = () => {
       <div className="card glass flex-col p-0 overflow-hidden" style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         
         {/* Toolbar */}
-        <div className="p-3.5 border-b border-[var(--border)] flex justify-between items-center gap-4" style={{ flexWrap: 'wrap' }}>
+        <div className="p-3 border-b border-[var(--border)] flex justify-between items-center gap-2" style={{ flexWrap: 'wrap' }}>
           
           {/* Ô tìm kiếm */}
-          <div style={{ position: 'relative', width: '280px', maxWidth: '100%' }}>
-            <Search size={15} color="#94a3b8" style={{ position: 'absolute', left: '0.8rem', top: '50%', transform: 'translateY(-50%)' }} />
+          <div style={{ position: 'relative', width: '220px', maxWidth: '100%' }}>
+            <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)' }} />
             <input 
               type="text" 
-              placeholder="Tìm theo tên, mã NV, phòng ban..." 
+              placeholder="Tìm tên, mã NV, phòng ban..." 
               className="form-input w-full"
-              style={{ paddingLeft: '2.3rem', height: '34px', fontSize: '0.82rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+              style={{ paddingLeft: '2.1rem', height: '32px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
           {/* Segmented Control Pills */}
-          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '10px', gap: '3px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '10px', gap: '2px', flexWrap: 'wrap' }}>
             
             <button
               onClick={() => setFilterType('ALL')}
@@ -366,10 +366,10 @@ export const Contracts = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '5px 10px',
+                gap: '5px',
+                padding: '4px 8px',
                 borderRadius: '7px',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 fontWeight: filterType === 'ALL' ? 700 : 500,
                 backgroundColor: filterType === 'ALL' ? '#ffffff' : 'transparent',
                 color: filterType === 'ALL' ? '#0f172a' : '#64748b',
@@ -378,7 +378,7 @@ export const Contracts = () => {
               }}
             >
               <span>Tất cả</span>
-              <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '99px', backgroundColor: '#e2e8f0', color: '#334155', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '99px', backgroundColor: '#e2e8f0', color: '#334155', fontWeight: 600 }}>
                 {counts.all}
               </span>
             </button>
@@ -391,10 +391,10 @@ export const Contracts = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '5px 10px',
+                gap: '5px',
+                padding: '4px 8px',
                 borderRadius: '7px',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 fontWeight: filterType === 'NO_CONTRACT' ? 700 : 500,
                 backgroundColor: filterType === 'NO_CONTRACT' ? '#ffffff' : 'transparent',
                 color: filterType === 'NO_CONTRACT' ? '#475569' : '#64748b',
@@ -403,7 +403,7 @@ export const Contracts = () => {
               }}
             >
               <span>Chưa có HĐ</span>
-              <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '99px', backgroundColor: '#e2e8f0', color: '#475569', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '99px', backgroundColor: '#e2e8f0', color: '#475569', fontWeight: 600 }}>
                 {counts.noContract}
               </span>
             </button>
@@ -416,10 +416,10 @@ export const Contracts = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '5px 10px',
+                gap: '5px',
+                padding: '4px 8px',
                 borderRadius: '7px',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 fontWeight: filterType === 'EXPIRING_30' ? 700 : 500,
                 backgroundColor: filterType === 'EXPIRING_30' ? '#ffffff' : 'transparent',
                 color: filterType === 'EXPIRING_30' ? '#c2410c' : '#64748b',
@@ -428,7 +428,7 @@ export const Contracts = () => {
               }}
             >
               <span>Sắp hết hạn ≤ 30 ngày</span>
-              <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '99px', backgroundColor: counts.expiring30 > 0 ? '#ffedd5' : '#e2e8f0', color: counts.expiring30 > 0 ? '#c2410c' : '#64748b', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '99px', backgroundColor: counts.expiring30 > 0 ? '#ffedd5' : '#e2e8f0', color: counts.expiring30 > 0 ? '#c2410c' : '#64748b', fontWeight: 700 }}>
                 {counts.expiring30}
               </span>
             </button>
@@ -441,10 +441,10 @@ export const Contracts = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '5px 10px',
+                gap: '5px',
+                padding: '4px 8px',
                 borderRadius: '7px',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 fontWeight: filterType === 'OVERDUE' ? 700 : 500,
                 backgroundColor: filterType === 'OVERDUE' ? '#ffffff' : 'transparent',
                 color: filterType === 'OVERDUE' ? '#b91c1c' : '#64748b',
@@ -453,7 +453,7 @@ export const Contracts = () => {
               }}
             >
               <span>Đã quá hạn</span>
-              <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '99px', backgroundColor: counts.overdue > 0 ? '#fee2e2' : '#e2e8f0', color: counts.overdue > 0 ? '#b91c1c' : '#64748b', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '99px', backgroundColor: counts.overdue > 0 ? '#fee2e2' : '#e2e8f0', color: counts.overdue > 0 ? '#b91c1c' : '#64748b', fontWeight: 700 }}>
                 {counts.overdue}
               </span>
             </button>
@@ -466,10 +466,10 @@ export const Contracts = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '5px 10px',
+                gap: '5px',
+                padding: '4px 8px',
                 borderRadius: '7px',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 fontWeight: filterType === 'PROBATION' ? 700 : 500,
                 backgroundColor: filterType === 'PROBATION' ? '#ffffff' : 'transparent',
                 color: filterType === 'PROBATION' ? '#4f46e5' : '#64748b',
@@ -478,7 +478,7 @@ export const Contracts = () => {
               }}
             >
               <span>Thử việc</span>
-              <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '99px', backgroundColor: '#e0e7ff', color: '#4338ca', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '99px', backgroundColor: '#e0e7ff', color: '#4338ca', fontWeight: 600 }}>
                 {counts.probation}
               </span>
             </button>
@@ -491,10 +491,10 @@ export const Contracts = () => {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '5px 10px',
+                gap: '5px',
+                padding: '4px 8px',
                 borderRadius: '7px',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 fontWeight: filterType === 'INDEFINITE' ? 700 : 500,
                 backgroundColor: filterType === 'INDEFINITE' ? '#ffffff' : 'transparent',
                 color: filterType === 'INDEFINITE' ? '#15803d' : '#64748b',
@@ -503,7 +503,7 @@ export const Contracts = () => {
               }}
             >
               <span>Không thời hạn</span>
-              <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '99px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '99px', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: 600 }}>
                 {counts.indefinite}
               </span>
             </button>
@@ -515,15 +515,15 @@ export const Contracts = () => {
           {loading ? (
              <div className="p-12 text-center text-muted" style={{ fontSize: '0.9rem' }}>Đang tải dữ liệu hồ sơ hợp đồng...</div>
           ) : (
-            <table className="w-full text-left border-collapse" style={{ minWidth: '950px', tableLayout: 'fixed' }}>
+            <table className="w-full text-left border-collapse" style={{ width: '100%' }}>
               <thead>
                 <tr className="border-b border-[#e2e8f0] bg-[#f8fafc]">
                   
-                  {/* Cột 1: Mã NV (90px) */}
+                  {/* Cột 1: Mã NV */}
                   <th 
                     onClick={() => handleSortToggle('CODE')}
-                    className="p-3.5 text-xs font-semibold text-[#64748b] cursor-pointer hover:bg-slate-100 transition-colors"
-                    style={{ width: '90px', userSelect: 'none' }}
+                    className="p-3 text-xs font-semibold text-[#64748b] cursor-pointer hover:bg-slate-100 transition-colors"
+                    style={{ width: '85px', whiteSpace: 'nowrap', userSelect: 'none' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <span>MÃ NV</span>
@@ -531,11 +531,11 @@ export const Contracts = () => {
                     </div>
                   </th>
 
-                  {/* Cột 2: Họ và tên (22%) */}
+                  {/* Cột 2: Họ và tên */}
                   <th 
                     onClick={() => handleSortToggle('NAME')}
-                    className="p-3.5 text-xs font-semibold text-[#64748b] cursor-pointer hover:bg-slate-100 transition-colors"
-                    style={{ width: '22%', userSelect: 'none' }}
+                    className="p-3 text-xs font-semibold text-[#64748b] cursor-pointer hover:bg-slate-100 transition-colors"
+                    style={{ width: '17%', userSelect: 'none' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <span>HỌ VÀ TÊN</span>
@@ -543,16 +543,16 @@ export const Contracts = () => {
                     </div>
                   </th>
 
-                  {/* Cột 3: Chức vụ / Phòng ban (20%) */}
-                  <th className="p-3.5 text-xs font-semibold text-[#64748b]" style={{ width: '20%' }}>
+                  {/* Cột 3: Chức vụ / Phòng ban */}
+                  <th className="p-3 text-xs font-semibold text-[#64748b]" style={{ width: '18%' }}>
                     CHỨC VỤ / PHÒNG BAN
                   </th>
 
-                  {/* Cột 4: Hợp đồng & Thời hạn (28%) */}
+                  {/* Cột 4: Hợp đồng & Thời hạn */}
                   <th 
                     onClick={() => handleSortToggle('END_DATE')}
-                    className="p-3.5 text-xs font-semibold text-[#64748b] cursor-pointer hover:bg-slate-100 transition-colors"
-                    style={{ width: '28%', userSelect: 'none' }}
+                    className="p-3 text-xs font-semibold text-[#64748b] cursor-pointer hover:bg-slate-100 transition-colors"
+                    style={{ width: '24%', userSelect: 'none' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <span>HỢP ĐỒNG & THỜI HẠN</span>
@@ -560,13 +560,13 @@ export const Contracts = () => {
                     </div>
                   </th>
 
-                  {/* Cột 5: Thu nhập (18%) */}
+                  {/* Cột 5: Thu nhập */}
                   <th 
                     onClick={() => handleSortToggle('SALARY')}
-                    className="p-3.5 text-xs font-semibold text-[#64748b] cursor-pointer hover:bg-slate-100 transition-colors"
-                    style={{ width: '18%', userSelect: 'none' }}
+                    className="p-3 text-xs font-semibold text-[#64748b] cursor-pointer hover:bg-slate-100 transition-colors"
+                    style={{ width: '165px', whiteSpace: 'nowrap', userSelect: 'none' }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <span>THU NHẬP</span>
                         {renderSortIcon('SALARY')}
@@ -584,8 +584,8 @@ export const Contracts = () => {
                     </div>
                   </th>
 
-                  {/* Cột 6: Thao tác (150px) */}
-                  <th className="p-3.5 text-xs font-semibold text-[#64748b] text-right" style={{ width: '150px' }}>
+                  {/* Cột 6: Thao tác */}
+                  <th className="p-3 text-xs font-semibold text-[#64748b] text-right" style={{ width: '190px', whiteSpace: 'nowrap' }}>
                     THAO TÁC
                   </th>
                 </tr>
@@ -639,13 +639,13 @@ export const Contracts = () => {
                         <td className="p-3.5">
                           {activeContract ? (
                             <div className="flex-col gap-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-slate-800 text-xs">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span className="font-semibold text-slate-800 text-xs" style={{ whiteSpace: 'nowrap' }}>
                                   {getContractTypeName(activeContract.contractType)}
                                 </span>
                                 {getContractStatusBadge(activeContract.status, activeContract.endDate, activeContract.contractType)}
                               </div>
-                              <div className="text-xs text-slate-500 font-medium">
+                              <div className="text-xs text-slate-500 font-medium" style={{ whiteSpace: 'nowrap' }}>
                                 {formatContractPeriod(activeContract)}
                               </div>
                               {defCount >= 2 ? (
@@ -664,7 +664,7 @@ export const Contracts = () => {
                         </td>
 
                         {/* Cột 5: Thu nhập */}
-                        <td className="p-3.5">
+                        <td className="p-3.5" style={{ whiteSpace: 'nowrap' }}>
                           {activeContract ? (
                             <div className="flex-col gap-0.5 text-xs">
                               <div className="text-slate-700">
@@ -683,76 +683,82 @@ export const Contracts = () => {
 
                         {/* Cột 6: Thao tác thông minh */}
                         <td className="p-3.5 text-right">
-                          {(() => {
-                            const isProb = emp.status === 'PROBATION' || emp.status === 'INTERNSHIP';
-                            let isExpiring = false;
-                            if (activeContract?.endDate && activeContract.contractType !== 'INDEFINITE') {
-                              const today = new Date();
-                              today.setHours(0, 0, 0, 0);
-                              const end = new Date(activeContract.endDate);
-                              end.setHours(0, 0, 0, 0);
-                              const diffDays = Math.ceil((end - today) / (1000 * 3600 * 24));
-                              if (diffDays <= 30) {
-                                isExpiring = true;
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 28px)', gap: '5px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            {(() => {
+                              const isProb = emp.status === 'PROBATION' || emp.status === 'INTERNSHIP';
+                              let isExpiring = false;
+                              if (activeContract?.endDate && activeContract.contractType !== 'INDEFINITE') {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const end = new Date(activeContract.endDate);
+                                end.setHours(0, 0, 0, 0);
+                                const diffDays = Math.ceil((end - today) / (1000 * 3600 * 24));
+                                if (diffDays <= 30) {
+                                  isExpiring = true;
+                                }
                               }
-                            }
 
-                            if (isProb && !isResigned) {
+                              if (isProb && !isResigned) {
+                                return (
+                                  <>
+                                    <button 
+                                      onClick={() => navigate(`/internal/employees/contracts/${emp.id}?action=sign`)} 
+                                      className="btn btn-primary" 
+                                      style={{ height: 28, width: 28, padding: 0, backgroundColor: '#16a34a', borderColor: '#16a34a', color: 'white', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                      title="Đánh giá thử việc & Ký hợp đồng chính thức"
+                                    >
+                                      <CheckCircle2 size={15} />
+                                    </button>
+                                    <button 
+                                      onClick={() => navigate(`/internal/employees/contracts/${emp.id}`)} 
+                                      className="btn btn-outline" 
+                                      style={{ height: 28, width: 28, padding: 0, borderRadius: '6px', border: '1px solid #cbd5e1', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                      title="Xem lịch sử hợp đồng"
+                                    >
+                                      <FileText size={14} />
+                                    </button>
+                                  </>
+                                );
+                              }
+
+                              if (isExpiring && !isResigned) {
+                                return (
+                                  <>
+                                    <button 
+                                      onClick={() => navigate(`/internal/employees/contracts/${emp.id}?action=sign`)} 
+                                      className="btn btn-primary" 
+                                      style={{ height: 28, width: 28, padding: 0, backgroundColor: '#ea580c', borderColor: '#ea580c', color: 'white', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                      title="Tái ký hoặc gia hạn hợp đồng mới"
+                                    >
+                                      <Plus size={15} />
+                                    </button>
+                                    <button 
+                                      onClick={() => navigate(`/internal/employees/contracts/${emp.id}`)} 
+                                      className="btn btn-outline" 
+                                      style={{ height: 28, width: 28, padding: 0, borderRadius: '6px', border: '1px solid #cbd5e1', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                      title="Xem lịch sử hợp đồng"
+                                    >
+                                      <FileText size={14} />
+                                    </button>
+                                  </>
+                                );
+                              }
+
                               return (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px' }}>
-                                  <button 
-                                    onClick={() => navigate(`/internal/employees/contracts/${emp.id}?action=sign`)} 
-                                    className="btn btn-primary" 
-                                    style={{ padding: '4px 8px', fontSize: '0.74rem', backgroundColor: '#16a34a', borderColor: '#16a34a', color: 'white', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}
-                                    title="Đánh giá thử việc & ký hợp đồng chính thức"
-                                  >
-                                    <CheckCircle2 size={12} /> Ký chính thức
-                                  </button>
+                                <>
+                                  <div style={{ width: 28, height: 28 }} />
                                   <button 
                                     onClick={() => navigate(`/internal/employees/contracts/${emp.id}`)} 
                                     className="btn btn-outline" 
-                                    style={{ padding: '4px 8px', fontSize: '0.74rem', borderRadius: '6px', border: '1px solid #cbd5e1', color: '#475569', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                                    style={{ height: 28, width: 28, padding: 0, borderRadius: '6px', border: '1px solid #cbd5e1', color: '#334155', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                     title="Xem lịch sử hợp đồng"
                                   >
-                                    Lịch sử <ChevronRight size={12} />
+                                    <FileText size={14} />
                                   </button>
-                                </div>
+                                </>
                               );
-                            }
-
-                            if (isExpiring && !isResigned) {
-                              return (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px' }}>
-                                  <button 
-                                    onClick={() => navigate(`/internal/employees/contracts/${emp.id}?action=sign`)} 
-                                    className="btn btn-primary" 
-                                    style={{ padding: '4px 8px', fontSize: '0.74rem', backgroundColor: '#ea580c', borderColor: '#ea580c', color: 'white', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}
-                                    title="Tái ký hoặc gia hạn hợp đồng mới"
-                                  >
-                                    <Plus size={12} /> Tái ký HĐ
-                                  </button>
-                                  <button 
-                                    onClick={() => navigate(`/internal/employees/contracts/${emp.id}`)} 
-                                    className="btn btn-outline" 
-                                    style={{ padding: '4px 8px', fontSize: '0.74rem', borderRadius: '6px', border: '1px solid #cbd5e1', color: '#475569', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
-                                    title="Xem lịch sử hợp đồng"
-                                  >
-                                    Lịch sử <ChevronRight size={12} />
-                                  </button>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <button 
-                                onClick={() => navigate(`/internal/employees/contracts/${emp.id}`)} 
-                                className="btn btn-outline" 
-                                style={{ padding: '5px 12px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                              >
-                                Lịch sử HĐ <ChevronRight size={13} />
-                              </button>
-                            );
-                          })()}
+                            })()}
+                          </div>
                         </td>
                       </tr>
                     );

@@ -186,10 +186,10 @@ export const OffboardingInitiate = () => {
                       <button
                         onClick={() => navigate(`/internal/employees/decisions/create?type=TERMINATION&employeeId=${emp.id}`)}
                         className="btn btn-outline"
-                        style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#dc2626', borderColor: '#fca5a5', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                        title="Soạn thảo Quyết định chấm dứt hợp đồng lao động & kích hoạt bàn giao"
+                        style={{ height: 28, width: 28, padding: 0, color: '#dc2626', borderColor: '#fca5a5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Soạn thảo Quyết định thôi việc & Kích hoạt bàn giao"
                       >
-                        <UserMinus size={13} /> Lập QĐ Thôi việc
+                        <UserMinus size={14} />
                       </button>
                     </td>
                   </tr>

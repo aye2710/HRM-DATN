@@ -622,16 +622,16 @@ export const Offers = () => {
 
                       {/* Cột 5: Thao tác */}
                       <td style={{ padding: '0.85rem 1.25rem', verticalAlign: 'middle', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px' }}>
                           {isHired ? (
                             po ? (
                               <button
                                 onClick={() => handleViewProfile(c)}
                                 className="btn btn-outline"
-                                style={{ height: 32, padding: '0 9px', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, borderColor: '#CBD5E1', color: '#334155' }}
+                                style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderColor: '#CBD5E1', color: '#334155' }}
                                 title="Xem hồ sơ khai báo sơ bộ"
                               >
-                                <FileText size={12} /> Xem hồ sơ
+                                <FileText size={14} />
                               </button>
                             ) : (
                               <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
@@ -643,36 +643,36 @@ export const Offers = () => {
                               onClick={() => navigate('/internal/onboarding/pre-onboarding')}
                               className="btn btn-primary"
                               style={{
-                                height: 32, padding: '0 11px', fontSize: '0.75rem', fontWeight: 700,
-                                display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap',
+                                height: 28, width: 28, padding: 0,
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                 boxShadow: '0 1px 2px rgba(37,99,235,0.2)'
                               }}
-                              title="Ứng viên đã chấp nhận Offer. Bàn giao sang phân hệ Hội nhập."
+                              title="Bàn giao sang phân hệ Hội nhập (Pre-onboarding)"
                             >
-                              <span>Bàn giao Hội nhập</span>
-                              <ArrowRight size={13} />
+                              <ArrowRight size={14} />
                             </button>
                           ) : (
                             <>
                               <button
                                 onClick={() => handleOpenSendOffer(c)}
                                 className="btn btn-outline"
-                                style={{ height: 32, padding: '0 9px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                                style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                title={offer ? 'Chỉnh sửa thỏa thuận Offer' : 'Tạo và gửi Thư mời nhận việc'}
                               >
-                                <Edit3 size={12} /> {offer ? 'Sửa' : 'Gửi'}
+                                <Edit3 size={14} />
                               </button>
                               <button
                                 onClick={() => handleReject(c.id)}
-                                title="Hủy Offer"
+                                title="Từ chối / Hủy Offer"
                                 style={{
-                                  height: 32, width: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  height: 28, width: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                   backgroundColor: '#FFFFFF', color: '#94A3B8', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer',
                                   transition: 'all 0.15s ease'
                                 }}
                                 onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.backgroundColor = '#FEF2F2'; }}
                                 onMouseLeave={e => { e.currentTarget.style.color = '#94A3B8'; e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
                               >
-                                <X size={13} />
+                                <X size={14} />
                               </button>
                             </>
                           )}

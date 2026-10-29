@@ -1,3 +1,4 @@
+import Swal from 'sweetalert2';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -136,8 +137,31 @@ export const AssetInventory = () => {
 
   // Handle Complete Maintenance (1-chạm đưa máy về kho)
   const handleCompleteMaintenance = async (asset) => {
-    const cost = window.prompt(`Xác nhận hoàn tất bảo trì cho [${asset.code}] ${asset.name}.\nNhập chi phí sửa chữa / bảo hành (VNĐ, để trống nếu 0đ):`, '0');
-    if (cost === null) return;
+    const { value: cost } = await Swal.fire({
+      title: 'Hoàn tất bảo trì thiết bị',
+      html: `
+        <div style="text-align: left; font-size: 0.88rem; color: #334155; margin-bottom: 0.75rem;">
+          Thiết bị: <strong>[${asset.code}] ${asset.name}</strong><br/>
+          Chủng loại: <strong>${asset.category}</strong> • Serial: <strong>${asset.serialNumber || '—'}</strong>
+        </div>
+        <div style="text-align: left; font-size: 0.82rem; color: #64748B; margin-bottom: 0.35rem;">
+          Nhập chi phí sửa chữa / bảo hành thực tế (VNĐ, để 0đ nếu miễn phí):
+        </div>
+      `,
+      input: 'number',
+      inputValue: 0,
+      inputAttributes: {
+        min: '0',
+        step: '1000'
+      },
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: '✓ Đưa về kho',
+      cancelButtonText: 'Hủy'
+    });
+    if (cost === undefined) return;
 
     try {
       const res = await fetch(`http://localhost:5000/api/assets/${asset.id}/maintenance-complete`, {
@@ -416,31 +440,32 @@ export const AssetInventory = () => {
                           )}
                         </td>
                         <td className="text-right">
-                          <div className="flex gap-1 justify-end">
-                            {asset.status === 'AVAILABLE' && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 28px)', gap: '5px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            {asset.status === 'AVAILABLE' ? (
                               <button
                                 className="btn btn-outline"
-                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', gap: 4 }}
-                                title="Bàn giao thiết bị cho nhân viên"
+                                style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', borderColor: '#bfdbfe' }}
+                                title="Bàn giao thiết bị cho nhân viên (BM-01)"
                                 onClick={() => openAssignModalForAsset(asset)}
                               >
-                                <ArrowRight size={14} /> Bàn giao
+                                <ArrowRight size={14} />
                               </button>
-                            )}
-                            {asset.status === 'MAINTENANCE' && (
+                            ) : asset.status === 'MAINTENANCE' ? (
                               <button
                                 className="btn btn-outline"
-                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', gap: 4, color: '#10b981', borderColor: '#10b981' }}
-                                title="Hoàn tất bảo trì, đưa máy về kho"
+                                style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', borderColor: '#10b981' }}
+                                title="Hoàn tất bảo trì / sửa xong, đưa máy về kho"
                                 onClick={() => handleCompleteMaintenance(asset)}
                               >
-                                <CheckCircle size={14} /> Sửa xong
+                                <CheckCircle size={14} />
                               </button>
+                            ) : (
+                              <div style={{ width: 28, height: 28 }} />
                             )}
                             <button
                               className="btn btn-outline"
-                              style={{ padding: '0.35rem 0.5rem', color: 'var(--primary)' }}
-                              title="Sửa thông tin"
+                              style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', borderColor: '#cbd5e1' }}
+                              title="Sửa thông tin thiết bị"
                               onClick={() => {
                                 setEditingAsset(asset);
                                 setFormData({
@@ -460,15 +485,17 @@ export const AssetInventory = () => {
                             >
                               <Edit3 size={14} />
                             </button>
-                            {asset.status !== 'ASSIGNED' && (
+                            {asset.status !== 'ASSIGNED' ? (
                               <button
                                 className="btn btn-outline"
-                                style={{ padding: '0.35rem 0.5rem', color: 'var(--danger)' }}
+                                style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', borderColor: '#fecaca' }}
                                 title="Chuyển sang thanh lý / Xóa mềm"
                                 onClick={() => handleDeleteAsset(asset.id, asset.name)}
                               >
                                 <Trash2 size={14} />
                               </button>
+                            ) : (
+                              <div style={{ width: 28, height: 28 }} />
                             )}
                           </div>
                         </td>
