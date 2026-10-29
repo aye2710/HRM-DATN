@@ -101,12 +101,12 @@ export const EmployeePayslip = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {/* Select Period */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B' }}>Kỳ lương:</span>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap' }}>Kỳ lương:</span>
             <select
               className="form-input"
               value={selectedPayslip?.id || ''}
               onChange={e => setSelectedPayslip(payslips.find(p => p.id === e.target.value) || displaySlip)}
-              style={{ height: '38px', backgroundColor: '#F8FAFC', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A' }}
+              style={{ width: 'auto', height: '38px', backgroundColor: '#F8FAFC', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A' }}
             >
               {payslips.length > 0 ? (
                 payslips.map(p => (

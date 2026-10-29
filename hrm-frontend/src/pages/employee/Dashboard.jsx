@@ -1,164 +1,92 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Clock, CalendarRange, CheckCircle2, AlertCircle, User, Briefcase, 
-  Building, Shield, Award, Calendar, DollarSign, ArrowRight, Check,
-  AlertTriangle, FileText, ChevronRight, Sparkles, Send
+import {
+  Clock, CalendarRange, Award, DollarSign, FileText, Target, User, ArrowRight, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import axios from 'axios';
-import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 export const EmployeeDashboard = () => {
   const navigate = useNavigate();
-  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('vi-VN'));
-  const [currentDate, setCurrentDate] = useState(new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
-  
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
-  const [isCheckedOut, setIsCheckedOut] = useState(false);
-  const [checkInTime, setCheckInTime] = useState(null);
-  const [checkOutTime, setCheckOutTime] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentDate] = useState(
+    new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  );
 
-  // Quick stats
   const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [myAdjustments, setMyAdjustments] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState({ totalDays: 12, usedDays: 0 });
 
-  const fullName = localStorage.getItem('fullName') || 'Phạm Hoàng Long';
-  const role = localStorage.getItem('role') || 'EMPLOYEE';
-  const employeeCode = localStorage.getItem('employeeCode') || 'EMP-2026-001';
+  const fullName = localStorage.getItem('fullName') || 'Lê Văn Đôn';
+  const employeeCode = localStorage.getItem('employeeCode') || 'NV0144';
   const employeeId = localStorage.getItem('employeeId');
+  const token = localStorage.getItem('token');
 
-  // Clock interval
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString('vi-VN'));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const fetchOverview = async () => {
+      if (!employeeId) return;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-  // Fetch initial employee stats
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!employeeId) {
-        setLoading(false);
-        return;
-      }
       try {
-        // Lấy lịch sử công
-        const attRes = await axios.get(`http://localhost:5000/api/attendance/employee/${employeeId}`);
+        const [attRes, adjRes, leaveRes] = await Promise.all([
+          axios.get(`http://localhost:5000/api/attendance/employee/${employeeId}`, { headers }).catch(() => ({ data: [] })),
+          axios.get('http://localhost:5000/api/attendance/adjustments', { headers }).catch(() => ({ data: [] })),
+          axios.get(`http://localhost:5000/api/leaves/employee/${employeeId}`, { headers }).catch(() => ({ data: null }))
+        ]);
+
         const recordsList = Array.isArray(attRes.data) ? attRes.data : (attRes.data?.records || []);
-        if (recordsList.length >= 0) {
-          setAttendanceRecords(recordsList);
-          // Check if checked in today
-          const todayStr = new Date().toISOString().split('T')[0];
-          const todayRecord = recordsList.find(r => r.date && r.date.startsWith(todayStr));
-          if (todayRecord) {
-            if (todayRecord.checkIn) {
-              setIsCheckedIn(true);
-              setCheckInTime(new Date(todayRecord.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
-            }
-            if (todayRecord.checkOut) {
-              setIsCheckedOut(true);
-              setCheckOutTime(new Date(todayRecord.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
-            }
-          }
-        }
+        setAttendanceRecords(recordsList);
+        if (Array.isArray(adjRes.data)) setMyAdjustments(adjRes.data);
+        if (leaveRes.data?.balance) setLeaveBalance(leaveRes.data.balance);
       } catch (e) {
         console.error(e);
-      }
-
-      try {
-        // Lấy phép
-        const leaveRes = await axios.get(`http://localhost:5000/api/leaves/employee/${employeeId}`);
-        if (leaveRes.data?.balance) {
-          setLeaveBalance(leaveRes.data.balance);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
       }
     };
+    fetchOverview();
+  }, [employeeId, token]);
 
-    fetchStats();
-  }, [employeeId]);
-
-  const handleCheckIn = async () => {
-    if (!employeeId) return toast.error('Lỗi: Không tìm thấy ID nhân viên');
-    try {
-      await axios.post('http://localhost:5000/api/attendance/checkin', { employeeId });
-      setIsCheckedIn(true);
-      const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-      setCheckInTime(timeStr);
-      toast.success(`Check-in thành công lúc ${timeStr}! Chúc bạn ngày làm việc hiệu quả.`);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Lỗi Check-in');
-    }
-  };
-
-  const handleCheckOut = async () => {
-    if (!employeeId) return toast.error('Lỗi: Không tìm thấy ID nhân viên');
-    try {
-      await axios.put('http://localhost:5000/api/attendance/checkout', { employeeId });
-      setIsCheckedOut(true);
-      const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-      setCheckOutTime(timeStr);
-      toast.success(`Check-out thành công lúc ${timeStr}! Hẹn gặp lại vào ngày mai.`);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Lỗi Check-out');
-    }
-  };
-
-  // Mock sample recent attendance if empty
-  const displayRecords = attendanceRecords.length > 0 ? attendanceRecords.slice(0, 5) : [
-    { date: '2026-10-07', checkIn: '2026-10-07T08:02:00', checkOut: '2026-10-07T17:35:00', status: 'ON_TIME', workHours: 8 },
-    { date: '2026-10-06', checkIn: '2026-10-06T08:14:00', checkOut: '2026-10-06T17:30:00', status: 'LATE', workHours: 7.8 },
-    { date: '2026-10-05', checkIn: '2026-10-05T07:55:00', checkOut: '2026-10-05T17:40:00', status: 'ON_TIME', workHours: 8 },
-    { date: '2026-10-04', checkIn: '2026-10-04T08:00:00', checkOut: '2026-10-04T17:30:00', status: 'ON_TIME', workHours: 8 },
-    { date: '2026-10-03', checkIn: '2026-10-03T07:58:00', checkOut: '2026-10-03T17:32:00', status: 'ON_TIME', workHours: 8 },
-  ];
+  const actualWorkingDays = attendanceRecords.reduce((acc, r) => acc + Number(r.workingDay || 0), 0);
+  const now = new Date();
+  const lateUsedCount = myAdjustments.filter(a => {
+    if (!a.date || a.status === 'REJECTED') return false;
+    const d = new Date(a.date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && String(a.type || '').toLowerCase().includes('đi muộn');
+  }).length;
+  const pendingCount = myAdjustments.filter(a => a.status === 'PENDING').length;
 
   return (
-    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
       
-      {/* 1. Header Banner Chào Mừng Sang Trọng */}
+      {/* 1. Welcome Banner */}
       <div style={{
         background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
         color: '#FFFFFF',
-        borderRadius: '1rem',
-        padding: '1.75rem 2rem',
+        borderRadius: '0.85rem',
+        padding: '1.35rem 1.6rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: '1.25rem',
-        position: 'relative',
-        overflow: 'hidden',
-        boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.2)'
+        gap: '1rem',
+        boxShadow: '0 8px 20px -5px rgba(15, 23, 42, 0.18)'
       }}>
-        {/* Glow decoration */}
-        <div style={{ position: 'absolute', top: '-40%', right: '-5%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(37,99,235,0.3) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{
-            width: 58,
-            height: 58,
+            width: 50,
+            height: 50,
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #2563EB, #3B82F6)',
             color: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '1.5rem',
+            fontSize: '1.3rem',
             fontWeight: 800,
-            border: '2px solid rgba(255,255,255,0.2)',
-            boxShadow: '0 4px 12px rgba(37,99,235,0.4)'
+            border: '2px solid rgba(255,255,255,0.2)'
           }}>
             {fullName.charAt(0).toUpperCase()}
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
-              <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+              <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#FFFFFF' }}>
                 Xin chào, {fullName}!
               </h1>
               <span style={{
@@ -167,364 +95,217 @@ export const EmployeeDashboard = () => {
                 color: '#93C5FD',
                 padding: '2px 8px',
                 borderRadius: '9999px',
-                fontSize: '0.75rem',
+                fontSize: '0.74rem',
                 fontWeight: 600
               }}>
                 {employeeCode}
               </span>
             </div>
-            <p style={{ margin: 0, color: '#94A3B8', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>Phòng ban: <strong>Công nghệ Thông tin & Phần mềm</strong></span>
-              <span>•</span>
-              <span style={{ textTransform: 'capitalize' }}>{currentDate}</span>
+            <p style={{ margin: 0, color: '#94A3B8', fontSize: '0.8rem' }}>
+              Công ty TNHH Thương Mại Dịch Vụ và Công Nghệ LLA • <span style={{ textTransform: 'capitalize' }}>{currentDate}</span>
             </p>
           </div>
         </div>
 
-        {/* Quick action buttons */}
-        <div style={{ display: 'flex', gap: '0.75rem', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => navigate('/employee/attendance')}
+            className="btn"
+            style={{
+              backgroundColor: '#F59E0B',
+              border: 'none',
+              color: '#FFFFFF',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              height: '36px',
+              padding: '0 0.95rem'
+            }}
+          >
+            <Clock size={15} /> Bảng công & Giải trình
+          </button>
           <button
             onClick={() => navigate('/employee/leave')}
             className="btn btn-outline"
             style={{
               backgroundColor: 'rgba(255,255,255,0.08)',
-              borderColor: 'rgba(255,255,255,0.15)',
+              borderColor: 'rgba(255,255,255,0.18)',
               color: '#FFFFFF',
-              fontSize: '0.8125rem',
+              fontSize: '0.8rem',
               fontWeight: 600,
-              height: '38px',
-              padding: '0 1rem'
+              height: '36px',
+              padding: '0 0.95rem'
             }}
           >
-            <CalendarRange size={16} /> Xin nghỉ phép
+            <CalendarRange size={15} /> Xin nghỉ phép
           </button>
           <button
             onClick={() => navigate('/employee/payslip')}
             className="btn btn-primary"
             style={{
-              fontSize: '0.8125rem',
+              fontSize: '0.8rem',
               fontWeight: 600,
-              height: '38px',
-              padding: '0 1rem'
+              height: '36px',
+              padding: '0 0.95rem'
             }}
           >
-            <DollarSign size={16} /> Xem phiếu lương
+            <DollarSign size={15} /> Xem phiếu lương
           </button>
         </div>
       </div>
 
-      {/* 2. Grid Chấm Công & Chỉ Số Cá Nhân */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
+      {/* 2. 4 Thẻ Chỉ số Tổng quan Cá nhân */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.9rem' }}>
+        <div
+          onClick={() => navigate('/employee/attendance')}
+          style={{ backgroundColor: '#FFFFFF', borderRadius: '0.75rem', padding: '1.1rem', border: '1px solid #E2E8F0', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Công tích lũy tháng</span>
+            <Award size={18} color="#059669" />
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#059669' }}>
+            {actualWorkingDays > 0 ? actualWorkingDays.toFixed(1).replace('.0', '') : 21} <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>/ 22 công</span>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: '#2563EB', fontWeight: 600, marginTop: '0.25rem' }}>
+            Xem chi tiết bảng công →
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate('/employee/attendance')}
+          style={{ backgroundColor: '#FFFFFF', borderRadius: '0.75rem', padding: '1.1rem', border: '1px solid #E2E8F0', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Hạn mức Xin đi muộn</span>
+            <Clock size={18} color="#D97706" />
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: lateUsedCount >= 3 ? '#DC2626' : '#D97706' }}>
+            {lateUsedCount} <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>/ 3 lần miễn phạt</span>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '0.25rem' }}>
+            Đi muộn 5p – 1h có đơn được tính công
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate('/employee/leave')}
+          style={{ backgroundColor: '#FFFFFF', borderRadius: '0.75rem', padding: '1.1rem', border: '1px solid #E2E8F0', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Quỹ phép năm còn</span>
+            <CalendarRange size={18} color="#2563EB" />
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0F172A' }}>
+            {Number(leaveBalance.totalDays) - Number(leaveBalance.usedDays)} <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>ngày</span>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600, marginTop: '0.25rem' }}>
+            Đã dùng: {Number(leaveBalance.usedDays)} / {Number(leaveBalance.totalDays)} ngày
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate('/employee/attendance')}
+          style={{ backgroundColor: '#FFFFFF', borderRadius: '0.75rem', padding: '1.1rem', border: '1px solid #E2E8F0', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Đơn xác nhận chờ duyệt</span>
+            <FileText size={18} color="#7C3AED" />
+          </div>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#7C3AED' }}>
+            {pendingCount} <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>đơn</span>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '0.25rem' }}>
+            Tổng cộng {myAdjustments.length} đơn đã gửi
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Nội quy Chấm công LLA & Lối tắt nhanh */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1rem' }}>
         
-        {/* KHỐI 1: Máy Chấm Công Trực Tuyến Hiện Đại */}
+        {/* Cột trái: Tóm tắt Quy định Chấm công Công ty LLA */}
         <div style={{
           backgroundColor: '#FFFFFF',
-          borderRadius: '1rem',
-          padding: '1.75rem',
+          borderRadius: '0.75rem',
+          padding: '1.2rem 1.35rem',
           border: '1px solid #E2E8F0',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between'
+          gap: '0.75rem'
         }}>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Clock size={20} color="#2563EB" />
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
-                    Điểm danh & Chấm công hôm nay
-                  </h3>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
-                    Khung giờ chuẩn: <strong>08:30 - 17:30</strong> (Ân hạn vào ca đến 08:45)
-                  </div>
-                </div>
-              </div>
-              <span style={{ fontSize: '0.75rem', color: '#1E40AF', fontWeight: 600, backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 8px', borderRadius: '4px' }}>
-                Ca HC (08:30 - 17:30)
-              </span>
-            </div>
-
-            {/* Đồng hồ số lớn phong cách Tech */}
-            <div style={{
-              backgroundColor: '#F8FAFC',
-              borderRadius: '0.75rem',
-              border: '1px solid #E2E8F0',
-              padding: '1.25rem',
-              textAlign: 'center',
-              marginBottom: '1.25rem'
-            }}>
-              <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, marginBottom: '0.25rem' }}>
-                Thời gian hệ thống
-              </div>
-              <div style={{
-                fontSize: '2.8rem',
-                fontWeight: 800,
-                color: '#0F172A',
-                fontFamily: 'monospace',
-                letterSpacing: '2px',
-                lineHeight: 1
-              }}>
-                {currentTime}
-              </div>
-              <div style={{ fontSize: '0.8125rem', color: '#64748B', marginTop: '0.35rem' }}>
-                Trạng thái: {' '}
-                <strong style={{
-                  color: isCheckedIn ? (isCheckedOut ? '#7C3AED' : '#059669') : '#D97706'
-                }}>
-                  {isCheckedIn ? (isCheckedOut ? 'Đã hoàn thành ngày công' : 'Đang trong giờ làm việc') : 'Chưa điểm danh vào'}
-                </strong>
-              </div>
-            </div>
-
-            {/* Thời gian vào/ra trong ngày */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <div style={{ padding: '0.85rem', backgroundColor: '#F8FAFC', borderRadius: '0.5rem', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block' }}>Giờ Check-in</span>
-                <strong style={{ fontSize: '1.1rem', color: isCheckedIn ? '#059669' : '#94A3B8' }}>
-                  {checkInTime || '--:--'}
-                </strong>
-              </div>
-              <div style={{ padding: '0.85rem', backgroundColor: '#F8FAFC', borderRadius: '0.5rem', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block' }}>Giờ Check-out</span>
-                <strong style={{ fontSize: '1.1rem', color: isCheckedOut ? '#7C3AED' : '#94A3B8' }}>
-                  {checkOutTime || '--:--'}
-                </strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Nút bấm Check-in / Check-out lớn */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
-            <button
-              onClick={handleCheckIn}
-              disabled={isCheckedIn}
-              style={{
-                height: '46px',
-                borderRadius: '0.5rem',
-                border: 'none',
-                backgroundColor: isCheckedIn ? '#E2E8F0' : '#2563EB',
-                color: isCheckedIn ? '#64748B' : '#FFFFFF',
-                fontSize: '0.925rem',
-                fontWeight: 700,
-                cursor: isCheckedIn ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.45rem',
-                boxShadow: isCheckedIn ? 'none' : '0 4px 10px rgba(37, 99, 235, 0.25)',
-                transition: 'all 0.2s'
-              }}
-            >
-              {isCheckedIn ? <Check size={18} /> : null}
-              {isCheckedIn ? 'Đã Check-in' : 'Check-in (Vào)'}
-            </button>
-
-            <button
-              onClick={handleCheckOut}
-              disabled={!isCheckedIn || isCheckedOut}
-              style={{
-                height: '46px',
-                borderRadius: '0.5rem',
-                border: isCheckedIn && !isCheckedOut ? 'none' : '1px solid #CBD5E1',
-                backgroundColor: isCheckedIn && !isCheckedOut ? '#DC2626' : (isCheckedOut ? '#E2E8F0' : '#F8FAFC'),
-                color: isCheckedIn && !isCheckedOut ? '#FFFFFF' : '#94A3B8',
-                fontSize: '0.925rem',
-                fontWeight: 700,
-                cursor: (!isCheckedIn || isCheckedOut) ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.45rem',
-                boxShadow: isCheckedIn && !isCheckedOut ? '0 4px 10px rgba(220, 38, 38, 0.25)' : 'none',
-                transition: 'all 0.2s'
-              }}
-            >
-              {isCheckedOut ? <Check size={18} /> : null}
-              {isCheckedOut ? 'Đã Check-out' : 'Check-out (Về)'}
-            </button>
-          </div>
-        </div>
-
-        {/* KHỐI 2: Chỉ Số Cá Nhân & Quỹ Phép Tháng */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', flex: 1 }}>
-            
-            {/* Thẻ 1: Quỹ Phép */}
-            <div style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '1rem',
-              padding: '1.25rem',
-              border: '1px solid #E2E8F0',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B' }}>Quỹ phép còn</span>
-                <div style={{ width: 34, height: 34, borderRadius: '8px', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <CalendarRange size={18} />
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>
-                  {Number(leaveBalance.totalDays) - Number(leaveBalance.usedDays)} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#64748B' }}>ngày</span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>
-                  Đã dùng: {Number(leaveBalance.usedDays)} / {Number(leaveBalance.totalDays)} ngày
-                </span>
-              </div>
-            </div>
-
-            {/* Thẻ 2: Công Thực Tế */}
-            <div style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '1rem',
-              padding: '1.25rem',
-              border: '1px solid #E2E8F0',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B' }}>Công chuẩn tháng</span>
-                <div style={{ width: 34, height: 34, borderRadius: '8px', backgroundColor: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Award size={18} />
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#059669', lineHeight: 1.1 }}>
-                  22 <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#64748B' }}>công</span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
-                  Chấm công chuẩn: 100%
-                </span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Banner Thông Tin Ca & Quy Chế */}
-          <div style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '1rem',
-            padding: '1.25rem 1.5rem',
-            border: '1px solid #E2E8F0',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '1rem'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <AlertTriangle size={20} />
-              </div>
-              <div>
-                <strong style={{ fontSize: '0.9rem', color: '#0F172A', display: 'block' }}>Quy chế ân hạn đi muộn</strong>
-                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Được ân hạn tối đa 15 phút mỗi tháng không bị tính đi trễ.</span>
-              </div>
-            </div>
-            <button 
-              onClick={() => toast('Nếu quên chấm công, vui lòng tạo đơn xin nghỉ hoặc liên hệ HR để điều chỉnh.')}
-              className="btn btn-outline"
-              style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', height: '32px' }}
-            >
-              Giải trình công
-            </button>
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* 3. Bảng Lịch Sử Chấm Công Gần Đây */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '1rem',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        overflow: 'hidden'
-      }}>
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
-              Lịch sử chấm công 5 ngày gần nhất
-            </h3>
-            <span style={{ fontSize: '0.8125rem', color: '#64748B' }}>
-              Dữ liệu được cập nhật tự động từ máy chấm công vân tay / web kiosk
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ fontSize: '0.95rem', color: '#0F172A' }}>
+              Sổ tay Quy định Chấm công (Công ty LLA)
+            </strong>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#1D4ED8', backgroundColor: '#EFF6FF', padding: '2px 8px', borderRadius: '999px' }}>
+              Ca HC: 08:00 - 17:30
             </span>
           </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', fontSize: '0.8rem', color: '#334155', lineHeight: 1.45 }}>
+            <div style={{ padding: '0.6rem 0.75rem', backgroundColor: '#F8FAFC', borderRadius: '0.5rem', border: '1px solid #E2E8F0' }}>
+              <strong>1. Quên Check-in / Check-out hoặc chưa làm dấu vân tay:</strong><br />
+              Nhân viên vào mục <strong>Chấm công & Giải trình</strong> lập <em>"Đơn xin xác nhận chấm công"</em> (ghi rõ ngày và lý do), in biên bản trình <strong>Trưởng bộ phận (PM)</strong> ký xác nhận rồi nộp về Phòng <strong>HCNS - Kế Toán</strong> duyệt.
+            </div>
+            <div style={{ padding: '0.6rem 0.75rem', backgroundColor: '#FFFBEB', borderRadius: '0.5rem', border: '1px solid #FDE68A' }}>
+              <strong>2. Quy định Đi muộn từ 5 phút đến 1 tiếng (08:06 – 09:00):</strong><br />
+              - Phải làm <em>"Đơn xin phép đi muộn"</em> trình Trưởng bộ phận phê duyệt (nếu không làm đơn sẽ bị phạt).<br />
+              - Có đơn được tính đủ công và miễn phạt <strong>tối đa 3 lần/tháng</strong>; từ lần thứ 4 trở đi trong tháng sẽ bị phạt.
+            </div>
+            <div style={{ padding: '0.6rem 0.75rem', backgroundColor: '#FEF2F2', borderRadius: '0.5rem', border: '1px solid #FECACA', color: '#991B1B' }}>
+              <strong>3. Đi muộn quá 1 tiếng (Sau 09:00):</strong><br />
+              Sẽ bị <strong>mất công buổi sáng (0.5 công)</strong> hoặc mất công ngày làm việc hôm đó.
+            </div>
+          </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <th style={{ padding: '0.85rem 1.25rem', fontWeight: 700 }}>Ngày làm việc</th>
-                <th style={{ padding: '0.85rem 1.25rem', fontWeight: 700 }}>Giờ vào</th>
-                <th style={{ padding: '0.85rem 1.25rem', fontWeight: 700 }}>Giờ ra</th>
-                <th style={{ padding: '0.85rem 1.25rem', fontWeight: 700 }}>Tổng giờ làm</th>
-                <th style={{ padding: '0.85rem 1.25rem', fontWeight: 700 }}>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayRecords.map((rec, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                  <td style={{ padding: '0.85rem 1.25rem', fontWeight: 600, color: '#0F172A' }}>
-                    {rec.date ? new Date(rec.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : `Ngày ${i+1}`}
-                  </td>
-                  <td style={{ padding: '0.85rem 1.25rem', color: '#1E293B' }}>
-                    {rec.checkIn ? new Date(rec.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '08:00'}
-                  </td>
-                  <td style={{ padding: '0.85rem 1.25rem', color: '#1E293B' }}>
-                    {rec.checkOut ? new Date(rec.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '17:30'}
-                  </td>
-                  <td style={{ padding: '0.85rem 1.25rem', fontWeight: 600, color: '#0F172A' }}>
-                    {rec.workHours || 8} giờ
-                  </td>
-                  <td style={{ padding: '0.85rem 1.25rem' }}>
-                    {rec.status === 'NORMAL' && (
-                      <span style={{ backgroundColor: '#DCFCE7', color: '#15803D', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
-                        Đúng giờ
-                      </span>
-                    )}
-                    {rec.status === 'LATE' && (
-                      <span style={{ backgroundColor: '#FEF3C7', color: '#B45309', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
-                        Đi muộn
-                      </span>
-                    )}
-                    {rec.status === 'EARLY_LEAVE' && (
-                      <span style={{ backgroundColor: '#FFEDD5', color: '#C2410C', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
-                        Về sớm
-                      </span>
-                    )}
-                    {rec.status === 'ON_LEAVE' && (
-                      <span style={{ backgroundColor: '#E0E7FF', color: '#4338CA', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
-                        Nghỉ phép
-                      </span>
-                    )}
-                    {rec.status === 'HOLIDAY' && (
-                      <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
-                        Ngày Lễ
-                      </span>
-                    )}
-                    {rec.status === 'ABSENT' && (
-                      <span style={{ backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '3px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
-                        Vắng mặt
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Cột phải: Truy cập nhanh các phân hệ cá nhân */}
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '0.75rem',
+          padding: '1.2rem 1.35rem',
+          border: '1px solid #E2E8F0',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: '0.75rem'
+        }}>
+          <strong style={{ fontSize: '0.95rem', color: '#0F172A' }}>
+            Tiện ích Cổng Nhân viên (Self-Service)
+          </strong>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+            {[
+              { to: '/employee/attendance', title: 'Bảng công & Giải trình', desc: 'Tra cứu vân tay, in Đơn xác nhận công & Đơn xin đi muộn', icon: <Clock size={18} color="#2563EB" />, bg: '#EFF6FF' },
+              { to: '/employee/leave', title: 'Quản lý Nghỉ phép', desc: 'Đăng ký nghỉ phép năm, nghỉ ốm, làm thêm giờ', icon: <CalendarRange size={18} color="#059669" />, bg: '#ECFDF5' },
+              { to: '/employee/payslip', title: 'Phiếu lương Điện tử', desc: 'Tra cứu bảng lương chi tiết, phụ cấp & khấu trừ', icon: <DollarSign size={18} color="#D97706" />, bg: '#FFFBEB' },
+              { to: '/employee/kpi', title: 'Mục tiêu & KPI', desc: 'Tự đánh giá hiệu suất công việc định kỳ', icon: <Target size={18} color="#7C3AED" />, bg: '#F3E8FF' }
+            ].map((item, idx) => (
+              <div
+                key={idx}
+                onClick={() => navigate(item.to)}
+                style={{
+                  padding: '0.85rem',
+                  borderRadius: '0.65rem',
+                  border: '1px solid #E2E8F0',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.4rem',
+                  transition: 'all 0.15s'
+                }}
+              >
+                <div style={{ width: 34, height: 34, borderRadius: '8px', backgroundColor: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {item.icon}
+                </div>
+                <strong style={{ fontSize: '0.84rem', color: '#0F172A' }}>{item.title}</strong>
+                <span style={{ fontSize: '0.73rem', color: '#64748B', lineHeight: 1.35 }}>{item.desc}</span>
+              </div>
+            ))}
+          </div>
         </div>
+
       </div>
-
     </div>
   );
 };

@@ -110,12 +110,12 @@ export const EmployeeKPI = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B' }}>Chu kỳ đánh giá:</span>
+          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap' }}>Chu kỳ đánh giá:</span>
           <select
             className="form-input"
             value={selectedQuarter}
             onChange={e => setSelectedQuarter(e.target.value)}
-            style={{ height: '38px', backgroundColor: '#F8FAFC', fontWeight: 600, color: '#0F172A' }}
+            style={{ width: 'auto', height: '38px', backgroundColor: '#F8FAFC', fontWeight: 600, color: '#0F172A' }}
           >
             <option value="Q3-2026">Quý 3 / 2026 (Đang diễn ra)</option>
             <option value="Q2-2026">Quý 2 / 2026 (Đã chốt: Xuất sắc - 9.4)</option>

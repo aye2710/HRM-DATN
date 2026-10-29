@@ -41,9 +41,7 @@ const NavItem = ({ item }) => {
   const [isOpen, setIsOpen] = useState(isActive);
 
   React.useEffect(() => {
-    if (isActive) {
-      setIsOpen(true);
-    }
+    setIsOpen(isActive);
   }, [isActive]);
 
   if (item.children) {
@@ -62,13 +60,13 @@ const NavItem = ({ item }) => {
         </div>
         
         {isOpen && (
-          <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '1.5rem', marginTop: '0.25rem', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '1.35rem', marginTop: '0.15rem', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
             {item.children.map(child => (
               <NavLink
                 key={child.to}
                 to={child.to}
                 className={({ isActive: childActive }) => `nav-link ${childActive ? 'active' : ''}`}
-                style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                style={{ padding: '0.32rem 0.85rem', fontSize: '0.82rem' }}
               >
                 {child.icon ? child.icon : <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'currentColor' }} />}
                 <span>{child.label}</span>
@@ -112,33 +110,33 @@ const Sidebar = ({ links, collapsed }) => {
 
   return (
     <div className="sidebar">
-      <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <h1 style={{ margin: 0, color: '#fff', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{ width: 32, height: 32, backgroundColor: 'var(--primary)', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '1rem' }}>
-            <Shield size={18} />
+      <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <h1 style={{ margin: 0, color: '#fff', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: 30, height: 30, backgroundColor: 'var(--primary)', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '0.95rem', flexShrink: 0 }}>
+            <Shield size={16} />
           </div>
           <div className="flex-col">
             <span style={{ lineHeight: 1, fontWeight: 800, letterSpacing: '-0.01em' }}>LLA HRM</span>
-            <span style={{ fontSize: '0.7rem', color: '#93C5FD', fontWeight: 500 }}>Enterprise Platform</span>
+            <span style={{ fontSize: '0.68rem', color: '#93C5FD', fontWeight: 500 }}>Enterprise Platform</span>
           </div>
         </h1>
       </div>
       
-      <nav style={{ padding: '1rem 0', display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1, overflowY: 'auto' }}>
+      <nav style={{ padding: '0.65rem 0', display: 'flex', flexDirection: 'column', gap: '0.15rem', flex: 1, overflowY: 'auto' }}>
         {links.map((link, index) => (
           <NavItem key={index} item={link} />
         ))}
       </nav>
       
-      <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{ padding: '0.9rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <NavLink
           to={settingsPath}
-          style={{ color: '#a1b0cb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', marginBottom: '1rem' }}
+          style={{ color: '#a1b0cb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', marginBottom: '0.65rem' }}
         >
-          <Settings size={18} /> {isEmployeePortal ? 'Thông tin tài khoản' : 'Cấu hình tham số'}
+          <Settings size={16} /> {isEmployeePortal ? 'Thông tin tài khoản' : 'Cấu hình tham số'}
         </NavLink>
-        <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: '#a1b0cb', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', cursor: 'pointer', padding: 0 }}>
-          <LogOut size={18} /> Đăng xuất
+        <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: '#a1b0cb', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', cursor: 'pointer', padding: 0 }}>
+          <LogOut size={16} /> Đăng xuất
         </button>
       </div>
     </div>
