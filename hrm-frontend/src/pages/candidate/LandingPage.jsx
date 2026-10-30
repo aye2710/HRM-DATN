@@ -385,27 +385,6 @@ export const CandidateLandingPage = () => {
           {candidateUser ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <button 
-                onClick={() => navigate('/employee/login')} 
-                className="btn btn-outline"
-                style={{
-                  height: '38px',
-                  borderRadius: '0.5rem',
-                  padding: '0 0.85rem',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  borderColor: '#A7F3D0',
-                  color: '#065F46',
-                  backgroundColor: '#ECFDF5',
-                  cursor: 'pointer'
-                }}
-              >
-                <Users size={15} color="#059669" /> Cổng Nhân Sự
-              </button>
-
-              <button 
                 onClick={() => setShowAppsModal(true)} 
                 className="btn btn-primary"
                 style={{
@@ -471,27 +450,6 @@ export const CandidateLandingPage = () => {
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <button 
-                onClick={() => navigate('/employee/login')}
-                className="btn btn-outline" 
-                style={{
-                  height: '38px',
-                  borderRadius: '0.5rem',
-                  padding: '0 0.85rem',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  borderColor: '#A7F3D0',
-                  color: '#065F46',
-                  backgroundColor: '#ECFDF5',
-                  cursor: 'pointer'
-                }} 
-              >
-                <Users size={16} color="#059669" /> Cổng Nhân Sự
-              </button>
-
               <button 
                 onClick={() => navigate('/candidate/login')}
                 className="btn btn-primary" 
@@ -1398,26 +1356,6 @@ export const CandidateLandingPage = () => {
 
             {/* Liên kết Cổng Nhân Sự & Cổng Quản Trị */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button 
-                onClick={() => navigate('/employee/login')}
-                title="Dành cho Cán bộ & Nhân viên LLA"
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#34D399',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  padding: '4px 8px',
-                  borderRadius: '4px'
-                }}
-              >
-                <Users size={14} /> Cổng Nhân Sự (Cán bộ nhân viên)
-              </button>
-
               <button 
                 onClick={() => navigate('/admin')}
                 title="Dành cho Quản trị viên và Hội đồng chấm ĐATN"
