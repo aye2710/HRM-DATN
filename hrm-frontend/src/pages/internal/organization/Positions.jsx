@@ -101,7 +101,7 @@ const generatePositionCode = (title, deptCode = '') => {
 };
 
 // Danh mục chuẩn các cấp bậc thâm niên trong doanh nghiệp
-export const POSITION_LEVELS = [
+const POSITION_LEVELS = [
   { value: 'Intern', label: 'Intern (Thực tập sinh)' },
   { value: 'Fresher', label: 'Fresher (Mới tốt nghiệp)' },
   { value: 'Junior', label: 'Junior (Sơ cấp)' },
@@ -411,15 +411,59 @@ export const Positions = () => {
                       </span>
                     </td>
                     <td className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => setLockTarget(pos)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title={pos.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}>
-                          {pos.status === 'ACTIVE' ? <Unlock size={16} color="var(--success)" /> : <Lock size={16} color="var(--warning)" />}
+                      <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(3, 28px)', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                        <button 
+                          onClick={() => setLockTarget(pos)} 
+                          style={{
+                            height: 28, width: 28, padding: 0,
+                            borderRadius: '6px',
+                            backgroundColor: pos.status === 'ACTIVE' ? '#F0FDF4' : '#FEF3C7',
+                            border: `1px solid ${pos.status === 'ACTIVE' ? '#BBF7D0' : '#FDE68A'}`,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title={pos.status === 'ACTIVE' ? 'Khóa vị trí (Ngưng hoạt động)' : 'Mở khóa vị trí (Hoạt động)'}
+                        >
+                          {pos.status === 'ACTIVE' ? <Unlock size={14} color="#16A34A" /> : <Lock size={14} color="#D97706" />}
                         </button>
-                        <button onClick={() => handleOpenEdit(pos)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title="Chỉnh sửa">
-                          <Edit2 size={16} color="var(--text-muted)" />
+                        
+                        <button 
+                          onClick={() => handleOpenEdit(pos)} 
+                          style={{
+                            height: 28, width: 28, padding: 0,
+                            borderRadius: '6px',
+                            backgroundColor: '#F8FAFC',
+                            border: '1px solid #E2E8F0',
+                            color: '#475569',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#EFF6FF'; e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.color = '#2563EB'; }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#F8FAFC'; e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#475569'; }}
+                          title="Chỉnh sửa thông tin vị trí"
+                        >
+                          <Edit2 size={14} />
                         </button>
-                        <button onClick={() => setDeleteId(pos.id)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} title="Xóa">
-                          <Trash2 size={16} color="var(--error)" />
+                        
+                        <button 
+                          onClick={() => setDeleteId(pos.id)} 
+                          style={{
+                            height: 28, width: 28, padding: 0,
+                            borderRadius: '6px',
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #E2E8F0',
+                            color: '#94A3B8',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#FEF2F2'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.color = '#EF4444'; }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#FFFFFF'; e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#94A3B8'; }}
+                          title="Xóa vị trí"
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
