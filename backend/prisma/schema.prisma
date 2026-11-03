@@ -223,6 +223,8 @@ enum DecisionType {
   TERMINATION
   REWARD
   DISCIPLINE
+  DEMOTION
+  RECRUITMENT
 }
 
 enum DecisionStatus {
@@ -730,6 +732,8 @@ model ReviewCycle {
   name        String   // e.g. Q1 2026
   startDate   DateTime
   endDate     DateTime
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
   reviews     PerformanceReview[]
 }
 
@@ -740,25 +744,37 @@ model KPI {
   description String
   target      Decimal
   achieved    Decimal  @default(0)
+  unit        String?  @default("%")
+  weight      Decimal? @default(20)
+  category    String?  @default("OUTPUT")
+  period      String?  @default("Q3-2026")
+  status      String?  @default("IN_PROGRESS")
+  createdAt   DateTime @default(now())
 }
 
 model PerformanceReview {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id])
+  employee      Employee    @relation(fields: [employeeId], references: [id])
   reviewCycleId String
   reviewCycle   ReviewCycle @relation(fields: [reviewCycleId], references: [id])
-  score         Decimal
-  comments      String?  @db.Text
+  score         Decimal     @default(0)
+  selfScore     Decimal?    @default(0)
+  finalGrade    String?     @default("B") // A, B, C, D
+  comments      String?     @db.Text
+  status        String?     @default("PENDING") // PENDING, SELF_EVALUATED, COMPLETED
+  createdAt     DateTime    @default(now())
 }
 
 model KPITemplate {
   id          String   @id @default(uuid())
   name        String
   department  String
-  criteria    Int
-  weight      String
+  criteria    Int      @default(1)
+  weight      String   @default("100%")
   status      String   @default("Active")
+  items       String?  @db.Text // JSON danh sách tiêu chuẩn [{ title, category, target, unit, weight, description }]
+  createdAt   DateTime @default(now())
 }
 
 // ==========================================

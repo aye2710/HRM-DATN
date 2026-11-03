@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useParams, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { PortalSelection } from './pages/PortalSelection';
 import { AppLayout } from './layouts/AppLayout';
@@ -66,7 +66,7 @@ import { EmployeeLogin } from './pages/employee/EmployeeLogin';
 import { CandidateLandingPage } from './pages/candidate/LandingPage';
 import { CandidateAuthPage } from './pages/candidate/CandidateAuthPage';
 
-import { LayoutDashboard, Users, Clock, CalendarRange, FileText, ShieldCheck, Target, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User, UserMinus } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, CalendarRange, FileText, ShieldCheck, Target, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User, UserMinus, FileSignature } from 'lucide-react';
 
 const internalLinks = [
   { to: '/internal/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -95,14 +95,21 @@ const internalLinks = [
     ]
   },
   {
-    to: '/internal/employees', label: 'Nhân sự', icon: <Users size={20} />,
+    to: '/internal/decisions', label: 'Quyết định', icon: <FileSignature size={20} />,
     children: [
-      { to: '/internal/employees/profiles', label: 'Hồ sơ cá nhân' },
-      { to: '/internal/employees/decisions', label: 'Quyết định nhân sự' },
-      { to: '/internal/employees/contracts', label: 'Hợp đồng lao động' },
-      { to: '/internal/employees/transfers', label: 'Điều chuyển' },
+      { to: '/internal/decisions/promotion', label: 'Bổ nhiệm' },
+      { to: '/internal/decisions/demotion', label: 'Miễn nhiệm' },
+      { to: '/internal/decisions/transfer', label: 'Điều chuyển' },
+      { to: '/internal/decisions/termination', label: 'Nghỉ việc' },
+      { to: '/internal/decisions/recruitment', label: 'Tuyển dụng' },
+      { to: '/internal/decisions/salary', label: 'Tăng / Giảm lương chính' },
+      { to: '/internal/decisions/reward', label: 'Khen thưởng' },
+      { to: '/internal/decisions/discipline', label: 'Kỷ luật nhân sự' },
+      { to: '/internal/decisions/all', label: 'Tất cả quyết định' },
     ]
   },
+  { to: '/internal/employees', label: 'Nhân sự', icon: <Users size={20} /> },
+  { to: '/internal/contracts', label: 'Hợp đồng', icon: <FileText size={20} /> },
   {
     to: '/internal/attendance', label: 'Chấm công', icon: <Clock size={20} />,
     children: [
@@ -186,6 +193,11 @@ const ProtectedRoute = ({ allowedRole }) => {
 };
 
 function App() {
+  const LegacyContractRedirect = () => {
+    const { id } = useParams();
+    const location = useLocation();
+    return <Navigate to={`/internal/contracts/${id}${location.search}`} replace />;
+  };
   return (
     <>
       <Toaster position="top-right" />
@@ -235,16 +247,34 @@ function App() {
               <Route path="offboarding/initiate" element={<OffboardingInitiate />} />
               <Route path="offboarding/history" element={<OffboardingHistory />} />
 
-              <Route path="employees/profiles" element={<EmployeeList />} />
+              {/* Module Quyết Định Độc Lập */}
+              <Route path="decisions" element={<Navigate to="all" replace />} />
+              <Route path="decisions/all" element={<Decisions fixedType="ALL" />} />
+              <Route path="decisions/recruitment" element={<Decisions fixedType="RECRUITMENT" />} />
+              <Route path="decisions/promotion" element={<Decisions fixedType="PROMOTION" />} />
+              <Route path="decisions/demotion" element={<Decisions fixedType="DEMOTION" />} />
+              <Route path="decisions/transfer" element={<Decisions fixedType="TRANSFER" />} />
+              <Route path="decisions/salary" element={<Decisions fixedType="SALARY_ADJUSTMENT" />} />
+              <Route path="decisions/reward" element={<Decisions fixedType="REWARD" />} />
+              <Route path="decisions/discipline" element={<Decisions fixedType="DISCIPLINE" />} />
+              <Route path="decisions/termination" element={<Decisions fixedType="TERMINATION" />} />
+              <Route path="decisions/create" element={<DecisionCreate />} />
+              <Route path="decisions/:id" element={<DecisionDetail />} />
+
+              <Route path="employees" element={<EmployeeList />} />
+              <Route path="employees/profiles" element={<Navigate to="/internal/employees" replace />} />
+              <Route path="employees/:id" element={<EmployeeDetail />} />
+              <Route path="contracts" element={<Contracts />} />
+              <Route path="contracts/:id" element={<ContractDetail />} />
               <Route path="employees/profiles/:id" element={<EmployeeDetail />} />
               <Route path="employees/decisions" element={<Decisions />} />
               <Route path="employees/decisions/create" element={<DecisionCreate />} />
               <Route path="employees/decisions/:id" element={<DecisionDetail />} />
               <Route path="employees/jobs" element={<Navigate to="/internal/employees/decisions" replace />} />
-              <Route path="employees/contracts" element={<Contracts />} />
-              <Route path="employees/contracts/:id" element={<ContractDetail />} />
-              <Route path="employees/transfers" element={<Transfers />} />
-              <Route path="employees/transfers/:id" element={<TransferDetail />} />
+              <Route path="employees/contracts" element={<Navigate to="/internal/contracts" replace />} />
+              <Route path="employees/contracts/:id" element={<LegacyContractRedirect />} />
+              <Route path="employees/transfers" element={<Navigate to="/internal/decisions/transfer" replace />} />
+              <Route path="employees/transfers/:id" element={<Navigate to="/internal/decisions/transfer" replace />} />
               <Route path="employees/terminations" element={<Navigate to="/internal/offboarding/checklist" replace />} />
 
               <Route path="attendance/shifts" element={<Shifts />} />
@@ -299,3 +329,4 @@ function App() {
 }
 
 export default App;
+

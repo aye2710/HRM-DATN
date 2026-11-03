@@ -26,7 +26,7 @@ router.get('/reviews', authenticateToken, async (req: any, res: Response): Promi
       where,
       include: {
         employee: {
-          select: { fullName: true, code: true, department: { select: { name: true } } }
+          select: { fullName: true, code: true, department: { select: { name: true } }, position: { select: { title: true } } }
         },
         reviewCycle: true
       },
@@ -36,19 +36,28 @@ router.get('/reviews', authenticateToken, async (req: any, res: Response): Promi
     // Tính toán phân loại Curve (A, B, C)
     const formatted = reviews.map(r => {
       const scoreNum = Number(r.score);
-      let finalGrade = 'C';
-      if (scoreNum >= 90) finalGrade = 'A';
-      else if (scoreNum >= 70) finalGrade = 'B';
+      let finalGrade = (r as any).finalGrade || 'B';
+      if (!r.score || scoreNum === 0) {
+        finalGrade = 'B';
+      } else if (scoreNum >= 90) {
+        finalGrade = 'A';
+      } else if (scoreNum >= 70) {
+        finalGrade = 'B';
+      } else {
+        finalGrade = 'C';
+      }
       
       return {
         id: r.id,
         empId: r.employee.code,
         name: r.employee.fullName,
+        position: r.employee.position?.title || 'Chuyên viên',
         department: r.employee.department?.name || 'Không xác định',
-        selfScore: scoreNum,
+        selfScore: (r as any).selfScore ? Number((r as any).selfScore) : scoreNum,
         managerScore: scoreNum,
         finalGrade,
         note: r.comments || '',
+        status: (r as any).status || 'COMPLETED',
         cycleName: r.reviewCycle?.name || 'Kỳ đánh giá'
       };
     });
@@ -85,23 +94,43 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
     const formattedKpis = kpis.map((k) => {
       const targetVal = Number(k.target || 100);
       const achievedVal = Number(k.achieved || 0);
-      const progress = targetVal > 0 ? Math.min(100, Math.round((achievedVal / targetVal) * 100)) : 0;
+      const unitVal = (k as any).unit || '%';
+      const weightVal = Number((k as any).weight || 25);
+      
+      let progress = 0;
+      if (unitVal === 'ms' || unitVal === 'ngày') {
+        // Càng thấp càng tốt (ví dụ độ trễ hoặc số ngày hoàn thành)
+        progress = achievedVal <= targetVal ? 100 : Math.max(0, Math.round((targetVal / achievedVal) * 100));
+      } else {
+        progress = targetVal > 0 ? Math.min(100, Math.round((achievedVal / targetVal) * 100)) : 0;
+      }
       
       return {
         id: k.id,
         title: k.description,
-        target: `Chỉ tiêu: ${targetVal}`,
-        weight: 25,
+        target: `${targetVal} ${unitVal}`,
+        rawTarget: targetVal,
+        rawAchieved: achievedVal,
+        unit: unitVal,
+        weight: weightVal,
+        category: (k as any).category || 'OUTPUT',
+        period: (k as any).period || 'Q3-2026',
         progress,
         selfScore: (progress / 10).toFixed(1),
         status: progress >= 90 ? 'EXCELLENT' : (progress >= 70 ? 'ON_TRACK' : 'NEEDS_ATTENTION'),
-        comment: `Đạt ${achievedVal}/${targetVal}`
+        comment: `Đạt ${achievedVal}/${targetVal} ${unitVal}`
       };
     });
 
+    const totalWeight = formattedKpis.reduce((acc, curr) => acc + curr.weight, 0);
+    const weightedScore = formattedKpis.length > 0 
+      ? formattedKpis.reduce((acc, curr) => acc + (Number(curr.selfScore) * curr.weight / (totalWeight || 100)), 0).toFixed(1)
+      : '0.0';
+
     return res.json({
       kpis: formattedKpis,
-      reviews
+      reviews,
+      weightedScore
     });
   } catch (error) {
     console.error('Error fetching employee KPI:', error);
@@ -144,11 +173,18 @@ router.put('/reviews/:id', authenticateToken, managerOrHr, async (req: any, res:
       });
     }
 
+    const scoreNum = Number(score);
+    let finalGrade = 'C';
+    if (scoreNum >= 90) finalGrade = 'A';
+    else if (scoreNum >= 70) finalGrade = 'B';
+
     const updatedReview = await prisma.performanceReview.update({
       where: { id },
       data: {
-        score: Number(score),
-        comments: comments ? String(comments).trim() : null
+        score: scoreNum,
+        comments: comments ? String(comments).trim() : null,
+        finalGrade,
+        status: 'COMPLETED'
       }
     });
 
@@ -157,7 +193,7 @@ router.put('/reviews/:id', authenticateToken, managerOrHr, async (req: any, res:
       tableName: 'PerformanceReview',
       recordId: id,
       accountId: req.user?.accountId,
-      details: `Chấm điểm KPI nhân viên ${review.employee.fullName}: ${score} điểm. Nhận xét: ${comments || 'Không'}`
+      details: `Chấm điểm KPI nhân viên ${review.employee.fullName}: ${score} điểm (Hạng ${finalGrade}). Nhận xét: ${comments || 'Không'}`
     });
 
     return res.json(updatedReview);
@@ -169,6 +205,21 @@ router.put('/reviews/:id', authenticateToken, managerOrHr, async (req: any, res:
 // ==========================================
 // 2. KỲ ĐÁNH GIÁ (REVIEW CYCLES)
 // ==========================================
+
+// Lấy danh sách kỳ đánh giá
+router.get('/cycles', authenticateToken, async (req: Request, res: Response): Promise<any> => {
+  try {
+    const cycles = await prisma.reviewCycle.findMany({
+      include: {
+        _count: { select: { reviews: true } }
+      },
+      orderBy: { startDate: 'desc' }
+    });
+    return res.json(cycles);
+  } catch (error) {
+    return res.status(500).json({ error: 'Lỗi khi lấy danh sách kỳ đánh giá' });
+  }
+});
 
 // Tạo kỳ đánh giá mới (HR Manager Only)
 router.post('/cycles', authenticateToken, hrOnly, async (req: any, res: Response): Promise<any> => {
@@ -188,7 +239,8 @@ router.post('/cycles', authenticateToken, hrOnly, async (req: any, res: Response
       data: {
         name: String(name).trim(),
         startDate: start,
-        endDate: end
+        endDate: end,
+        status: 'ACTIVE'
       }
     });
     
@@ -200,6 +252,9 @@ router.post('/cycles', authenticateToken, hrOnly, async (req: any, res: Response
           employeeId: emp.id,
           reviewCycleId: cycle.id,
           score: 0,
+          selfScore: 0,
+          finalGrade: 'B',
+          status: 'PENDING',
           comments: 'Đang đánh giá...'
         }
       });
@@ -238,18 +293,21 @@ router.get('/templates', authenticateToken, async (req: Request, res: Response):
 // Tạo mẫu KPI mới (HR Manager Only)
 router.post('/templates', authenticateToken, hrOnly, async (req: any, res: Response): Promise<any> => {
   try {
-    const { name, department, criteria, weight, status } = req.body;
+    const { name, department, criteria, weight, status, items } = req.body;
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Tên mẫu KPI không được để trống.' });
     }
+
+    const stringifiedItems = typeof items === 'string' ? items : (items ? JSON.stringify(items) : null);
 
     const newTemplate = await prisma.kPITemplate.create({
       data: {
         name: String(name).trim(),
         department: department ? String(department).trim() : 'Toàn công ty',
-        criteria: Number(criteria) || 1,
-        weight: weight || '25%',
-        status: status || 'Active'
+        criteria: Number(criteria) || (Array.isArray(items) ? items.length : 1),
+        weight: weight || '100%',
+        status: status || 'Active',
+        items: stringifiedItems
       }
     });
 
@@ -264,6 +322,32 @@ router.post('/templates', authenticateToken, hrOnly, async (req: any, res: Respo
     return res.status(201).json(newTemplate);
   } catch (error) {
     return res.status(400).json({ error: 'Lỗi khi tạo mẫu KPI' });
+  }
+});
+
+// Cập nhật mẫu KPI (HR Manager Only)
+router.put('/templates/:id', authenticateToken, hrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const { name, department, criteria, weight, status, items } = req.body;
+
+    const stringifiedItems = typeof items === 'string' ? items : (items ? JSON.stringify(items) : undefined);
+
+    const updated = await prisma.kPITemplate.update({
+      where: { id },
+      data: {
+        ...(name && { name: String(name).trim() }),
+        ...(department && { department: String(department).trim() }),
+        ...(criteria !== undefined && { criteria: Number(criteria) }),
+        ...(weight && { weight }),
+        ...(status && { status }),
+        ...(stringifiedItems !== undefined && { items: stringifiedItems })
+      }
+    });
+
+    return res.json(updated);
+  } catch (error) {
+    return res.status(400).json({ error: 'Lỗi khi cập nhật mẫu KPI' });
   }
 });
 
@@ -293,7 +377,7 @@ router.delete('/templates/:id', authenticateToken, hrOnly, async (req: any, res:
 });
 
 // ==========================================
-// 4. QUẢN LÝ MỤC TIÊU CÁ NHÂN (KPI)
+// 4. QUẢN LÝ MỤC TIÊU CÁ NHÂN (KPI ASSIGNMENTS)
 // ==========================================
 
 // Lấy danh sách KPI (HR / Quản lý xem toàn bộ; Nhân viên chỉ xem KPI của mình)
@@ -310,7 +394,13 @@ router.get('/kpi', authenticateToken, async (req: any, res: Response): Promise<a
       where,
       include: {
         employee: {
-          select: { fullName: true, code: true }
+          select: { 
+            id: true, 
+            fullName: true, 
+            code: true,
+            department: { select: { id: true, name: true } },
+            position: { select: { id: true, title: true } }
+          }
         }
       },
       orderBy: { id: 'desc' }
@@ -321,10 +411,69 @@ router.get('/kpi', authenticateToken, async (req: any, res: Response): Promise<a
   }
 });
 
-// Gán KPI mới cho nhân viên (Quản lý / HR Only)
+// Giao bộ chỉ tiêu từ Mẫu KPI chuẩn (Bulk Assign from Template)
+router.post('/assign-template', authenticateToken, managerOrHr, async (req: any, res: Response): Promise<any> => {
+  try {
+    const { employeeId, templateId, period, customItems } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ error: 'Vui lòng chọn nhân viên áp dụng' });
+    }
+
+    let itemsToAssign = customItems;
+    if (!itemsToAssign || !Array.isArray(itemsToAssign) || itemsToAssign.length === 0) {
+      if (!templateId) return res.status(400).json({ error: 'Vui lòng chọn Mẫu KPI' });
+      const template = await prisma.kPITemplate.findUnique({ where: { id: templateId } });
+      if (!template || !template.items) {
+        return res.status(400).json({ error: 'Mẫu KPI này chưa có tiêu chuẩn định sẵn.' });
+      }
+      try {
+        itemsToAssign = JSON.parse(template.items);
+      } catch (e) {
+        return res.status(400).json({ error: 'Lỗi đọc cấu trúc tiêu chí của mẫu' });
+      }
+    }
+
+    const createdKPIs = [];
+    for (const item of itemsToAssign) {
+      const kpi = await prisma.kPI.create({
+        data: {
+          employeeId,
+          description: String(item.title || item.description).trim(),
+          target: Number(item.target || 100),
+          achieved: Number(item.achieved || 0),
+          unit: item.unit || '%',
+          weight: Number(item.weight || 25),
+          category: item.category || 'OUTPUT',
+          period: period || 'Q3-2026',
+          status: 'IN_PROGRESS'
+        }
+      });
+      createdKPIs.push(kpi);
+    }
+
+    const emp = await prisma.employee.findUnique({ where: { id: employeeId }, select: { fullName: true } });
+    await createAuditLog({
+      action: 'ASSIGN_KPI_TEMPLATE',
+      tableName: 'KPI',
+      recordId: employeeId,
+      accountId: req.user?.accountId,
+      details: `Giao bộ ${createdKPIs.length} chỉ tiêu KPI cho nhân sự ${emp?.fullName || employeeId}`
+    });
+
+    return res.status(201).json({
+      message: `Đã giao thành công ${createdKPIs.length} chỉ tiêu KPI chuẩn!`,
+      kpis: createdKPIs
+    });
+  } catch (error: any) {
+    console.error('Error assigning template:', error);
+    return res.status(500).json({ error: error.message || 'Lỗi khi giao mẫu KPI' });
+  }
+});
+
+// Gán KPI đơn lẻ thủ công cho nhân viên (Quản lý / HR Only)
 router.post('/kpi', authenticateToken, managerOrHr, async (req: any, res: Response): Promise<any> => {
   try {
-    const { employeeId, description, target } = req.body;
+    const { employeeId, description, target, achieved, unit, weight, category, period } = req.body;
     if (!employeeId || !description?.trim() || target === undefined) {
       return res.status(400).json({ error: 'Thiếu thông tin gán KPI bắt buộc (nhân viên, mô tả, chỉ tiêu)' });
     }
@@ -334,7 +483,12 @@ router.post('/kpi', authenticateToken, managerOrHr, async (req: any, res: Respon
         employeeId,
         description: String(description).trim(),
         target: Number(target),
-        achieved: 0
+        achieved: Number(achieved || 0),
+        unit: unit || '%',
+        weight: Number(weight || 25),
+        category: category || 'OUTPUT',
+        period: period || 'Q3-2026',
+        status: 'IN_PROGRESS'
       }
     });
 
@@ -356,7 +510,7 @@ router.post('/kpi', authenticateToken, managerOrHr, async (req: any, res: Respon
 router.put('/kpi/:id', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
-    const { achieved, description, target } = req.body;
+    const { achieved, description, target, unit, weight, category, period, status } = req.body;
     const userRole = req.user?.role?.toUpperCase();
 
     const existingKpi = await prisma.kPI.findUnique({ where: { id } });
@@ -369,7 +523,7 @@ router.put('/kpi/:id', authenticateToken, async (req: any, res: Response): Promi
       if (existingKpi.employeeId !== req.user?.employeeId) {
         return res.status(403).json({ error: 'Bạn không có quyền cập nhật tiến độ KPI của người khác.' });
       }
-      if (description !== undefined || target !== undefined) {
+      if (description !== undefined || target !== undefined || weight !== undefined) {
         return res.status(403).json({ error: 'Chỉ Quản lý hoặc HR mới có quyền điều chỉnh mô tả hoặc chỉ tiêu KPI.' });
       }
     }
@@ -379,7 +533,12 @@ router.put('/kpi/:id', authenticateToken, async (req: any, res: Response): Promi
       data: {
         ...(achieved !== undefined && { achieved: Number(achieved) }),
         ...(userRole !== 'EMPLOYEE' && description !== undefined && { description: String(description).trim() }),
-        ...(userRole !== 'EMPLOYEE' && target !== undefined && { target: Number(target) })
+        ...(userRole !== 'EMPLOYEE' && target !== undefined && { target: Number(target) }),
+        ...(userRole !== 'EMPLOYEE' && unit !== undefined && { unit }),
+        ...(userRole !== 'EMPLOYEE' && weight !== undefined && { weight: Number(weight) }),
+        ...(userRole !== 'EMPLOYEE' && category !== undefined && { category }),
+        ...(userRole !== 'EMPLOYEE' && period !== undefined && { period }),
+        ...(status !== undefined && { status })
       }
     });
 

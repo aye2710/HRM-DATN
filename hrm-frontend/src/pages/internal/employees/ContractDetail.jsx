@@ -249,7 +249,7 @@ export const ContractDetail = () => {
       );
       setShowSignModal(false);
       fetchEmployeeData();
-      navigate(`/internal/employees/contracts/${employee.id}`, { replace: true });
+      navigate(`/internal/contracts/${employee.id}`, { replace: true });
     } catch (err) {
       toast.dismiss(t);
       const errMsg = err.response?.data?.error || 'Lỗi khi ký hợp đồng!';
@@ -438,7 +438,7 @@ export const ContractDetail = () => {
   if (!employee) {
     return (
       <div className="p-6">
-        <button onClick={() => navigate('/internal/employees/contracts')} className="btn btn-outline mb-4">
+        <button onClick={() => navigate('/internal/contracts')} className="btn btn-outline mb-4">
           <ChevronLeft size={16} className="mr-1" /> Quay lại danh sách Hợp đồng
         </button>
         <div className="card text-center py-12 text-slate-500">
@@ -457,7 +457,7 @@ export const ContractDetail = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => navigate('/internal/employees/contracts')} 
+            onClick={() => navigate('/internal/contracts')} 
             className="btn btn-outline" 
             style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
           >

@@ -35,7 +35,7 @@ export const DecisionDetail = () => {
     } catch (error) {
       console.error(error);
       toast.error('Không tìm thấy thông tin quyết định nhân sự hoặc đã bị xóa');
-      navigate('/internal/employees/decisions');
+      navigate(-1);
     } finally {
       setLoading(false);
     }
@@ -158,7 +158,7 @@ export const DecisionDetail = () => {
       try {
         await axios.delete(`http://localhost:5000/api/decisions/${decision.id}`);
         toast.success('Đã xóa quyết định');
-        navigate('/internal/employees/decisions');
+        navigate(-1);
       } catch (error) {
         toast.error(error.response?.data?.error || 'Lỗi xóa quyết định');
       }
@@ -298,7 +298,7 @@ export const DecisionDetail = () => {
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button 
-            onClick={() => navigate('/internal/employees/decisions')}
+            onClick={() => navigate(-1)}
             className="btn btn-outline"
             style={{ padding: '0.5rem 0.85rem', display: 'flex', alignItems: 'center', gap: '6px', height: '38px', borderRadius: '8px' }}
           >
@@ -309,7 +309,7 @@ export const DecisionDetail = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#64748b' }}>
               <span>Nhân sự</span>
               <ChevronRight size={13} />
-              <Link to="/internal/employees/decisions" style={{ color: '#64748b', textDecoration: 'none' }}>Quyết định</Link>
+              <Link to="/internal/decisions/all" style={{ color: '#64748b', textDecoration: 'none' }}>Quyết định</Link>
               <ChevronRight size={13} />
               <span style={{ fontWeight: 600, color: '#0f172a' }}>{decision.decisionNumber}</span>
             </div>

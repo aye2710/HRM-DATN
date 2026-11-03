@@ -702,7 +702,7 @@ export const Contracts = () => {
                                 return (
                                   <>
                                     <button 
-                                      onClick={() => navigate(`/internal/employees/contracts/${emp.id}?action=sign`)} 
+                                      onClick={() => navigate(`/internal/contracts/${emp.id}?action=sign`)} 
                                       className="btn btn-primary" 
                                       style={{ height: 28, width: 28, padding: 0, backgroundColor: '#16a34a', borderColor: '#16a34a', color: 'white', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                       title="Đánh giá thử việc & Ký hợp đồng chính thức"
@@ -710,7 +710,7 @@ export const Contracts = () => {
                                       <CheckCircle2 size={15} />
                                     </button>
                                     <button 
-                                      onClick={() => navigate(`/internal/employees/contracts/${emp.id}`)} 
+                                      onClick={() => navigate(`/internal/contracts/${emp.id}`)} 
                                       className="btn btn-outline" 
                                       style={{ height: 28, width: 28, padding: 0, borderRadius: '6px', border: '1px solid #cbd5e1', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                       title="Xem lịch sử hợp đồng"
@@ -725,7 +725,7 @@ export const Contracts = () => {
                                 return (
                                   <>
                                     <button 
-                                      onClick={() => navigate(`/internal/employees/contracts/${emp.id}?action=sign`)} 
+                                      onClick={() => navigate(`/internal/contracts/${emp.id}?action=sign`)} 
                                       className="btn btn-primary" 
                                       style={{ height: 28, width: 28, padding: 0, backgroundColor: '#ea580c', borderColor: '#ea580c', color: 'white', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                       title="Tái ký hoặc gia hạn hợp đồng mới"
@@ -733,7 +733,7 @@ export const Contracts = () => {
                                       <Plus size={15} />
                                     </button>
                                     <button 
-                                      onClick={() => navigate(`/internal/employees/contracts/${emp.id}`)} 
+                                      onClick={() => navigate(`/internal/contracts/${emp.id}`)} 
                                       className="btn btn-outline" 
                                       style={{ height: 28, width: 28, padding: 0, borderRadius: '6px', border: '1px solid #cbd5e1', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                       title="Xem lịch sử hợp đồng"
@@ -748,7 +748,7 @@ export const Contracts = () => {
                                 <>
                                   <div style={{ width: 28, height: 28 }} />
                                   <button 
-                                    onClick={() => navigate(`/internal/employees/contracts/${emp.id}`)} 
+                                    onClick={() => navigate(`/internal/contracts/${emp.id}`)} 
                                     className="btn btn-outline" 
                                     style={{ height: 28, width: 28, padding: 0, borderRadius: '6px', border: '1px solid #cbd5e1', color: '#334155', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                     title="Xem lịch sử hợp đồng"

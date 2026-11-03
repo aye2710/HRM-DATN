@@ -297,7 +297,7 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
       }
 
       // B. BỔ NHIỆM / THĂNG CHỨC
-      if (decision.type === 'PROMOTION' && (decision.newPositionId || decision.newSalary)) {
+      if ((decision.type === 'PROMOTION' || decision.type === 'DEMOTION') && (decision.newPositionId || decision.newSalary || decision.newDepartmentId)) {
         const empUpdate: any = {};
         if (decision.newPositionId) empUpdate.positionId = decision.newPositionId;
         if (decision.newDepartmentId) empUpdate.departmentId = decision.newDepartmentId;
@@ -515,6 +515,30 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
         });
       }
 
+      // G. TUYỂN DỤNG / TIẾP NHẬN CHÍNH THỨC
+      if (decision.type === 'RECRUITMENT') {
+        const empUpdate: any = { status: 'ACTIVE' };
+        if (decision.newPositionId) empUpdate.positionId = decision.newPositionId;
+        if (decision.newDepartmentId) empUpdate.departmentId = decision.newDepartmentId;
+        if (decision.newSalary) empUpdate.salary = decision.newSalary;
+
+        await tx.employee.update({
+          where: { id: empId },
+          data: empUpdate
+        });
+
+        await tx.employmentHistory.create({
+          data: {
+            employeeId: empId,
+            departmentId: decision.newDepartmentId || decision.oldDepartmentId || undefined,
+            positionId: decision.newPositionId || decision.oldPositionId || undefined,
+            changeReason: `Tiếp nhận nhân sự chính thức theo ${decision.decisionNumber}`,
+            salary: decision.newSalary || decision.oldSalary || undefined,
+            effectiveDate: effDate
+          }
+        });
+      }
+
       // F. KỶ LUẬT
       if (decision.type === 'DISCIPLINE') {
         const discText = `Kỷ luật: [${decision.disciplineForm || 'Khiển trách'}] ${decision.title} (${decision.decisionNumber})${decision.disciplineDuration ? ` - Thời hạn: ${decision.disciplineDuration}` : ''}`;
@@ -661,7 +685,7 @@ router.put('/:id/revoke', hrManagerOnly, async (req: any, res: Response): Promis
       }
 
       // B. Hoàn tác Bổ nhiệm chức vụ -> Trả lại chức vụ cũ & lương cũ (nếu có)
-      if (decision.type === 'PROMOTION') {
+      if (decision.type === 'PROMOTION' || decision.type === 'DEMOTION' || decision.type === 'RECRUITMENT') {
         const empRollback: any = {};
         if (decision.oldPositionId) empRollback.positionId = decision.oldPositionId;
         if (decision.oldDepartmentId) empRollback.departmentId = decision.oldDepartmentId;
