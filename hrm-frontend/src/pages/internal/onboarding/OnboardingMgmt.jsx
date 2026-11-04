@@ -474,21 +474,21 @@ export const OnboardingMgmt = () => {
             style={{
               backgroundColor: '#FFFFFF', borderRadius: '16px', width: '740px', maxWidth: '95vw',
               border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-              maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden'
+              maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'hidden'
             }}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
             <div style={{
-              padding: '1.25rem 1.75rem', borderBottom: '1px solid var(--border)',
+              padding: '0.85rem 1.5rem', borderBottom: '1px solid var(--border)',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               backgroundColor: '#F8FAFC'
             }}>
               <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-heading)', margin: '0 0 4px 0' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-heading)', margin: '0 0 2px 0' }}>
                   Checklist Tiếp nhận & Hội nhập
                 </h3>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                   Nhân viên: <strong style={{ color: 'var(--primary)' }}>{selectedEmp.fullName}</strong> ({selectedEmp.code}) • {selectedEmp.position?.title || 'Nhân sự'}
                 </div>
               </div>
@@ -505,8 +505,8 @@ export const OnboardingMgmt = () => {
 
             {/* Total Progress Summary */}
             <div style={{
-              padding: '1rem 1.75rem', backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--border)',
-              display: 'flex', flexDirection: 'column', gap: '6px'
+              padding: '0.55rem 1.5rem', backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--border)',
+              display: 'flex', flexDirection: 'column', gap: '4px'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                 <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
@@ -530,7 +530,7 @@ export const OnboardingMgmt = () => {
             {/* 4 Tabs Phân hệ Hội nhập */}
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-              padding: '0.5rem 1.75rem 0', marginTop: '0.75rem',
+              padding: '0.2rem 1.25rem 0', marginTop: '0',
               borderBottom: '1px solid var(--border)',
               backgroundColor: '#F8FAFC',
               gap: '0.25rem'
@@ -546,7 +546,7 @@ export const OnboardingMgmt = () => {
                     onClick={() => setActiveTab(idx)}
                     style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      gap: '4px', padding: '0.75rem 0.4rem', border: 'none', cursor: 'pointer',
+                      gap: '3px', padding: '0.5rem 0.35rem', border: 'none', cursor: 'pointer',
                       borderBottom: isCurrent ? '3px solid #2563EB' : '3px solid transparent',
                       backgroundColor: isCurrent ? '#FFFFFF' : 'transparent',
                       color: isCurrent ? '#1D4ED8' : '#64748B',
@@ -557,13 +557,13 @@ export const OnboardingMgmt = () => {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {group.icon}
-                      <span style={{ fontSize: '0.82rem', fontWeight: isCurrent ? 800 : 600 }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: isCurrent ? 800 : 600 }}>
                         {group.shortTitle}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <span style={{
-                        fontSize: '0.7rem',
+                        fontSize: '0.68rem',
                         fontWeight: 700,
                         padding: '1px 6px',
                         borderRadius: '10px',
@@ -581,8 +581,9 @@ export const OnboardingMgmt = () => {
 
             {/* Active Tab Pane Content */}
             <div style={{
-              padding: '1.25rem 1.75rem', overflowY: 'auto', display: 'flex',
-              flexDirection: 'column', gap: '1rem', flex: 1
+              padding: '0.65rem 1.25rem', overflowY: 'auto', display: 'flex',
+              flexDirection: 'column', gap: '0.5rem', flex: 1,
+              WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain'
             }} className="custom-scrollbar">
               {(() => {
                 const group = checklistItems[activeTab];
@@ -597,23 +598,23 @@ export const OnboardingMgmt = () => {
                   }}>
                     {/* Group Header */}
                     <div style={{
-                      padding: '1rem 1.25rem', backgroundColor: '#F8FAFC',
+                      padding: '0.65rem 1rem', backgroundColor: '#F8FAFC',
                       borderBottom: '1px solid var(--border)', display: 'flex',
-                      alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem'
+                      alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                         <div style={{
-                          width: 34, height: 34, borderRadius: '8px',
+                          width: 30, height: 30, borderRadius: '6px',
                           backgroundColor: group.badgeBg, color: group.badgeColor,
                           display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
                           {group.icon}
                         </div>
                         <div>
-                          <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
                             {group.title}
                           </h4>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                             Đơn vị phụ trách: <strong>{group.department}</strong>
                           </div>
                         </div>
@@ -623,9 +624,9 @@ export const OnboardingMgmt = () => {
                         <span style={{
                           backgroundColor: group.badgeBg,
                           color: group.badgeColor,
-                          padding: '3px 10px',
+                          padding: '2px 8px',
                           borderRadius: '6px',
-                          fontSize: '0.75rem',
+                          fontSize: '0.72rem',
                           fontWeight: 700,
                           border: `1px solid ${group.badgeColor}33`
                         }}>
@@ -635,7 +636,7 @@ export const OnboardingMgmt = () => {
                     </div>
 
                     {/* Task Items */}
-                    <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ padding: '0.65rem 0.85rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {group.items.map((task, tIdx) => {
                         const isDone = checkTaskStatus(task, group.category);
 
@@ -645,7 +646,7 @@ export const OnboardingMgmt = () => {
                             onClick={() => toggleTask(task, group.category, isDone)}
                             style={{
                               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                              padding: '0.9rem 1.1rem', borderRadius: '10px', cursor: 'pointer',
+                              padding: '0.65rem 0.9rem', borderRadius: '8px', cursor: 'pointer',
                               backgroundColor: isDone ? '#F0FDF4' : '#FFFFFF',
                               border: isDone ? '1px solid #86EFAC' : '1px solid #E2E8F0',
                               boxShadow: isDone ? 'none' : '0 1px 2px rgba(0,0,0,0.02)',
@@ -713,43 +714,6 @@ export const OnboardingMgmt = () => {
                         );
                       })}
                     </div>
-
-                    {/* Tab Navigation Controls (Chuyển tab nhanh) */}
-                    <div style={{
-                      padding: '0.75rem 1.25rem', backgroundColor: '#F8FAFC',
-                      borderTop: '1px solid #F1F5F9', display: 'flex',
-                      justifyContent: 'space-between', alignItems: 'center'
-                    }}>
-                      <button
-                        onClick={() => setActiveTab(prev => Math.max(0, prev - 1))}
-                        disabled={activeTab === 0}
-                        className="btn btn-outline"
-                        style={{
-                          height: 32, fontSize: '0.75rem', padding: '0 10px',
-                          display: 'inline-flex', alignItems: 'center', gap: '4px',
-                          opacity: activeTab === 0 ? 0.4 : 1, cursor: activeTab === 0 ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        <ChevronLeft size={14} /> Tab trước
-                      </button>
-
-                      <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>
-                        Khối {activeTab + 1} / {checklistItems.length} ({completedCount}/{group.items.length} mục)
-                      </span>
-
-                      <button
-                        onClick={() => setActiveTab(prev => Math.min(checklistItems.length - 1, prev + 1))}
-                        disabled={activeTab === checklistItems.length - 1}
-                        className="btn btn-outline"
-                        style={{
-                          height: 32, fontSize: '0.75rem', padding: '0 10px',
-                          display: 'inline-flex', alignItems: 'center', gap: '4px',
-                          opacity: activeTab === checklistItems.length - 1 ? 0.4 : 1, cursor: activeTab === checklistItems.length - 1 ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        Tab tiếp theo <ChevronRight size={14} />
-                      </button>
-                    </div>
                   </div>
                 );
               })()}
@@ -757,8 +721,8 @@ export const OnboardingMgmt = () => {
 
             {/* Footer Graduation Action */}
             <div style={{
-              padding: '1.25rem 1.75rem', borderTop: '1px solid var(--border)',
-              backgroundColor: '#F8FAFC', display: 'flex', flexDirection: 'column', gap: '0.5rem'
+              padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)',
+              backgroundColor: '#F8FAFC', display: 'flex', flexDirection: 'column', gap: '0.35rem'
             }}>
               <button
                 onClick={handleCompleteOnboarding}

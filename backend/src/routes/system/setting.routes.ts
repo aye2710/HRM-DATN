@@ -13,7 +13,9 @@ const hrOrAdmin = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER');
 // ==========================================
 
 const DEFAULT_SETTINGS = [
-  // Lương & Thuế
+  // ==========================================
+  // 1. TIỀN LƯƠNG & THUẾ TNCN (PAYROLL)
+  // ==========================================
   {
     category: 'PAYROLL',
     key: 'INSURANCE_RATE',
@@ -69,7 +71,9 @@ const DEFAULT_SETTINGS = [
     description: 'Chu kỳ tính lương chốt từ ngày 26 tháng trước đến ngày 25 tháng này.'
   },
 
-  // Làm thêm giờ (OT)
+  // ==========================================
+  // 2. CHẤM CÔNG & TĂNG CA (ATTENDANCE)
+  // ==========================================
   {
     category: 'ATTENDANCE',
     key: 'OT_RATE_NORMAL',
@@ -97,16 +101,90 @@ const DEFAULT_SETTINGS = [
     unit: '%',
     description: 'Tối thiểu 300% chưa kể tiền lương ngày lễ đối với người lao động hưởng lương ngày.'
   },
+  {
+    category: 'ATTENDANCE',
+    key: 'LATE_GRACE_PERIOD_MINUTES',
+    name: 'Thời gian ân hạn vào ca (Chưa tính đi muộn)',
+    value: '15',
+    dataType: 'NUMBER',
+    unit: 'Phút',
+    description: 'Số phút nhân viên được phép đến sau giờ bắt đầu ca mà vẫn được tính đúng giờ.'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'MAX_LATE_PERMISSION_PER_MONTH',
+    name: 'Hạn mức xin phép đi muộn được miễn phạt trong tháng',
+    value: '3',
+    dataType: 'NUMBER',
+    unit: 'Lần / tháng',
+    description: 'Số lần tối đa nhân viên làm Đơn xin phép đi muộn (dưới 1 tiếng) được tính đủ 1.0 công và miễn phạt.'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'MIN_HOURS_FULL_DAY',
+    name: 'Số giờ làm việc tối thiểu để tính đủ 1.0 công',
+    value: '7.5',
+    dataType: 'NUMBER',
+    unit: 'Giờ',
+    description: 'Nếu thời gian làm việc thực tế đạt ngưỡng này thì được tính đủ 1 ngày công.'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'MIN_HOURS_HALF_DAY',
+    name: 'Số giờ làm việc tối thiểu để tính 0.5 công',
+    value: '3.5',
+    dataType: 'NUMBER',
+    unit: 'Giờ',
+    description: 'Nếu thời gian làm việc thực tế từ 3.5 giờ đến dưới 7.5 giờ thì được tính nửa ngày công.'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'WFH_ALERT_THRESHOLD',
+    name: 'Ngưỡng cảnh báo tỷ lệ làm việc từ xa (WFH) phòng ban',
+    value: '30',
+    dataType: 'PERCENT',
+    unit: '% quân số',
+    description: 'Hệ thống phát cảnh báo khi tỷ lệ nhân sự làm việc tại nhà của một phòng ban vượt ngưỡng này trong ngày.'
+  },
 
-  // Quản trị Nhân sự & Quy trình
+  // ==========================================
+  // 3. HỢP ĐỒNG & NHÂN SỰ (HR)
+  // ==========================================
   {
     category: 'HR',
-    key: 'PROBATION_MAX_DAYS',
-    name: 'Thời gian thử việc tối đa chức danh đại học trở lên',
+    key: 'CONTRACT_EXPIRY_WARN_DAYS',
+    name: 'Thời gian phát cảnh báo trước hạn Hợp đồng lao động',
+    value: '30',
+    dataType: 'NUMBER',
+    unit: 'Ngày',
+    description: 'Hệ thống tự động kích hoạt cảnh báo tái ký HĐLĐ cho HR và Trưởng phòng trước khi HĐ cũ hết hạn.'
+  },
+  {
+    category: 'HR',
+    key: 'PROBATION_PERIOD_DAYS',
+    name: 'Thời gian thử việc tiêu chuẩn chức danh đại học/chuyên môn',
     value: '60',
     dataType: 'NUMBER',
     unit: 'Ngày',
     description: 'Điều 27 Bộ luật Lao động 2019: Tối đa 60 ngày đối với công việc có chức danh nghề nghiệp cần trình độ từ cao đẳng trở lên.'
+  },
+  {
+    category: 'HR',
+    key: 'PROBATION_PERIOD_COLLEGE',
+    name: 'Thời gian thử việc chức danh trung cấp/công nhân kỹ thuật',
+    value: '30',
+    dataType: 'NUMBER',
+    unit: 'Ngày',
+    description: 'Điều 27 Bộ luật Lao động 2019: Tối đa 30 ngày đối với công việc có chức danh nghề nghiệp cần trình độ trung cấp.'
+  },
+  {
+    category: 'HR',
+    key: 'MAX_DEFINITE_CONTRACTS',
+    name: 'Số lần tối đa được ký HĐLĐ xác định thời hạn',
+    value: '2',
+    dataType: 'NUMBER',
+    unit: 'Lần ký',
+    description: 'Điều 20 Bộ luật Lao động 2019: Tối đa 2 lần ký xác định thời hạn, lần tiếp theo bắt buộc phải ký Không xác định thời hạn.'
   },
   {
     category: 'HR',
@@ -128,19 +206,90 @@ const DEFAULT_SETTINGS = [
   },
   {
     category: 'HR',
+    key: 'LEAVE_APPROVAL_THRESHOLD',
+    name: 'Ngưỡng ngày nghỉ phép phân cấp Tổng Giám Đốc phê duyệt',
+    value: '2',
+    dataType: 'NUMBER',
+    unit: 'Ngày',
+    description: 'Đơn xin nghỉ từ mức ngày này trở lên bắt buộc phải qua cấp TGĐ/CEO duyệt sau khi Trưởng phòng đã thông qua.'
+  },
+  {
+    category: 'HR',
     key: 'AUTO_LOCK_RESIGNED_ACCOUNTS',
     name: 'Tự động vô hiệu hóa tài khoản khi nhân sự Thôi việc',
     value: 'true',
     dataType: 'BOOLEAN',
     unit: '',
     description: 'Khóa tài khoản hệ thống ngay khi Quyết định Thôi việc có hiệu lực nhằm bảo mật dữ liệu doanh nghiệp.'
+  },
+
+  // ==========================================
+  // 4. TUYỂN DỤNG & ĐÃI NGỘ (RECRUITMENT)
+  // ==========================================
+  {
+    category: 'RECRUITMENT',
+    key: 'PROBATION_SALARY_PERCENT',
+    name: 'Tỷ lệ lương trong thời gian thử việc',
+    value: '85',
+    dataType: 'PERCENT',
+    unit: '%',
+    description: 'Điều 26 Bộ luật Lao động 2019: Tiền lương thử việc tối thiểu bằng 85% mức lương của công việc đó.'
+  },
+  {
+    category: 'RECRUITMENT',
+    key: 'OFFER_EXPIRY_DAYS',
+    name: 'Thời hạn phản hồi Thư mời nhận việc (Offer Letter)',
+    value: '3',
+    dataType: 'NUMBER',
+    unit: 'Ngày làm việc',
+    description: 'Số ngày tối đa ứng viên có quyền xác nhận chấp thuận hoặc từ chối Thư mời nhận việc.'
+  },
+  {
+    category: 'RECRUITMENT',
+    key: 'ONBOARDING_CHECKLIST_DEADLINE',
+    name: 'Thời hạn hoàn tất nộp hồ sơ hội nhập nhân sự mới',
+    value: '7',
+    dataType: 'NUMBER',
+    unit: 'Ngày làm việc',
+    description: 'Thời hạn tân tuyển phải hoàn thiện nộp đủ CCCD, văn bằng chứng chỉ, giấy khám sức khỏe và cam kết bảo mật.'
+  },
+
+  // ==========================================
+  // 5. HIỆU SUẤT & KPI (PERFORMANCE)
+  // ==========================================
+  {
+    category: 'PERFORMANCE',
+    key: 'KPI_RATING_A_MIN',
+    name: 'Điểm tối thiểu xếp loại Xuất sắc (Hạng A)',
+    value: '90',
+    dataType: 'NUMBER',
+    unit: 'Điểm / 100',
+    description: 'Ngưỡng điểm KPI để được bình xét danh hiệu nhân sự Xuất sắc và hưởng 100% - 120% thưởng hiệu quả.'
+  },
+  {
+    category: 'PERFORMANCE',
+    key: 'KPI_RATING_B_MIN',
+    name: 'Điểm tối thiểu xếp loại Tốt (Hạng B)',
+    value: '75',
+    dataType: 'NUMBER',
+    unit: 'Điểm / 100',
+    description: 'Ngưỡng điểm KPI để xếp loại nhân sự Hoàn thành tốt nhiệm vụ.'
+  },
+  {
+    category: 'PERFORMANCE',
+    key: 'KPI_RATING_C_MIN',
+    name: 'Điểm tối thiểu xếp loại Đạt (Hạng C)',
+    value: '60',
+    dataType: 'NUMBER',
+    unit: 'Điểm / 100',
+    description: 'Dưới mức điểm này nhân viên bị xếp loại Không đạt (Hạng D) và cần xây dựng kế hoạch cải thiện hiệu suất (PIP).'
   }
 ];
 
 export const seedDefaultSettings = async () => {
-  const count = await prisma.systemSetting.count();
-  if (count === 0) {
-    for (const s of DEFAULT_SETTINGS) {
+  for (const s of DEFAULT_SETTINGS) {
+    const existing = await prisma.systemSetting.findUnique({ where: { key: s.key } });
+    if (!existing) {
       await prisma.systemSetting.create({ data: s });
     }
   }
@@ -158,6 +307,43 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching settings:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/settings/reset - Khôi phục toàn bộ tham số về mặc định pháp luật
+router.post('/reset', authenticateToken, adminOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    for (const s of DEFAULT_SETTINGS) {
+      await prisma.systemSetting.upsert({
+        where: { key: s.key },
+        update: {
+          value: s.value,
+          name: s.name,
+          category: s.category,
+          dataType: s.dataType,
+          unit: s.unit,
+          description: s.description
+        },
+        create: s
+      });
+    }
+
+    await createAuditLog({
+      action: 'RESET_SETTINGS',
+      tableName: 'SystemSetting',
+      recordId: 'ALL',
+      accountId: req.user?.accountId,
+      details: 'Khôi phục toàn bộ tham số nghiệp vụ hệ thống về chuẩn mặc định của pháp luật.'
+    });
+
+    const settings = await prisma.systemSetting.findMany({
+      orderBy: [{ category: 'asc' }, { key: 'asc' }]
+    });
+
+    return res.json({ message: 'Đã khôi phục toàn bộ tham số về giá trị chuẩn mặc định!', settings });
+  } catch (error: any) {
+    console.error('Error resetting settings:', error);
+    return res.status(500).json({ error: error.message });
   }
 });
 

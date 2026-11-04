@@ -52,11 +52,59 @@ export const LeavePolicies = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 className="page-title">Chính sách Nghỉ phép</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Cấu hình điều kiện hưởng và số ngày tối đa dựa theo thâm niên</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Cấu hình điều kiện hưởng, quỹ phép năm và quy định thời hạn báo trước theo SOP-91 & Company-wide Policies</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           <Plus size={18} /> Thêm Chính sách
         </button>
+      </div>
+
+      {/* Banner Tóm tắt Quy chế Nghỉ phép Doanh nghiệp (Theo Company-wide Policies 14/10/2026 & SOP-91) */}
+      <div style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: '0.75rem',
+        border: '1px solid #E2E8F0',
+        padding: '1.25rem 1.5rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.85rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.65rem' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#2563EB' }} />
+            Quy Định Về Thời Hạn Báo Trước &amp; Quy Trình Phê Duyệt Nghỉ Phép (LLA Policy)
+          </div>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#059669', backgroundColor: '#ECFDF5', padding: '2px 8px', borderRadius: '4px' }}>
+            Ưu tiên Company-wide Policies (14/10/2026)
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', fontSize: '0.825rem' }}>
+          <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+            <div style={{ fontWeight: 600, color: '#1E293B', marginBottom: '4px' }}>⏳ Thời hạn báo trước</div>
+            <div style={{ color: '#475569', lineHeight: 1.5 }}>
+              &bull; Đơn thông thường: <strong>&ge; 48 giờ làm việc</strong>, nộp có xác nhận Trưởng bộ phận trước 1 ngày.<br />
+              &bull; Đột xuất / Khẩn cấp: Báo ngay cho Quản lý và hoàn tất bổ sung đơn trong vòng <strong>3 ngày</strong>.
+            </div>
+          </div>
+
+          <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+            <div style={{ fontWeight: 600, color: '#1E293B', marginBottom: '4px' }}>📋 Bàn giao công việc (Jira/Confluence)</div>
+            <div style={{ color: '#475569', lineHeight: 1.5 }}>
+              &bull; Nghỉ từ <strong>3 ngày trở lên</strong>: Bắt buộc lập kế hoạch và bàn giao đầu việc trên <strong>Jira / Confluence</strong>.<br />
+              &bull; Chỉ định rõ nhân sự nhận bàn giao thay thế.
+            </div>
+          </div>
+
+          <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+            <div style={{ fontWeight: 600, color: '#1E293B', marginBottom: '4px' }}>⚖️ Quỹ phép &amp; Việc riêng có lương</div>
+            <div style={{ color: '#475569', lineHeight: 1.5 }}>
+              &bull; Phép năm: <strong>12 ngày/năm</strong> + <strong>1 ngày/mỗi 5 năm</strong> thâm niên (Điều 114 BLLĐ).<br />
+              &bull; Cưới bản thân: <strong>3 ngày</strong>; Con cưới: <strong>1 ngày</strong>; Tang gia: <strong>3 ngày</strong> (Điều 115 BLLĐ).
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="card glass" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.5rem' }}>

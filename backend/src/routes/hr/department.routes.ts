@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
+import { createAuditLog } from '../../utils/audit';
 
 const router = Router();
 
@@ -50,17 +51,32 @@ router.post('/', hrOrgOnly, async (req: Request, res: Response): Promise<any> =>
         parentId: parentId ? (parentId as string) : null
       }
     });
+
+    // Ghi nhận nhật ký kiểm toán (Audit Trail)
+    await createAuditLog({
+      action: 'CREATE_DEPARTMENT',
+      tableName: 'Department',
+      recordId: newDept.id,
+      accountId: (req as any).user?.accountId || 'ADMIN',
+      details: `Khởi tạo phòng ban mới: "${newDept.name}" (Mã: ${newDept.code}, Định biên: ${newDept.quota} người, Trạng thái: ${newDept.status})`
+    });
+
     return res.status(201).json(newDept);
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi thêm phòng ban' });
   }
 });
 
-// PUT: Cập nhật phòng ban (kèm thuật toán chống vòng lặp phả hệ cha-con)
+// PUT: Cập nhật phòng ban (kèm thuật toán chống vòng lặp phả hệ cha-con và Audit Log)
 router.put('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
     const { code, name, managerName, quota, status, parentId } = req.body;
+
+    const existingDept = await prisma.department.findUnique({ where: { id } });
+    if (!existingDept) {
+      return res.status(404).json({ error: 'Không tìm thấy phòng ban' });
+    }
 
     // 1. Chống tự chọn chính mình làm phòng ban cha
     if (parentId && parentId === id) {
@@ -95,6 +111,37 @@ router.put('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<any> 
         parentId: parentId === '' ? null : (parentId ? String(parentId) : undefined)
       }
     });
+
+    // 3. Ghi nhận nhật ký kiểm toán (Audit Trail)
+    let action = 'UPDATE_DEPARTMENT';
+    let details = `Cập nhật thông tin phòng ban: "${updatedDept.name}" (${updatedDept.code}).`;
+
+    if (status && status !== existingDept.status) {
+      if (status === 'INACTIVE') {
+        action = 'LOCK_DEPARTMENT';
+        details = `Khóa / Đóng băng phòng ban: "${updatedDept.name}" (Mã: ${updatedDept.code}). Chuyển trạng thái từ ACTIVE sang INACTIVE.`;
+      } else {
+        action = 'UNLOCK_DEPARTMENT';
+        details = `Mở khóa / Kích hoạt lại phòng ban: "${updatedDept.name}" (Mã: ${updatedDept.code}). Chuyển trạng thái sang ACTIVE.`;
+      }
+    } else {
+      const changes: string[] = [];
+      if (name && name !== existingDept.name) changes.push(`Tên: "${existingDept.name}" -> "${name}"`);
+      if (code && code !== existingDept.code) changes.push(`Mã: "${existingDept.code}" -> "${code}"`);
+      if (managerName !== undefined && managerName !== existingDept.managerName) changes.push(`Người đại diện: "${existingDept.managerName || 'Chưa có'}" -> "${managerName || 'Chưa có'}"`);
+      if (quota !== undefined && Number(quota) !== existingDept.quota) changes.push(`Định biên: ${existingDept.quota} -> ${quota}`);
+      if (parentId !== undefined && parentId !== existingDept.parentId) changes.push(`Luân chuyển phòng ban cha`);
+      if (changes.length > 0) details += ` Các mục thay đổi: ${changes.join(', ')}.`;
+    }
+
+    await createAuditLog({
+      action,
+      tableName: 'Department',
+      recordId: updatedDept.id,
+      accountId: (req as any).user?.accountId || 'ADMIN',
+      details
+    });
+
     return res.json(updatedDept);
   } catch (error: any) {
     console.error('Error updating department:', error);
@@ -102,10 +149,15 @@ router.put('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<any> 
   }
 });
 
-// DELETE: Xóa phòng ban (Kiểm tra toàn diện tất cả các bảng quan hệ)
+// DELETE: Xóa phòng ban (Kiểm tra toàn diện tất cả các bảng quan hệ kèm Audit Log)
 router.delete('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
+
+    const deptToDelete = await prisma.department.findUnique({ where: { id } });
+    if (!deptToDelete) {
+      return res.status(404).json({ error: 'Không tìm thấy phòng ban' });
+    }
 
     // 1. Kiểm tra nhân viên đang thuộc phòng ban
     const employeeCount = await prisma.employee.count({ where: { departmentId: id } });
@@ -132,6 +184,16 @@ router.delete('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<an
     }
 
     await prisma.department.delete({ where: { id } });
+
+    // Ghi nhận nhật ký kiểm toán (Audit Trail)
+    await createAuditLog({
+      action: 'DELETE_DEPARTMENT',
+      tableName: 'Department',
+      recordId: id,
+      accountId: (req as any).user?.accountId || 'ADMIN',
+      details: `Xóa vĩnh viễn phòng ban: "${deptToDelete.name}" (Mã: ${deptToDelete.code})`
+    });
+
     return res.json({ message: 'Xóa phòng ban thành công' });
   } catch (error: any) {
     console.error('Error deleting department:', error);

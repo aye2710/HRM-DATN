@@ -250,6 +250,10 @@ export const DecisionDetail = () => {
         return <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.25)' }}><DollarSign size={12} style={{ display: 'inline', marginRight: '3px' }} />Điều chỉnh mức lương</span>;
       case 'PROMOTION':
         return <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, backgroundColor: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', border: '1px solid rgba(2, 132, 199, 0.25)' }}><Award size={12} style={{ display: 'inline', marginRight: '3px' }} />Bổ nhiệm chức vụ</span>;
+      case 'DEMOTION':
+        return <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, backgroundColor: 'rgba(234, 88, 12, 0.1)', color: '#ea580c', border: '1px solid rgba(234, 88, 12, 0.25)' }}><RotateCcw size={12} style={{ display: 'inline', marginRight: '3px' }} />Miễn nhiệm chức vụ</span>;
+      case 'RECRUITMENT':
+        return <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, backgroundColor: 'rgba(37, 99, 235, 0.1)', color: '#2563eb', border: '1px solid rgba(37, 99, 235, 0.25)' }}><CheckCircle2 size={12} style={{ display: 'inline', marginRight: '3px' }} />Tiếp nhận tuyển dụng</span>;
       case 'TRANSFER':
         return <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)' }}><ArrowRight size={12} style={{ display: 'inline', marginRight: '3px' }} />Điều chuyển phòng ban</span>;
       case 'TERMINATION':
@@ -550,6 +554,37 @@ export const DecisionDetail = () => {
                     Bổ nhiệm Ông/Bà <strong>{decision.employee?.fullName}</strong> (Mã nhân viên: <strong>{decision.employee?.code}</strong>) 
                     từ vị trí <strong>{oldPosObj?.title || decision.employee?.position?.title || '---'}</strong> lên giữ chức vụ mới: <strong style={{ color: '#2563eb' }}>{newPosObj?.title || 'Chức vụ mới'}</strong> 
                     thuộc phòng ban <strong>{newDeptObj?.name || decision.employee?.department?.name || '---'}</strong>.
+                    {decision.newSalary && (
+                      <span style={{ display: 'block', marginTop: '6px' }}>
+                        Mức lương mới sau bổ nhiệm: <strong>{Number(decision.newSalary).toLocaleString('vi-VN')} VNĐ/tháng</strong> (mức cũ: {Number(decision.oldSalary || 0).toLocaleString('vi-VN')} VNĐ).
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                {decision.type === 'DEMOTION' && (
+                  <span>
+                    Miễn nhiệm chức vụ <strong>{oldPosObj?.title || decision.employee?.position?.title || '---'}</strong> đối với Ông/Bà <strong>{decision.employee?.fullName}</strong> (Mã nhân viên: <strong>{decision.employee?.code}</strong>).
+                    {newPosObj && (
+                      <span> Điều chuyển Ông/Bà sang đảm nhiệm vị trí công tác mới: <strong style={{ color: '#ea580c' }}>{newPosObj?.title}</strong> thuộc phòng ban <strong>{newDeptObj?.name || decision.employee?.department?.name || '---'}</strong>.</span>
+                    )}
+                    {decision.newSalary && (
+                      <span style={{ display: 'block', marginTop: '6px' }}>
+                        Mức lương áp dụng sau miễn nhiệm: <strong>{Number(decision.newSalary).toLocaleString('vi-VN')} VNĐ/tháng</strong> (mức cũ: {Number(decision.oldSalary || 0).toLocaleString('vi-VN')} VNĐ).
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                {decision.type === 'RECRUITMENT' && (
+                  <span>
+                    Công nhận hoàn thành thời gian thử việc và chính thức tiếp nhận Ông/Bà <strong>{decision.employee?.fullName}</strong> (Mã nhân viên: <strong>{decision.employee?.code}</strong>) trở thành Nhân viên chính thức của Công ty.
+                    <br />
+                    - Đơn vị tiếp nhận: <strong>{newDeptObj?.name || decision.employee?.department?.name || '---'}</strong>.
+                    <br />
+                    - Vị trí chức danh: <strong style={{ color: '#2563eb' }}>{newPosObj?.title || decision.employee?.position?.title || 'Nhân viên chính thức'}</strong>.
+                    <br />
+                    - Mức lương chính thức: <strong style={{ color: '#16a34a' }}>{Number(decision.newSalary || decision.oldSalary || 0).toLocaleString('vi-VN')} VNĐ/tháng</strong>.
                   </span>
                 )}
 
@@ -758,9 +793,50 @@ export const DecisionDetail = () => {
                   <div style={{ fontWeight: 800, color: '#2563eb', fontSize: '1.05rem', marginTop: '2px' }}>
                     {newPosObj?.title || '---'}
                   </div>
+                  {decision.newSalary && (
+                    <div style={{ marginTop: '6px', fontSize: '0.8rem', color: '#047857' }}>
+                      Lương mới: <strong>{Number(decision.newSalary).toLocaleString('vi-VN')} VNĐ</strong>
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontSize: '0.78rem', color: '#64748b', backgroundColor: '#EFF6FF', padding: '8px 10px', borderRadius: '6px' }}>
                   💡 Khi ban hành: Chức vụ trong Hồ sơ cá nhân và Sơ đồ tổ chức sẽ được đồng bộ ngay lập tức.
+                </div>
+              </div>
+            )}
+
+            {decision.type === 'DEMOTION' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ padding: '0.75rem', backgroundColor: '#fff7ed', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#c2410c' }}>Vị trí mới sau miễn nhiệm:</div>
+                  <div style={{ fontWeight: 800, color: '#ea580c', fontSize: '1.05rem', marginTop: '2px' }}>
+                    {newPosObj?.title || '---'}
+                  </div>
+                  {decision.newSalary && (
+                    <div style={{ marginTop: '6px', fontSize: '0.8rem', color: '#9a3412' }}>
+                      Mức lương mới: <strong>{Number(decision.newSalary).toLocaleString('vi-VN')} VNĐ</strong>
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', backgroundColor: '#EFF6FF', padding: '8px 10px', borderRadius: '6px' }}>
+                  💡 Khi ban hành: Thu hồi quyền quản lý, cập nhật lại ngạch chức danh và sơ đồ tổ chức phòng ban.
+                </div>
+              </div>
+            )}
+
+            {decision.type === 'RECRUITMENT' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ padding: '0.75rem', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#1d4ed8' }}>Chuyển đổi trạng thái hồ sơ:</div>
+                  <div style={{ fontWeight: 800, color: '#2563eb', fontSize: '1.05rem', marginTop: '2px' }}>
+                    PROBATION ➔ ACTIVE (Chính thức)
+                  </div>
+                  <div style={{ marginTop: '6px', fontSize: '0.8rem', color: '#1e40af' }}>
+                    Chức danh: <strong>{newPosObj?.title || '---'}</strong> | Lương chính thức: <strong>{Number(decision.newSalary || decision.oldSalary || 0).toLocaleString('vi-VN')} VNĐ</strong>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#047857', backgroundColor: '#ECFDF5', padding: '8px 10px', borderRadius: '6px' }}>
+                  💡 Khi ban hành: Nhân sự trở thành nhân viên chính thức, kích hoạt đầy đủ quyền lợi BHXH và ký HĐLĐ chính thức.
                 </div>
               </div>
             )}

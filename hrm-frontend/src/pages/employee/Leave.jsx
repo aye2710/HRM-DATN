@@ -92,6 +92,21 @@ export const EmployeeLeave = () => {
   const availableDays = Math.max(0, totalDays - usedDays);
   const usedPercent = Math.min(100, Math.round((usedDays / totalDays) * 100));
 
+  const leaveDaysCount = formData.startDate && formData.endDate 
+    ? calculateDays(formData.startDate, formData.endDate, formData.session) 
+    : 0;
+
+  // Kiểm tra thời hạn báo trước theo Company-wide Policies (cập nhật 14/10/2026: >= 48 giờ làm việc)
+  const isUrgentNotice = useMemo(() => {
+    if (!formData.startDate) return false;
+    const start = new Date(formData.startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    const diffHours = (start.getTime() - today.getTime()) / (1000 * 60 * 60);
+    return diffHours < 48;
+  }, [formData.startDate]);
+
   const filteredRequests = requests.filter(req => {
     if (statusFilter === 'ALL') return true;
     return req.status === statusFilter;
@@ -595,26 +610,58 @@ export const EmployeeLeave = () => {
               )}
 
               {formData.startDate && formData.endDate && (
-                <div style={{
-                  padding: '0.65rem 0.85rem',
-                  borderRadius: '0.5rem',
-                  backgroundColor: '#EFF6FF',
-                  fontSize: '0.8125rem',
-                  color: '#1E40AF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <span>Tổng số ngày đăng ký nghỉ:</span>
-                  <strong style={{ fontSize: '0.95rem' }}>
-                    {calculateDays(formData.startDate, formData.endDate, formData.session)} ngày
-                  </strong>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '0.5rem',
+                    backgroundColor: '#EFF6FF',
+                    fontSize: '0.8125rem',
+                    color: '#1E40AF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span>Tổng số ngày đăng ký nghỉ:</span>
+                    <strong style={{ fontSize: '0.95rem' }}>
+                      {leaveDaysCount} ngày
+                    </strong>
+                  </div>
+
+                  {/* Cảnh báo hạn báo trước theo Company-wide Policies (14/10/2026) */}
+                  {isUrgentNotice && (
+                    <div style={{
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '0.5rem',
+                      backgroundColor: '#FFFBEB',
+                      border: '1px solid #FDE68A',
+                      fontSize: '0.78rem',
+                      color: '#92400E',
+                      lineHeight: 1.45
+                    }}>
+                      <strong>⚠️ Nộp sát ngày (&lt; 48 giờ làm việc):</strong> Theo Company-wide Policies, đơn cần gửi trước &ge; 48 giờ. Trường hợp nghỉ đột xuất / bất khả kháng, bạn vui lòng báo ngay Trưởng bộ phận và bổ sung đơn trong vòng 3 ngày.
+                    </div>
+                  )}
+
+                  {/* Quy định bàn giao Jira/Confluence nếu nghỉ từ 3 ngày */}
+                  {leaveDaysCount >= 3 && (
+                    <div style={{
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '0.5rem',
+                      backgroundColor: '#F0FDF4',
+                      border: '1px solid #BBF7D0',
+                      fontSize: '0.78rem',
+                      color: '#166534',
+                      lineHeight: 1.45
+                    }}>
+                      <strong>📋 Nghỉ từ 3 ngày:</strong> Bạn cần thực hiện bàn giao công việc trên <strong>Jira / Confluence</strong> và ghi rõ thông tin người nhận bàn giao ở ô lý do bên dưới.
+                    </div>
+                  )}
                 </div>
               )}
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
-                  Lý do xin nghỉ <span style={{ color: '#EF4444' }}>*</span>
+                  Lý do xin nghỉ {leaveDaysCount >= 3 ? '& Thông tin bàn giao việc' : ''} <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <textarea
                   required
@@ -622,7 +669,9 @@ export const EmployeeLeave = () => {
                   className="form-input"
                   value={formData.reason}
                   onChange={e => setFormData({ ...formData, reason: e.target.value })}
-                  placeholder="Ghi rõ lý do xin nghỉ và người bàn giao công việc tạm thời (nếu có)..."
+                  placeholder={leaveDaysCount >= 3 
+                    ? "Ghi rõ lý do nghỉ, người nhận bàn giao công việc & Link Jira/Confluence task..." 
+                    : "Ghi rõ lý do xin nghỉ và kế hoạch sắp xếp công việc..."}
                   style={{ width: '100%', padding: '0.75rem', backgroundColor: '#F8FAFC', resize: 'vertical' }}
                 />
               </div>

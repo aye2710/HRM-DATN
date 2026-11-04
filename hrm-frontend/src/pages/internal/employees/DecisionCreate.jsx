@@ -338,37 +338,6 @@ export const DecisionCreate = () => {
             </span>
           </div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            type="button"
-            onClick={() => navigate(currentConfig?.backUrl || '/internal/decisions/all')}
-            className="btn btn-outline"
-            style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-          >
-            Hủy bỏ
-          </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => handleSave('DRAFT')}
-            className="btn btn-outline"
-            style={{ padding: '8px 16px', fontSize: '0.85rem', borderColor: '#93C5FD', color: '#2563EB', fontWeight: 600 }}
-          >
-            <Save size={15} style={{ display: 'inline', marginRight: '5px' }} />
-            Lưu Bản Nháp
-          </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => handleSave('PENDING')}
-            className="btn btn-primary"
-            style={{ padding: '8px 20px', fontSize: '0.85rem', fontWeight: 600 }}
-          >
-            <CheckCircle2 size={16} style={{ display: 'inline', marginRight: '6px' }} />
-            Gửi Phê Duyệt
-          </button>
-        </div>
       </div>
 
       {/* 2. Form Container Căn Giữa Hiện Đại - Không cần bản Word Preview */}

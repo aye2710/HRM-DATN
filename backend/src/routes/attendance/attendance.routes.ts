@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
+import { getSettingValue } from '../system/setting.routes';
 
 const router = Router();
 
@@ -239,14 +240,17 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
       }
     }
 
+    const graceMin = await getSettingValue('LATE_GRACE_PERIOD_MINUTES', 15);
     const checkInTime = new Date();
     const hours = checkInTime.getHours();
     const minutes = checkInTime.getMinutes();
     
-    // Nếu check-in sau 8h45 sáng -> LATE (Ân hạn 15 phút từ 8h30)
+    // Nếu check-in sau giờ ân hạn (Ca 8h30 + graceMin) -> LATE
     // Nếu nhân viên có đơn nghỉ phép nửa ngày sáng và check-in ca chiều thì giữ ON_LEAVE
     const isHalfDayOnLeave = existing?.status === 'ON_LEAVE';
-    const status = isHalfDayOnLeave ? 'ON_LEAVE' : (hours > 8 || (hours === 8 && minutes > 45) ? 'LATE' : 'NORMAL');
+    const lateCutoffMin = 30 + Number(graceMin);
+    const isLate = hours > 8 || (hours === 8 && minutes > lateCutoffMin);
+    const status = isHalfDayOnLeave ? 'ON_LEAVE' : (isLate ? 'LATE' : 'NORMAL');
 
     let record;
     if (existing) {
@@ -311,13 +315,15 @@ const handleCheckOut = async (req: any, res: Response): Promise<any> => {
     const checkOutHour = checkOutTime.getHours();
     const isEarlyLeave = checkOutHour < 17; // Về sớm trước 17:00 (ca chuẩn kết thúc 17:30)
     
-    // Tính toán công theo số giờ thực tế
+    // Tính toán công theo số giờ thực tế căn cứ tham số hệ thống
+    const minFull = await getSettingValue('MIN_HOURS_FULL_DAY', 7.5);
+    const minHalf = await getSettingValue('MIN_HOURS_HALF_DAY', 3.5);
     const diffHours = (checkOutTime.getTime() - record.checkIn.getTime()) / (1000 * 60 * 60);
     
     let workEarned = 0;
-    if (diffHours >= 7.5) {
+    if (diffHours >= Number(minFull)) {
       workEarned = 1.0;
-    } else if (diffHours >= 3.5) {
+    } else if (diffHours >= Number(minHalf)) {
       workEarned = 0.5;
     }
 
@@ -627,11 +633,12 @@ router.post('/adjustments', authenticateToken, async (req: any, res: Response): 
           status: { not: 'REJECTED' }
         }
       });
+      const maxLateQuota = await getSettingValue('MAX_LATE_PERMISSION_PER_MONTH', 3);
       const orderNum = monthLateRequests.length + 1;
-      if (orderNum <= 3) {
-        computedNewTime = `Tính đủ 1.0 công (Lần ${orderNum}/3 trong tháng)`;
+      if (orderNum <= Number(maxLateQuota)) {
+        computedNewTime = `Tính đủ 1.0 công (Lần ${orderNum}/${maxLateQuota} trong tháng)`;
       } else {
-        computedNewTime = `Lần ${orderNum}/3 trong tháng (Vượt hạn mức 3 lần - Bị phạt)`;
+        computedNewTime = `Lần ${orderNum}/${maxLateQuota} trong tháng (Vượt hạn mức ${maxLateQuota} lần - Bị phạt)`;
       }
     }
 

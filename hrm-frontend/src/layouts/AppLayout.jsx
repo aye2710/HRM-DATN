@@ -35,14 +35,37 @@ const TopHeader = ({ portalName, onToggleSidebar }) => {
   );
 };
 
+const DECISION_TYPE_MAP = {
+  PROMOTION: '/internal/decisions/promotion',
+  DEMOTION: '/internal/decisions/demotion',
+  TRANSFER: '/internal/decisions/transfer',
+  TERMINATION: '/internal/decisions/termination',
+  RECRUITMENT: '/internal/decisions/recruitment',
+  SALARY_ADJUSTMENT: '/internal/decisions/salary',
+  REWARD: '/internal/decisions/reward',
+  DISCIPLINE: '/internal/decisions/discipline'
+};
+
 const NavItem = ({ item }) => {
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const typeParam = searchParams.get('type');
+
   const isActive = location.pathname.startsWith(item.to);
   const [isOpen, setIsOpen] = useState(isActive);
 
   React.useEffect(() => {
     setIsOpen(isActive);
   }, [isActive]);
+
+  const isChildActive = (childTo, childActive) => {
+    if (childActive) return true;
+    if (location.pathname.includes('/decisions/create')) {
+      if (typeParam && DECISION_TYPE_MAP[typeParam] === childTo) return true;
+      if (!typeParam && childTo === '/internal/decisions/all') return true;
+    }
+    return false;
+  };
 
   if (item.children) {
     return (
@@ -65,7 +88,7 @@ const NavItem = ({ item }) => {
               <NavLink
                 key={child.to}
                 to={child.to}
-                className={({ isActive: childActive }) => `nav-link ${childActive ? 'active' : ''}`}
+                className={({ isActive: childActive }) => `nav-link ${isChildActive(child.to, childActive) ? 'active' : ''}`}
                 style={{ padding: '0.32rem 0.85rem', fontSize: '0.82rem' }}
               >
                 {child.icon ? child.icon : <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'currentColor' }} />}

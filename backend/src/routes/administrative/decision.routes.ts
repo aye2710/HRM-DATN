@@ -296,7 +296,7 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
         });
       }
 
-      // B. BỔ NHIỆM / THĂNG CHỨC
+      // B. BỔ NHIỆM / THĂNG CHỨC HOẶC MIỄN NHIỆM
       if ((decision.type === 'PROMOTION' || decision.type === 'DEMOTION') && (decision.newPositionId || decision.newSalary || decision.newDepartmentId)) {
         const empUpdate: any = {};
         if (decision.newPositionId) empUpdate.positionId = decision.newPositionId;
@@ -323,8 +323,10 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
             posTitle = p?.title || '';
           }
 
+          const isDemotion = decision.type === 'DEMOTION';
+          const actionText = isDemotion ? 'miễn nhiệm & chuyển giao vị trí' : 'bổ nhiệm chức vụ';
           const changes = [];
-          if (posTitle) changes.push(`chức danh bổ nhiệm mới: ${posTitle}`);
+          if (posTitle) changes.push(`chức danh đảm nhiệm mới: ${posTitle}`);
           if (decision.newSalary) changes.push(`mức lương mới: ${Number(decision.newSalary).toLocaleString('vi-VN')} VNĐ/tháng (mức cũ: ${Number(decision.oldSalary || activeContract.baseSalary).toLocaleString('vi-VN')} VNĐ)`);
 
           await tx.contractAppendix.create({
@@ -332,12 +334,12 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
               appendixNumber: appNumber,
               contractId: activeContract.id,
               decisionId: decision.id,
-              title: `Phụ lục bổ nhiệm chức vụ theo ${decision.decisionNumber}`,
+              title: isDemotion ? `Phụ lục miễn nhiệm chức vụ theo ${decision.decisionNumber}` : `Phụ lục bổ nhiệm chức vụ theo ${decision.decisionNumber}`,
               changeType: decision.newSalary ? 'SALARY_ADJUSTMENT' : 'POSITION_CHANGE',
               oldSalary: decision.oldSalary || activeContract.baseSalary,
               newSalary: decision.newSalary || activeContract.baseSalary,
               effectiveDate: effDate,
-              content: `Căn cứ Quyết định bổ nhiệm số ${decision.decisionNumber}, hai bên thống nhất áp dụng ${changes.join(', ')} kể từ ngày ${effDate.toLocaleDateString('vi-VN')}.`
+              content: `Căn cứ Quyết định ${actionText} số ${decision.decisionNumber}, hai bên thống nhất áp dụng ${changes.join(', ')} kể từ ngày ${effDate.toLocaleDateString('vi-VN')}.`
             }
           });
 
@@ -349,12 +351,15 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
           }
         }
 
+        const isDemotion = decision.type === 'DEMOTION';
         await tx.employmentHistory.create({
           data: {
             employeeId: empId,
             departmentId: decision.newDepartmentId || decision.oldDepartmentId || undefined,
             positionId: decision.newPositionId || decision.oldPositionId || undefined,
-            changeReason: `Bổ nhiệm chức vụ theo ${decision.decisionNumber}${decision.newSalary ? ` (Lương mới: ${Number(decision.newSalary).toLocaleString('vi-VN')} VNĐ)` : ''}`,
+            changeReason: isDemotion
+              ? `Miễn nhiệm chức vụ theo ${decision.decisionNumber}${decision.newSalary ? ` (Lương mới: ${Number(decision.newSalary).toLocaleString('vi-VN')} VNĐ)` : ''}`
+              : `Bổ nhiệm chức vụ theo ${decision.decisionNumber}${decision.newSalary ? ` (Lương mới: ${Number(decision.newSalary).toLocaleString('vi-VN')} VNĐ)` : ''}`,
             salary: decision.newSalary || undefined,
             effectiveDate: effDate
           }
@@ -549,6 +554,52 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
             effectiveDate: effDate
           }
         });
+
+        // Nếu hình thức kỷ luật là Sa thải (Chấm dứt hợp đồng lao động theo Điều 124, 125 BLLĐ 2019):
+        // Tự động kích hoạt quy trình thôi việc & nạp checklist bàn giao 4 bên BM-02
+        if (decision.disciplineForm && decision.disciplineForm.toLowerCase().includes('sa thải')) {
+          await tx.employee.update({
+            where: { id: empId },
+            data: {
+              resignationDate: effDate,
+              resignationReason: `Kỷ luật sa thải theo ${decision.decisionNumber}: ${decision.reason || decision.title}`
+            }
+          });
+
+          const existingTasks = await tx.onboardingTask.count({
+            where: {
+              employeeId: empId,
+              category: { in: ['OFFBOARDING_WORK', 'OFFBOARDING_IT', 'OFFBOARDING_ADMIN', 'OFFBOARDING_HR'] }
+            }
+          });
+
+          if (existingTasks === 0) {
+            const DEFAULT_OFFBOARDING = [
+              { taskName: 'Bàn giao tài liệu nghiệp vụ, quy trình và đầu việc đang phụ trách', category: 'OFFBOARDING_WORK' },
+              { taskName: 'Chuyển giao mã nguồn, tài khoản dự án và đầu mối khách hàng', category: 'OFFBOARDING_WORK' },
+              { taskName: 'Trưởng bộ phận ký biên bản nghiệm thu bàn giao chuyên môn', category: 'OFFBOARDING_WORK' },
+              { taskName: 'Kiểm kê và thu hồi Laptop làm việc & Bộ sạc chính hãng', category: 'OFFBOARDING_IT' },
+              { taskName: 'Thu hồi tài khoản Email, M365/Workspace và phần mềm nội bộ', category: 'OFFBOARDING_IT' },
+              { taskName: 'Thu hồi quyền truy cập VPN, máy chủ và hạ tầng kỹ thuật', category: 'OFFBOARDING_IT' },
+              { taskName: 'Lập & ký Biên bản thu hồi tài sản theo biểu mẫu BM-02', category: 'OFFBOARDING_IT' },
+              { taskName: 'Thu hồi thẻ từ ra vào tòa nhà, thẻ gửi xe công ty', category: 'OFFBOARDING_ADMIN' },
+              { taskName: 'Bàn giao chìa khóa tủ cá nhân & các tài sản hành chính', category: 'OFFBOARDING_ADMIN' },
+              { taskName: 'Soạn thảo & Ban hành Quyết định chấm dứt HĐLĐ (trình BGĐ)', category: 'OFFBOARDING_HR' },
+              { taskName: 'Chốt ngày công thực tế & quyết toán tiền nghỉ phép năm còn tồn', category: 'OFFBOARDING_HR' },
+              { taskName: 'Thanh lý hợp đồng lao động & bàn giao sổ BHXH', category: 'OFFBOARDING_HR' },
+              { taskName: 'Khóa an ninh tài khoản hệ thống vào cuối ngày làm việc cuối cùng', category: 'OFFBOARDING_HR' }
+            ];
+
+            await tx.onboardingTask.createMany({
+              data: DEFAULT_OFFBOARDING.map((t) => ({
+                employeeId: empId,
+                taskName: t.taskName,
+                category: t.category,
+                isCompleted: t.taskName.includes('Ban hành Quyết định')
+              }))
+            });
+          }
+        }
       }
 
       return { updatedDecision, decNumber: decision.decisionNumber, decType: decision.type, empName: decision.employee?.fullName };

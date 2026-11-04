@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Building, Users, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
+import { Building, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -215,11 +215,6 @@ export const Departments = () => {
       });
   };
 
-  const totalDepts = departments.length;
-  const totalHeadcount = departments.reduce((acc, dept) => acc + (dept._count?.employees || 0), 0);
-  const totalQuota = departments.reduce((acc, dept) => acc + (dept.quota || 15), 0);
-  const totalFillRate = totalQuota > 0 ? Math.round((totalHeadcount / totalQuota) * 100) : 0;
-
   const filteredDepartments = departments.filter(d => {
     const matchSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || (d.code && d.code.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchStatus = statusFilter === '' || d.status === statusFilter;
@@ -239,47 +234,6 @@ export const Departments = () => {
         <button onClick={handleOpenAdd} className="btn btn-primary">
           <Plus size={18} /> Thêm Phòng ban
         </button>
-      </div>
-
-      {/* KPI Overview Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-        <div className="card glass" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
-            <Building size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tổng số phòng ban</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>{totalDepts} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#16A34A' }}>({departments.filter(d => d.status === 'ACTIVE').length} hoạt động)</span></div>
-          </div>
-        </div>
-
-        <div className="card glass" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', backgroundColor: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16A34A' }}>
-            <Users size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nhân sự thực tế</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>{totalHeadcount} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#64748B' }}>nhân viên</span></div>
-          </div>
-        </div>
-
-        <div className="card glass" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', backgroundColor: '#FAF5FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9333EA' }}>
-            <Filter size={22} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tỷ lệ lấp đầy định biên</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: totalFillRate > 100 ? '#DC2626' : '#9333EA' }}>{totalFillRate}%</span>
-            </div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2, marginTop: 2 }}>
-              {totalHeadcount} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#64748B' }}>/ {totalQuota} định biên</span>
-            </div>
-            <div style={{ width: '100%', height: 4, backgroundColor: '#E2E8F0', borderRadius: 2, overflow: 'hidden', marginTop: 4 }}>
-              <div style={{ width: `${Math.min(100, totalFillRate)}%`, height: '100%', backgroundColor: totalFillRate > 100 ? '#DC2626' : '#9333EA' }} />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Main Content */}
