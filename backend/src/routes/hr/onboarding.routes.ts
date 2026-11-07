@@ -3,14 +3,18 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
+import { getSettingValue } from '../system/setting.routes';
 
 const router = Router();
 router.use(authenticateToken);
 router.use(requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF', 'IT_SUPPORT'));
 
-// 1. Lấy danh sách nhân viên đang Onboarding
+// 1. Lấy danh sách nhân viên đang Onboarding (Kèm hạn nộp hồ sơ cứng theo ONBOARDING_CHECKLIST_DEADLINE)
 router.get('/newbies', async (req: Request, res: Response) => {
   try {
+    const deadlineDays = Number(await getSettingValue('ONBOARDING_CHECKLIST_DEADLINE', 7)) || 7;
+    const nowMs = Date.now();
+
     const newbies = await prisma.employee.findMany({
       where: { status: 'ONBOARDING' },
       include: {
@@ -20,7 +24,21 @@ router.get('/newbies', async (req: Request, res: Response) => {
       },
       orderBy: { joinDate: 'desc' }
     });
-    res.json(newbies);
+
+    const enriched = newbies.map(emp => {
+      const joinMs = emp.joinDate ? new Date(emp.joinDate).getTime() : nowMs;
+      const deadlineDate = new Date(joinMs + deadlineDays * 24 * 60 * 60 * 1000);
+      const daysRemaining = Math.ceil((deadlineDate.getTime() - nowMs) / (1000 * 60 * 60 * 24));
+      return {
+        ...emp,
+        checklistDeadlineDays: deadlineDays,
+        checklistDeadlineDate: deadlineDate,
+        checklistDaysRemaining: daysRemaining,
+        isChecklistOverdue: daysRemaining < 0
+      };
+    });
+
+    res.json(enriched);
   } catch (error) {
     res.status(500).json({ error: 'Lỗi khi lấy danh sách nhân sự Onboarding' });
   }

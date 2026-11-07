@@ -44,24 +44,38 @@ export const AttendanceMgmt = () => {
     note: 'Điều chỉnh công theo đề xuất nhân viên'
   });
   const [submittingManual, setSubmittingManual] = useState(false);
+  const [monthSchedule, setMonthSchedule] = useState({
+    standardDays: 26,
+    weekdayCount: 22,
+    workingSaturdays: [],
+    offSaturdays: [],
+    satMultiplier: 2
+  });
 
   const monthStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
 
   const fetchData = async (autoSyncIfEmpty = false) => {
     setLoading(true);
     try {
-      const [attRes, empRes, deptRes] = await Promise.all([
+      const [attRes, empRes, deptRes, schedRes] = await Promise.all([
         axios.get(`http://localhost:5000/api/attendance?month=${monthStr}`),
         axios.get('http://localhost:5000/api/employees'),
-        axios.get('http://localhost:5000/api/departments')
+        axios.get('http://localhost:5000/api/departments'),
+        axios.get(`http://localhost:5000/api/attendance/month-schedule?year=${selectedYear}&month=${selectedMonth}`)
       ]);
       const activeEmps = (empRes.data || []).filter(e => e.status !== 'RESIGNED');
       setEmployees(activeEmps);
       setDepartments(deptRes.data || []);
+      const schedData = schedRes.data || { standardDays: 26, weekdayCount: 22, workingSaturdays: [], satMultiplier: 2 };
+      setMonthSchedule(schedData);
 
       let attList = attRes.data || [];
-      if (autoSyncIfEmpty && attList.length === 0 && activeEmps.length > 0) {
-        // Tự động đồng bộ dữ liệu máy chấm công mẫu cho tháng hiện hành nếu chưa có bản ghi nào
+      const todayIso = new Date().toISOString().split('T')[0];
+      const pastWorkingSats = (schedData.workingSaturdays || []).filter(s => s <= todayIso);
+      const missingWorkingSat = pastWorkingSats.some(satStr => !attList.some(a => a.date && a.date.startsWith(satStr)));
+
+      if ((autoSyncIfEmpty && attList.length === 0 && activeEmps.length > 0) || (autoSyncIfEmpty && missingWorkingSat && activeEmps.length > 0)) {
+        // Tự động đồng bộ dữ liệu máy chấm công mẫu (bao gồm Thứ 7 đi làm cách tuần x2 công)
         try {
           await axios.post('http://localhost:5000/api/attendance/sync-month', {
             month: selectedMonth,
@@ -141,16 +155,19 @@ export const AttendanceMgmt = () => {
     const totalDays = new Date(selectedYear, selectedMonth, 0).getDate();
     const allDays = [];
     const dowNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const workSatSet = new Set(monthSchedule.workingSaturdays || []);
     for (let d = 1; d <= totalDays; d++) {
       const dateObj = new Date(selectedYear, selectedMonth - 1, d);
       const dow = dateObj.getDay();
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isWorkingSaturday = dow === 6 && workSatSet.has(dateStr);
       allDays.push({
         day: d,
         dateStr,
         dow,
-        dowLabel: dowNames[dow],
-        isWeekend: dow === 0 || dow === 6
+        dowLabel: isWorkingSaturday ? `T7 (x${monthSchedule.satMultiplier || 2})` : dowNames[dow],
+        isWorkingSaturday,
+        isWeekend: dow === 0 || (dow === 6 && !isWorkingSaturday)
       });
     }
 
@@ -159,7 +176,7 @@ export const AttendanceMgmt = () => {
     if (matrixRange === 'W3') return allDays.filter(x => x.day >= 17 && x.day <= 24);
     if (matrixRange === 'W4') return allDays.filter(x => x.day >= 25);
     return allDays;
-  }, [selectedMonth, selectedYear, matrixRange]);
+  }, [selectedMonth, selectedYear, matrixRange, monthSchedule]);
 
   // Map tra cứu nhanh bản ghi chấm công theo `${employeeId}_${YYYY-MM-DD}`
   const attendanceMap = useMemo(() => {
@@ -240,7 +257,7 @@ export const AttendanceMgmt = () => {
       const holidayCount = empRecords.filter(r => r.status === 'HOLIDAY').length;
       const absentCount = empRecords.filter(r => r.status === 'ABSENT').length;
       const wfhCount = empRecords.filter(r => r.status === 'WFH').length;
-      const standardDays = 22;
+      const standardDays = Number(monthSchedule.standardDays || 26);
       const completionRate = standardDays > 0 ? Math.min(100, Math.round((totalActualDays / standardDays) * 100)) : 0;
 
       return {
@@ -262,7 +279,7 @@ export const AttendanceMgmt = () => {
       const matchDept = selectedDept === 'ALL' || item.employee.departmentId === selectedDept;
       return matchSearch && matchDept;
     });
-  }, [employees, attendances, selectedMonth, selectedYear, searchTerm, selectedDept]);
+  }, [employees, attendances, selectedMonth, selectedYear, searchTerm, selectedDept, monthSchedule]);
 
   // Phân trang Daily & Monthly
   const totalDailyPages = Math.ceil(dailyRecords.length / itemsPerPage) || 1;
@@ -303,6 +320,15 @@ export const AttendanceMgmt = () => {
     }
   };
 
+  const formatTimeShort = (isoStr) => {
+    if (!isoStr) return null;
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return null;
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  };
+
   // Submit Manual Adjustment
   const handleSubmitManual = async (e) => {
     e.preventDefault();
@@ -315,18 +341,44 @@ export const AttendanceMgmt = () => {
       const checkInISO = manualForm.checkInTime ? `${manualForm.date}T${manualForm.checkInTime}:00` : null;
       const checkOutISO = manualForm.checkOutTime ? `${manualForm.date}T${manualForm.checkOutTime}:00` : null;
 
-      await axios.post('http://localhost:5000/api/attendance/manual', {
+      let finalStatus = manualForm.status;
+      let finalWorkingDay = Number(manualForm.workingDay ?? 1.0);
+
+      if (manualForm.status === 'ON_LEAVE_HALF') {
+        finalStatus = 'ON_LEAVE';
+        finalWorkingDay = 0.5;
+      } else if (manualForm.status === 'UNPAID_LEAVE') {
+        finalStatus = 'ON_LEAVE';
+        finalWorkingDay = 0.0;
+      }
+
+      const res = await axios.post('http://localhost:5000/api/attendance/manual', {
         employeeId: manualForm.employeeId,
         date: manualForm.date,
         checkIn: checkInISO,
         checkOut: checkOutISO,
-        status: manualForm.status,
-        workingDay: Number(manualForm.workingDay),
+        status: finalStatus,
+        workingDay: finalWorkingDay,
         note: manualForm.note
       });
 
       toast.success('Ghi nhận điều chỉnh công thành công!');
       setShowManualModal(false);
+
+      if (res.data?.record) {
+        const updated = res.data.record;
+        setAttendances(prev => {
+          const targetDStr = manualForm.date;
+          const idx = prev.findIndex(a => a.employeeId === manualForm.employeeId && a.date && a.date.startsWith(targetDStr));
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { ...next[idx], ...updated };
+            return next;
+          }
+          return [updated, ...prev];
+        });
+      }
+
       fetchData(false);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Lỗi khi lưu điều chỉnh công');
@@ -337,20 +389,23 @@ export const AttendanceMgmt = () => {
 
   // Quick Open Manual Adjustment from table row or matrix cell
   const handleOpenEditRow = (att, fallbackEmpId = '', fallbackDateStr = '') => {
+    const targetEmpId = att?.employeeId || fallbackEmpId;
+    const targetDate = fallbackDateStr || (att?.date ? att.date.split('T')[0] : selectedDate);
+
     if (att) {
       setManualForm({
-        employeeId: att.employeeId,
-        date: att.date ? att.date.split('T')[0] : (fallbackDateStr || selectedDate),
-        checkInTime: att.checkIn ? new Date(att.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '07:50',
-        checkOutTime: att.checkOut ? new Date(att.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '17:35',
+        employeeId: targetEmpId,
+        date: targetDate,
+        checkInTime: att.checkIn ? formatTimeShort(att.checkIn) : '07:50',
+        checkOutTime: att.checkOut ? formatTimeShort(att.checkOut) : '17:35',
         status: att.status || 'NORMAL',
-        workingDay: Number(att.workingDay) ?? 1.0,
+        workingDay: att.workingDay !== undefined ? Number(att.workingDay) : 1.0,
         note: 'Hiệu chỉnh công trực tiếp bởi HR'
       });
     } else {
       setManualForm({
-        employeeId: fallbackEmpId,
-        date: fallbackDateStr || selectedDate,
+        employeeId: targetEmpId,
+        date: targetDate,
         checkInTime: '07:50',
         checkOutTime: '17:35',
         status: 'NORMAL',
@@ -359,14 +414,6 @@ export const AttendanceMgmt = () => {
       });
     }
     setShowManualModal(true);
-  };
-
-  const formatTimeShort = (isoStr) => {
-    if (!isoStr) return null;
-    const d = new Date(isoStr);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
   };
 
   // Export CSV
@@ -712,22 +759,42 @@ export const AttendanceMgmt = () => {
               fontSize: '0.75rem',
               color: '#475569'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#E6F4EA', border: '1px solid #A7F3D0', display: 'inline-block' }} />
-                  <span>Đủ công Vào/Ra (07:50 / 17:35)</span>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#EBFBEE', border: '1px solid #A7F3D0', display: 'inline-block' }} />
+                  <span>Đủ công</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#FEF3C7', border: '1px solid #FDE68A', display: 'inline-block' }} />
-                  <span>⚠ Thiếu giờ ra / Đi muộn</span>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#FFF8DB', border: '1px solid #FDE68A', display: 'inline-block' }} />
+                  <span>⚠ Đi muộn / Quên ra</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                   <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#EEF2FF', border: '1px solid #C7D2FE', display: 'inline-block' }} />
-                  <span><strong>P</strong>: Nghỉ phép</span>
+                  <span><strong style={{ color: '#2563EB' }}>P</strong>: Phép năm (1 công)</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', display: 'inline-block' }} />
-                  <span><strong>—</strong>: Nghỉ cuối tuần / Chưa phát sinh</span>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#E0F2FE', border: '1px solid #BAE6FD', display: 'inline-block' }} />
+                  <span><strong style={{ color: '#0284C7' }}>P/2</strong>: Nửa ngày phép (0.5)</span>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', display: 'inline-block' }} />
+                  <span><strong style={{ color: '#475569' }}>KL</strong>: Nghỉ không lương (0)</span>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#FAF5FF', border: '1px solid #E9D5FF', display: 'inline-block' }} />
+                  <span><strong style={{ color: '#9333EA' }}>Lễ</strong>: Nghỉ lễ tết BLLĐ</span>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#FEF2F2', border: '1px solid #FECACA', display: 'inline-block' }} />
+                  <span><strong style={{ color: '#DC2626' }}>KP</strong>: Không phép</span>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#ECFEFF', border: '1px solid #A5F3FC', display: 'inline-block' }} />
+                  <span><strong style={{ color: '#0E7490' }}>WFH</strong>: Làm từ xa</span>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#FAFAFA', border: '1px solid #E2E8F0', display: 'inline-block' }} />
+                  <span><strong>—</strong>: Nghỉ tuần</span>
                 </span>
               </div>
 
@@ -843,21 +910,30 @@ export const AttendanceMgmt = () => {
                           const checkInStr = att?.checkIn ? formatTimeShort(att.checkIn) : null;
                           const checkOutStr = att?.checkOut ? formatTimeShort(att.checkOut) : null;
 
-                          // Xác định trạng thái màu sắc giống bảng chấm công thực tế của user
-                          const isLeave = att?.status === 'ON_LEAVE';
+                          // Xác định trạng thái phân loại chi tiết các loại nghỉ và ký hiệu chuẩn
                           const isHoliday = att?.status === 'HOLIDAY';
                           const isWfh = att?.status === 'WFH';
                           const isAbsent = att?.status === 'ABSENT';
-                          const isMissingOut = Boolean(checkInStr && !checkOutStr && !isLeave && !isHoliday);
+                          const isLeave = att?.status === 'ON_LEAVE';
+                          const workDayVal = att?.workingDay !== undefined ? Number(att.workingDay) : null;
+
+                          // Phân loại cụ thể phép:
+                          const isPaidLeaveFull = isLeave && (workDayVal === null || workDayVal >= 1.0);
+                          const isPaidLeaveHalf = isLeave && workDayVal === 0.5;
+                          const isUnpaidLeave = isLeave && workDayVal === 0;
+
+                          const isMissingOut = Boolean(checkInStr && !checkOutStr && !isLeave && !isHoliday && !isAbsent);
                           const isLateOrEarly = att?.status === 'LATE' || att?.status === 'EARLY_LEAVE' || isMissingOut;
                           const isNormalFull = Boolean(checkInStr && checkOutStr && !isLateOrEarly);
 
                           let cellBg = '#FFFFFF';
                           if (d.isWeekend && !att) cellBg = '#FAFAFA';
-                          else if (isLeave) cellBg = '#EEF2FF'; // Xanh tím nhạt cho chữ P
-                          else if (isHoliday) cellBg = '#FEF3C7';
+                          else if (isPaidLeaveFull) cellBg = '#EEF2FF'; // Xanh tím nhạt cho chữ P (1 công)
+                          else if (isPaidLeaveHalf) cellBg = '#E0F2FE'; // Xanh cyan nhạt cho P/2 (0.5 công)
+                          else if (isUnpaidLeave) cellBg = '#F1F5F9'; // Xám nhạt cho KL (0 công)
+                          else if (isHoliday) cellBg = '#FAF5FF'; // Tím nhạt cho Lễ
+                          else if (isAbsent) cellBg = '#FEF2F2'; // Đỏ nhạt cho KP
                           else if (isWfh) cellBg = '#ECFEFF';
-                          else if (isAbsent) cellBg = '#FEF2F2';
                           else if (isLateOrEarly) cellBg = '#FFF8DB'; // Vàng cam nhạt cảnh báo ⚠
                           else if (isNormalFull) cellBg = '#EBFBEE'; // Xanh lá nhạt đủ công
 
@@ -879,17 +955,21 @@ export const AttendanceMgmt = () => {
                             >
                               {!att ? (
                                 <div style={{ color: '#475569', fontSize: '0.82rem', fontWeight: 500 }}>—</div>
-                              ) : isLeave ? (
-                                <div style={{ color: '#2563EB', fontSize: '0.82rem', fontWeight: 600 }}>P</div>
+                              ) : isPaidLeaveFull ? (
+                                <div style={{ color: '#2563EB', fontSize: '0.82rem', fontWeight: 700 }} title="Nghỉ phép năm hưởng nguyên lương (1.0 công)">P</div>
+                              ) : isPaidLeaveHalf ? (
+                                <div style={{ color: '#0284C7', fontSize: '0.82rem', fontWeight: 700 }} title="Nghỉ nửa ngày phép (0.5 công)">P/2</div>
+                              ) : isUnpaidLeave ? (
+                                <div style={{ color: '#475569', fontSize: '0.82rem', fontWeight: 700 }} title="Nghỉ không hưởng lương (0.0 công)">KL</div>
                               ) : isHoliday ? (
-                                <div style={{ color: '#B45309', fontSize: '0.78rem', fontWeight: 700 }}>Lễ</div>
+                                <div style={{ color: '#9333EA', fontSize: '0.78rem', fontWeight: 700 }} title="Nghỉ lễ tết theo quy định BLLĐ (Hưởng nguyên lương)">Lễ</div>
+                              ) : isAbsent ? (
+                                <div style={{ color: '#DC2626', fontSize: '0.78rem', fontWeight: 700 }} title="Nghỉ không phép (Trừ công)">KP</div>
                               ) : isWfh ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.76rem', color: '#0E7490', fontWeight: 600 }}>
                                   <span>{checkInStr || 'WFH'}</span>
                                   <span>{checkOutStr || '17:30'}</span>
                                 </div>
-                              ) : isAbsent ? (
-                                <div style={{ color: '#DC2626', fontSize: '0.78rem', fontWeight: 600 }}>KP</div>
                               ) : isLateOrEarly ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.78rem', lineHeight: 1.25 }}>
                                   <div style={{ color: '#854D0E', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -1210,8 +1290,9 @@ export const AttendanceMgmt = () => {
                     onChange={e => setManualForm({ ...manualForm, workingDay: Number(e.target.value) })}
                   >
                     <option value={1.0}>1.0 công (Đủ ngày)</option>
+                    <option value={2.0}>2.0 công (Thứ 7 đi làm cách tuần x2)</option>
                     <option value={0.5}>0.5 công (Nửa ngày)</option>
-                    <option value={0.0}>0.0 công (Vắng)</option>
+                    <option value={0.0}>0.0 công (Nghỉ không lương / Vắng)</option>
                   </select>
                 </div>
               </div>
@@ -1238,19 +1319,32 @@ export const AttendanceMgmt = () => {
               </div>
 
               <div>
-                <label className="form-label">Trạng thái</label>
+                <label className="form-label">Trạng thái công & Loại nghỉ</label>
                 <select 
                   className="form-input w-full"
                   value={manualForm.status}
-                  onChange={e => setManualForm({ ...manualForm, status: e.target.value })}
+                  onChange={e => {
+                    const st = e.target.value;
+                    let defaultWork = manualForm.workingDay;
+                    if (st === 'NORMAL') defaultWork = 1.0;
+                    else if (st === 'ON_LEAVE') defaultWork = 1.0;
+                    else if (st === 'ON_LEAVE_HALF') defaultWork = 0.5;
+                    else if (st === 'UNPAID_LEAVE') defaultWork = 0.0;
+                    else if (st === 'HOLIDAY') defaultWork = 1.0;
+                    else if (st === 'ABSENT') defaultWork = 0.0;
+                    else if (st === 'EARLY_LEAVE') defaultWork = 0.5;
+                    setManualForm({ ...manualForm, status: st, workingDay: defaultWork });
+                  }}
                 >
-                  <option value="NORMAL">Đúng giờ / Đủ công (Xanh lá)</option>
-                  <option value="EARLY_LEAVE">Thiếu giờ ra / Về sớm (Vàng ⚠)</option>
-                  <option value="LATE">Đi muộn (Vàng ⚠)</option>
-                  <option value="ON_LEAVE">Nghỉ phép có lương (Chữ P)</option>
-                  <option value="WFH">Làm việc từ xa (WFH)</option>
-                  <option value="HOLIDAY">Ngày Lễ</option>
-                  <option value="ABSENT">Vắng không phép (KP)</option>
+                  <option value="NORMAL">Đúng giờ / Đủ công (Xanh lá - 1.0 công)</option>
+                  <option value="EARLY_LEAVE">Thiếu giờ ra / Về sớm (Vàng ⚠ - 0.5 công)</option>
+                  <option value="LATE">Đi muộn (Vàng ⚠ - 1.0 công)</option>
+                  <option value="ON_LEAVE">Nghỉ phép năm có lương (Chữ P - 1.0 công)</option>
+                  <option value="ON_LEAVE_HALF">Nửa ngày phép có lương (Chữ P/2 - 0.5 công)</option>
+                  <option value="UNPAID_LEAVE">Nghỉ không hưởng lương (Chữ KL - 0 công)</option>
+                  <option value="HOLIDAY">Ngày Lễ tết BLLĐ (Chữ Lễ - Hưởng 100% lương)</option>
+                  <option value="WFH">Làm việc từ xa (WFH - 1.0 công)</option>
+                  <option value="ABSENT">Vắng không phép (Chữ KP - 0 công)</option>
                 </select>
               </div>
 

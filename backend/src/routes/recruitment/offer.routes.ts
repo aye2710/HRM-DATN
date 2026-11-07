@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { sendWelcomeAccountEmail } from '../../utils/mailer';
+import { getSettingValue } from '../system/setting.routes';
 
 const router = Router();
 router.use(authenticateToken);
@@ -85,9 +86,12 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
       return res.status(400).json({ error: 'Vui lòng nhập Lương thỏa thuận và Ngày dự kiến nhận việc.' });
     }
 
-    if (probationRate !== undefined && Number(probationRate) < 85) {
+    const minProbationRate = Number(await getSettingValue('PROBATION_SALARY_PERCENT', 85)) || 85;
+    const offerExpiryDays = Number(await getSettingValue('OFFER_EXPIRY_DAYS', 3)) || 3;
+
+    if (probationRate !== undefined && Number(probationRate) < minProbationRate) {
       return res.status(400).json({
-        error: 'Theo quy định Điều 26 Bộ luật Lao động 2019, tỷ lệ lương thử việc không được thấp hơn 85% mức lương chính thức.'
+        error: `Theo quy định Điều 26 Bộ luật Lao động 2019 và cấu hình công ty, tỷ lệ lương thử việc không được thấp hơn ${minProbationRate}% mức lương chính thức.`
       });
     }
 
@@ -104,7 +108,7 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
     }
 
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // Hạn chót 24h
+    const expiresAt = new Date(now.getTime() + offerExpiryDays * 24 * 60 * 60 * 1000); // Hạn phản hồi theo OFFER_EXPIRY_DAYS
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Cập nhật hoặc tạo mới JobOffer
@@ -113,7 +117,7 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
         create: {
           candidateId,
           baseSalary: Number(baseSalary),
-          probationRate: Number(probationRate) || 85,
+          probationRate: Number(probationRate) || minProbationRate,
           startDate: new Date(startDate),
           contractType: contractType || 'PROBATION',
           notes: notes || null,
@@ -123,7 +127,7 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
         },
         update: {
           baseSalary: Number(baseSalary),
-          probationRate: Number(probationRate) || 85,
+          probationRate: Number(probationRate) || minProbationRate,
           startDate: new Date(startDate),
           contractType: contractType || 'PROBATION',
           notes: notes || null,
@@ -144,7 +148,7 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
       return offer;
     });
 
-    return res.status(201).json({ message: 'Đã gửi Thư mời nhận việc (Offer) tới Ứng viên (Hạn chót 24h)!', offer: result });
+    return res.status(201).json({ message: `Đã gửi Thư mời nhận việc (Offer) tới Ứng viên (Hạn phản hồi ${offerExpiryDays} ngày)!`, offer: result });
   } catch (error: any) {
     console.error("Lỗi khi gửi Offer:", error);
     return res.status(500).json({ error: error.message || 'Lỗi hệ thống khi gửi Offer.' });

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Clock, Cpu, FileText, Send, Printer, AlertTriangle, CheckCircle2,
-  ArrowLeft, Calendar, ChevronLeft, ChevronRight
+  ArrowLeft, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, X, Sparkles
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -19,9 +19,20 @@ export const EmployeeAttendance = () => {
 
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [myAdjustments, setMyAdjustments] = useState([]);
+  const [myOtRequests, setMyOtRequests] = useState([]);
+  const [otSummary, setOtSummary] = useState({ totalRequestedHours: 0, totalApprovedHours: 0 });
   const [empProfile, setEmpProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // State cho Đăng ký OT
+  const [showOtModal, setShowOtModal] = useState(false);
+  const [submittingOt, setSubmittingOt] = useState(false);
+  const [otForm, setOtForm] = useState({
+    date: now.toISOString().split('T')[0],
+    requestHours: 2,
+    reason: ''
+  });
 
   // State cho Trang lập & in đơn (Full-Page)
   const [requestForm, setRequestForm] = useState({
@@ -56,10 +67,11 @@ export const EmployeeAttendance = () => {
 
     if (employeeId) {
       try {
-        const [attRes, adjRes, profRes] = await Promise.all([
+        const [attRes, adjRes, profRes, otRes] = await Promise.all([
           axios.get(`http://localhost:5000/api/attendance/employee/${employeeId}?month=${monthQueryStr}`, { headers }),
           axios.get('http://localhost:5000/api/attendance/adjustments', { headers }),
-          axios.get(`http://localhost:5000/api/employees/${employeeId}`, { headers }).catch(() => ({ data: null }))
+          axios.get(`http://localhost:5000/api/employees/${employeeId}`, { headers }).catch(() => ({ data: null })),
+          axios.get(`http://localhost:5000/api/ot/employee/${employeeId}?month=${monthQueryStr}`, { headers }).catch(() => ({ data: { requests: [], summary: {} } }))
         ]);
 
         const recordsList = Array.isArray(attRes.data) ? attRes.data : (attRes.data?.records || []);
@@ -70,11 +82,62 @@ export const EmployeeAttendance = () => {
         setAttendanceRecords(validRecords);
         if (Array.isArray(adjRes.data)) setMyAdjustments(adjRes.data);
         if (profRes?.data) setEmpProfile(profRes.data);
+        if (otRes?.data?.requests) {
+          setMyOtRequests(otRes.data.requests);
+          setOtSummary(otRes.data.summary || { totalRequestedHours: 0, totalApprovedHours: 0 });
+        }
       } catch (e) {
         console.error(e);
       }
     }
     setLoading(false);
+  };
+
+  const handleSubmitOt = async (e) => {
+    e.preventDefault();
+    if (!otForm.date || !otForm.requestHours) {
+      return toast.error('Vui lòng chọn ngày và số giờ làm thêm!');
+    }
+    if (Number(otForm.requestHours) <= 0 || Number(otForm.requestHours) > 4) {
+      return toast.error('Số giờ làm thêm phải từ 0.5h đến 4h (Điều 107 BLLĐ 2019)!');
+    }
+    setSubmittingOt(true);
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.post(
+        'http://localhost:5000/api/ot',
+        {
+          employeeId,
+          date: otForm.date,
+          requestHours: Number(otForm.requestHours),
+          reason: otForm.reason.trim() || 'Làm thêm theo yêu cầu tiến độ dự án'
+        },
+        { headers }
+      );
+      toast.success(res.data.message || 'Đăng ký làm thêm giờ thành công, đang chờ Quản lý phê duyệt!');
+      if (res.data.warning) {
+        toast(res.data.warning, { icon: '⚠️', duration: 6000 });
+      }
+      setShowOtModal(false);
+      setOtForm({ date: now.toISOString().split('T')[0], requestHours: 2, reason: '' });
+      await fetchAttendanceData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi gửi đăng ký OT');
+    } finally {
+      setSubmittingOt(false);
+    }
+  };
+
+  const handleCancelOt = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy đăng ký làm thêm này không?')) return;
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      await axios.delete(`http://localhost:5000/api/ot/${id}`, { headers });
+      toast.success('Đã hủy đăng ký làm thêm!');
+      await fetchAttendanceData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi hủy đăng ký OT');
+    }
   };
 
   useEffect(() => {
@@ -709,6 +772,13 @@ export const EmployeeAttendance = () => {
           >
             <Clock size={15} /> Làm Đơn xin đi muộn
           </button>
+          <button
+            onClick={() => setShowOtModal(true)}
+            className="btn btn-outline"
+            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700, borderColor: '#8B5CF6', color: '#6D28D9', backgroundColor: '#F5F3FF' }}
+          >
+            <Plus size={15} /> Đăng ký làm thêm (OT)
+          </button>
         </div>
       </div>
 
@@ -861,40 +931,81 @@ export const EmployeeAttendance = () => {
                   const inStr = fmtTime(rec.checkIn);
                   const outStr = fmtTime(rec.checkOut);
                   const lateMins = getLateMinutes(rec.checkIn);
-                  const isMissingOut = inStr && !outStr && rec.status !== 'ON_LEAVE';
-                  const isLate5to60 = lateMins > 5 && lateMins <= 60 && rec.status !== 'NORMAL';
-                  const isLateOver60 = lateMins > 60;
+                  const workVal = rec.workingDay !== undefined ? Number(rec.workingDay) : 1.0;
+                  const isLeave = rec.status === 'ON_LEAVE';
+                  const isPaidLeaveFull = isLeave && workVal >= 1.0;
+                  const isPaidLeaveHalf = isLeave && workVal === 0.5;
+                  const isUnpaidLeave = isLeave && workVal === 0.0;
+                  const isHoliday = rec.status === 'HOLIDAY';
+                  const isAbsent = rec.status === 'ABSENT';
+                  const isWfh = rec.status === 'WFH';
+                  const isMissingOut = Boolean(inStr && !outStr && !isLeave && !isHoliday && !isAbsent);
+                  const isLate5to30 = Boolean(lateMins > 5 && lateMins <= 30 && rec.status !== 'NORMAL' && !isLeave && !isHoliday);
+                  const isLateOver30 = Boolean(lateMins > 30 && !isLeave && !isHoliday);
                   const dateIso = rec.date ? new Date(rec.date).toISOString().split('T')[0] : '';
+
+                  let rowBg = '#FFFFFF';
+                  if (isPaidLeaveFull) rowBg = '#EEF2FF';
+                  else if (isPaidLeaveHalf) rowBg = '#E0F2FE';
+                  else if (isUnpaidLeave) rowBg = '#F8FAFC';
+                  else if (isHoliday) rowBg = '#FAF5FF';
+                  else if (isAbsent) rowBg = '#FEF2F2';
+                  else if (isLateOver30) rowBg = '#FEF2F2';
+                  else if (isMissingOut || isLate5to30) rowBg = '#FFFBEB';
 
                   return (
                     <tr
                       key={rec.id || i}
                       style={{
                         borderBottom: '1px solid #F1F5F9',
-                        backgroundColor: isLateOver60 ? '#FEF2F2' : (isMissingOut || isLate5to60) ? '#FFFBEB' : '#FFFFFF'
+                        backgroundColor: rowBg
                       }}
                     >
                       <td style={{ padding: '0.7rem 1.1rem', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap' }}>
                         {rec.date ? new Date(rec.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
                       </td>
                       <td style={{ padding: '0.7rem 0.9rem', fontFamily: 'monospace', fontWeight: 700, color: lateMins > 5 ? '#B45309' : '#15803D', whiteSpace: 'nowrap' }}>
-                        {inStr || '—'} {lateMins > 5 ? `(Muộn ${lateMins}p)` : lateMins > 0 ? `(Ân hạn +${lateMins}p)` : ''}
+                        {isLeave || isHoliday ? '—' : (inStr || '—')} {lateMins > 5 && !isLeave && !isHoliday ? `(Muộn ${lateMins}p)` : lateMins > 0 && !isLeave && !isHoliday ? `(Ân hạn +${lateMins}p)` : ''}
                       </td>
                       <td style={{ padding: '0.7rem 0.9rem', fontFamily: 'monospace', fontWeight: 700, color: isMissingOut ? '#B45309' : '#1E293B', whiteSpace: 'nowrap' }}>
-                        {outStr || '⚠ — (Quên Check-out)'}
+                        {isLeave || isHoliday ? '—' : (outStr || '⚠ — (Quên Check-out)')}
                       </td>
                       <td style={{ padding: '0.7rem 0.9rem' }}>
-                        {isMissingOut ? (
+                        {isPaidLeaveFull ? (
+                          <span style={{ backgroundColor: '#EEF2FF', color: '#1D4ED8', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            🔵 Nghỉ phép năm (P) — Hưởng 100% lương
+                          </span>
+                        ) : isPaidLeaveHalf ? (
+                          <span style={{ backgroundColor: '#E0F2FE', color: '#0369A1', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            🔷 Nửa ngày phép (P/2) — Hưởng 0.5 công
+                          </span>
+                        ) : isUnpaidLeave ? (
+                          <span style={{ backgroundColor: '#F1F5F9', color: '#475569', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            ⚪ Nghỉ không hưởng lương (KL) — 0 công
+                          </span>
+                        ) : isHoliday ? (
+                          <span style={{ backgroundColor: '#FAF5FF', color: '#7E22CE', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            🟣 Nghỉ lễ tết (Lễ) — Hưởng nguyên lương
+                          </span>
+                        ) : isAbsent ? (
+                          <span style={{ backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            ⛔ Vắng không phép (KP) — Trừ công
+                          </span>
+                        ) : isWfh ? (
+                          <span style={{ backgroundColor: '#ECFEFF', color: '#0E7490', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            🌐 Làm việc từ xa (WFH)
+                          </span>
+                        ) : isMissingOut ? (
                           <span style={{ backgroundColor: '#FEF3C7', color: '#B45309', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
                             ⚠ Quên Check-out (Cần làm Đơn xác nhận chấm công)
                           </span>
-                        ) : isLateOver60 ? (
+                        ) : isLateOver30 ? (
                           <span style={{ backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            ⛔ Đi muộn &gt; 1 tiếng ({lateMins}p) ➔ Mất công buổi sáng
+                            ⛔ Đi muộn &gt; 30 phút ({lateMins}p) ➔ Không tính công cả ngày (0 công)
                           </span>
-                        ) : isLate5to60 ? (
+                        ) : isLate5to30 ? (
                           <span style={{ backgroundColor: '#FEF3C7', color: '#B45309', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            ⏰ Đi muộn {lateMins}p (5p–60p) ➔ Cần làm Đơn xin đi muộn (≤3 lần/tháng)
+                            ⏰ Đi muộn {lateMins}p (5p–30p) ➔ Cần nộp Đơn trong 3 ngày (≤1 lần/tuần, 3 lần/tháng)
                           </span>
                         ) : (
                           <span style={{ backgroundColor: '#DCFCE7', color: '#15803D', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
@@ -903,10 +1014,12 @@ export const EmployeeAttendance = () => {
                         )}
                       </td>
                       <td style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                        {isLateOver60 || isMissingOut ? '0.5 công' : `${Number(rec.workingDay ?? 1.0)} công`}
+                        {isUnpaidLeave || isAbsent || isLateOver30 ? '0.0 công' : isPaidLeaveHalf ? '0.5 công' : isMissingOut ? '0.5 công' : `${workVal.toFixed(1)} công`}
                       </td>
                       <td style={{ padding: '0.7rem 1.1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {isMissingOut ? (
+                        {isPaidLeaveFull || isPaidLeaveHalf || isUnpaidLeave || isHoliday ? (
+                          <span style={{ fontSize: '0.73rem', color: '#64748B', fontWeight: 600 }}>Đã ghi nhận nghỉ</span>
+                        ) : isMissingOut ? (
                           <button
                             onClick={() => openFullPageForm('CONFIRM_ATTENDANCE', {
                               date: dateIso,
@@ -919,21 +1032,21 @@ export const EmployeeAttendance = () => {
                           >
                             📄 Lập Đơn xác nhận công
                           </button>
-                        ) : isLate5to60 ? (
+                        ) : isLate5to30 ? (
                           <button
                             onClick={() => openFullPageForm('LATE_PERMISSION', {
                               date: dateIso,
                               lateDuration: `${lateMins} phút`,
                               oldTime: `${inStr} (Muộn ${lateMins} phút)`,
-                              reason: `Em xin phép đến muộn ${lateMins} phút ngày ${new Date(rec.date).toLocaleDateString('vi-VN')} do có lịch học trên trường / việc đột xuất đầu giờ sáng ạ`
+                              reason: `Em xin phép đến muộn ${lateMins} phút ngày ${new Date(rec.date).toLocaleDateString('vi-VN')} do có việc đột xuất đầu giờ sáng ạ`
                             })}
                             className="btn btn-outline"
                             style={{ height: 28, padding: '0 0.65rem', fontSize: '0.73rem', fontWeight: 700, borderColor: '#F59E0B', color: '#B45309' }}
                           >
                             ⏰ Lập Đơn xin đi muộn
                           </button>
-                        ) : isLateOver60 ? (
-                          <span style={{ fontSize: '0.73rem', color: '#DC2626', fontWeight: 700 }}>Quá 1h (Trừ 0.5 công)</span>
+                        ) : isLateOver30 ? (
+                          <span style={{ fontSize: '0.73rem', color: '#DC2626', fontWeight: 700 }}>Muộn &gt; 30p (Mất công ngày)</span>
                         ) : (
                           <span style={{ fontSize: '0.73rem', color: '#94A3B8' }}>Đạt chuẩn</span>
                         )}
@@ -1037,6 +1150,257 @@ export const EmployeeAttendance = () => {
           </table>
         </div>
       </div>
+
+      {/* 5. Khối Quản lý Làm thêm giờ (OT) của cá nhân trong tháng */}
+      <div style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: '0.75rem',
+        border: '1px solid #E2E8F0',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          padding: '0.8rem 1.25rem',
+          borderBottom: '1px solid #E2E8F0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          backgroundColor: '#FAF5FF'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: '6px',
+              backgroundColor: '#EDE9FE', color: '#7C3AED',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <Clock size={16} />
+            </div>
+            <div>
+              <strong style={{ fontSize: '0.95rem', color: '#581C87' }}>
+                Lịch sử Đăng ký Làm thêm giờ (OT) Tháng {selectedMonth}/{selectedYear} ({myOtRequests.length})
+              </strong>
+              <div style={{ fontSize: '0.73rem', color: '#6B21A8' }}>
+                Chính sách Điều 107 BLLĐ 2019: Ngày thường 150%, Cuối tuần 200%, Lễ tết 300% lương
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.78rem', backgroundColor: '#FFFFFF', border: '1px solid #DDD6FE', padding: '3px 10px', borderRadius: '6px', color: '#6D28D9', fontWeight: 600 }}>
+              Đăng ký: <strong>{otSummary.totalRequestedHours || 0}h</strong>
+            </span>
+            <span style={{ fontSize: '0.78rem', backgroundColor: '#DCFCE7', border: '1px solid #86EFAC', padding: '3px 10px', borderRadius: '6px', color: '#15803D', fontWeight: 700 }}>
+              Đã duyệt (tính lương): <strong>{otSummary.totalApprovedHours || 0}h / 40h</strong>
+            </span>
+            {otSummary.isMonthWarning && (
+              <span style={{ fontSize: '0.76rem', backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', padding: '3px 10px', borderRadius: '6px', color: '#B45309', fontWeight: 700 }}>
+                ⚠️ Bot LLA cảnh báo: Đạt {otSummary.monthWarningPercent || 80}% hạn mức tháng
+              </span>
+            )}
+            <button
+              onClick={() => setShowOtModal(true)}
+              className="btn btn-primary"
+              style={{ height: 30, padding: '0 0.75rem', fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#2563EB', borderColor: '#2563EB' }}
+            >
+              <Plus size={14} /> Đăng ký OT
+            </button>
+          </div>
+        </div>
+
+        <div className="table-responsive">
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                <th style={{ padding: '0.7rem 1.1rem', textAlign: 'left', fontWeight: 700 }}>Ngày làm OT</th>
+                <th style={{ padding: '0.7rem 0.9rem', textAlign: 'left', fontWeight: 700 }}>Phân loại ngày / Hệ số</th>
+                <th style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700 }}>Giờ đăng ký</th>
+                <th style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700 }}>Giờ nghiệm thu</th>
+                <th style={{ padding: '0.7rem 0.9rem', textAlign: 'left', fontWeight: 700 }}>Lý do làm thêm</th>
+                <th style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700 }}>Trạng thái</th>
+                <th style={{ padding: '0.7rem 1.1rem', textAlign: 'right', fontWeight: 700 }}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {myOtRequests.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ padding: '1.5rem', textAlign: 'center', color: '#64748B' }}>
+                    Chưa có đăng ký làm thêm giờ (OT) nào trong tháng {selectedMonth}/{selectedYear}.
+                  </td>
+                </tr>
+              ) : (
+                myOtRequests.map(ot => {
+                  const otD = new Date(ot.date);
+                  const isWeekend = otD.getDay() === 0 || otD.getDay() === 6;
+                  return (
+                    <tr key={ot.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '0.7rem 1.1rem', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap' }}>
+                        {otD.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </td>
+                      <td style={{ padding: '0.7rem 0.9rem', whiteSpace: 'nowrap' }}>
+                        <span style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.73rem',
+                          fontWeight: 700,
+                          backgroundColor: isWeekend ? '#FFFBEB' : '#EFF6FF',
+                          color: isWeekend ? '#B45309' : '#1D4ED8'
+                        }}>
+                          {isWeekend ? 'Cuối tuần (Hệ số 200%)' : 'Ngày thường (Hệ số 150%)'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700, color: '#334155' }}>
+                        {Number(ot.requestHours).toFixed(1)}h
+                      </td>
+                      <td style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700, color: ot.status === 'APPROVED' ? '#15803D' : '#64748B' }}>
+                        {ot.status === 'APPROVED' ? `${Number(ot.actualHours || ot.requestHours).toFixed(1)}h` : '—'}
+                      </td>
+                      <td style={{ padding: '0.7rem 0.9rem', color: '#334155' }}>
+                        {ot.reason || 'Làm thêm tiến độ dự án'}
+                      </td>
+                      <td style={{ padding: '0.7rem 0.9rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <span style={{
+                          padding: '3px 9px',
+                          borderRadius: '999px',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          backgroundColor: ot.status === 'APPROVED' ? '#DCFCE7' : ot.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+                          color: ot.status === 'APPROVED' ? '#15803D' : ot.status === 'REJECTED' ? '#B91C1C' : '#B45309'
+                        }}>
+                          {ot.status === 'APPROVED' ? 'Đã phê duyệt' : ot.status === 'REJECTED' ? 'Từ chối' : 'Chờ quản lý duyệt'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.7rem 1.1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {ot.status === 'PENDING' ? (
+                          <button
+                            onClick={() => handleCancelOt(ot.id)}
+                            className="btn btn-outline"
+                            style={{ height: 26, padding: '0 0.5rem', fontSize: '0.72rem', color: '#EF4444', borderColor: '#FECACA' }}
+                            title="Hủy đơn OT"
+                          >
+                            <Trash2 size={13} /> Hủy
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* MODAL ĐĂNG KÝ LÀM THÊM GIỜ (OT) */}
+      {showOtModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          backgroundColor: 'rgba(15, 23, 42, 0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF', borderRadius: '0.75rem',
+            width: '100%', maxWidth: 480, overflow: 'hidden',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{
+              padding: '1rem 1.25rem', borderBottom: '1px solid #E2E8F0',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              backgroundColor: '#FAF5FF'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Clock size={18} color="#7C3AED" />
+                <strong style={{ fontSize: '0.95rem', color: '#581C87' }}>Đăng ký Làm thêm giờ (OT)</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOtModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitOt} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+              <div style={{
+                backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.5rem',
+                padding: '0.75rem 0.9rem', fontSize: '0.74rem', color: '#334155', lineHeight: 1.5
+              }}>
+                <div style={{ fontWeight: 800, color: '#1E293B', marginBottom: 4 }}>
+                  📌 Quy định Giới hạn OT Công ty LLA (Căn cứ Đ.107 BLLĐ 2019):
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div>• <strong>Theo ngày:</strong> Tối đa <strong>4 giờ/ngày</strong> (≤ 50% thời giờ làm việc bình thường).</div>
+                  <div>• <strong>Theo tháng:</strong> Tối đa <strong>40 giờ/tháng</strong> (Bot @Chấm công LLA cảnh báo khi đạt 80% = 32h và 100%).</div>
+                  <div>• <strong>Theo năm:</strong> Tối đa <strong>200 giờ/năm</strong> (mốc 300h chỉ áp dụng khi có phê duyệt riêng từ HR/Legal).</div>
+                </div>
+                <div style={{ marginTop: 6, color: '#B45309', fontWeight: 600, fontSize: '0.72rem', backgroundColor: '#FFFBEB', padding: '4px 8px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
+                  ⚠️ Lưu ý: Mọi OT phải đăng ký và được duyệt trước có dự án/lý do cụ thể, tuyệt đối không "OT chui" rồi đòi tính lương hồi tố.
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155', marginBottom: '0.25rem', display: 'block' }}>
+                  Ngày làm thêm <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  className="form-input w-full"
+                  value={otForm.date}
+                  onChange={e => setOtForm({ ...otForm, date: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155', marginBottom: '0.25rem', display: 'block' }}>
+                  Số giờ làm thêm (tối đa 4h/ngày) <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0.5"
+                  max="4"
+                  className="form-input w-full"
+                  value={otForm.requestHours}
+                  onChange={e => setOtForm({ ...otForm, requestHours: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155', marginBottom: '0.25rem', display: 'block' }}>
+                  Lý do làm thêm giờ <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <textarea
+                  className="form-input w-full"
+                  rows={3}
+                  placeholder="Ví dụ: Hỗ trợ triển khai Release hệ thống phiên bản mới / Xử lý sự cố tồn đọng..."
+                  value={otForm.reason}
+                  onChange={e => setOtForm({ ...otForm, reason: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button type="button" onClick={() => setShowOtModal(false)} className="btn btn-outline">
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingOt}
+                  className="btn btn-primary"
+                  style={{ backgroundColor: '#7C3AED', borderColor: '#7C3AED' }}
+                >
+                  {submittingOt ? 'Đang gửi...' : 'Gửi đăng ký OT'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

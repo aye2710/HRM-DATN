@@ -12,12 +12,71 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
   try {
     const month = req.query.month as string; // YYYY-MM
     let employeeId = req.query.employeeId as string;
+    const departmentId = req.query.departmentId as string;
     const status = req.query.status as string;
 
     const userRole = req.user?.role?.toUpperCase();
     // Chặn IDOR: Nhân viên thông thường chỉ được xem danh sách của chính mình
     if (userRole === 'EMPLOYEE') {
       employeeId = req.user.employeeId;
+    }
+
+    // Tự động khởi tạo dữ liệu mẫu nếu chưa có bản ghi OT nào trong hệ thống
+    const totalCount = await prisma.oTRequest.count();
+    if (totalCount === 0) {
+      const emps = await prisma.employee.findMany({
+        take: 6,
+        select: { id: true, fullName: true, code: true }
+      });
+      if (emps.length > 0) {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        await prisma.oTRequest.createMany({
+          data: [
+            {
+              employeeId: emps[0].id,
+              date: new Date(currentYear, currentMonth, 12),
+              requestHours: 2.0 as any,
+              actualHours: 2.0 as any,
+              reason: 'Hỗ trợ triển khai Release hệ thống HRM giai đoạn 2 ngoài giờ',
+              status: 'APPROVED'
+            },
+            {
+              employeeId: emps[1 % emps.length].id,
+              date: new Date(currentYear, currentMonth, 17),
+              requestHours: 3.5 as any,
+              actualHours: 0 as any,
+              reason: 'Bảo trì máy chủ trung tâm dữ liệu và cập nhật bản vá bảo mật',
+              status: 'PENDING'
+            },
+            {
+              employeeId: emps[2 % emps.length].id,
+              date: new Date(currentYear, currentMonth, 20),
+              requestHours: 2.0 as any,
+              actualHours: 0 as any,
+              reason: 'Xử lý tồn đọng hồ sơ nghiệm thu đối tác khách hàng',
+              status: 'PENDING'
+            },
+            {
+              employeeId: emps[3 % emps.length].id,
+              date: new Date(currentYear, currentMonth, 24),
+              requestHours: 4.0 as any,
+              actualHours: 4.0 as any,
+              reason: 'Trực kỹ thuật hỗ trợ sự cố đường truyền mạng cuối tuần',
+              status: 'APPROVED'
+            },
+            {
+              employeeId: emps[4 % emps.length].id,
+              date: new Date(currentYear, currentMonth, 26),
+              requestHours: 1.5 as any,
+              actualHours: 0 as any,
+              reason: 'Làm bù tài liệu thiết kế hệ thống theo chỉ đạo Trưởng phòng',
+              status: 'REJECTED'
+            }
+          ]
+        });
+      }
     }
 
     const where: any = {};
@@ -29,6 +88,9 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
     }
     if (employeeId) {
       where.employeeId = employeeId;
+    }
+    if (departmentId && departmentId !== 'ALL') {
+      where.employee = { departmentId };
     }
     if (status && status !== 'ALL') {
       where.status = status;
@@ -95,12 +157,42 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
       }
     }
 
+    // Tính tổng giờ OT lũy kế cả năm để đối soát trần 200h/năm theo Quy định Công ty LLA
+    const yearStart = new Date(startDate.getFullYear(), 0, 1);
+    const yearEnd = new Date(startDate.getFullYear(), 11, 31, 23, 59, 59);
+    const yearRequests = await prisma.oTRequest.findMany({
+      where: {
+        employeeId,
+        date: { gte: yearStart, lte: yearEnd },
+        status: 'APPROVED'
+      }
+    });
+
+    const totalYearApprovedHours = yearRequests.reduce(
+      (sum, r) => sum + Number(r.actualHours || r.requestHours || 0),
+      0
+    );
+
+    const isMonthWarning = totalApprovedHours >= 32; // 80% của 40h/tháng
+    const isMonthCritical = totalApprovedHours >= 40; // 100% của 40h/tháng
+    const isYearWarning = totalYearApprovedHours >= 160; // 80% của 200h/năm
+    const isYearCritical = totalYearApprovedHours >= 200; // 100% của 200h/năm
+
     res.json({
       requests,
       summary: {
         month: month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
         totalRequestedHours,
-        totalApprovedHours
+        totalApprovedHours,
+        monthCap: 40,
+        monthWarningPercent: Math.round((totalApprovedHours / 40) * 100),
+        isMonthWarning,
+        isMonthCritical,
+        totalYearApprovedHours,
+        yearCap: 200,
+        yearWarningPercent: Math.round((totalYearApprovedHours / 200) * 100),
+        isYearWarning,
+        isYearCritical
       }
     });
   } catch (error: any) {
@@ -149,11 +241,11 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
 
     if (dayAccumulatedHours + hours > 4) {
       return res.status(400).json({
-        error: `Quy định Pháp luật Lao động (Điều 107 BLLĐ 2019): Số giờ làm thêm không được vượt quá 4 giờ trong 01 ngày (Bạn đã đăng ký ${dayAccumulatedHours}h trong ngày ${date}).`
+        error: `Quy định Công ty LLA (Điều 107 BLLĐ 2019): Giờ làm thêm không được vượt quá 50% giờ làm việc bình thường (tối đa 4 giờ/ngày). Bạn đã đăng ký ${dayAccumulatedHours}h trong ngày ${date}.`
       });
     }
 
-    // 2. Kiểm tra trần tháng (Điều 107 BLLĐ 2019: Tối đa 40 giờ/tháng)
+    // 2. Kiểm tra trần tháng (Quy định LLA & Điều 107 BLLĐ 2019: Tối đa 40 giờ/tháng)
     const monthStart = new Date(otDate.getFullYear(), otDate.getMonth(), 1);
     const monthEnd = new Date(otDate.getFullYear(), otDate.getMonth() + 1, 0, 23, 59, 59);
 
@@ -172,11 +264,11 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
 
     if (monthAccumulatedHours + hours > 40) {
       return res.status(400).json({
-        error: `Vượt quá giới hạn làm thêm tháng theo quy định (Điều 107 BLLĐ 2019): Bạn đã đăng ký ${monthAccumulatedHours}h trong tháng này. Tổng số giờ làm thêm không được vượt quá 40 giờ/tháng.`
+        error: `Vượt quá giới hạn OT tháng của Công ty LLA (tối đa 40 giờ/tháng). Bạn đã đăng ký lũy kế ${monthAccumulatedHours}h trong tháng này.`
       });
     }
 
-    // 3. Kiểm tra trần năm (Điều 107 Khoản 2 Điểm c BLLĐ 2019: Tối đa 200 giờ/năm)
+    // 3. Kiểm tra trần năm (Quy định LLA & Điều 107 BLLĐ 2019: Tối đa 200 giờ/năm)
     const yearStart = new Date(otDate.getFullYear(), 0, 1);
     const yearEnd = new Date(otDate.getFullYear(), 11, 31, 23, 59, 59);
 
@@ -195,7 +287,7 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
 
     if (yearAccumulatedHours + hours > 200) {
       return res.status(400).json({
-        error: `Vượt quá trần làm thêm giờ cả năm theo luật định (Điều 107 Khoản 2 Điểm c BLLĐ 2019): Tổng số giờ làm thêm lũy kế trong năm ${otDate.getFullYear()} đã đạt ${yearAccumulatedHours}h. Giới hạn pháp luật cho phép tối đa 200 giờ/năm.`
+        error: `Vượt quá giới hạn OT năm của Công ty LLA (tối đa 200 giờ/năm). Mốc 300 giờ/năm chỉ áp dụng khi có phê duyệt xác nhận riêng từ HR/Legal.`
       });
     }
 
@@ -218,8 +310,18 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       details: `Đăng ký làm thêm ${hours}h ngày ${date}. Lý do: ${reason || 'Không'}`
     });
 
+    let warningMessage: string | null = null;
+    const newMonthTotal = monthAccumulatedHours + hours;
+    const newYearTotal = yearAccumulatedHours + hours;
+    if (newMonthTotal >= 32) {
+      warningMessage = `Bot @Chấm công LLA cảnh báo: Số giờ OT tháng đã đạt ${newMonthTotal}/40h (≥ 80% mức giới hạn tháng).`;
+    } else if (newYearTotal >= 160) {
+      warningMessage = `Bot @Chấm công LLA cảnh báo: Số giờ OT năm đã đạt ${newYearTotal}/200h (≥ 80% mức giới hạn năm).`;
+    }
+
     return res.status(201).json({
       message: 'Đăng ký làm thêm giờ thành công, đang chờ Quản lý phê duyệt.',
+      warning: warningMessage,
       request: newRequest
     });
   } catch (error: any) {

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
+import { getSettingValue } from '../system/setting.routes';
 
 const router = Router();
 
@@ -33,18 +34,24 @@ router.get('/reviews', authenticateToken, async (req: any, res: Response): Promi
       orderBy: { id: 'desc' }
     });
 
-    // Tính toán phân loại Curve (A, B, C)
+    const gradeAMin = Number(await getSettingValue('KPI_RATING_A_MIN', 90)) || 90;
+    const gradeBMin = Number(await getSettingValue('KPI_RATING_B_MIN', 75)) || 75;
+    const gradeCMin = Number(await getSettingValue('KPI_RATING_C_MIN', 60)) || 60;
+
+    // Tính toán phân loại Curve động theo cấu hình (A, B, C, D)
     const formatted = reviews.map(r => {
       const scoreNum = Number(r.score);
       let finalGrade = (r as any).finalGrade || 'B';
       if (!r.score || scoreNum === 0) {
         finalGrade = 'B';
-      } else if (scoreNum >= 90) {
+      } else if (scoreNum >= gradeAMin) {
         finalGrade = 'A';
-      } else if (scoreNum >= 70) {
+      } else if (scoreNum >= gradeBMin) {
         finalGrade = 'B';
-      } else {
+      } else if (scoreNum >= gradeCMin) {
         finalGrade = 'C';
+      } else {
+        finalGrade = 'D';
       }
       
       return {
@@ -173,10 +180,15 @@ router.put('/reviews/:id', authenticateToken, managerOrHr, async (req: any, res:
       });
     }
 
+    const gradeAMin = Number(await getSettingValue('KPI_RATING_A_MIN', 90)) || 90;
+    const gradeBMin = Number(await getSettingValue('KPI_RATING_B_MIN', 75)) || 75;
+    const gradeCMin = Number(await getSettingValue('KPI_RATING_C_MIN', 60)) || 60;
+
     const scoreNum = Number(score);
-    let finalGrade = 'C';
-    if (scoreNum >= 90) finalGrade = 'A';
-    else if (scoreNum >= 70) finalGrade = 'B';
+    let finalGrade = 'D';
+    if (scoreNum >= gradeAMin) finalGrade = 'A';
+    else if (scoreNum >= gradeBMin) finalGrade = 'B';
+    else if (scoreNum >= gradeCMin) finalGrade = 'C';
 
     const updatedReview = await prisma.performanceReview.update({
       where: { id },

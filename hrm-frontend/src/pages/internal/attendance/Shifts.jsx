@@ -152,23 +152,23 @@ export const Shifts = () => {
           <CheckCircle2 size={18} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.78rem', color: '#166534', lineHeight: 1.45 }}>
             <strong style={{ color: '#14532D', display: 'block', marginBottom: 2 }}>1. Ân hạn đi muộn ≤ 5 phút (08:00 – 08:05)</strong>
-            Quét vân tay vào ca không quá <strong>5 phút</strong> và có quét ra cuối ca ➔ Tự động tính đủ <strong>1.0 công</strong>, không phạt.
+            Quét vân tay vào ca không quá <strong>5 phút</strong> và có quét ra cuối ca ➔ Tự động tính đủ <strong>1.0 công</strong>, không phạt. Báo sau 08:05 vẫn tính là đi muộn.
           </div>
         </div>
 
         <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '0.65rem', padding: '0.75rem 1rem', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
           <AlertTriangle size={18} color="#B45309" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.78rem', color: '#92400E', lineHeight: 1.45 }}>
-            <strong style={{ color: '#78350F', display: 'block', marginBottom: 2 }}>2. Đi muộn 5 phút – 1 tiếng (08:06 – 09:00)</strong>
-            Phải làm <strong>Đơn xin đi muộn</strong> trình PM ký (tối đa <strong>3 lần/tháng</strong> vẫn được tính đủ công; không làm đơn hoặc từ lần thứ 4 sẽ bị phạt).
+            <strong style={{ color: '#78350F', display: 'block', marginBottom: 2 }}>2. Đi muộn 5 – 30 phút (≤ 1 lần/tuần, 3 lần/tháng)</strong>
+            Nộp đơn cho HCNS trong <strong>3 ngày</strong>. 3 lần đầu tính đủ <strong>1.0 công</strong>. Từ lần 4 phạt quỹ công đoàn: 5–10p (10k), 10–20p (20k), 20–30p (30k).
           </div>
         </div>
 
         <div style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '0.65rem', padding: '0.75rem 1rem', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
           <Cpu size={18} color="#DC2626" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.78rem', color: '#991B1B', lineHeight: 1.45 }}>
-            <strong style={{ color: '#7F1D1D', display: 'block', marginBottom: 2 }}>3. Đi muộn &gt; 1 tiếng &amp; Quên Check-in/out</strong>
-            Đi muộn <strong>&gt; 1 tiếng (sau 09:00)</strong> mất công buổi sáng (0.5 công). Quên vân tay phải làm <strong>Đơn xin xác nhận chấm công</strong>.
+            <strong style={{ color: '#7F1D1D', display: 'block', marginBottom: 2 }}>3. Đi muộn &gt; 30 phút (Sau 08:30) &amp; Quên vân tay</strong>
+            Đi muộn <strong>&gt; 30 phút không tính công cả ngày (0 công)</strong>. Quên vân tay nộp Đơn xác nhận công có chữ ký Trưởng BP trong <strong>3 ngày</strong>.
           </div>
         </div>
       </div>

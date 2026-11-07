@@ -55,11 +55,11 @@ const DEFAULT_SETTINGS = [
   {
     category: 'PAYROLL',
     key: 'STANDARD_WORKING_DAYS',
-    name: 'Số ngày công chuẩn trung bình tháng',
-    value: '22',
+    name: 'Số ngày công chuẩn tham chiếu (Tự động tính động theo lịch từng tháng)',
+    value: '26',
     dataType: 'NUMBER',
     unit: 'Ngày',
-    description: 'Số ngày công định mức trong tháng làm căn cứ chia đơn giá ngày lương.'
+    description: 'Số ngày công tham chiếu mặc định khi không tính theo lịch tháng (Hệ thống tự động tính công chuẩn từng tháng = Số ngày T2-T6 + Số ngày Thứ 7 đi làm cách tuần x Hệ số Thứ 7).'
   },
   {
     category: 'PAYROLL',
@@ -70,10 +70,64 @@ const DEFAULT_SETTINGS = [
     unit: 'Hàng tháng',
     description: 'Chu kỳ tính lương chốt từ ngày 26 tháng trước đến ngày 25 tháng này.'
   },
+  {
+    category: 'PAYROLL',
+    key: 'DEFAULT_FIXED_ALLOWANCE',
+    name: 'Phụ cấp Điện thoại + Xăng xe + Phụ cấp ăn trưa mặc định',
+    value: '500000',
+    dataType: 'NUMBER',
+    unit: 'VNĐ / tháng',
+    description: 'Mức phụ cấp cố định (Điện thoại + Xăng xe + Ăn trưa) mặc định hàng tháng theo quy chế Công ty LLA.'
+  },
+  {
+    category: 'PAYROLL',
+    key: 'LATE_PENALTY_AMOUNT',
+    name: 'Mức phạt tiền mỗi lần đi muộn vượt hạn mức',
+    value: '50000',
+    dataType: 'NUMBER',
+    unit: 'VNĐ / lần',
+    description: 'Số tiền phạt trừ vào cột "Phạt đi muộn + phạt khác" cho mỗi lần đi muộn không phép hoặc vượt hạn mức.'
+  },
+  {
+    category: 'PAYROLL',
+    key: 'UNION_FEE_RATE',
+    name: 'Mức đóng Quỹ Công đoàn mặc định hàng tháng',
+    value: '0',
+    dataType: 'NUMBER',
+    unit: 'VNĐ / tháng',
+    description: 'Mức trích nộp Quỹ Công đoàn hàng tháng trên bảng lương (cột Quỹ Công đoàn).'
+  },
 
   // ==========================================
   // 2. CHẤM CÔNG & TĂNG CA (ATTENDANCE)
   // ==========================================
+  {
+    category: 'ATTENDANCE',
+    key: 'SATURDAY_WORK_MODE',
+    name: 'Chế độ làm việc ngày Thứ 7 (ALTERNATING: Cách tuần / ALL: Mọi T7 / NONE: Nghỉ T7)',
+    value: 'ALTERNATING',
+    dataType: 'STRING',
+    unit: 'ALTERNATING | ALL | NONE',
+    description: 'Cấu hình lịch làm việc ngày Thứ 7: ALTERNATING (Làm cách tuần), ALL (Làm tất cả Thứ 7), NONE (Nghỉ toàn bộ Thứ 7).'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'SATURDAY_WORK_MULTIPLIER',
+    name: 'Hệ số nhân ngày công Thứ 7 đi làm (x2 công)',
+    value: '2',
+    dataType: 'NUMBER',
+    unit: 'Hệ số công',
+    description: 'Hệ số nhân ngày công khi đi làm vào Thứ 7 lịch làm việc (VD: 2 = làm đủ ca Thứ 7 tính 2.0 công, làm nửa ngày tính 1.0 công).'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'SATURDAY_ANCHOR_DATE',
+    name: 'Ngày Thứ 7 mốc chu kỳ đi làm cách tuần (YYYY-MM-DD)',
+    value: '2026-11-07',
+    dataType: 'STRING',
+    unit: 'YYYY-MM-DD',
+    description: 'Ngày Thứ 7 đi làm dùng làm mốc chuẩn tính chu kỳ cách tuần (VD: 2026-11-07 đi làm -> 14/11 nghỉ -> 21/11 đi làm).'
+  },
   {
     category: 'ATTENDANCE',
     key: 'OT_RATE_NORMAL',
@@ -291,6 +345,11 @@ export const seedDefaultSettings = async () => {
     const existing = await prisma.systemSetting.findUnique({ where: { key: s.key } });
     if (!existing) {
       await prisma.systemSetting.create({ data: s });
+    } else if (s.key === 'STANDARD_WORKING_DAYS' && existing.value === '22') {
+      await prisma.systemSetting.update({
+        where: { key: s.key },
+        data: { value: '26', name: s.name, description: s.description }
+      });
     }
   }
 };
@@ -403,6 +462,108 @@ export const getSettingValue = async (key: string, defaultValue: number | string
   } catch (e) {
     return defaultValue;
   }
+};
+
+/**
+ * Tính hệ số ngày công chuẩn của một ngày cụ thể theo cấu hình động Công ty LLA:
+ * - Chủ nhật (dow = 0): 0 công (Nghỉ tuần)
+ * - Thứ 2 -> Thứ 6 (dow = 1..5): 1.0 công
+ * - Thứ 7 (dow = 6):
+ *   + NONE: 0 công
+ *   + ALL: satMultiplier (mặc định 2.0 công)
+ *   + ALTERNATING (Cách tuần): So sánh khoảng cách tuần chẵn/lẻ với SATURDAY_ANCHOR_DATE (VD: 2026-11-07).
+ *     Tuần chẵn (cùng pha với ngày mốc) => đi làm hưởng hệ số satMultiplier (x2 công). Tuần lẻ => nghỉ (0 công).
+ */
+export const getDayWorkMultiplier = async (
+  date: Date,
+  cachedParams?: { satMode?: string; satAnchor?: string; satMultiplier?: number }
+): Promise<number> => {
+  const dow = date.getDay();
+  if (dow === 0) return 0; // Chủ nhật nghỉ
+  if (dow >= 1 && dow <= 5) return 1.0; // Thứ 2 -> Thứ 6: 1.0 công
+
+  // Thứ 7 (dow === 6)
+  const satMode = String(
+    cachedParams?.satMode ?? (await getSettingValue('SATURDAY_WORK_MODE', 'ALTERNATING'))
+  ).toUpperCase().trim();
+  const satMultiplier = Number(
+    cachedParams?.satMultiplier ?? (await getSettingValue('SATURDAY_WORK_MULTIPLIER', 2))
+  );
+  const satAnchor = String(
+    cachedParams?.satAnchor ?? (await getSettingValue('SATURDAY_ANCHOR_DATE', '2026-11-07'))
+  ).trim();
+
+  if (satMode === 'NONE') return 0;
+  if (satMode === 'ALL') return satMultiplier;
+
+  // Mặc định ALTERNATING (Làm cách tuần)
+  const parts = satAnchor.split('-').map(Number);
+  const ay = parts[0] || 2026;
+  const am = parts[1] || 11;
+  const ad = parts[2] || 7;
+  const anchorUtc = Date.UTC(ay, am - 1, ad);
+  const targetUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const diffDays = Math.round((targetUtc - anchorUtc) / (1000 * 60 * 60 * 24));
+  const diffWeeks = Math.round(diffDays / 7);
+
+  return Math.abs(diffWeeks) % 2 === 0 ? satMultiplier : 0;
+};
+
+/**
+ * Tự động tính tổng số ngày công chuẩn định mức của một tháng bất kỳ (year, month 1..12)
+ * Công thức: (Số ngày T2-T6 * 1.0) + (Số ngày Thứ 7 đi làm cách tuần * SATURDAY_WORK_MULTIPLIER)
+ */
+export const calculateMonthlyStandardDays = async (
+  year: number,
+  month: number
+): Promise<{
+  standardDays: number;
+  weekdayCount: number;
+  workingSaturdays: string[];
+  offSaturdays: string[];
+  satMode: string;
+  satMultiplier: number;
+  satAnchor: string;
+}> => {
+  await seedDefaultSettings();
+  const satMode = String(await getSettingValue('SATURDAY_WORK_MODE', 'ALTERNATING')).toUpperCase().trim();
+  const satMultiplier = Number(await getSettingValue('SATURDAY_WORK_MULTIPLIER', 2));
+  const satAnchor = String(await getSettingValue('SATURDAY_ANCHOR_DATE', '2026-11-07')).trim();
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let standardDays = 0;
+  let weekdayCount = 0;
+  const workingSaturdays: string[] = [];
+  const offSaturdays: string[] = [];
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const curDate = new Date(year, month - 1, d, 12, 0, 0);
+    const dow = curDate.getDay();
+    const mult = await getDayWorkMultiplier(curDate, { satMode, satAnchor, satMultiplier });
+    standardDays += mult;
+
+    if (dow >= 1 && dow <= 5) {
+      weekdayCount++;
+    } else if (dow === 6) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (mult > 0) {
+        workingSaturdays.push(dateStr);
+      } else {
+        offSaturdays.push(dateStr);
+      }
+    }
+  }
+
+  return {
+    standardDays: Number(standardDays.toFixed(1)),
+    weekdayCount,
+    workingSaturdays,
+    offSaturdays,
+    satMode,
+    satMultiplier,
+    satAnchor
+  };
 };
 
 // ==========================================

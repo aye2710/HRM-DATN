@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
+import { getSettingValue } from '../system/setting.routes';
+import { calculateDynamicLeaveQuota } from '../attendance/leave.routes';
 
 const router = Router();
 router.use(authenticateToken);
@@ -149,25 +151,41 @@ router.get('/:employeeId/detail', hrOnly, async (req: Request, res: Response): P
       return res.status(404).json({ error: 'Không tìm thấy hồ sơ nhân viên' });
     }
 
-    // Tính toán số ngày phép năm còn tồn và giá trị quy đổi
+    // Tính toán số ngày phép năm còn tồn (gồm phép chuẩn + phép thâm niên) và giá trị quy đổi
     const currentYear = new Date().getFullYear();
+    const quota = await calculateDynamicLeaveQuota(employee.officialJoinDate || employee.joinDate, currentYear);
     const currentLeaveBalance = (employee as any).leaveBalances?.find((b: any) => b.year === currentYear) || (employee as any).leaveBalances?.[0];
-    const remainingLeaveDays = currentLeaveBalance ? Number(currentLeaveBalance.remainingDays || 0) : 0;
+    const totalDays = currentLeaveBalance ? Math.max(Number(currentLeaveBalance.totalDays || 0), quota.totalDays) : quota.totalDays;
+    const usedDays = currentLeaveBalance ? Number(currentLeaveBalance.usedDays || 0) : 0;
+    const remainingLeaveDays = Math.max(0, totalDays - usedDays);
     
-    // Mức lương cơ sở hợp đồng để tính 1 ngày công
+    // Mức lương cơ sở hợp đồng để tính 1 ngày công theo STANDARD_WORKING_DAYS động
     const activeContract = (employee as any).contracts?.find((c: any) => c.status === 'ACTIVE') || (employee as any).contracts?.[0];
-    const baseSalary = activeContract?.baseSalary ? Number(activeContract.baseSalary) : 0;
-    const standardWorkDays = 26; // Chuẩn 26 ngày công
+    const baseSalary = activeContract?.baseSalary ? Number(activeContract.baseSalary) : Number(employee.salary || 0);
+    const standardWorkDays = Number(await getSettingValue('STANDARD_WORKING_DAYS', 22)) || 22;
     const estimatedLeavePay = remainingLeaveDays > 0 ? Math.round((baseSalary / standardWorkDays) * remainingLeaveDays) : 0;
+
+    // Kiểm tra thời hạn báo trước theo Điều 35 Bộ luật Lao động 2019
+    const contractType = activeContract?.contractType || 'OFFICIAL_1Y';
+    const requiredNoticeDays = contractType === 'INDEFINITE' ? 45 : (contractType === 'OFFICIAL_1Y' ? 30 : 3);
+    const refResignDate = employee.resignationDate ? new Date(employee.resignationDate) : new Date();
+    const noticeCreatedAt = (employee as any).decisions?.[0]?.createdAt ? new Date((employee as any).decisions[0].createdAt) : new Date();
+    const actualNoticeDays = Math.max(0, Math.ceil((refResignDate.getTime() - noticeCreatedAt.getTime()) / (1000 * 60 * 60 * 24)));
 
     return res.json({
       employee,
       activeContract,
       settlement: {
+        totalLeaveDays: totalDays,
+        usedLeaveDays: usedDays,
+        seniorityBonusDays: quota.seniorityBonusDays,
         remainingLeaveDays,
         baseSalary,
         estimatedLeavePay,
-        standardWorkDays
+        standardWorkDays,
+        requiredNoticeDays,
+        actualNoticeDays,
+        isNoticeCompliant: actualNoticeDays >= requiredNoticeDays
       },
       defaultTasks: DEFAULT_OFFBOARDING_TASKS
     });
@@ -350,6 +368,7 @@ router.post('/finalize', hrOnly, async (req: any, res: Response): Promise<any> =
     }
 
     const effDate = effectiveDate ? new Date(effectiveDate) : new Date();
+    const autoLock = await getSettingValue('AUTO_LOCK_RESIGNED_ACCOUNTS', true);
 
     const result = await prisma.$transaction(async (tx) => {
       const currentEmp = await tx.employee.findUnique({ where: { id: employeeId } });
@@ -376,11 +395,13 @@ router.post('/finalize', hrOnly, async (req: any, res: Response): Promise<any> =
         }
       });
 
-      // Khóa tài khoản an ninh
-      await tx.account.updateMany({
-        where: { employeeId },
-        data: { isActive: false }
-      });
+      // Khóa tài khoản an ninh tự động theo tham số AUTO_LOCK_RESIGNED_ACCOUNTS
+      if (autoLock !== false && String(autoLock) !== 'false') {
+        await tx.account.updateMany({
+          where: { employeeId },
+          data: { isActive: false }
+        });
+      }
 
       // Ghi lịch sử công tác
       await tx.employmentHistory.create({

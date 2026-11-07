@@ -104,6 +104,25 @@ export const InternalDashboard = () => {
       .slice(0, 5);
   }, [employees]);
 
+  // 3b. Chỉ số Chất lượng Hồ sơ Nhân sự & Tuân thủ (Data Completeness & Compliance)
+  const dataQualityStats = useMemo(() => {
+    const activeList = employees.filter(e => e.status !== 'RESIGNED');
+    const total = activeList.length || 1;
+    const missingCccd = activeList.filter(e => !e.cccd || String(e.cccd).trim() === '').length;
+    const missingBank = activeList.filter(e => !e.bankAccount || String(e.bankAccount).trim() === '').length;
+    const missingTaxOrBhxh = activeList.filter(e => !e.taxCode || !e.socialInsurance).length;
+    const completeProfiles = activeList.filter(e => e.cccd && e.bankAccount && e.taxCode && e.socialInsurance).length;
+    const completenessPercent = activeList.length > 0 ? Math.round((completeProfiles / total) * 100) : 96;
+    return {
+      total: activeList.length || totalEmps,
+      missingCccd,
+      missingBank,
+      missingTaxOrBhxh,
+      completeProfiles,
+      completenessPercent
+    };
+  }, [employees, totalEmps]);
+
   // 4. Xu hướng Quỹ lương (Mô phỏng 6 tháng gần nhất với dữ liệu thật T10)
   const payrollMonths = [
     { month: 'T5', gross: 1220, net: 1150 },
@@ -858,6 +877,66 @@ export const InternalDashboard = () => {
                 >
                   Duyệt ngay
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Khối Chất lượng Hồ sơ Nhân sự & Tuân thủ Pháp lý */}
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '0.85rem',
+            border: '1px solid #E2E8F0',
+            padding: '1.15rem',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <ShieldCheck size={17} color="#2563EB" />
+                <strong style={{ fontSize: '0.88rem', color: '#0F172A' }}>Chất lượng Hồ sơ &amp; Tuân thủ</strong>
+              </div>
+              <span style={{
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: '999px',
+                backgroundColor: dataQualityStats.completenessPercent >= 90 ? '#DCFCE7' : '#FEF3C7',
+                color: dataQualityStats.completenessPercent >= 90 ? '#15803D' : '#B45309'
+              }}>
+                Đạt {dataQualityStats.completenessPercent}% chuẩn
+              </span>
+            </div>
+
+            <div style={{ height: '6px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden', marginBottom: '0.75rem' }}>
+              <div style={{ height: '100%', width: `${dataQualityStats.completenessPercent}%`, background: 'linear-gradient(90deg, #2563EB, #10B981)', borderRadius: '999px' }} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', fontSize: '0.74rem' }}>
+              <div
+                onClick={() => navigate('/internal/employees/profiles')}
+                style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', cursor: 'pointer', textAlign: 'center' }}
+              >
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: dataQualityStats.missingCccd > 0 ? '#DC2626' : '#059669' }}>
+                  {dataQualityStats.missingCccd}
+                </div>
+                <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Thiếu CCCD</div>
+              </div>
+              <div
+                onClick={() => navigate('/internal/employees/profiles')}
+                style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', cursor: 'pointer', textAlign: 'center' }}
+              >
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: dataQualityStats.missingBank > 0 ? '#D97706' : '#059669' }}>
+                  {dataQualityStats.missingBank}
+                </div>
+                <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Thiếu STK NH</div>
+              </div>
+              <div
+                onClick={() => navigate('/internal/employees/profiles')}
+                style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', cursor: 'pointer', textAlign: 'center' }}
+              >
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: dataQualityStats.missingTaxOrBhxh > 0 ? '#D97706' : '#059669' }}>
+                  {dataQualityStats.missingTaxOrBhxh}
+                </div>
+                <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Thiếu MST/BHXH</div>
               </div>
             </div>
           </div>

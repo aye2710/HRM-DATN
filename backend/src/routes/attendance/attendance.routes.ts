@@ -2,12 +2,25 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
-import { getSettingValue } from '../system/setting.routes';
+import { getSettingValue, getDayWorkMultiplier, calculateMonthlyStandardDays } from '../system/setting.routes';
 
 const router = Router();
 
 const hrOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF');
 const managerOrHr = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD', 'MANAGER');
+
+// 0. Lấy thông tin lịch làm việc & công chuẩn động của tháng (Bao gồm các ngày Thứ 7 đi làm cách tuần x2 công)
+router.get('/month-schedule', authenticateToken, async (req: Request, res: Response): Promise<any> => {
+  try {
+    const now = new Date();
+    const year = Number(req.query.year) || now.getFullYear();
+    const month = Number(req.query.month) || (now.getMonth() + 1);
+    const schedule = await calculateMonthlyStandardDays(year, month);
+    return res.json({ year, month, ...schedule });
+  } catch (error: any) {
+    return res.status(500).json({ error: 'Lỗi khi tính lịch công chuẩn tháng' });
+  }
+});
 
 // 1. Lấy danh sách chấm công (HR / Quản lý xem toàn bộ; Nhân viên chỉ xem bảng công của mình)
 router.get('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
@@ -113,16 +126,16 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
       const toCreate: any[] = [];
 
       for (let d = 1; d <= maxDay; d++) {
-        const cellDate = new Date(targetYear, targetMonth - 1, d);
-        const dow = cellDate.getDay();
-        if (dow === 0 || dow === 6) continue; // Thứ 7, CN nghỉ
+        const cellDate = new Date(targetYear, targetMonth - 1, d, 12, 0, 0);
+        const dayMult = await getDayWorkMultiplier(cellDate);
+        if (dayMult <= 0) continue; // Chủ nhật & Thứ 7 nghỉ cách tuần -> Bỏ qua
 
         const dateKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const recordDate = new Date(`${dateKey}T00:00:00.000Z`);
         const seed = (empSeed * 13 + d * 17 + targetMonth * 7) % 100;
 
         if (seed < 14) {
-          // Quên chấm công ra (Có giờ vào nhưng thiếu giờ ra)
+          // Quên chấm công ra (Có giờ vào nhưng thiếu giờ ra -> nửa công * hệ số ngày)
           const inMin = 48 + (seed % 14);
           const inH = inMin >= 60 ? 8 : 7;
           const inM = inMin >= 60 ? inMin - 60 : inMin;
@@ -132,30 +145,30 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
             checkIn: new Date(targetYear, targetMonth - 1, d, inH, inM, 0),
             checkOut: null,
             status: 'EARLY_LEAVE',
-            workingDay: 0.5
+            workingDay: 0.5 * dayMult
           });
         } else if (seed < 24) {
-          // Đi muộn từ 6p - 55p (08:06 - 08:55) -> Cần làm Đơn xin phép đi muộn (≤ 3 lần/tháng)
+          // Đi muộn từ 5p - 30p (08:06 - 08:30) -> Cần nộp Đơn xin đi muộn cho HCNS trong 3 ngày (≤ 1 lần/tuần, ≤ 3 lần/tháng)
           toCreate.push({
             employeeId,
             date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, 8, 10 + (seed % 35), 0),
+            checkIn: new Date(targetYear, targetMonth - 1, d, 8, 6 + (seed % 24), 0),
             checkOut: new Date(targetYear, targetMonth - 1, d, 17, 36 + (seed % 18), 0),
             status: 'LATE',
-            workingDay: 1.0
+            workingDay: 1.0 * dayMult
           });
         } else if (seed < 28) {
-          // Đi muộn > 1 tiếng (Sau 09:00) -> Mất công buổi sáng (0.5 công)
+          // Đi muộn > 30 phút (Sau 08:30) -> Theo quy chế Công ty LLA: Không tính công cả ngày hôm đó (0.0 công)
           toCreate.push({
             employeeId,
             date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, 9, 15 + (seed % 20), 0),
+            checkIn: new Date(targetYear, targetMonth - 1, d, 8, 35 + (seed % 25), 0),
             checkOut: new Date(targetYear, targetMonth - 1, d, 17, 40, 0),
             status: 'LATE',
-            workingDay: 0.5
+            workingDay: 0.0 * dayMult
           });
         } else {
-          // Đúng giờ (<= 08:05)
+          // Đúng giờ (<= 08:05) -> 1.0 * hệ số ngày (Thứ 7 đi làm cách tuần = 2.0 công)
           const inTotal = 46 + ((empSeed + d * 3) % 18); // 07:46..08:03
           const inH = inTotal >= 60 ? 8 : 7;
           const inM = inTotal >= 60 ? inTotal - 60 : inTotal;
@@ -165,7 +178,7 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
             checkIn: new Date(targetYear, targetMonth - 1, d, inH, inM, 0),
             checkOut: new Date(targetYear, targetMonth - 1, d, 17, 32 + ((empSeed + d * 5) % 24), 0),
             status: 'NORMAL',
-            workingDay: 1.0
+            workingDay: 1.0 * dayMult
           });
         }
       }
@@ -192,11 +205,16 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
       else if (r.status === 'ABSENT') absentDays++;
     }
 
+    const monthSchedule = await calculateMonthlyStandardDays(targetYear, targetMonth);
+
     return res.json({
       records,
       summary: {
         month: `${targetYear}-${String(targetMonth).padStart(2, '0')}`,
         totalWorkingDays,
+        standardWorkingDays: monthSchedule.standardDays,
+        workingSaturdays: monthSchedule.workingSaturdays,
+        satMultiplier: monthSchedule.satMultiplier,
         normalDays,
         lateDays,
         absentDays
@@ -240,16 +258,31 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
       }
     }
 
-    const graceMin = await getSettingValue('LATE_GRACE_PERIOD_MINUTES', 15);
+    // Đọc Ca làm việc đang áp dụng trong hệ thống (mặc định 08:00 - 17:30)
+    const activeShift = await prisma.shift.findFirst({
+      where: { isActive: true },
+      orderBy: { startTime: 'asc' }
+    });
+    let shiftStartH = 8;
+    let shiftStartM = 0;
+    if (activeShift?.startTime) {
+      const parts = activeShift.startTime.split(':').map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        shiftStartH = parts[0];
+        shiftStartM = parts[1];
+      }
+    }
+
+    const graceMin = await getSettingValue('LATE_GRACE_PERIOD_MINUTES', 5);
     const checkInTime = new Date();
     const hours = checkInTime.getHours();
     const minutes = checkInTime.getMinutes();
     
-    // Nếu check-in sau giờ ân hạn (Ca 8h30 + graceMin) -> LATE
-    // Nếu nhân viên có đơn nghỉ phép nửa ngày sáng và check-in ca chiều thì giữ ON_LEAVE
+    // Nếu check-in sau mốc giờ vào ca + thời gian ân hạn -> LATE
     const isHalfDayOnLeave = existing?.status === 'ON_LEAVE';
-    const lateCutoffMin = 30 + Number(graceMin);
-    const isLate = hours > 8 || (hours === 8 && minutes > lateCutoffMin);
+    const totalStartMins = shiftStartH * 60 + shiftStartM + Number(graceMin);
+    const totalCheckInMins = hours * 60 + minutes;
+    const isLate = totalCheckInMins > totalStartMins;
     const status = isHalfDayOnLeave ? 'ON_LEAVE' : (isLate ? 'LATE' : 'NORMAL');
 
     let record;
@@ -311,25 +344,42 @@ const handleCheckOut = async (req: any, res: Response): Promise<any> => {
       return res.status(400).json({ error: 'Bạn đã Check-out hôm nay rồi!' });
     }
 
+    // Đọc Ca làm việc đang áp dụng để lấy mốc giờ kết thúc ca (mặc định 17:30)
+    const activeShift = await prisma.shift.findFirst({
+      where: { isActive: true },
+      orderBy: { startTime: 'asc' }
+    });
+    let shiftEndH = 17;
+    let shiftEndM = 30;
+    if (activeShift?.endTime) {
+      const parts = activeShift.endTime.split(':').map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        shiftEndH = parts[0];
+        shiftEndM = parts[1];
+      }
+    }
+
     const checkOutTime = new Date();
-    const checkOutHour = checkOutTime.getHours();
-    const isEarlyLeave = checkOutHour < 17; // Về sớm trước 17:00 (ca chuẩn kết thúc 17:30)
+    const totalCheckOutMins = checkOutTime.getHours() * 60 + checkOutTime.getMinutes();
+    const totalShiftEndMins = shiftEndH * 60 + shiftEndM;
+    const isEarlyLeave = totalCheckOutMins < totalShiftEndMins; // Về sớm trước giờ kết thúc ca làm việc
     
-    // Tính toán công theo số giờ thực tế căn cứ tham số hệ thống
+    // Tính toán công theo số giờ thực tế căn cứ tham số hệ thống & hệ số ngày Thứ 7 đi làm cách tuần (x2 công)
     const minFull = await getSettingValue('MIN_HOURS_FULL_DAY', 7.5);
     const minHalf = await getSettingValue('MIN_HOURS_HALF_DAY', 3.5);
+    const dayMult = Math.max(1.0, await getDayWorkMultiplier(today));
     const diffHours = (checkOutTime.getTime() - record.checkIn.getTime()) / (1000 * 60 * 60);
     
     let workEarned = 0;
     if (diffHours >= Number(minFull)) {
-      workEarned = 1.0;
+      workEarned = 1.0 * dayMult;
     } else if (diffHours >= Number(minHalf)) {
-      workEarned = 0.5;
+      workEarned = 0.5 * dayMult;
     }
 
-    // Nếu trước đó đã có công từ nghỉ phép nửa ngày, cộng dồn nhưng không vượt quá 1.0
+    // Nếu trước đó đã có công từ nghỉ phép nửa ngày, cộng dồn nhưng không vượt quá công tối đa của ngày (1.0 * dayMult)
     const priorLeaveDay = record.status === 'ON_LEAVE' ? Number(record.workingDay) : 0;
-    const finalWorkingDay = Math.min(1.0, priorLeaveDay + workEarned);
+    const finalWorkingDay = Math.min(1.0 * dayMult, priorLeaveDay + workEarned);
 
     // Cập nhật trạng thái: Nếu đi đúng giờ nhưng về sớm -> EARLY_LEAVE
     let finalStatus = record.status;
@@ -605,11 +655,12 @@ router.post('/adjustments', authenticateToken, async (req: any, res: Response): 
       return res.status(400).json({ error: 'Vui lòng chọn ngày, loại đơn và nhập lý do giải trình!' });
     }
 
-    const adjustmentDate = new Date(date);
-    adjustmentDate.setHours(0, 0, 0, 0);
+    const dateStr = String(date).split('T')[0];
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const adjustmentDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
     // BR-ATT-02: Kiểm tra kỳ công / kỳ lương đã KHÓA SỔ (LOCKED) chưa
-    const periodMonthYear = `${adjustmentDate.getMonth() + 1}-${adjustmentDate.getFullYear()}`;
+    const periodMonthYear = `${month}-${year}`;
     const lockedPeriod = await prisma.payrollPeriod.findUnique({
       where: { monthYear: periodMonthYear }
     });
@@ -623,8 +674,8 @@ router.post('/adjustments', authenticateToken, async (req: any, res: Response): 
     let computedNewTime = newTime || 'Xác nhận đủ ca (08:00 - 17:30)';
 
     if (isLateRequest) {
-      const mStart = new Date(adjustmentDate.getFullYear(), adjustmentDate.getMonth(), 1, 0, 0, 0);
-      const mEnd = new Date(adjustmentDate.getFullYear(), adjustmentDate.getMonth() + 1, 0, 23, 59, 59);
+      const mStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+      const mEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
       const monthLateRequests = await prisma.attendanceAdjustment.findMany({
         where: {
           employeeId: empId,
@@ -717,41 +768,50 @@ router.put('/adjustments/:id/status', authenticateToken, managerOrHr, async (req
         data: { status }
       });
 
+      const adjDayMult = Math.max(1.0, await getDayWorkMultiplier(new Date(adjCheck.date)));
+
       // Nếu APPROVED -> Đồng bộ và cập nhật thực tế vào bảng Attendance theo quy chế LLA
       if (status === 'APPROVED') {
-        const rawDate = new Date(adjustment.date);
-        const startOfDay = new Date(rawDate.getFullYear(), rawDate.getMonth(), rawDate.getDate(), 0, 0, 0);
-        const endOfDay = new Date(rawDate.getFullYear(), rawDate.getMonth(), rawDate.getDate(), 23, 59, 59, 999);
+        const rawDateStr = adjustment.date instanceof Date
+          ? adjustment.date.toISOString().split('T')[0]
+          : String(adjustment.date).split('T')[0];
+        const [year, month, day] = rawDateStr.split('-').map(Number);
+        const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+        const nextDay = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0));
 
         let att = await tx.attendance.findFirst({
           where: {
             employeeId: adjustment.employeeId,
-            date: { gte: startOfDay, lte: endOfDay }
+            OR: [
+              { date: startOfDay },
+              { date: { gte: startOfDay, lt: nextDay } }
+            ]
           }
         });
 
-        const defaultCheckIn = new Date(startOfDay);
-        defaultCheckIn.setHours(7, 55, 0, 0);
-        const defaultCheckOut = new Date(startOfDay);
-        defaultCheckOut.setHours(17, 35, 0, 0);
+        const defaultCheckIn = new Date(Date.UTC(year, month - 1, day, 0, 55, 0, 0)); // 07:55 VN (UTC+7)
+        const defaultCheckOut = new Date(Date.UTC(year, month - 1, day, 10, 35, 0, 0)); // 17:35 VN (UTC+7)
 
         const isLateType = String(adjustment.type).toLowerCase().includes('đi muộn');
         const isOverQuota = String(adjustment.newTime || '').includes('Vượt hạn mức');
 
         if (isLateType) {
-          // Quy định đi muộn LLA: Trong 3 lần đầu/tháng và đi muộn <= 1h -> Được tính đủ 1.0 công & đổi sang NORMAL
-          // Nếu vượt quá 3 lần/tháng -> Vẫn giữ trạng thái LATE để tính phạt
+          // Quy định đi muộn LLA:
+          // - Trong 3 lần đầu/tháng, tối đa 1 lần/tuần và đi muộn <= 30 phút -> Được tính đủ công (1.0 * adjDayMult) & đổi sang NORMAL
+          // - Đi muộn > 30 phút (sau 08:30) -> Không tính công cả ngày (0.0 công), trừ trường hợp đặc biệt được TGĐ cho phép
+          // - Nếu từ lần thứ 4 trở đi -> Vẫn giữ trạng thái LATE để tính phạt theo thang 10k/20k/30k nộp quỹ công đoàn
           const targetStatus = isOverQuota ? 'LATE' : 'NORMAL';
           if (att) {
             const checkInHour = att.checkIn ? new Date(att.checkIn).getHours() : 8;
             const checkInMin = att.checkIn ? new Date(att.checkIn).getMinutes() : 30;
-            const isOver1Hour = checkInHour > 9 || (checkInHour === 9 && checkInMin > 0);
+            const isOver30Mins = checkInHour > 8 || (checkInHour === 8 && checkInMin > 30);
             await tx.attendance.update({
               where: { id: att.id },
               data: {
+                date: startOfDay,
                 checkOut: att.checkOut || defaultCheckOut,
-                workingDay: isOver1Hour ? 0.5 : 1.0,
-                status: isOver1Hour ? 'LATE' : targetStatus
+                workingDay: (isOver30Mins ? 0.0 : 1.0) * adjDayMult,
+                status: isOver30Mins ? 'LATE' : targetStatus
               }
             });
           } else {
@@ -761,20 +821,21 @@ router.put('/adjustments/:id/status', authenticateToken, managerOrHr, async (req
                 date: startOfDay,
                 checkIn: defaultCheckIn,
                 checkOut: defaultCheckOut,
-                workingDay: 1.0,
+                workingDay: 1.0 * adjDayMult,
                 status: targetStatus
               }
             });
           }
         } else {
-          // Đơn xin xác nhận chấm công (Quên Check-in / Check-out / Chưa làm dấu vân tay) -> Xác nhận đủ 1.0 công
+          // Đơn xin xác nhận chấm công (Quên Check-in / Check-out / Chưa làm dấu vân tay) -> Xác nhận đủ công (1.0 * adjDayMult)
           if (att) {
             await tx.attendance.update({
               where: { id: att.id },
               data: {
+                date: startOfDay,
                 checkIn: att.checkIn || defaultCheckIn,
                 checkOut: att.checkOut || defaultCheckOut,
-                workingDay: 1.0,
+                workingDay: 1.0 * adjDayMult,
                 status: 'NORMAL'
               }
             });
@@ -785,7 +846,7 @@ router.put('/adjustments/:id/status', authenticateToken, managerOrHr, async (req
                 date: startOfDay,
                 checkIn: defaultCheckIn,
                 checkOut: defaultCheckOut,
-                workingDay: 1.0,
+                workingDay: 1.0 * adjDayMult,
                 status: 'NORMAL'
               }
             });
@@ -820,11 +881,13 @@ router.post('/manual', authenticateToken, hrOnly, async (req: any, res: Response
       return res.status(400).json({ error: 'Nhân viên và Ngày chấm công không được để trống.' });
     }
 
-    const attDate = new Date(date);
-    attDate.setHours(0, 0, 0, 0);
+    const dateStr = String(date).split('T')[0];
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const attDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    const nextDate = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0));
 
     // BR-ATT-02: Kiểm tra kỳ lương đã KHÓA SỔ chưa
-    const periodMonthYear = `${attDate.getMonth() + 1}-${attDate.getFullYear()}`;
+    const periodMonthYear = `${month}-${year}`;
     const lockedPeriod = await prisma.payrollPeriod.findUnique({
       where: { monthYear: periodMonthYear }
     });
@@ -835,21 +898,37 @@ router.post('/manual', authenticateToken, hrOnly, async (req: any, res: Response
     }
 
     const existing = await prisma.attendance.findFirst({
-      where: { employeeId, date: attDate }
+      where: {
+        employeeId,
+        OR: [
+          { date: attDate },
+          { date: { gte: attDate, lt: nextDate } }
+        ]
+      }
     });
 
     const parsedWorkingDay = workingDay !== undefined ? Number(workingDay) : 1.0;
-    const parsedStatus = status || 'NORMAL';
-    const parsedCheckIn = checkIn ? new Date(checkIn) : null;
-    const parsedCheckOut = checkOut ? new Date(checkOut) : null;
+    const parsedStatus = status === 'WFH' ? 'NORMAL' : (status || 'NORMAL');
+
+    let parsedCheckIn: Date | null = null;
+    let parsedCheckOut: Date | null = null;
+
+    if (['ON_LEAVE', 'UNPAID_LEAVE', 'HOLIDAY', 'ABSENT'].includes(parsedStatus)) {
+      parsedCheckIn = null;
+      parsedCheckOut = null;
+    } else {
+      if (checkIn) parsedCheckIn = new Date(checkIn);
+      if (checkOut) parsedCheckOut = new Date(checkOut);
+    }
 
     let result;
     if (existing) {
       result = await prisma.attendance.update({
         where: { id: existing.id },
         data: {
-          checkIn: parsedCheckIn || existing.checkIn,
-          checkOut: parsedCheckOut || existing.checkOut,
+          date: attDate,
+          checkIn: parsedCheckIn,
+          checkOut: parsedCheckOut,
           status: parsedStatus,
           workingDay: parsedWorkingDay
         }
@@ -872,7 +951,7 @@ router.post('/manual', authenticateToken, hrOnly, async (req: any, res: Response
       tableName: 'Attendance',
       recordId: result.id,
       accountId: req.user?.accountId,
-      details: `HR/Admin ghi nhận công thủ công cho nhân viên ${employeeId} ngày ${date}: ${parsedWorkingDay} công (Trạng thái: ${parsedStatus}). Ghi chú: ${note || 'Không'}`
+      details: `HR/Admin ghi nhận công thủ công cho nhân viên ${employeeId} ngày ${dateStr}: ${parsedWorkingDay} công (Trạng thái: ${parsedStatus}). Ghi chú: ${note || 'Không'}`
     });
 
     return res.status(200).json({ message: 'Ghi nhận chấm công thủ công thành công', record: result });
@@ -885,18 +964,26 @@ router.post('/manual', authenticateToken, hrOnly, async (req: any, res: Response
 // 9. Tự động Chốt công Cuối ngày (UC-ATT-01-04: Daily Midnight Sweep)
 router.post('/daily-sweep', authenticateToken, hrOnly, async (req: any, res: Response): Promise<any> => {
   try {
-    const targetDateStr = req.body.date || new Date().toISOString().split('T')[0];
-    const targetDate = new Date(targetDateStr);
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDateStr = String(req.body.date || new Date().toISOString().split('T')[0]).split('T')[0];
+    const [year, month, day] = targetDateStr.split('-').map(Number);
+    const targetDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    const nextDate = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0));
 
-    const dayOfWeek = targetDate.getDay();
-    // Bỏ qua Thứ 7, Chủ Nhật
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return res.json({ message: 'Ngày cuối tuần (Thứ 7 / Chủ Nhật), không chạy chốt công.', affected: 0 });
+    const dayMult = await getDayWorkMultiplier(targetDate);
+    // Bỏ qua Chủ Nhật hoặc Thứ 7 nghỉ cách tuần (dayMult <= 0)
+    if (dayMult <= 0) {
+      return res.json({ message: 'Ngày nghỉ cuối tuần (Chủ Nhật / Thứ 7 nghỉ cách tuần), không chạy chốt công.', affected: 0 });
     }
 
-    // Kiểm tra Ngày Lễ (Điều 112 BLLĐ 2019: Hưởng 1.0 ngày công)
-    const holiday = await prisma.holiday.findFirst({ where: { date: targetDate } });
+    // Kiểm tra Ngày Lễ (Điều 112 BLLĐ 2019: Hưởng đủ ngày công * hệ số ngày)
+    const holiday = await prisma.holiday.findFirst({
+      where: {
+        OR: [
+          { date: targetDate },
+          { date: { gte: targetDate, lt: nextDate } }
+        ]
+      }
+    });
 
     const activeEmployees = await prisma.employee.findMany({
       where: { status: { in: ['ACTIVE', 'PROBATION', 'INTERNSHIP'] } },
@@ -908,18 +995,24 @@ router.post('/daily-sweep', authenticateToken, hrOnly, async (req: any, res: Res
     await prisma.$transaction(async (tx) => {
       for (const emp of activeEmployees) {
         const att = await tx.attendance.findFirst({
-          where: { employeeId: emp.id, date: targetDate }
+          where: {
+            employeeId: emp.id,
+            OR: [
+              { date: targetDate },
+              { date: { gte: targetDate, lt: nextDate } }
+            ]
+          }
         });
 
         if (holiday) {
-          // Ngày Lễ: Đảm bảo toàn bộ nhân sự được tính 1.0 công với trạng thái HOLIDAY
+          // Ngày Lễ: Đảm bảo toàn bộ nhân sự được tính 1.0 * dayMult công với trạng thái HOLIDAY
           if (!att) {
             await tx.attendance.create({
               data: {
                 employeeId: emp.id,
                 date: targetDate,
                 status: 'HOLIDAY',
-                workingDay: 1.0
+                workingDay: 1.0 * dayMult
               }
             });
             processedCount++;
@@ -928,7 +1021,7 @@ router.post('/daily-sweep', authenticateToken, hrOnly, async (req: any, res: Res
               where: { id: att.id },
               data: {
                 status: 'HOLIDAY',
-                workingDay: 1.0
+                workingDay: 1.0 * dayMult
               }
             });
             processedCount++;
@@ -1023,9 +1116,9 @@ router.post('/sync-month', authenticateToken, hrOnly, async (req: any, res: Resp
 
     const toCreate: any[] = [];
     for (let d = 1; d <= maxDay; d++) {
-      const cellDate = new Date(year, month - 1, d);
-      const dow = cellDate.getDay();
-      if (dow === 0 || dow === 6) continue; // Thứ 7, CN nghỉ
+      const cellDate = new Date(year, month - 1, d, 12, 0, 0);
+      const dayMult = await getDayWorkMultiplier(cellDate);
+      if (dayMult <= 0) continue; // Chủ nhật & Thứ 7 nghỉ cách tuần -> Bỏ qua
 
       const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const recordDate = new Date(`${dateKey}T00:00:00.000Z`);
@@ -1044,7 +1137,7 @@ router.post('/sync-month', authenticateToken, hrOnly, async (req: any, res: Resp
             checkIn: null,
             checkOut: null,
             status: 'ON_LEAVE',
-            workingDay: 1.0
+            workingDay: 1.0 * dayMult
           });
         } else if (seed < 19) {
           // Quên chấm công ra (Có giờ vào 07:52 - 08:07 nhưng thiếu giờ ra -> hiển thị ⚠ 07:54 / —)
@@ -1058,7 +1151,7 @@ router.post('/sync-month', authenticateToken, hrOnly, async (req: any, res: Resp
             checkIn,
             checkOut: null,
             status: 'EARLY_LEAVE',
-            workingDay: 0.5
+            workingDay: 0.5 * dayMult
           });
         } else if (seed < 24) {
           // Đi muộn từ 6 phút đến 55 phút (08:06 - 08:55) -> Phải làm Đơn xin phép đi muộn (Tối đa 3 lần/tháng)
@@ -1070,10 +1163,10 @@ router.post('/sync-month', authenticateToken, hrOnly, async (req: any, res: Resp
             checkIn,
             checkOut,
             status: 'LATE',
-            workingDay: 1.0
+            workingDay: 1.0 * dayMult
           });
         } else if (seed < 26) {
-          // Đi muộn > 1 tiếng (Sau 09:00, VD: 09:15 - 09:35) -> Mất công buổi sáng (chỉ còn 0.5 công)
+          // Đi muộn > 1 tiếng (Sau 09:00, VD: 09:15 - 09:35) -> Mất công buổi sáng (chỉ còn 0.5 * dayMult công)
           const checkIn = new Date(year, month - 1, d, 9, 12 + (seed % 24), 0);
           const checkOut = new Date(year, month - 1, d, 17, 38 + (seed % 15), 0);
           toCreate.push({
@@ -1082,10 +1175,10 @@ router.post('/sync-month', authenticateToken, hrOnly, async (req: any, res: Resp
             checkIn,
             checkOut,
             status: 'LATE',
-            workingDay: 0.5
+            workingDay: 0.5 * dayMult
           });
         } else {
-          // Đúng giờ đầy đủ (07:45 - 08:04 / 17:32 - 17:58, ân hạn <= 08:05)
+          // Đúng giờ đầy đủ (07:45 - 08:04 / 17:32 - 17:58, ân hạn <= 08:05) -> 1.0 * dayMult (Thứ 7 đi làm = 2.0 công)
           const inOffset = (empIdx * 7 + d * 3) % 19; // 0..18 -> 07:45..08:03
           const inTotal = 45 + inOffset;
           const inH = inTotal >= 60 ? 8 : 7;
@@ -1099,7 +1192,7 @@ router.post('/sync-month', authenticateToken, hrOnly, async (req: any, res: Resp
             checkIn,
             checkOut,
             status: 'NORMAL',
-            workingDay: 1.0
+            workingDay: 1.0 * dayMult
           });
         }
       });
@@ -1109,9 +1202,12 @@ router.post('/sync-month', authenticateToken, hrOnly, async (req: any, res: Resp
       await prisma.attendance.createMany({ data: toCreate });
     }
 
+    const monthSchedule = await calculateMonthlyStandardDays(year, month);
+
     return res.json({
-      message: `Đã đồng bộ ${toCreate.length} bản ghi máy chấm công cho tháng ${month}/${year}!`,
-      created: toCreate.length
+      message: `Đã đồng bộ ${toCreate.length} bản ghi máy chấm công cho tháng ${month}/${year} (Công chuẩn tháng: ${monthSchedule.standardDays} ngày, gồm ${monthSchedule.workingSaturdays.length} ngày Thứ 7 đi làm x${monthSchedule.satMultiplier} công)!`,
+      created: toCreate.length,
+      schedule: monthSchedule
     });
   } catch (error: any) {
     console.error('Sync month error:', error);
@@ -1155,11 +1251,12 @@ router.post('/import-logs', authenticateToken, managerOrHr, async (req: any, res
         checkOutDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h || 17, m || 30, 0);
       }
 
+      const dayMult = Math.max(1.0, await getDayWorkMultiplier(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)));
       const isLate = checkInDate && (checkInDate.getHours() > 8 || (checkInDate.getHours() === 8 && checkInDate.getMinutes() > 5));
       const isLateOver1Hour = checkInDate && (checkInDate.getHours() > 9 || (checkInDate.getHours() === 9 && checkInDate.getMinutes() > 0));
       const isMissingOut = checkInDate && !checkOutDate;
       const status = isMissingOut ? 'EARLY_LEAVE' : isLate ? 'LATE' : 'NORMAL';
-      const workingDay = (isMissingOut || isLateOver1Hour) ? 0.5 : 1.0;
+      const workingDay = ((isMissingOut || isLateOver1Hour) ? 0.5 : 1.0) * dayMult;
 
       const existing = await prisma.attendance.findFirst({
         where: { employeeId: empId, date: { gte: startOfDay, lte: endOfDay } }

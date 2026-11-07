@@ -512,14 +512,16 @@ export const HandoverDrawerModal = ({
                     </Link>
                   </div>
 
-                  {/* Banner Quyết toán Phép tồn & Tiền lương (Điều 113 BLLĐ) */}
-                  <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', fontSize: '0.82rem' }}>
+                  {/* Banner Quyết toán Phép tồn & Tiền lương (Điều 113 & 114 BLLĐ) */}
+                  <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', fontSize: '0.82rem' }}>
                     <div>
                       <div style={{ color: '#1e40af' }}>Số ngày phép năm còn tồn:</div>
                       <div style={{ fontWeight: 800, color: '#1d4ed8', fontSize: '1.15rem' }}>
-                        {handoverDetail.settlement?.remainingLeaveDays || 0} ngày
+                        {handoverDetail.settlement?.remainingLeaveDays || 0} / {handoverDetail.settlement?.totalLeaveDays || 12} ngày
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: '#3b82f6' }}>(Khoản 3 Điều 113 BLLĐ 2019)</div>
+                      <div style={{ fontSize: '0.7rem', color: '#3b82f6' }}>
+                        Đã nghỉ {handoverDetail.settlement?.usedLeaveDays || 0} ngày {handoverDetail.settlement?.seniorityBonusDays > 0 ? `(+${handoverDetail.settlement.seniorityBonusDays} phép thâm niên)` : '(Điều 113 BLLĐ)'}
+                      </div>
                     </div>
 
                     <div>
@@ -527,7 +529,7 @@ export const HandoverDrawerModal = ({
                       <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem' }}>
                         {formatCurrency(handoverDetail.settlement?.baseSalary)}
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Chuẩn 26 ngày công/tháng</div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Chuẩn {handoverDetail.settlement?.standardWorkDays || 22} ngày công/tháng</div>
                     </div>
 
                     <div>
@@ -535,7 +537,17 @@ export const HandoverDrawerModal = ({
                       <div style={{ fontWeight: 800, color: '#047857', fontSize: '1.15rem' }}>
                         {formatCurrency(handoverDetail.settlement?.estimatedLeavePay)}
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: '#059669' }}>Cần chi trả vào kỳ lương cuối</div>
+                      <div style={{ fontSize: '0.7rem', color: '#059669' }}>Chi trả vào kỳ lương cuối</div>
+                    </div>
+
+                    <div>
+                      <div style={{ color: '#1e40af' }}>Kiểm tra thời hạn báo trước:</div>
+                      <div style={{ fontWeight: 800, color: handoverDetail.settlement?.isNoticeCompliant !== false ? '#059669' : '#dc2626', fontSize: '0.95rem' }}>
+                        {handoverDetail.settlement?.isNoticeCompliant !== false ? '✓ Đúng hạn luật định' : '⚠ Báo gấp / Thỏa thuận'}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                        Quy định ≥ {handoverDetail.settlement?.requiredNoticeDays || 30} ngày (Điều 35 BLLĐ)
+                      </div>
                     </div>
                   </div>
 
@@ -589,13 +601,22 @@ export const HandoverDrawerModal = ({
    2. MODAL KHỞI TẠO TIẾN TRÌNH THÔI VIỆC CHO NHÂN VIÊN
    ========================================================================= */
 export const InitiateOffboardingModal = ({ employee, onClose, onSuccess }) => {
+  const activeContractType = employee?.contracts?.[0]?.contractType || 'OFFICIAL_1Y';
+  const requiredNoticeDays = activeContractType === 'INDEFINITE' ? 45 : (activeContractType === 'OFFICIAL_1Y' ? 30 : 3);
+  const defaultResignDate = new Date(Date.now() + requiredNoticeDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
   const [initiateForm, setInitiateForm] = React.useState({
-    resignationDate: new Date().toISOString().split('T')[0],
+    resignationDate: defaultResignDate,
     resignationReason: 'Thỏa thuận chấm dứt hợp đồng lao động'
   });
   const [submitting, setSubmitting] = React.useState(false);
 
   if (!employee) return null;
+
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const targetMs = initiateForm.resignationDate ? new Date(initiateForm.resignationDate).setHours(0, 0, 0, 0) : todayMs;
+  const noticeDaysDiff = Math.ceil((targetMs - todayMs) / (1000 * 60 * 60 * 24));
+  const isNoticeShort = noticeDaysDiff < requiredNoticeDays;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -645,6 +666,26 @@ export const InitiateOffboardingModal = ({ employee, onClose, onSuccess }) => {
                 onChange={(e) => setInitiateForm({ ...initiateForm, resignationDate: e.target.value })}
               />
               <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Hệ thống tự động khóa quyền truy cập lúc 18:00 ngày này.</span>
+              <div style={{
+                marginTop: '8px',
+                padding: '8px 10px',
+                borderRadius: '6px',
+                backgroundColor: isNoticeShort ? '#fffbeb' : '#f0fdf4',
+                border: `1px solid ${isNoticeShort ? '#fde68a' : '#bbf7d0'}`,
+                color: isNoticeShort ? '#92400e' : '#166534',
+                fontSize: '0.76rem',
+                lineHeight: 1.45
+              }}>
+                {isNoticeShort ? (
+                  <>
+                    <strong>⚠ Cảnh báo thời hạn báo trước (Điều 35 BLLĐ 2019):</strong> Hợp đồng hiện tại yêu cầu báo trước tối thiểu <strong>{requiredNoticeDays} ngày</strong> (hiện cách {Math.max(0, noticeDaysDiff)} ngày). Chỉ áp dụng nếu hai bên có biên bản thỏa thuận chấm dứt sớm.
+                  </>
+                ) : (
+                  <>
+                    <strong>✓ Đảm bảo thời hạn báo trước ({noticeDaysDiff} ngày):</strong> Đáp ứng quy định báo trước tối thiểu <strong>{requiredNoticeDays} ngày</strong> theo Điều 35 Bộ luật Lao động 2019.
+                  </>
+                )}
+              </div>
             </div>
 
             <div>

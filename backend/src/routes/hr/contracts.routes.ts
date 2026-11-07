@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
+import { getSettingValue } from '../system/setting.routes';
 
 const router = Router();
 
@@ -24,10 +25,13 @@ router.get('/', async (req: Request, res: Response) => {
       }
     });
 
+    const warnDays = Number(await getSettingValue('CONTRACT_EXPIRY_WARN_DAYS', 30)) || 30;
+    const nowMs = Date.now();
+
     const contracts = await prisma.contract.findMany({
       include: {
         employee: {
-          select: { fullName: true, code: true, department: { select: { name: true } }, position: { select: { title: true } } }
+          select: { fullName: true, code: true, highestEducation: true, department: { select: { name: true } }, position: { select: { title: true, level: true } } }
         },
         appendices: {
           orderBy: { effectiveDate: 'desc' }
@@ -35,7 +39,18 @@ router.get('/', async (req: Request, res: Response) => {
       },
       orderBy: { startDate: 'desc' }
     });
-    res.json(contracts);
+
+    const enriched = contracts.map(c => {
+      const daysUntilExpiry = c.endDate ? Math.ceil((new Date(c.endDate).getTime() - nowMs) / (1000 * 60 * 60 * 24)) : null;
+      return {
+        ...c,
+        daysUntilExpiry,
+        expiryWarnDays: warnDays,
+        isExpiringSoon: c.status === 'ACTIVE' && daysUntilExpiry !== null && daysUntilExpiry >= 0 && daysUntilExpiry <= warnDays
+      };
+    });
+
+    res.json(enriched);
   } catch (error) {
     res.status(500).json({ error: 'Lỗi khi lấy danh sách hợp đồng' });
   }
@@ -72,8 +87,9 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
     }
 
     // Tuân thủ Khoản 2 Điều 20 Bộ luật Lao động 2019:
-    // Tối đa 02 lần ký Hợp đồng xác định thời hạn (OFFICIAL_1Y), lần tiếp theo phải là Không xác định thời hạn (INDEFINITE)
+    // Tối đa N lần ký Hợp đồng xác định thời hạn (MAX_DEFINITE_CONTRACTS = 2), lần tiếp theo phải là Không xác định thời hạn (INDEFINITE)
     if (contractType === 'OFFICIAL_1Y') {
+      const maxDefinite = Number(await getSettingValue('MAX_DEFINITE_CONTRACTS', 2)) || 2;
       const definiteCount = await prisma.contract.count({
         where: {
           employeeId,
@@ -81,22 +97,28 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
           status: { in: ['ACTIVE', 'EXPIRED'] }
         }
       });
-      if (definiteCount >= 2) {
+      if (definiteCount >= maxDefinite) {
         return res.status(400).json({ 
-          error: `Theo Khoản 2 Điều 20 Bộ luật Lao động 2019, nhân sự này đã ký đủ 02 lần Hợp đồng xác định thời hạn. Lần ký tiếp theo bắt buộc phải là Hợp đồng không xác định thời hạn (INDEFINITE).` 
+          error: `Theo Khoản 2 Điều 20 Bộ luật Lao động 2019, nhân sự này đã ký đủ ${maxDefinite} lần Hợp đồng xác định thời hạn. Lần ký tiếp theo bắt buộc phải là Hợp đồng không xác định thời hạn (INDEFINITE).` 
         });
       }
     }
 
-    // Tuân thủ Điều 25 Bộ luật Lao động 2019: Thời hạn thử việc tối đa không quá 180 ngày
+    // Tuân thủ Điều 25 Bộ luật Lao động 2019: Thời hạn thử việc theo trình độ chuyên môn (PROBATION_DAYS_UNIVERSITY / PROBATION_DAYS_COLLEGE)
     if (contractType === 'PROBATION') {
       if (!end) {
         return res.status(400).json({ error: 'Hợp đồng thử việc bắt buộc phải có ngày kết thúc (Điều 25 BLLĐ 2019).' });
       }
+      const probUniDays = Number(await getSettingValue('PROBATION_DAYS_UNIVERSITY', 60)) || 60;
+      const probColDays = Number(await getSettingValue('PROBATION_DAYS_COLLEGE', 30)) || 30;
+      const edu = (emp.highestEducation || '').toLowerCase();
+      const isCollegeOrVocational = edu.includes('cao đẳng') || edu.includes('trung cấp') || edu.includes('sơ cấp');
+      const maxProbationDays = isCollegeOrVocational ? probColDays : Math.max(probUniDays, 180);
+
       const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays > 180) {
+      if (diffDays > maxProbationDays) {
         return res.status(400).json({ 
-          error: `Thời gian thử việc không được vượt quá 180 ngày theo Điều 25 Bộ luật Lao động 2019 (Hiện tại: ${diffDays} ngày).` 
+          error: `Thời gian thử việc vượt quá giới hạn tối đa theo Điều 25 Bộ luật Lao động 2019 (Tối đa ${maxProbationDays} ngày, hiện tại: ${diffDays} ngày).` 
         });
       }
     }
@@ -141,19 +163,24 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
         }
       });
 
-      // Xử lý Đánh giá Thử việc: Cập nhật Trạng thái Nhân viên
+      // Xử lý Đánh giá Thử việc & Đồng bộ mức lương hợp đồng mới sang hồ sơ Employee
       let updatedEmployee = null;
       if (evaluationResult === 'PASSED') {
         if (contractType === 'OFFICIAL_1Y' || contractType === 'INDEFINITE') {
           updatedEmployee = await tx.employee.update({
             where: { id: employeeId },
-            data: { status: 'ACTIVE', officialJoinDate: start }
+            data: { status: 'ACTIVE', officialJoinDate: start, salary: Number(baseSalary) }
           });
         }
       } else if (evaluationResult === 'FAILED') {
         updatedEmployee = await tx.employee.update({
           where: { id: employeeId },
           data: { status: 'RESIGNED', resignationDate: end || now, resignationReason: 'Không đạt đánh giá thử việc' }
+        });
+      } else if (contractStart <= now) {
+        updatedEmployee = await tx.employee.update({
+          where: { id: employeeId },
+          data: { salary: Number(baseSalary) }
         });
       }
 

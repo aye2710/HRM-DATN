@@ -2,10 +2,40 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
+import { getSettingValue } from '../system/setting.routes';
 
 const router = Router();
 
 const managerOrHr = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMENT_HEAD', 'MANAGER');
+
+/**
+ * Helper tính quỹ phép năm động theo Điều 113 & Điều 114 Bộ luật Lao động 2019:
+ * Quỹ phép = Phép tiêu chuẩn (ANNUAL_LEAVE_BASE) + Thâm niên (Cứ đủ SENIORITY_LEAVE_STEP năm cộng 1 ngày)
+ */
+export const calculateDynamicLeaveQuota = async (joinDate: Date | null | undefined, targetYear: number) => {
+  const baseDays = Number(await getSettingValue('ANNUAL_LEAVE_BASE', 12)) || 12;
+  const seniorityStep = Number(await getSettingValue('SENIORITY_LEAVE_STEP', 5)) || 5;
+  const approvalThreshold = Number(await getSettingValue('LEAVE_APPROVAL_THRESHOLD', 2)) || 2;
+
+  let yearsOfService = 0;
+  if (joinDate) {
+    const refDate = new Date(targetYear, 11, 31);
+    const diffMs = refDate.getTime() - new Date(joinDate).getTime();
+    yearsOfService = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24 * 365.25)));
+  }
+
+  const seniorityBonusDays = seniorityStep > 0 ? Math.floor(yearsOfService / seniorityStep) : 0;
+  const totalDays = baseDays + seniorityBonusDays;
+
+  return {
+    baseDays,
+    seniorityStep,
+    yearsOfService,
+    seniorityBonusDays,
+    totalDays,
+    approvalThreshold
+  };
+};
 
 /**
  * Helper tính số ngày làm việc thực tế giữa 2 mốc thời gian:
@@ -85,7 +115,11 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
 
     const currentYear = new Date().getFullYear();
 
-    const [requests, balance] = await Promise.all([
+    const [emp, requests, existingBalance] = await Promise.all([
+      prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { id: true, joinDate: true, officialJoinDate: true }
+      }),
       prisma.leaveRequest.findMany({
         where: { employeeId },
         orderBy: { startDate: 'desc' }
@@ -95,9 +129,24 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
       })
     ]);
 
+    const quota = await calculateDynamicLeaveQuota(emp?.officialJoinDate || emp?.joinDate, currentYear);
+
+    let balance = existingBalance;
+    if (!balance && emp) {
+      balance = await prisma.leaveBalance.create({
+        data: { employeeId, year: currentYear, totalDays: quota.totalDays, usedDays: 0 }
+      });
+    } else if (balance && Number(balance.totalDays) !== quota.totalDays) {
+      balance = await prisma.leaveBalance.update({
+        where: { id: balance.id },
+        data: { totalDays: quota.totalDays }
+      });
+    }
+
     return res.json({
       requests,
-      balance: balance || { totalDays: 12, usedDays: 0, year: currentYear }
+      balance: balance || { totalDays: quota.totalDays, usedDays: 0, year: currentYear },
+      quotaInfo: quota
     });
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi lấy thông tin phép cá nhân' });
@@ -107,7 +156,7 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
 // 3. Nhân viên nộp đơn xin nghỉ phép (Anti-negative Balance & Soft Locking trong Transaction)
 router.post('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
-    const { employeeId, leaveType, startDate, endDate, reason, session } = req.body;
+    const { employeeId, leaveType, startDate, endDate, reason, session, handoverPerson } = req.body;
     const userRole = req.user?.role?.toUpperCase();
     
     let empId = employeeId;
@@ -136,6 +185,28 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       });
     }
 
+    const empRecord = await prisma.employee.findUnique({
+      where: { id: empId },
+      select: { id: true, joinDate: true, officialJoinDate: true }
+    });
+    const quota = await calculateDynamicLeaveQuota(empRecord?.officialJoinDate || empRecord?.joinDate, start.getFullYear());
+
+    // Kiểm tra ngưỡng duyệt phép cấp Giám đốc & Bàn giao công việc (LEAVE_APPROVAL_THRESHOLD)
+    const requiresDirectorApproval = workingDaysCount > quota.approvalThreshold;
+    if (requiresDirectorApproval && !handoverPerson?.trim() && (!reason || !String(reason).includes('Bàn giao'))) {
+      return res.status(400).json({
+        error: `Theo quy định công ty, đơn xin nghỉ trên ${quota.approvalThreshold} ngày làm việc (${workingDaysCount} ngày) bắt buộc phải chỉ định Người nhận bàn giao công việc và trình cấp Giám đốc phê duyệt.`
+      });
+    }
+
+    let formattedReason = reason ? String(reason).trim() : '';
+    if (handoverPerson?.trim() && !formattedReason.includes('Bàn giao:')) {
+      formattedReason = `[Bàn giao: ${String(handoverPerson).trim()}] ${formattedReason}`.trim();
+    }
+    if (requiresDirectorApproval && !formattedReason.includes('Cấp duyệt: BGĐ')) {
+      formattedReason = `${formattedReason} [Cấp duyệt: BGĐ (> ${quota.approvalThreshold} ngày)]`.trim();
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       // Nếu là nghỉ CÓ LƯƠNG (PAID), kiểm tra Quỹ phép năm với cơ chế Soft Lock
       if (leaveType === 'PAID') {
@@ -146,7 +217,12 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
 
         if (!balance) {
           balance = await tx.leaveBalance.create({
-            data: { employeeId: empId, year: currentYear, totalDays: 12, usedDays: 0 }
+            data: { employeeId: empId, year: currentYear, totalDays: quota.totalDays, usedDays: 0 }
+          });
+        } else if (Number(balance.totalDays) < quota.totalDays) {
+          balance = await tx.leaveBalance.update({
+            where: { id: balance.id },
+            data: { totalDays: quota.totalDays }
           });
         }
 
@@ -154,7 +230,7 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
         
         if (workingDaysCount > availableDays) {
           throw new Error(
-            `Không đủ số dư ngày phép! Quỹ phép năm ${currentYear} còn ${availableDays} ngày làm việc, nhưng đơn của bạn yêu cầu ${workingDaysCount} ngày công. Vui lòng chọn loại nghỉ Không lương (UNPAID).`
+            `Không đủ số dư ngày phép! Quỹ phép năm ${currentYear} (gồm ${quota.baseDays} ngày chuẩn + ${quota.seniorityBonusDays} ngày thâm niên) còn ${availableDays} ngày làm việc, nhưng đơn của bạn yêu cầu ${workingDaysCount} ngày công. Vui lòng chọn loại nghỉ Không lương (UNPAID).`
           );
         }
 
@@ -173,7 +249,7 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
           session: isHalfDay ? session : 'ALL_DAY',
           startDate: start,
           endDate: end,
-          reason: reason ? String(reason).trim() : null,
+          reason: formattedReason || null,
           status: 'PENDING'
         }
       });

@@ -340,8 +340,9 @@ export const DecisionCreate = () => {
         </div>
       </div>
 
-      {/* 2. Form Container Căn Giữa Hiện Đại - Không cần bản Word Preview */}
-      <div style={{ maxWidth: '880px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* 2. Bố cục 2 Cột (Split-View): Trái Nhập Liệu - Phải Xem Trước Văn Bản Quyết Định Realtime */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(480px, 1.15fr) minmax(420px, 1fr)', gap: '1.25rem', alignItems: 'flex-start' }}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         
         {/* Card 1: Thông tin văn bản */}
         <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '1.25rem' }}>
@@ -697,21 +698,55 @@ export const DecisionCreate = () => {
             )}
 
             {/* 5. NGHỈ VIỆC */}
-            {formData.type === 'TERMINATION' && (
-              <div style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#FEF2F2', border: '1px dashed #EF4444', color: '#991B1B', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <XCircle size={16} color="#EF4444" /> Quy trình Chấm dứt Hợp đồng & Bàn giao thôi việc
+            {formData.type === 'TERMINATION' && (() => {
+              const activeCt = selectedEmp?.contracts?.find(c => c.status === 'ACTIVE') || selectedEmp?.contracts?.[0];
+              const ctType = activeCt?.contractType || 'OFFICIAL_1Y';
+              const reqDays = ctType === 'INDEFINITE' ? 45 : (ctType === 'OFFICIAL_1Y' ? 30 : 3);
+              const todayMs = new Date().setHours(0, 0, 0, 0);
+              const effMs = formData.effectiveDate ? new Date(formData.effectiveDate).setHours(0, 0, 0, 0) : todayMs;
+              const diffDays = Math.ceil((effMs - todayMs) / (1000 * 60 * 60 * 24));
+              const isShort = diffDays < reqDays;
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#FEF2F2', border: '1px dashed #EF4444', color: '#991B1B', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <XCircle size={16} color="#EF4444" /> Quy trình Chấm dứt Hợp đồng & Bàn giao thôi việc
+                    </div>
+                    <div>
+                      Khi quyết định này được Ban Giám Đốc phê duyệt, hệ thống sẽ:
+                    </div>
+                    <ul style={{ margin: '4px 0 0 1.25rem', padding: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
+                      <li>Khởi tạo bộ <strong>Checklist bàn giao 4 giai đoạn</strong> (Chuyên môn, IT BM-02, Hành chính, Nhân sự).</li>
+                      <li>Tự động tính toán <strong>tiền thanh toán phép năm còn tồn</strong> (Điều 113 & 114 BLLĐ).</li>
+                      <li>Khóa tài khoản truy cập hệ thống khi hoàn tất thủ tục thu hồi tài sản.</li>
+                    </ul>
+                  </div>
+
+                  {selectedEmp && (
+                    <div style={{
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      backgroundColor: isShort ? '#FFFBEB' : '#F0FDF4',
+                      border: `1px solid ${isShort ? '#FDE68A' : '#BBF7D0'}`,
+                      color: isShort ? '#92400E' : '#166534',
+                      fontSize: '0.8rem',
+                      lineHeight: 1.45
+                    }}>
+                      {isShort ? (
+                        <>
+                          <strong>⚠ Cảnh báo thời hạn báo trước (Điều 35 BLLĐ 2019):</strong> Hợp đồng hiện hành ({ctType === 'INDEFINITE' ? 'Không xác định thời hạn' : ctType === 'OFFICIAL_1Y' ? 'Xác định thời hạn' : 'Thử việc'}) yêu cầu báo trước tối thiểu <strong>{reqDays} ngày</strong> (Ngày hiệu lực đang chọn cách hôm nay <strong>{Math.max(0, diffDays)} ngày</strong>). Vui lòng ghi rõ "Hai bên thỏa thuận chấm dứt HĐLĐ sớm" tại phần căn cứ nếu nghỉ trước hạn.
+                        </>
+                      ) : (
+                        <>
+                          <strong>✓ Đảm bảo thời hạn báo trước ({diffDays} ngày):</strong> Tuân thủ đúng quy định báo trước tối thiểu <strong>{reqDays} ngày</strong> theo Điều 35 Bộ luật Lao động 2019.
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  Khi quyết định này được Ban Giám Đốc phê duyệt, hệ thống sẽ:
-                </div>
-                <ul style={{ margin: '4px 0 0 1.25rem', padding: 0, fontSize: '0.8rem', lineHeight: 1.5 }}>
-                  <li>Chuyển trạng thái nhân sự thành <strong>RESIGNED (Đã thôi việc)</strong>.</li>
-                  <li>Khóa quyền đăng nhập cổng nhân viên của người lao động.</li>
-                  <li>Tự động đóng Hợp đồng lao động hiện tại và lập biên bản kiểm kê bàn giao thiết bị.</li>
-                </ul>
-              </div>
-            )}
+              );
+            })()}
 
             {/* 6. TUYỂN DỤNG / TIẾP NHẬN CHÍNH THỨC */}
             {formData.type === 'RECRUITMENT' && (
@@ -914,6 +949,161 @@ export const DecisionCreate = () => {
             Gửi Phê Duyệt
           </button>
         </div>
+
+      </div>
+
+      {/* CỘT PHẢI: KHUNG XEM TRƯỚC VĂN BẢN HÀNH CHÍNH REALTIME (LIVE DOCUMENT PREVIEW) */}
+      <div style={{
+        position: 'sticky',
+        top: '16px',
+        backgroundColor: '#FFFFFF',
+        borderRadius: '12px',
+        border: '1px solid #CBD5E1',
+        boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.08)',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          padding: '0.75rem 1.25rem',
+          backgroundColor: '#0F172A',
+          color: '#FFFFFF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '0.8rem',
+          fontWeight: 700
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={16} color="#38BDF8" />
+            <span>BẢN XEM TRƯỚC VĂN BẢN HÀNH CHÍNH (REALTIME A4)</span>
+          </div>
+          <span style={{ fontSize: '0.7rem', backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', padding: '2px 8px', borderRadius: '999px' }}>
+            Tự động điền dữ liệu
+          </span>
+        </div>
+
+        <div style={{
+          padding: '1.75rem 2rem',
+          backgroundColor: '#FCFBF9',
+          color: '#0F172A',
+          fontFamily: '"Times New Roman", Times, serif',
+          fontSize: '0.92rem',
+          lineHeight: 1.6,
+          maxHeight: 'calc(100vh - 95px)',
+          overflowY: 'auto'
+        }}>
+          {/* Quốc hiệu & Tên công ty */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr', gap: '10px', textAlign: 'center', marginBottom: '1.25rem' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.84rem', textTransform: 'uppercase' }}>CÔNG TY TNHH LLA</div>
+              <div style={{ fontSize: '0.8rem', borderBottom: '1px solid #475569', display: 'inline-block', paddingBottom: '2px', marginTop: '2px' }}>
+                Số: <strong>{formData.decisionNumber || 'QĐ-2026/.../LLA'}</strong>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.84rem', textTransform: 'uppercase' }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+              <div style={{ fontWeight: 700, fontSize: '0.84rem', borderBottom: '1px solid #0F172A', display: 'inline-block', paddingBottom: '2px' }}>
+                Độc lập - Tự do - Hạnh phúc
+              </div>
+              <div style={{ fontSize: '0.78rem', fontStyle: 'italic', marginTop: '4px', color: '#334155' }}>
+                Hà Nội, ngày {formData.effectiveDate ? new Date(formData.effectiveDate).getDate() : new Date().getDate()} tháng {formData.effectiveDate ? new Date(formData.effectiveDate).getMonth() + 1 : new Date().getMonth() + 1} năm {formData.effectiveDate ? new Date(formData.effectiveDate).getFullYear() : new Date().getFullYear()}
+              </div>
+            </div>
+          </div>
+
+          {/* Tiêu đề Quyết định */}
+          <div style={{ textAlign: 'center', margin: '1.25rem 0' }}>
+            <div style={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '0.03em' }}>QUYẾT ĐỊNH</div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 700, marginTop: '2px' }}>
+              V/v: {formData.title || 'Ban hành quyết định nhân sự'}
+            </div>
+            <div style={{ width: '120px', height: '1px', backgroundColor: '#0F172A', margin: '8px auto 0' }} />
+          </div>
+
+          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '0.92rem', marginBottom: '0.85rem', textTransform: 'uppercase' }}>
+            {formData.signBy || 'BAN GIÁM ĐỐC'} CÔNG TY TNHH LLA
+          </div>
+
+          {/* Căn cứ pháp lý */}
+          <div style={{ fontStyle: 'italic', fontSize: '0.86rem', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div>- Căn cứ Bộ luật Lao động nước CHXHCN Việt Nam năm 2019;</div>
+            <div>- Căn cứ Điều lệ tổ chức và Quy chế Quản trị Nhân sự của Công ty TNHH LLA;</div>
+            <div>- Căn cứ đề xuất của Trưởng phòng Nhân sự ({formData.reason || 'Theo yêu cầu công tác'});</div>
+          </div>
+
+          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '0.98rem', margin: '0.85rem 0' }}>
+            QUYẾT ĐỊNH:
+          </div>
+
+          {/* Nội dung các Điều khoản */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', fontSize: '0.88rem', textAlign: 'justify' }}>
+            <div>
+              <strong>Điều 1.</strong> Nay {
+                formData.type === 'PROMOTION' ? 'bổ nhiệm' :
+                formData.type === 'DEMOTION' ? 'miễn nhiệm và bố trí công tác đối với' :
+                formData.type === 'TRANSFER' ? 'điều chuyển công tác đối với' :
+                formData.type === 'SALARY_ADJUSTMENT' ? 'điều chỉnh mức lương cơ bản đối với' :
+                formData.type === 'TERMINATION' ? 'chấm dứt Hợp đồng lao động và giải quyết thôi việc đối với' :
+                formData.type === 'RECRUITMENT' ? 'tiếp nhận chính thức nhân sự' :
+                formData.type === 'REWARD' ? 'khen thưởng thành tích xuất sắc đối với' :
+                'thi hành kỷ luật lao động đối với'
+              } ông/bà:{' '}
+              <strong style={{ color: '#1D4ED8' }}>{selectedEmp ? `${selectedEmp.fullName} (Mã NV: ${selectedEmp.code})` : '................................................'}</strong>
+              {selectedEmp ? `, hiện đang công tác tại bộ phận ${selectedEmp.department?.name || 'Văn phòng'} với chức danh ${selectedEmp.position?.title || 'Chuyên viên'}.` : '.'}
+            </div>
+
+            <div>
+              <strong>Điều 2.</strong> Nội dung chi tiết và chế độ áp dụng kể từ ngày{' '}
+              <strong>{formData.effectiveDate ? new Date(formData.effectiveDate).toLocaleDateString('vi-VN') : '.../.../2026'}</strong>:
+              <div style={{ paddingLeft: '0.75rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {(formData.type === 'PROMOTION' || formData.type === 'DEMOTION' || formData.type === 'TRANSFER' || formData.type === 'RECRUITMENT') && (
+                  <>
+                    <div>• Đơn vị công tác mới: <strong>{departments.find(d => d.id === formData.newDepartmentId)?.name || selectedEmp?.department?.name || 'Giữ nguyên đơn vị hiện tại'}</strong></div>
+                    <div>• Chức danh đảm nhiệm mới: <strong>{positions.find(p => p.id === formData.newPositionId)?.title || selectedEmp?.position?.title || 'Theo phân công'}</strong></div>
+                  </>
+                )}
+                {(formData.newSalary || formData.type === 'SALARY_ADJUSTMENT') && (
+                  <div>
+                    • Mức lương cơ bản mới: <strong style={{ color: '#047857' }}>{Number(formData.newSalary || formData.oldSalary || 0).toLocaleString('vi-VN')} VNĐ/tháng</strong>
+                    {formData.oldSalary ? ` (Mức lương cũ: ${Number(formData.oldSalary).toLocaleString('vi-VN')} VNĐ/tháng)` : ''}.
+                  </div>
+                )}
+                {formData.type === 'REWARD' && (
+                  <div>• Mức tiền thưởng khen thưởng: <strong style={{ color: '#B45309' }}>{Number(formData.rewardAmount || 0).toLocaleString('vi-VN')} VNĐ</strong> (Cộng vào kỳ lương hiện hành).</div>
+                )}
+                {formData.type === 'DISCIPLINE' && (
+                  <div>• Hình thức kỷ luật: <strong style={{ color: '#DC2626' }}>{formData.disciplineForm}</strong> {formData.disciplineDuration ? `(Thời hạn chấp hành: ${formData.disciplineDuration})` : ''}.</div>
+                )}
+                {formData.type === 'TERMINATION' && (
+                  <div>• Trách nhiệm bàn giao: Ông/bà <strong>{selectedEmp?.fullName || '...'}</strong> có trách nhiệm hoàn thành bàn giao công việc, hồ sơ và hoàn trả trang thiết bị công ty (Mẫu BM-02) trước ngày nghỉ chính thức để Phòng Nhân sự – Kế toán thanh toán lương và chốt sổ BHXH theo quy định.</div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <strong>Điều 3.</strong> Quyết định này có hiệu lực kể từ ngày ký. Phòng Hành chính - Nhân sự, Phòng Tài chính - Kế toán, Trưởng các bộ phận liên quan và ông/bà <strong>{selectedEmp?.fullName || '....................'}</strong> chịu trách nhiệm thi hành Quyết định này./.
+            </div>
+          </div>
+
+          {/* Chữ ký & Nơi nhận */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', fontSize: '0.82rem' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontStyle: 'italic' }}>Nơi nhận:</div>
+              <div>- Như Điều 3 (để thi hành);</div>
+              <div>- Lưu: VT, HSNS LLA.</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 700, textTransform: 'uppercase' }}>TM. {formData.signBy || 'BAN GIÁM ĐỐC'}</div>
+              <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#64748B' }}>(Ký, ghi rõ họ tên và đóng dấu)</div>
+              <div style={{ height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ border: '1.5px dashed #EF4444', color: '#EF4444', padding: '2px 10px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, transform: 'rotate(-4deg)' }}>
+                  ĐANG SOẠN THẢO • CÔNG TY TNHH LLA
+                </span>
+              </div>
+              <div style={{ fontWeight: 700 }}>{formData.signBy || 'Ban Giám Đốc'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       </div>
 

@@ -4,7 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { 
-  ArrowLeft, Save, Edit, CheckCircle, Plus, FileText, AlertTriangle, Eye, Upload, 
+  ArrowLeft, Save, Edit, CheckCircle, Plus, FileText, AlertTriangle, Eye, EyeOff, Upload, 
   X, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Laptop, FileSignature, 
   Award, TrendingUp, ShieldCheck, CheckCircle2, Building2, Briefcase,
   GraduationCap, User, Users, Shield, Calendar, CreditCard, MapPin, Phone, Mail, FileCheck,
@@ -155,6 +155,7 @@ export const EmployeeDetail = () => {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [showSalary, setShowSalary] = useState(false); // Mặc định che lương bảo mật theo NĐ 13/2023/NĐ-CP
   const [activeNav, setActiveNav] = useState('overview');
   
   const [departments, setDepartments] = useState([]);
@@ -1304,6 +1305,16 @@ export const EmployeeDetail = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
                   type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowSalary(prev => !prev); }}
+                  className="btn btn-outline"
+                  style={{ padding: '4px 10px', fontSize: '0.76rem', height: '28px', color: showSalary ? '#047857' : '#64748B', borderColor: '#CBD5E1', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  title="Ẩn/Hiện mức lương bảo mật theo Nghị định 13/2023/NĐ-CP"
+                >
+                  {showSalary ? <EyeOff size={13} /> : <Eye size={13} />}
+                  {showSalary ? 'Ẩn lương' : 'Hiện lương'}
+                </button>
+                <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setShowAddContractModal(true); }}
                   className="btn btn-outline"
                   style={{ padding: '4px 10px', fontSize: '0.78rem', height: '28px', color: '#2563EB', borderColor: '#BFDBFE' }}
@@ -1327,8 +1338,16 @@ export const EmployeeDetail = () => {
                           <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
                             Thời hạn: {c.startDate ? new Date(c.startDate).toLocaleDateString('vi-VN') : '—'} ➔ {c.endDate ? new Date(c.endDate).toLocaleDateString('vi-VN') : 'Vô thời hạn'}
                           </div>
-                          <div style={{ fontSize: '0.82rem', color: '#047857', fontWeight: 700, marginTop: '4px' }}>
-                            Lương cơ bản: {Number(c.baseSalary || 0).toLocaleString('vi-VN')} VNĐ/tháng
+                          <div style={{ fontSize: '0.82rem', color: '#047857', fontWeight: 700, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>Lương cơ bản: {showSalary ? `${Number(c.baseSalary || 0).toLocaleString('vi-VN')} VNĐ/tháng` : '••••••••• VNĐ/tháng'}</span>
+                            <button
+                              type="button"
+                              onClick={() => setShowSalary(prev => !prev)}
+                              style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: '0 2px', display: 'inline-flex', alignItems: 'center' }}
+                              title={showSalary ? 'Ẩn mức lương' : 'Hiển thị mức lương'}
+                            >
+                              {showSalary ? <EyeOff size={13} /> : <Eye size={13} />}
+                            </button>
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

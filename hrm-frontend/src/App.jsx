@@ -34,6 +34,7 @@ import { TransferDetail } from './pages/internal/employees/TransferDetail';
 
 import { Shifts } from './pages/internal/attendance/Shifts';
 import { Adjustments } from './pages/internal/attendance/Adjustments';
+import { OTMgmt } from './pages/internal/attendance/OTMgmt';
 
 import { LeaveTypes } from './pages/internal/leave/LeaveTypes';
 import { LeavePolicies } from './pages/internal/leave/LeavePolicies';
@@ -116,6 +117,7 @@ const internalLinks = [
       { to: '/internal/attendance/shifts', label: 'Ca làm việc' },
       { to: '/internal/attendance/records', label: 'Bảng công' },
       { to: '/internal/attendance/adjustments', label: 'Điều chỉnh công' },
+      { to: '/internal/attendance/ot', label: 'Làm thêm giờ (OT)' },
     ]
   },
   {
@@ -277,9 +279,11 @@ function App() {
               <Route path="employees/transfers/:id" element={<Navigate to="/internal/decisions/transfer" replace />} />
               <Route path="employees/terminations" element={<Navigate to="/internal/offboarding/checklist" replace />} />
 
+              <Route path="attendance" element={<Navigate to="records" replace />} />
               <Route path="attendance/shifts" element={<Shifts />} />
               <Route path="attendance/records" element={<AttendanceMgmt />} />
               <Route path="attendance/adjustments" element={<Adjustments />} />
+              <Route path="attendance/ot" element={<OTMgmt />} />
 
               <Route path="leave/requests" element={<LeaveMgmt />} />
               <Route path="leave/types" element={<LeaveTypes />} />

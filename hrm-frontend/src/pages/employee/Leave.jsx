@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   CalendarRange, Plus, CheckCircle2, Clock, XCircle, AlertCircle, 
-  FileText, Calendar, Filter, Sparkles, X, ChevronRight, Info
+  FileText, Calendar, Filter, Sparkles, X, ChevronRight, Info, Award, Users
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 export const EmployeeLeave = () => {
   const [requests, setRequests] = useState([]);
   const [balance, setBalance] = useState({ totalDays: 12, usedDays: 0 });
+  const [quotaInfo, setQuotaInfo] = useState({ baseDays: 12, seniorityBonusDays: 0, yearsOfService: 0, approvalThreshold: 2 });
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const employeeId = localStorage.getItem('employeeId');
@@ -20,6 +21,7 @@ export const EmployeeLeave = () => {
     session: 'ALL_DAY',
     startDate: '',
     endDate: '',
+    handoverPerson: '',
     reason: ''
   });
 
@@ -33,6 +35,9 @@ export const EmployeeLeave = () => {
       setRequests(res.data.requests || []);
       if (res.data.balance) {
         setBalance(res.data.balance);
+      }
+      if (res.data.quotaInfo) {
+        setQuotaInfo(res.data.quotaInfo);
       }
     } catch (error) {
       console.error('Lỗi khi tải dữ liệu nghỉ phép:', error);
@@ -62,7 +67,7 @@ export const EmployeeLeave = () => {
       });
       toast.success('Đã gửi đơn xin nghỉ phép thành công!');
       setShowModal(false);
-      setFormData({ leaveType: 'PAID', session: 'ALL_DAY', startDate: '', endDate: '', reason: '' });
+      setFormData({ leaveType: 'PAID', session: 'ALL_DAY', startDate: '', endDate: '', handoverPerson: '', reason: '' });
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Lỗi khi nộp đơn xin nghỉ');
@@ -222,8 +227,16 @@ export const EmployeeLeave = () => {
               <Calendar size={20} />
             </div>
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Info size={14} color="#2563EB" /> Quy định 12 ngày phép tiêu chuẩn theo HĐLĐ 2026
+          <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+            <Info size={14} color="#2563EB" /> 
+            <span>{quotaInfo.baseDays || 12} ngày tiêu chuẩn</span>
+            {quotaInfo.seniorityBonusDays > 0 ? (
+              <span style={{ backgroundColor: '#DCFCE7', color: '#15803D', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                +{quotaInfo.seniorityBonusDays} ngày thâm niên ({quotaInfo.yearsOfService} năm - Điều 114 BLLĐ)
+              </span>
+            ) : (
+              <span>• Thâm niên {quotaInfo.yearsOfService || 0} năm (+1 ngày / 5 năm)</span>
+            )}
           </div>
         </div>
 
@@ -642,8 +655,8 @@ export const EmployeeLeave = () => {
                     </div>
                   )}
 
-                  {/* Quy định bàn giao Jira/Confluence nếu nghỉ từ 3 ngày */}
-                  {leaveDaysCount >= 3 && (
+                  {/* Quy định bàn giao & duyệt cấp BGĐ nếu nghỉ vượt ngưỡng LEAVE_APPROVAL_THRESHOLD */}
+                  {leaveDaysCount > (quotaInfo.approvalThreshold || 2) && (
                     <div style={{
                       padding: '0.65rem 0.85rem',
                       borderRadius: '0.5rem',
@@ -653,15 +666,32 @@ export const EmployeeLeave = () => {
                       color: '#166534',
                       lineHeight: 1.45
                     }}>
-                      <strong>📋 Nghỉ từ 3 ngày:</strong> Bạn cần thực hiện bàn giao công việc trên <strong>Jira / Confluence</strong> và ghi rõ thông tin người nhận bàn giao ở ô lý do bên dưới.
+                      <strong>📋 Nghỉ trên {quotaInfo.approvalThreshold || 2} ngày ({leaveDaysCount} ngày):</strong> Đơn nghỉ dài ngày sẽ được chuyển lên <strong>Ban Giám Đốc phê duyệt</strong> và bắt buộc chỉ định <strong>Người nhận bàn giao công việc</strong> bên dưới.
                     </div>
                   )}
                 </div>
               )}
 
+              {leaveDaysCount > (quotaInfo.approvalThreshold || 2) && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+                    Người nhận bàn giao công việc trong thời gian nghỉ <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="form-input"
+                    value={formData.handoverPerson}
+                    onChange={e => setFormData({ ...formData, handoverPerson: e.target.value })}
+                    placeholder="VD: Nguyễn Văn B (Chuyên viên cùng bộ phận) - Đã bàn giao hồ sơ..."
+                    style={{ width: '100%', height: '42px', backgroundColor: '#F8FAFC', borderColor: '#3B82F6' }}
+                  />
+                </div>
+              )}
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
-                  Lý do xin nghỉ {leaveDaysCount >= 3 ? '& Thông tin bàn giao việc' : ''} <span style={{ color: '#EF4444' }}>*</span>
+                  Lý do xin nghỉ & Kế hoạch công việc <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <textarea
                   required
