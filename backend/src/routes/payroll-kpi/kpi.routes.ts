@@ -56,6 +56,7 @@ router.get('/reviews', authenticateToken, async (req: any, res: Response): Promi
       
       return {
         id: r.id,
+        employeeId: r.employeeId,
         empId: r.employee.code,
         name: r.employee.fullName,
         position: r.employee.position?.title || 'Chuyên viên',
@@ -344,17 +345,28 @@ router.put('/templates/:id', authenticateToken, hrOnly, async (req: any, res: Re
     const { name, department, criteria, weight, status, items } = req.body;
 
     const stringifiedItems = typeof items === 'string' ? items : (items ? JSON.stringify(items) : undefined);
+    const computedCriteria = criteria !== undefined 
+      ? Number(criteria) 
+      : (Array.isArray(items) ? items.length : undefined);
 
     const updated = await prisma.kPITemplate.update({
       where: { id },
       data: {
         ...(name && { name: String(name).trim() }),
         ...(department && { department: String(department).trim() }),
-        ...(criteria !== undefined && { criteria: Number(criteria) }),
+        ...(computedCriteria !== undefined && { criteria: computedCriteria }),
         ...(weight && { weight }),
         ...(status && { status }),
         ...(stringifiedItems !== undefined && { items: stringifiedItems })
       }
+    });
+
+    await createAuditLog({
+      action: 'UPDATE_KPI_TEMPLATE',
+      tableName: 'KPITemplate',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Cập nhật Mẫu KPI: "${updated.name}" (${updated.criteria} tiêu chuẩn)`
     });
 
     return res.json(updated);

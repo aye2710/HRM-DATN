@@ -12,28 +12,106 @@ const managerOrHr = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMEN
  * Helper tính quỹ phép năm động theo Điều 113 & Điều 114 Bộ luật Lao động 2019:
  * Quỹ phép = Phép tiêu chuẩn (ANNUAL_LEAVE_BASE) + Thâm niên (Cứ đủ SENIORITY_LEAVE_STEP năm cộng 1 ngày)
  */
-export const calculateDynamicLeaveQuota = async (joinDate: Date | null | undefined, targetYear: number) => {
+export const calculateDynamicLeaveQuota = async (
+  joinDate: Date | null | undefined, 
+  targetYear: number,
+  officialJoinDate?: Date | null
+) => {
   const baseDays = Number(await getSettingValue('ANNUAL_LEAVE_BASE', 12)) || 12;
   const seniorityStep = Number(await getSettingValue('SENIORITY_LEAVE_STEP', 5)) || 5;
   const approvalThreshold = Number(await getSettingValue('LEAVE_APPROVAL_THRESHOLD', 2)) || 2;
+  const baseDateSetting = String(await getSettingValue('LEAVE_CALC_BASE_DATE', 'JOIN_DATE')) || 'JOIN_DATE';
+  const cutoffDay = Number(await getSettingValue('LEAVE_MONTH_CUTOFF_DAY', 15)) || 15;
+  const maxCarryDays = Number(await getSettingValue('MAX_CARRY_FORWARD_DAYS', 5)) || 5;
+  const carryExpirySetting = String(await getSettingValue('CARRY_FORWARD_EXPIRY_DATE', '03-31')) || '03-31';
+  const minOfficialMonths = Number(await getSettingValue('MIN_OFFICIAL_MONTHS_FOR_LEAVE', 0)) || 0;
+  const accrualMode = String(await getSettingValue('LEAVE_ACCRUAL_MODE', 'FULL_ACCUMULATED')) || 'FULL_ACCUMULATED';
+
+  // Xác định mốc ngày tính: JOIN_DATE (ngày vào làm) hoặc OFFICIAL_DATE (ngày chính thức)
+  const effectiveBaseDate = baseDateSetting === 'OFFICIAL_DATE' 
+    ? (officialJoinDate || joinDate) 
+    : (joinDate || officialJoinDate);
 
   let yearsOfService = 0;
-  if (joinDate) {
+  if (effectiveBaseDate) {
     const refDate = new Date(targetYear, 11, 31);
-    const diffMs = refDate.getTime() - new Date(joinDate).getTime();
+    const diffMs = refDate.getTime() - new Date(effectiveBaseDate).getTime();
     yearsOfService = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24 * 365.25)));
   }
 
   const seniorityBonusDays = seniorityStep > 0 ? Math.floor(yearsOfService / seniorityStep) : 0;
-  const totalDays = baseDays + seniorityBonusDays;
+
+  // Kiểm tra điều kiện làm chính thức (nếu có cấu hình minOfficialMonths > 0)
+  let isEligible = true;
+  let monthsWorked = 12;
+  let eligibilityMessage = '';
+
+  if (minOfficialMonths > 0) {
+    const officialDate = officialJoinDate || joinDate;
+    if (!officialDate) {
+      isEligible = false;
+      eligibilityMessage = `Nhân sự chưa có ngày làm việc chính thức. Cần làm việc tối thiểu ${minOfficialMonths} tháng để được cấp Quỹ phép năm.`;
+    } else {
+      const joinObj = new Date(officialDate);
+      const now = new Date();
+      monthsWorked = (now.getFullYear() - joinObj.getFullYear()) * 12 + (now.getMonth() - joinObj.getMonth());
+      if (now.getDate() >= joinObj.getDate()) {
+        monthsWorked += 1;
+      }
+      if (monthsWorked < minOfficialMonths) {
+        isEligible = false;
+        eligibilityMessage = `Theo quy chế công ty, nhân sự cần làm việc chính thức tối thiểu ${minOfficialMonths} tháng (hiện tại: ${Math.max(0, monthsWorked)} tháng) để được kích hoạt Quỹ phép năm.`;
+      }
+    }
+  }
+
+  let totalDays = 0;
+  let workedMonthsInYear = 12;
+
+  if (!isEligible) {
+    totalDays = 0;
+  } else if (yearsOfService >= 1 || !effectiveBaseDate) {
+    // Làm từ các năm trước: hưởng trọn vẹn phép tiêu chuẩn + thâm niên
+    totalDays = baseDays + seniorityBonusDays;
+  } else {
+    // Năm đầu tiên vào làm: áp dụng quy tắc mốc ngày 15 theo SOP LLA
+    const joinObj = new Date(effectiveBaseDate);
+    if (joinObj.getFullYear() === targetYear) {
+      const joinDay = joinObj.getDate();
+      // Nếu vào làm từ ngày 1 đến cutoffDay (15): tháng đó được tính trọn
+      // Nếu vào sau ngày cutoffDay: tháng đó chưa tính
+      const startMonthIndex = joinDay <= cutoffDay ? joinObj.getMonth() : joinObj.getMonth() + 1;
+      workedMonthsInYear = Math.max(0, 12 - startMonthIndex);
+
+      if (accrualMode === 'PRORATED_REMAINING' && minOfficialMonths > 0) {
+        const eligibleMonth = joinObj.getMonth() + minOfficialMonths;
+        const remainingMonths = Math.max(1, 12 - eligibleMonth);
+        totalDays = Math.max(1, Math.round((baseDays / 12) * remainingMonths)) + seniorityBonusDays;
+      } else {
+        totalDays = Math.max(0, Math.round((baseDays / 12) * workedMonthsInYear)) + seniorityBonusDays;
+      }
+    } else {
+      totalDays = baseDays + seniorityBonusDays;
+    }
+  }
 
   return {
     baseDays,
     seniorityStep,
     yearsOfService,
     seniorityBonusDays,
+    workedMonthsInYear,
+    cutoffDay,
+    maxCarryDays,
+    carryExpirySetting,
     totalDays,
-    approvalThreshold
+    approvalThreshold,
+    minOfficialMonths,
+    accrualMode,
+    baseDateSetting,
+    isEligible,
+    monthsWorked,
+    eligibilityMessage
   };
 };
 
@@ -129,7 +207,7 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
       })
     ]);
 
-    const quota = await calculateDynamicLeaveQuota(emp?.officialJoinDate || emp?.joinDate, currentYear);
+    const quota = await calculateDynamicLeaveQuota(emp?.joinDate, currentYear, emp?.officialJoinDate);
 
     let balance = existingBalance;
     if (!balance && emp) {
@@ -189,7 +267,12 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       where: { id: empId },
       select: { id: true, joinDate: true, officialJoinDate: true }
     });
-    const quota = await calculateDynamicLeaveQuota(empRecord?.officialJoinDate || empRecord?.joinDate, start.getFullYear());
+    const quota = await calculateDynamicLeaveQuota(empRecord?.joinDate, start.getFullYear(), empRecord?.officialJoinDate);
+
+    // Nếu xin nghỉ CÓ LƯƠNG nhưng chưa đủ thời gian làm việc chính thức tối thiểu
+    if (leaveType === 'PAID' && !quota.isEligible) {
+      return res.status(400).json({ error: quota.eligibilityMessage });
+    }
 
     // Kiểm tra ngưỡng duyệt phép cấp Giám đốc & Bàn giao công việc (LEAVE_APPROVAL_THRESHOLD)
     const requiresDirectorApproval = workingDaysCount > quota.approvalThreshold;
@@ -292,13 +375,14 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
       return res.status(404).json({ error: 'Không tìm thấy đơn nghỉ phép.' });
     }
 
-    if (leaveReqCheck.status !== 'PENDING') {
+    const isRevokeApproved = leaveReqCheck.status === 'APPROVED' && status === 'REJECTED';
+    if (leaveReqCheck.status !== 'PENDING' && !isRevokeApproved) {
       return res.status(400).json({ error: 'Đơn nghỉ phép này đã được xử lý trước đó.' });
     }
 
     // Chống tự phê duyệt
     if (req.user?.employeeId && leaveReqCheck.employeeId === req.user.employeeId) {
-      return res.status(403).json({ error: 'Người nộp đơn không thể tự phê duyệt đơn nghỉ phép của chính mình.' });
+      return res.status(403).json({ error: 'Người nộp đơn không thể tự phê duyệt hoặc thu hồi đơn nghỉ phép của chính mình.' });
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -308,7 +392,7 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
       const isHalfDay = leaveReq.session === 'MORNING' || leaveReq.session === 'AFTERNOON';
       const workingDaysCount = isHalfDay ? 0.5 : await calculateWorkingDays(leaveReq.startDate, leaveReq.endDate);
 
-      // Nếu TỪ CHỐI đơn PAID -> HOÀN LẠI số ngày phép đã trừ tạm thời
+      // Nếu TỪ CHỐI hoặc THU HỒI đơn PAID -> HOÀN LẠI số ngày phép đã trừ tạm thời
       if (status === 'REJECTED' && leaveReq.leaveType === 'PAID') {
         const currentYear = leaveReq.startDate.getFullYear();
         const balance = await tx.leaveBalance.findFirst({
@@ -320,6 +404,40 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
             where: { id: balance.id },
             data: { usedDays: Math.max(0, Number(balance.usedDays) - workingDaysCount) }
           });
+        }
+      }
+
+      // Nếu THU HỒI đơn đã duyệt -> Rollback trạng thái ON_LEAVE trên Bảng Chấm Công
+      if (isRevokeApproved) {
+        const curr = new Date(leaveReq.startDate);
+        curr.setHours(0, 0, 0, 0);
+        const end = new Date(leaveReq.endDate);
+        end.setHours(0, 0, 0, 0);
+
+        while (curr <= end) {
+          const attDate = new Date(curr);
+          const existingAtt = await tx.attendance.findFirst({
+            where: {
+              employeeId: leaveReq.employeeId,
+              date: attDate
+            }
+          });
+
+          if (existingAtt && existingAtt.status === 'ON_LEAVE') {
+            const workingDayValue = leaveReq.leaveType === 'PAID' ? (isHalfDay ? 0.5 : 1.0) : 0.0;
+            if (existingAtt.checkIn || existingAtt.checkOut) {
+              await tx.attendance.update({
+                where: { id: existingAtt.id },
+                data: {
+                  status: 'NORMAL',
+                  workingDay: Math.max(0, Number(existingAtt.workingDay) - workingDayValue)
+                }
+              });
+            } else {
+              await tx.attendance.delete({ where: { id: existingAtt.id } });
+            }
+          }
+          curr.setDate(curr.getDate() + 1);
         }
       }
 
@@ -395,15 +513,24 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
       return updatedReq;
     });
 
+    const actionName = isRevokeApproved ? 'REVOKE_LEAVE_REQUEST' : (status === 'APPROVED' ? 'APPROVE_LEAVE_REQUEST' : 'REJECT_LEAVE_REQUEST');
+    const actionDetails = isRevokeApproved 
+      ? `Thu hồi đơn nghỉ phép #${id}, hoàn lại ngày phép và rollback chấm công.`
+      : `${status === 'APPROVED' ? 'Phê duyệt' : 'Từ chối'} đơn nghỉ phép #${id}.`;
+
     await createAuditLog({
-      action: status === 'APPROVED' ? 'APPROVE_LEAVE_REQUEST' : 'REJECT_LEAVE_REQUEST',
+      action: actionName,
       tableName: 'LeaveRequest',
       recordId: id,
       accountId: req.user?.accountId,
-      details: `${status === 'APPROVED' ? 'Phê duyệt' : 'Từ chối'} đơn nghỉ phép #${id}.`
+      details: actionDetails
     });
 
-    return res.json({ message: `Đã ${status === 'APPROVED' ? 'phê duyệt' : 'từ chối'} đơn nghỉ phép.`, request: result });
+    const successMsg = isRevokeApproved 
+      ? 'Đã thu hồi đơn nghỉ phép, hoàn trả số dư phép và rollback bảng công thành công.'
+      : `Đã ${status === 'APPROVED' ? 'phê duyệt' : 'từ chối'} đơn nghỉ phép.`;
+
+    return res.json({ message: successMsg, request: result });
   } catch (error: any) {
     console.error('Error reviewing leave:', error);
     return res.status(400).json({ error: error.message || 'Lỗi khi cập nhật trạng thái đơn' });

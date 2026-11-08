@@ -163,24 +163,19 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
         }
       });
 
-      // Xử lý Đánh giá Thử việc & Đồng bộ mức lương hợp đồng mới sang hồ sơ Employee
+      // Xử lý Đánh giá Thử việc & Cập nhật trạng thái Employee
       let updatedEmployee = null;
       if (evaluationResult === 'PASSED') {
         if (contractType === 'OFFICIAL_1Y' || contractType === 'INDEFINITE') {
           updatedEmployee = await tx.employee.update({
             where: { id: employeeId },
-            data: { status: 'ACTIVE', officialJoinDate: start, salary: Number(baseSalary) }
+            data: { status: 'ACTIVE', officialJoinDate: start }
           });
         }
       } else if (evaluationResult === 'FAILED') {
         updatedEmployee = await tx.employee.update({
           where: { id: employeeId },
           data: { status: 'RESIGNED', resignationDate: end || now, resignationReason: 'Không đạt đánh giá thử việc' }
-        });
-      } else if (contractStart <= now) {
-        updatedEmployee = await tx.employee.update({
-          where: { id: employeeId },
-          data: { salary: Number(baseSalary) }
         });
       }
 

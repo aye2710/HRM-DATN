@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCcw, Search, CheckCircle, XCircle, Plus, ArrowRight, FileCheck2, Printer, ArrowLeft, Send } from 'lucide-react';
+import { RefreshCcw, Search, CheckCircle, XCircle, Plus, ArrowRight, FileCheck2, Printer, ArrowLeft, Send, Calendar } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -13,6 +13,8 @@ export const Adjustments = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
   // Chế độ hiển thị Toàn Trang (KHÔNG dùng Popup): 'LIST' | 'FORM_PAGE'
   const [viewMode, setViewMode] = useState('LIST');
@@ -154,17 +156,27 @@ export const Adjustments = () => {
     }
   };
 
+  const monthFilteredAdjustments = useMemo(() => {
+    return adjustments.filter(adj => {
+      if (!adj.date) return true;
+      const d = new Date(adj.date);
+      if (selectedYear !== 'ALL' && d.getFullYear() !== Number(selectedYear)) return false;
+      if (selectedMonth !== 'ALL' && (d.getMonth() + 1) !== Number(selectedMonth)) return false;
+      return true;
+    });
+  }, [adjustments, selectedMonth, selectedYear]);
+
   const counts = useMemo(() => {
     return {
-      ALL: adjustments.length,
-      PENDING: adjustments.filter(a => a.status === 'PENDING').length,
-      APPROVED: adjustments.filter(a => a.status === 'APPROVED').length,
-      REJECTED: adjustments.filter(a => a.status === 'REJECTED').length
+      ALL: monthFilteredAdjustments.length,
+      PENDING: monthFilteredAdjustments.filter(a => a.status === 'PENDING').length,
+      APPROVED: monthFilteredAdjustments.filter(a => a.status === 'APPROVED').length,
+      REJECTED: monthFilteredAdjustments.filter(a => a.status === 'REJECTED').length
     };
-  }, [adjustments]);
+  }, [monthFilteredAdjustments]);
 
   const filteredList = useMemo(() => {
-    return adjustments.filter(adj => {
+    return monthFilteredAdjustments.filter(adj => {
       const matchSearch =
         searchTerm === '' ||
         adj.employee?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,7 +185,7 @@ export const Adjustments = () => {
       const matchStatus = statusFilter === 'ALL' || adj.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [adjustments, searchTerm, statusFilter]);
+  }, [monthFilteredAdjustments, searchTerm, statusFilter]);
 
   // ============================================================================
   // CHẾ ĐỘ 1: TRANG LẬP & XEM TRƯỚC BIÊN BẢN A4 TOÀN MÀN HÌNH (KHÔNG POPUP)
@@ -451,82 +463,114 @@ export const Adjustments = () => {
     );
   }
 
+  // Helper rút gọn loại đơn
+  const formatTypeBadge = (type) => {
+    const t = String(type || '').toLowerCase();
+    if (t.includes('đi muộn')) {
+      return { label: 'Xin đi muộn', bg: '#FEF3C7', color: '#B45309', border: '#FDE68A' };
+    }
+    if (t.includes('quên check-out')) {
+      return { label: 'Quên Check-out', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+    }
+    if (t.includes('quên check-in')) {
+      return { label: 'Quên Check-in', bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE' };
+    }
+    return { label: 'Xác nhận công', bg: '#F1F5F9', color: '#475569', border: '#CBD5E1' };
+  };
+
+  const formatProposedAction = (adj) => {
+    const isLate = String(adj.type || '').toLowerCase().includes('đi muộn');
+    if (isLate) {
+      if (String(adj.newTime || '').includes('Vượt hạn mức')) {
+        return 'Vượt hạn mức (Vẫn phạt)';
+      }
+      return 'Xin miễn phạt tiền (Lần 1/3)';
+    }
+    if (String(adj.newTime || '').includes('08:00 - 17:30')) {
+      return 'Bổ sung giờ ra & Đủ công';
+    }
+    return adj.newTime || 'Xác nhận đủ 1.0 công';
+  };
+
   // ============================================================================
   // CHẾ ĐỘ 2: DANH SÁCH ĐƠN XÁC NHẬN CHẤM CÔNG & ĐƠN XIN ĐI MUỘN
   // ============================================================================
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
       
-      {/* 1. Compact Header */}
+      {/* 1. Header tinh gọn, hiện đại */}
       <div style={{
         backgroundColor: '#FFFFFF',
         borderRadius: '0.75rem',
-        padding: '0.9rem 1.25rem',
+        padding: '0.85rem 1.25rem',
         border: '1px solid #E2E8F0',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: '0.75rem'
+        gap: '0.75rem',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <div style={{
             width: 32, height: 32, borderRadius: '8px',
-            backgroundColor: '#FEF3C7', color: '#D97706',
+            backgroundColor: '#EFF6FF', color: '#2563EB',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
           }}>
             <FileCheck2 size={18} />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
-              Phê duyệt Đơn Xác Nhận Chấm Công &amp; Đơn Xin Đi Muộn (Công ty LLA)
+            <h1 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
+              Xét Duyệt Đơn Giải Trình &amp; Đi Muộn
             </h1>
-            <p style={{ margin: 0, color: '#64748B', fontSize: '0.78rem' }}>
-              Tiếp nhận biên bản đã có chữ ký Trưởng bộ phận (PM). Đi muộn 5p–1h có đơn được tính đủ công tối đa <strong>3 lần/tháng</strong>.
+            <p style={{ margin: 0, color: '#64748B', fontSize: '0.76rem' }}>
+              Duyệt đơn xác nhận chấm công và xin đi muộn để tự động đồng bộ ngày công sang Bảng công.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             className="btn btn-outline"
             onClick={() => navigate('/internal/attendance/records')}
-            style={{ height: 34, padding: '0 0.8rem', fontSize: '0.8rem' }}
+            style={{ height: 34, padding: '0 0.8rem', fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}
           >
-            Xem Bảng công Ma trận
+            ← Bảng công Ma trận
           </button>
           <button
             className="btn btn-primary"
             onClick={openNewFormPage}
-            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem' }}
+            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
           >
-            <Plus size={15} /> Mở trang lập đơn mới
+            <Plus size={14} /> Lập đơn mới
           </button>
         </div>
       </div>
 
-      {/* 2. Bộ lọc Tab Trạng thái & Tìm kiếm */}
+      {/* 2. Bộ lọc Tab Trạng thái & Ô Tìm kiếm */}
       <div style={{
         backgroundColor: '#FFFFFF',
         borderRadius: '0.75rem',
         border: '1px solid #E2E8F0',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
       }}>
         <div style={{
-          padding: '0.75rem 1.25rem',
+          padding: '0.65rem 1rem',
           borderBottom: '1px solid #E2E8F0',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '0.75rem'
+          gap: '0.65rem',
+          backgroundColor: '#FAFAFA'
         }}>
-          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
             {[
-              { id: 'ALL', label: 'Tất cả đơn', count: counts.ALL },
-              { id: 'PENDING', label: 'Chờ HCNS-KT duyệt', count: counts.PENDING, badgeColor: '#FEF3C7', textColor: '#B45309' },
-              { id: 'APPROVED', label: 'Đã xác nhận công', count: counts.APPROVED, badgeColor: '#DCFCE7', textColor: '#15803D' },
-              { id: 'REJECTED', label: 'Đã từ chối', count: counts.REJECTED, badgeColor: '#FEE2E2', textColor: '#B91C1C' }
+              { id: 'ALL', label: 'Tất cả', count: counts.ALL },
+              { id: 'PENDING', label: 'Chờ duyệt', count: counts.PENDING, badgeColor: '#FEF3C7', textColor: '#B45309' },
+              { id: 'APPROVED', label: 'Đã duyệt', count: counts.APPROVED, badgeColor: '#DCFCE7', textColor: '#15803D' },
+              { id: 'REJECTED', label: 'Từ chối', count: counts.REJECTED, badgeColor: '#FEE2E2', textColor: '#B91C1C' }
             ].map(tab => {
               const active = statusFilter === tab.id;
               return (
@@ -534,24 +578,26 @@ export const Adjustments = () => {
                   key={tab.id}
                   onClick={() => setStatusFilter(tab.id)}
                   style={{
-                    padding: '0.35rem 0.75rem',
-                    borderRadius: '0.5rem',
+                    padding: '0.3rem 0.65rem',
+                    borderRadius: '0.45rem',
                     border: active ? '1px solid #2563EB' : '1px solid #E2E8F0',
                     backgroundColor: active ? '#EFF6FF' : '#FFFFFF',
                     color: active ? '#1D4ED8' : '#475569',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.4rem'
+                    gap: '0.35rem',
+                    transition: 'all 0.15s ease'
                   }}
                 >
                   {tab.label}
                   <span style={{
-                    padding: '1px 6px',
+                    padding: '1px 5px',
                     borderRadius: '999px',
-                    fontSize: '0.7rem',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
                     backgroundColor: tab.badgeColor || '#F1F5F9',
                     color: tab.textColor || '#334155'
                   }}>
@@ -562,14 +608,49 @@ export const Adjustments = () => {
             })}
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <div style={{ position: 'relative', width: '250px' }}>
-              <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+          <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Bộ lọc Tháng & Năm */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              backgroundColor: '#FFFFFF',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              border: '1px solid #CBD5E1',
+              height: 32
+            }}>
+              <Calendar size={13} color="#2563EB" />
+              <select
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                style={{ border: 'none', background: 'transparent', fontSize: '0.78rem', fontWeight: 700, color: '#1E293B', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="ALL">Tất cả tháng</option>
+                {[...Array(12)].map((_, i) => (
+                  <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>
+                ))}
+              </select>
+              <span style={{ color: '#CBD5E1' }}>/</span>
+              <select
+                value={selectedYear}
+                onChange={e => setSelectedYear(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                style={{ border: 'none', background: 'transparent', fontSize: '0.78rem', fontWeight: 700, color: '#1E293B', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+                <option value="ALL">Tất cả năm</option>
+              </select>
+            </div>
+
+            <div style={{ position: 'relative', width: '210px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
               <input 
                 type="text" 
                 placeholder="Tìm tên, mã NV, lý do..." 
                 className="form-input"
-                style={{ paddingLeft: '2.1rem', width: '100%', height: 34, fontSize: '0.8rem' }}
+                style={{ paddingLeft: '1.9rem', width: '100%', height: 32, fontSize: '0.78rem' }}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -577,123 +658,153 @@ export const Adjustments = () => {
             <button
               onClick={fetchAdjustments}
               className="btn btn-outline"
-              style={{ height: 34, padding: '0 0.6rem' }}
-              title="Làm mới"
+              style={{ height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderColor: '#CBD5E1', color: '#64748B' }}
+              title="Làm mới danh sách"
             >
-              <RefreshCcw size={14} />
+              <RefreshCcw size={13} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
 
-        {/* 3. Bảng Danh sách Đơn */}
+        {/* 3. Bảng Danh sách Đơn tinh gọn, thoáng mắt */}
         <div className="table-responsive">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
             <thead>
-              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.73rem', textTransform: 'uppercase' }}>
-                <th style={{ padding: '0.75rem 1.1rem', textAlign: 'left', fontWeight: 700 }}>Nhân sự</th>
-                <th style={{ padding: '0.75rem 0.9rem', textAlign: 'left', fontWeight: 700 }}>Ngày &amp; Loại Biên bản</th>
-                <th style={{ padding: '0.75rem 0.9rem', textAlign: 'left', fontWeight: 700 }}>Log Máy ➔ Kết quả xác nhận</th>
-                <th style={{ padding: '0.75rem 0.9rem', textAlign: 'left', fontWeight: 700 }}>Lý do trình bày</th>
-                <th style={{ padding: '0.75rem 0.9rem', textAlign: 'center', fontWeight: 700 }}>Trạng thái</th>
-                <th style={{ padding: '0.75rem 1.1rem', textAlign: 'right', fontWeight: 700 }}>Biên bản &amp; Duyệt</th>
+              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#64748B', fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                <th style={{ padding: '0.65rem 1rem', textAlign: 'left', fontWeight: 700, width: '22%' }}>Nhân sự</th>
+                <th style={{ padding: '0.65rem 0.85rem', textAlign: 'left', fontWeight: 700, width: '16%' }}>Ngày &amp; Loại đơn</th>
+                <th style={{ padding: '0.65rem 0.85rem', textAlign: 'left', fontWeight: 700, width: '23%' }}>Đối soát giờ công</th>
+                <th style={{ padding: '0.65rem 0.85rem', textAlign: 'left', fontWeight: 700, width: '21%' }}>Lý do giải trình</th>
+                <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center', fontWeight: 700, width: '9%' }}>Trạng thái</th>
+                <th style={{ padding: '0.65rem 1rem', textAlign: 'center', fontWeight: 700, width: '9%' }}>Xử lý</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>Đang tải danh sách đơn...</td></tr>
+                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: '#94A3B8' }}>Đang tải danh sách đơn...</td></tr>
               ) : filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: '#94A3B8' }}>
                     Không có đơn nào trong mục này.
                   </td>
                 </tr>
               ) : (
-                filteredList.map(adj => (
-                  <tr key={adj.id} style={{ borderBottom: '1px solid #F1F5F9', backgroundColor: adj.status === 'PENDING' ? '#FFFDF5' : '#FFFFFF' }}>
-                    <td style={{ padding: '0.75rem 1.1rem', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <div style={{
-                          width: 30, height: 30, borderRadius: '50%',
-                          backgroundColor: '#EFF6FF', color: '#1D4ED8',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontWeight: 700, fontSize: '0.8rem', flexShrink: 0
-                        }}>
-                          {adj.employee?.fullName?.charAt(0) || 'N'}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, color: '#0F172A' }}>{adj.employee?.fullName}</div>
-                          <div style={{ fontSize: '0.72rem', color: '#64748B' }}>
-                            {adj.employee?.code} {adj.employee?.department?.name ? `• ${adj.employee.department.name}` : ''}
+                filteredList.map(adj => {
+                  const typeBadge = formatTypeBadge(adj.type);
+                  return (
+                    <tr key={adj.id} style={{ borderBottom: '1px solid #F1F5F9', backgroundColor: adj.status === 'PENDING' ? '#FCFDFE' : '#FFFFFF' }}>
+                      
+                      {/* Cột 1: Nhân sự */}
+                      <td style={{ padding: '0.65rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: '50%',
+                            backgroundColor: '#EFF6FF', color: '#1D4ED8',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 700, fontSize: '0.75rem', flexShrink: 0
+                          }}>
+                            {adj.employee?.fullName?.charAt(0) || 'N'}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.82rem', lineHeight: 1.2 }}>
+                              {adj.employee?.fullName}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 1 }}>
+                              {adj.employee?.code} {adj.employee?.department?.name ? `• ${adj.employee.department.name}` : ''}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td style={{ padding: '0.75rem 0.9rem', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: 2 }}>
-                        {new Date(adj.date).toLocaleDateString('vi-VN')}
-                      </div>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '2px 7px',
-                        borderRadius: '4px',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        backgroundColor: String(adj.type).toLowerCase().includes('đi muộn') ? '#FEF3C7' : '#EFF6FF',
-                        color: String(adj.type).toLowerCase().includes('đi muộn') ? '#B45309' : '#1D4ED8',
-                        border: String(adj.type).toLowerCase().includes('đi muộn') ? '1px solid #FDE68A' : '1px solid #BFDBFE',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {adj.type}
-                      </span>
-                    </td>
+                      {/* Cột 2: Ngày & Loại đơn */}
+                      <td style={{ padding: '0.65rem 0.85rem' }}>
+                        <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.8rem', marginBottom: 3 }}>
+                          {new Date(adj.date).toLocaleDateString('vi-VN')}
+                        </div>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          backgroundColor: typeBadge.bg,
+                          color: typeBadge.color,
+                          border: `1px solid ${typeBadge.border}`
+                        }}>
+                          {typeBadge.label}
+                        </span>
+                      </td>
 
-                    <td style={{ padding: '0.75rem 0.9rem', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontFamily: 'monospace', fontSize: '0.76rem', backgroundColor: '#F8FAFC', padding: '4px 8px', borderRadius: '6px', border: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: '#B45309', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          ⚠ {adj.oldTime || 'Thiếu vân tay'}
-                        </span>
-                        <ArrowRight size={13} color="#64748B" style={{ flexShrink: 0 }} />
-                        <span style={{ fontWeight: 800, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                          {adj.newTime}
-                        </span>
-                      </div>
-                    </td>
+                      {/* Cột 3: Đối soát giờ công (Gọn gàng, thanh thoát) */}
+                      <td style={{ padding: '0.65rem 0.85rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#94A3B8', width: 44 }}>Thực tế:</span>
+                            <span style={{
+                              fontSize: '0.74rem',
+                              fontWeight: 600,
+                              color: '#B45309',
+                              backgroundColor: '#FEF3C7',
+                              padding: '1px 5px',
+                              borderRadius: '3px'
+                            }}>
+                              {adj.oldTime || 'Thiếu giờ'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#94A3B8', width: 44 }}>Đề xuất:</span>
+                            <span style={{
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              color: '#15803D',
+                              backgroundColor: '#DCFCE7',
+                              padding: '1px 5px',
+                              borderRadius: '3px'
+                            }}>
+                              {formatProposedAction(adj)}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
 
-                    <td style={{ padding: '0.75rem 0.9rem', color: '#334155', maxWidth: '260px', lineHeight: 1.4 }}>
-                      {adj.reason}
-                    </td>
+                      {/* Cột 4: Lý do giải trình */}
+                      <td style={{ padding: '0.65rem 0.85rem', color: '#334155', fontSize: '0.76rem', lineHeight: 1.35 }}>
+                        <div style={{
+                          backgroundColor: '#F8FAFC',
+                          padding: '0.35rem 0.55rem',
+                          borderRadius: '0.375rem',
+                          border: '1px solid #F1F5F9',
+                          maxHeight: '44px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }} title={adj.reason}>
+                          {adj.reason}
+                        </div>
+                      </td>
 
-                    <td style={{ padding: '0.75rem 0.9rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                      {adj.status === 'PENDING' && (
-                        <span style={{ display: 'inline-block', padding: '3px 9px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, backgroundColor: '#FEF3C7', color: '#B45309', whiteSpace: 'nowrap' }}>
-                          Chờ duyệt
-                        </span>
-                      )}
-                      {adj.status === 'APPROVED' && (
-                        <span style={{ display: 'inline-block', padding: '3px 9px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D', whiteSpace: 'nowrap' }}>
-                          Đã xác nhận công
-                        </span>
-                      )}
-                      {adj.status === 'REJECTED' && (
-                        <span style={{ display: 'inline-block', padding: '3px 9px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, backgroundColor: '#FEE2E2', color: '#B91C1C', whiteSpace: 'nowrap' }}>
-                          Từ chối
-                        </span>
-                      )}
-                    </td>
+                      {/* Cột 5: Trạng thái */}
+                      <td style={{ padding: '0.65rem 0.75rem', textAlign: 'center' }}>
+                        {adj.status === 'PENDING' && (
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 700, backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                            Chờ duyệt
+                          </span>
+                        )}
+                        {adj.status === 'APPROVED' && (
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D' }}>
+                            Đã duyệt
+                          </span>
+                        )}
+                        {adj.status === 'REJECTED' && (
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 700, backgroundColor: '#FEE2E2', color: '#B91C1C' }}>
+                            Từ chối
+                          </span>
+                        )}
+                      </td>
 
-                    <td style={{ padding: '0.75rem 1.1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 28px)', gap: '5px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                        <button
-                          onClick={() => openViewDocPage(adj)}
-                          className="btn btn-outline"
-                          style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', borderColor: '#bfdbfe' }}
-                          title="Mở trang Xem & In biên bản chuẩn Công ty LLA"
-                        >
-                          <Printer size={14} />
-                        </button>
+                      {/* Cột 6: Thao tác xử lý (Chỉ dùng icon Duyệt / Từ chối) */}
+                      <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
                         {adj.status === 'PENDING' ? (
-                          <>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <button
                               onClick={() => handleUpdateStatus(adj, 'APPROVED')}
                               style={{
@@ -707,11 +818,12 @@ export const Adjustments = () => {
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)'
                               }}
-                              title="Phê duyệt đơn và cập nhật bảng công"
+                              title="Duyệt đơn"
                             >
-                              <CheckCircle size={14} />
+                              <CheckCircle size={15} />
                             </button>
                             <button
                               onClick={() => handleUpdateStatus(adj, 'REJECTED')}
@@ -728,21 +840,18 @@ export const Adjustments = () => {
                                 alignItems: 'center',
                                 justifyContent: 'center'
                               }}
-                              title="Từ chối đơn giải trình"
+                              title="Từ chối đơn"
                             >
-                              <XCircle size={14} />
+                              <XCircle size={15} />
                             </button>
-                          </>
+                          </div>
                         ) : (
-                          <>
-                            <div style={{ width: 28, height: 28 }} />
-                            <div style={{ width: 28, height: 28 }} />
-                          </>
+                          <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

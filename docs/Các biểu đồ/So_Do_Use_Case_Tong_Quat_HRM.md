@@ -1010,6 +1010,59 @@ flowchart LR
 
 ---
 
+### 3.4.4. Chức năng Quản lý Điều chuyển Công tác (`Transfers.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Điều chuyển Công tác
+```mermaid
+flowchart LR
+    ADMIN["👔 HR Manager / Ban Giám đốc"]
+
+    subgraph FUNC_TRF ["CHỨC NĂNG: ĐIỀU CHUYỂN CÔNG TÁC (Transfers)"]
+        UC1(["UC-CORE-04-01: Xem danh sách lệnh điều chuyển"])
+        UC2(["UC-CORE-04-02: Lập đề xuất điều chuyển phòng ban/vị trí"])
+        UC3(["UC-CORE-04-03: Phê duyệt điều chuyển & Đồng bộ hồ sơ"])
+        UC4(["UC-CORE-04-04: Thu hồi lệnh điều chuyển & Hoàn tác"])
+    end
+
+    ADMIN --> UC1
+    ADMIN --> UC2
+    ADMIN --> UC3
+    ADMIN --> UC4
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class ADMIN actor;
+    class UC1,UC2,UC3,UC4 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-CORE-04-01: Xem danh sách lệnh điều chuyển
+- **Mã Use Case**: `UC-CORE-04-01`
+- **Mục tiêu**: Theo dõi toàn bộ lịch sử và kế hoạch luân chuyển nhân sự giữa các phòng ban hoặc vị trí chuyên môn.
+- **Tác nhân**: 👔 HR Manager, Giám đốc Nhân sự.
+- **Luồng chính**: Mở "Điều chuyển công tác" $\rightarrow$ Xem bảng danh sách: Mã nhân viên, Họ tên, Đơn vị cũ $\rightarrow$ Đơn vị mới, Vị trí cũ $\rightarrow$ Vị trí mới, Ngày hiệu lực, Lý do điều chuyển, Trạng thái (Chờ duyệt, Đã duyệt, Đã thu hồi).
+
+##### 📋 UC-CORE-04-02: Lập đề xuất điều chuyển phòng ban / vị trí
+- **Mã Use Case**: `UC-CORE-04-02`
+- **Mục tiêu**: Khởi tạo đề xuất luân chuyển nhân sự, tự động kiểm tra định biên phòng ban tiếp nhận.
+- **Tác nhân**: 👔 HR Manager, Trưởng bộ phận.
+- **Luồng chính**: Nhấn "+ Lập lệnh điều chuyển" $\rightarrow$ Chọn nhân viên $\rightarrow$ Chọn Phòng ban mới, Vị trí mới $\rightarrow$ Nhập Ngày hiệu lực và Lý do điều chuyển $\rightarrow$ Hệ thống kiểm tra trần định biên quota của phòng mới $\rightarrow$ Lưu dự thảo quyết định điều chuyển.
+
+##### 📋 UC-CORE-04-03: Phê duyệt điều chuyển & Đồng bộ hồ sơ công tác
+- **Mã Use Case**: `UC-CORE-04-03`
+- **Mục tiêu**: Ban Giám đốc phê duyệt chính thức lệnh điều chuyển, tự động cập nhật phòng ban và chức danh mới của nhân sự.
+- **Tác nhân**: 👔 Ban Giám đốc (CEO/BOD).
+- **Luồng chính**: Người có thẩm quyền nhấn "Phê duyệt" $\rightarrow$ Hệ thống cập nhật phòng ban mới, vị trí mới vào hồ sơ nhân viên, ghi nhận 01 dòng vào bảng Lịch sử công tác (`EmploymentHistory`) và tự động sinh số hiệu văn bản quyết định điều chuyển.
+
+##### 📋 UC-CORE-04-04: Thu hồi lệnh điều chuyển & Hoàn tác (Rollback)
+- **Mã Use Case**: `UC-CORE-04-04`
+- **Mục tiêu**: Hủy bỏ quyết định điều chuyển khi có phát sinh đột xuất, khôi phục nguyên trạng phòng ban và chức danh ban đầu của nhân viên.
+- **Tác nhân**: 👔 Ban Giám đốc.
+- **Luồng chính**: Nhấn "Thu hồi quyết định" $\rightarrow$ Nhập lý do thu hồi $\rightarrow$ Hệ thống tự động hoàn tác phòng ban và vị trí công tác của nhân sự về đơn vị cũ, ghi vết hủy bỏ vào nhật ký kiểm toán.
+
+---
+
 ## 3.5. PHÂN HỆ 5: CA LÀM VIỆC & CHẤM CÔNG (TIME & ATTENDANCE)
 
 ### 3.5.0. Sơ đồ Use Case Cấp 2: Chấm công & Ca làm việc
@@ -1138,6 +1191,59 @@ flowchart LR
 - **Mục tiêu**: Không chấp thuận các giải trình không có căn cứ hoặc vi phạm nội quy.
 - **Tác nhân**: 👔 Quản lý trực tiếp.
 - **Luồng chính**: Nhấn "Từ chối" $\rightarrow$ Nhập lý do từ chối (Không có xác nhận đi khách, giải trình quá hạn...) $\rightarrow$ Hệ thống chuyển trạng thái "Đã từ chối" và gửi thông báo phản hồi cho nhân viên.
+
+---
+
+### 3.5.3. Chức năng Quản lý Ca làm việc (`Shifts.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Quản lý Ca làm việc
+```mermaid
+flowchart LR
+    ADMIN["👔 Quản trị viên / C&B"]
+
+    subgraph FUNC_SHF ["CHỨC NĂNG: QUẢN LÝ CA LÀM VIỆC (Shifts)"]
+        UC1(["UC-ATT-03-01: Xem danh mục ca làm việc"])
+        UC2(["UC-ATT-03-02: Thiết lập khung giờ ca & Nghỉ giữa giờ"])
+        UC3(["UC-ATT-03-03: Cấu hình thời gian ân hạn đi muộn"])
+        UC4(["UC-ATT-03-04: Kích hoạt / Tạm dừng ca làm việc"])
+    end
+
+    ADMIN --> UC1
+    ADMIN --> UC2
+    ADMIN --> UC3
+    ADMIN --> UC4
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class ADMIN actor;
+    class UC1,UC2,UC3,UC4 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-ATT-03-01: Xem danh mục ca làm việc
+- **Mã Use Case**: `UC-ATT-03-01`
+- **Mục tiêu**: Quản trị các ca làm việc đang áp dụng trong doanh nghiệp (Ca hành chính 08:00 - 17:30, Ca sáng, Ca chiều).
+- **Tác nhân**: 👔 Chuyên viên C&B, HR.
+- **Luồng chính**: Mở "Ca làm việc" $\rightarrow$ Xem danh sách: Tên ca, Mã ca, Giờ bắt đầu, Giờ kết thúc, Thời gian nghỉ trưa, Hệ số công chuẩn và Trạng thái kích hoạt.
+
+##### 📋 UC-ATT-03-02: Thiết lập khung giờ ca & Nghỉ giữa ca
+- **Mã Use Case**: `UC-ATT-03-02`
+- **Mục tiêu**: Thêm mới hoặc điều chỉnh khung giờ làm việc theo quy chế công ty LLA.
+- **Tác nhân**: 👔 HR Manager, Admin.
+- **Luồng chính**: Nhấn "+ Thêm ca làm việc" $\rightarrow$ Nhập Tên ca, Giờ vào (08:00), Giờ ra (17:30), Giờ nghỉ trưa (12:00 - 13:30 = 1.5h) $\rightarrow$ Lưu thông tin.
+
+##### 📋 UC-ATT-03-03: Cấu hình thời gian ân hạn đi muộn (Grace Period)
+- **Mã Use Case**: `UC-ATT-03-03`
+- **Mục tiêu**: Thiết lập số phút châm chước đi muộn đầu ca làm việc (mặc định 5 phút hoặc 15 phút theo chính sách).
+- **Tác nhân**: 👔 HR Manager.
+- **Luồng chính**: Cấu hình thời gian ân hạn $\rightarrow$ Hệ thống tự động áp dụng vào động cơ tính công: Điểm danh trong khung ân hạn vẫn tính đủ 1.0 công chuẩn.
+
+##### 📋 UC-ATT-03-04: Kích hoạt / Tạm dừng ca làm việc
+- **Mã Use Case**: `UC-ATT-03-04`
+- **Mục tiêu**: Đóng mở ca làm việc theo mùa hoặc dự án mà không làm mất lịch sử chấm công cũ.
+- **Tác nhân**: 👔 HR Manager.
+- **Luồng chính**: Chuyển đổi trạng thái Active/Inactive $\rightarrow$ Hệ thống ghi nhận và áp dụng cho các chu kỳ chấm công tiếp theo.
 
 ---
 
@@ -1368,6 +1474,118 @@ flowchart LR
 
 ---
 
+### 3.7.2. Chức năng Quản lý Mẫu tiêu chí KPI (`KPITemplates.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Mẫu tiêu chí KPI
+```mermaid
+flowchart LR
+    ADMIN["👔 Quản trị viên / HR Manager"]
+
+    subgraph FUNC_TPL ["CHỨC NĂNG: MẪU TIÊU CHÍ KPI (KPITemplates)"]
+        UC1(["UC-KPI-02-01: Xem thư viện mẫu tiêu chí chuẩn"])
+        UC2(["UC-KPI-02-02: Tạo bộ mẫu tiêu chí & Ràng buộc 100% trọng số"])
+        UC3(["UC-KPI-02-03: Chỉnh sửa bộ tiêu chuẩn phòng ban"])
+        UC4(["UC-KPI-02-04: Xóa mẫu tiêu chí & Phân trang"])
+    end
+
+    ADMIN --> UC1
+    ADMIN --> UC2
+    ADMIN --> UC3
+    ADMIN --> UC4
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class ADMIN actor;
+    class UC1,UC2,UC3,UC4 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-KPI-02-01: Xem thư viện mẫu tiêu chí chuẩn hóa
+- **Mã Use Case**: `UC-KPI-02-01`
+- **Mục tiêu**: Quản trị danh mục các bộ tiêu chí đánh giá KPI chuẩn hóa theo từng phòng ban và vị trí chức danh.
+- **Tác nhân**: 👔 HR Manager, Giám đốc Nhân sự.
+- **Luồng chính**: Mở "Mẫu KPI" $\rightarrow$ Xem bảng danh mục: Tên mẫu đánh giá, Phòng ban áp dụng, Số tiêu chí, Tổng trọng số (100%), Trạng thái hoạt động, Cột thao tác tối giản icon (Xem, Sửa, Xóa). Hệ thống hỗ trợ phân trang chuẩn hóa (6 mẫu/trang).
+
+##### 📋 UC-KPI-02-02: Tạo bộ mẫu tiêu chí mới & Ràng buộc 100% trọng số
+- **Mã Use Case**: `UC-KPI-02-02`
+- **Mục tiêu**: Xây dựng khung đánh giá hiệu suất định kỳ chuẩn hóa theo Sổ tay LLA (ví dụ DEV: 40% Tiến độ UCP, 30% Review, 20% Git/Wiki, 10% Teamwork).
+- **Tác nhân**: 👔 HR Manager.
+- **Luồng chính**:
+  1. Nhấn nút "+ Tạo Mẫu KPI mới".
+  2. Nhập Tên mẫu, chọn Phòng ban áp dụng, nhập Mô tả chuẩn hóa.
+  3. Thêm các tiêu chí thành phần: Tên tiêu chí, Mô tả, Chỉ tiêu mục tiêu (Target), Đơn vị đo, Trọng số (Weight %).
+  4. Hệ thống kiểm tra: Tổng trọng số các tiêu chí bắt buộc phải vừa đúng $100\%$.
+  5. Nhấn "Lưu mẫu KPI". Hệ thống lưu trữ và kích hoạt mẫu chuẩn.
+- **Luồng ngoại lệ**: Tổng trọng số khác 100% $\rightarrow$ Hệ thống cảnh báo màu đỏ và chặn lưu: *"Tổng trọng số của các tiêu chí phải đạt chính xác 100% (Hiện tại: X%)"*.
+
+##### 📋 UC-KPI-02-03: Chỉnh sửa bộ tiêu chuẩn phòng ban
+- **Mã Use Case**: `UC-KPI-02-03`
+- **Mục tiêu**: Điều chỉnh nội dung tiêu chí hoặc phân bổ lại trọng số theo yêu cầu vận hành mới.
+- **Tác nhân**: 👔 HR Manager.
+- **Luồng chính**: Nhấn icon "Sửa" $\rightarrow$ Modal hiển thị qua `createPortal` $\rightarrow$ Điều chỉnh chỉ tiêu/trọng số $\rightarrow$ Kiểm tra cân bằng 100% $\rightarrow$ Lưu thay đổi thành công.
+
+##### 📋 UC-KPI-02-04: Xóa mẫu tiêu chí & Phân trang quản trị
+- **Mã Use Case**: `UC-KPI-02-04`
+- **Mục tiêu**: Loại bỏ các mẫu cũ không còn sử dụng khi chưa có nhân sự nào được giao chỉ tiêu theo mẫu này.
+- **Tác nhân**: 👔 HR Manager.
+- **Luồng chính**: Nhấn icon "Xóa" $\rightarrow$ Xác nhận $\rightarrow$ Hệ thống xóa mẫu và tự động cập nhật lại danh sách phân trang.
+
+---
+
+### 3.7.3. Chức năng Giao Mục tiêu KPI theo Chu kỳ (`KPIAssignments.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Giao Mục tiêu KPI
+```mermaid
+flowchart LR
+    ADMIN["👔 Quản lý trực tiếp / HR"]
+
+    subgraph FUNC_ASG ["CHỨC NĂNG: GIAO MỤC TIÊU KPI (KPIAssignments)"]
+        UC1(["UC-KPI-03-01: Xem danh sách KPI đã giao"])
+        UC2(["UC-KPI-03-02: Giao KPI 1-chạm từ Mẫu chuẩn"])
+        UC3(["UC-KPI-03-03: Thiết lập Target & Khóa cứng Weight"])
+        UC4(["UC-KPI-03-04: Lọc & Phân trang bảng giao KPI"])
+    end
+
+    ADMIN --> UC1
+    ADMIN --> UC2
+    ADMIN --> UC3
+    ADMIN --> UC4
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class ADMIN actor;
+    class UC1,UC2,UC3,UC4 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-KPI-03-01: Xem danh sách KPI đã giao theo chu kỳ
+- **Mã Use Case**: `UC-KPI-03-01`
+- **Mục tiêu**: Theo dõi tình hình giao chỉ tiêu công việc cho từng cán bộ nhân viên trong từng chu kỳ đánh giá (Tháng, Quý, Năm).
+- **Tác nhân**: 👔 Trưởng bộ phận, HR.
+- **Luồng chính**: Mở "Giao KPI" $\rightarrow$ Xem bảng: Mã NV, Họ tên, Phòng ban, Tiêu chí KPI, Chỉ tiêu giao (Target), Kết quả thực tế (Achieved), Trọng số %, Điểm tự chấm, Điểm quản lý chấm, Trạng thái (Đang thực hiện, Hoàn thành).
+
+##### 📋 UC-KPI-03-02: Giao mục tiêu theo mẫu chuẩn phòng ban 1-chạm
+- **Mã Use Case**: `UC-KPI-03-02`
+- **Mục tiêu**: Giao trọn bộ 4-5 tiêu chí KPI cho nhân viên mới vào đơn vị chỉ bằng một thao tác chọn mẫu chuẩn.
+- **Tác nhân**: 👔 Trưởng bộ phận.
+- **Luồng chính**: Nhấn "+ Giao KPI mới" $\rightarrow$ Chọn nhân viên $\rightarrow$ Chọn Mẫu KPI của phòng ban $\rightarrow$ Hệ thống tự động điền sẵn tên các tiêu chí, đơn vị đo và tỷ lệ trọng số chuẩn $\rightarrow$ Chọn Chu kỳ đánh giá $\rightarrow$ Nhấn "Xác nhận giao".
+
+##### 📋 UC-KPI-03-03: Thiết lập Target & Khóa cứng Weight bảo vệ dữ liệu
+- **Mã Use Case**: `UC-KPI-03-03`
+- **Mục tiêu**: Tùy biến chỉ tiêu phù hợp năng lực nhân sự nhưng khóa cứng trọng số để đảm bảo tính công bằng toàn công ty.
+- **Tác nhân**: 👔 Trưởng bộ phận.
+- **Luồng chính**: Nhập số lượng chỉ tiêu cần đạt (ví dụ: `Target: 100 UCP`) $\rightarrow$ Khóa cứng trường Weight để nhân viên khi tự đánh giá không can thiệp làm sai lệch điểm số $\rightarrow$ Lưu thông tin.
+
+##### 📋 UC-KPI-03-04: Lọc & Phân trang bảng giao KPI
+- **Mã Use Case**: `UC-KPI-03-04`
+- **Mục tiêu**: Tìm kiếm nhanh nhân sự theo tên/mã, lọc theo phòng ban và duyệt danh sách theo từng trang (8 bản ghi/trang).
+- **Tác nhân**: 👔 Quản lý, HR.
+- **Luồng chính**: Nhập từ khóa hoặc chọn phòng ban $\rightarrow$ Bảng tự động lọc kết quả và hiển thị chân trang phân trang đầy đủ số lượng bản ghi.
+
+---
+
 ## 3.8. PHÂN HỆ 8: TIỀN LƯƠNG & GROSS-TO-NET (PAYROLL ENGINE)
 
 ### 3.8.0. Sơ đồ Use Case Cấp 2: Tiền lương & Phúc lợi
@@ -1566,6 +1784,59 @@ flowchart LR
 
 ---
 
+### 3.9.2. Chức năng Quản lý Kho Thiết bị Định danh Serial (`AssetInventory.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Kho Thiết bị Định danh Serial
+```mermaid
+flowchart LR
+    ADMIN["👔 Cán bộ Hành chính - IT"]
+
+    subgraph FUNC_INV ["CHỨC NĂNG: KHO THIẾT BỊ (AssetInventory)"]
+        UC1(["UC-AST-02-01: Xem danh mục kho thiết bị"])
+        UC2(["UC-AST-02-02: Nhập mới thiết bị định danh Serial"])
+        UC3(["UC-AST-02-03: Cập nhật tình trạng & Bảo dưỡng"])
+        UC4(["UC-AST-02-04: Thanh lý / Hủy thiết bị cũ hỏng"])
+    end
+
+    ADMIN --> UC1
+    ADMIN --> UC2
+    ADMIN --> UC3
+    ADMIN --> UC4
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class ADMIN actor;
+    class UC1,UC2,UC3,UC4 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-AST-02-01: Xem danh mục kho thiết bị & Tình trạng sử dụng
+- **Mã Use Case**: `UC-AST-02-01`
+- **Mục tiêu**: Theo dõi toàn bộ số lượng trang thiết bị công nghệ hiện có trong kho công ty và tình trạng cấp phát.
+- **Tác nhân**: 👔 Cán bộ Quản trị IT.
+- **Luồng chính**: Mở "Kho tài sản" $\rightarrow$ Xem bảng: Mã tài sản, Tên thiết bị, Chủng loại (Laptop, PC, Màn hình, Thiết bị mạng), Số Serial / Service Tag, Giá trị ban đầu, Tình trạng (Mới, Đang sử dụng, Sẵn sàng cấp phát, Đang sửa chữa, Hỏng), Nhân viên đang nắm giữ.
+
+##### 📋 UC-AST-02-02: Nhập mới thiết bị định danh theo Serial/Model
+- **Mã Use Case**: `UC-AST-02-02`
+- **Mục tiêu**: Nhập kho các lô máy móc thiết bị mới mua sắm, kiểm soát nghiêm ngặt theo số Serial duy nhất.
+- **Tác nhân**: 👔 Cán bộ IT.
+- **Luồng chính**: Nhấn "+ Thêm tài sản" $\rightarrow$ Nhập Tên thiết bị, Hãng sản xuất, Model, Số Serial duy nhất, Ngày mua, Thời hạn bảo hành, Giá mua $\rightarrow$ Hệ thống kiểm tra số Serial không trùng lặp $\rightarrow$ Lưu vào kho ở trạng thái "Sẵn sàng cấp phát".
+
+##### 📋 UC-AST-02-03: Cập nhật tình trạng kỹ thuật & Ghi nhận bảo dưỡng
+- **Mã Use Case**: `UC-AST-02-03`
+- **Mục tiêu**: Theo dõi lịch sử bảo trì, nâng cấp linh kiện (RAM, SSD) hoặc sửa chữa hỏng hóc.
+- **Tác nhân**: 👔 Cán bộ Kỹ thuật IT.
+- **Luồng chính**: Chọn thiết bị $\rightarrow$ Cập nhật tình trạng (Đang sửa chữa / Đã bảo dưỡng xong) $\rightarrow$ Ghi nhật ký bảo trì $\rightarrow$ Lưu thông tin.
+
+##### 📋 UC-AST-02-04: Thanh lý / Loại bỏ thiết bị hư hỏng khỏi kho
+- **Mã Use Case**: `UC-AST-02-04`
+- **Mục tiêu**: Xóa sổ hoặc thanh lý các thiết bị đã hết khấu hao hoặc hư hỏng nặng không thể khắc phục.
+- **Tác nhân**: 👔 Cán bộ IT, Kế toán trưởng.
+- **Luồng chính**: Chọn thiết bị ở trạng thái "Hỏng" $\rightarrow$ Nhấn "Thanh lý tài sản" $\rightarrow$ Nhập lý do và số tiền thu hồi thanh lý (nếu có) $\rightarrow$ Hệ thống cập nhật trạng thái "Đã thanh lý", xuất khỏi danh mục cấp phát.
+
+---
+
 ## 3.10. PHÂN HỆ 10: THÔI VIỆC & BÀN GIAO (OFFBOARDING)
 
 ### 3.10.0. Sơ đồ Use Case Cấp 2: Thôi việc & Bàn giao
@@ -1722,21 +1993,23 @@ flowchart LR
     EMP["👤 Nhân viên (Employee)"]
 
     subgraph MOD_ESS ["CỔNG NHÂN VIÊN TỰ PHỤC VỤ (ESS)"]
-        UC_SUB_ATT(["Chấm công & Giải trình công"])
-        UC_SUB_LEA(["Quản lý Nghỉ phép Cá nhân"])
-        UC_SUB_PAY(["Tra cứu Phiếu lương Bảo mật"])
-        UC_SUB_KPI(["Mục tiêu & Tự đánh giá KPI"])
+        UC_SUB_ATT(["1. Chấm công trực tuyến & Giải trình công"])
+        UC_SUB_LEA(["2. Quản lý Nghỉ phép Cá nhân"])
+        UC_SUB_PAY(["3. Tra cứu Phiếu lương Bảo mật"])
+        UC_SUB_KPI(["4. Mục tiêu & Tự đánh giá KPI"])
+        UC_SUB_PRF(["5. Quản lý Hồ sơ Cá nhân & Thân nhân"])
     end
 
     EMP --> UC_SUB_ATT
     EMP --> UC_SUB_LEA
     EMP --> UC_SUB_PAY
     EMP --> UC_SUB_KPI
+    EMP --> UC_SUB_PRF
 
     classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
     classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
     class EMP actor;
-    class UC_SUB_ATT,UC_SUB_LEA,UC_SUB_PAY,UC_SUB_KPI uc;
+    class UC_SUB_ATT,UC_SUB_LEA,UC_SUB_PAY,UC_SUB_KPI,UC_SUB_PRF uc;
 ```
 
 ---
@@ -1808,6 +2081,241 @@ flowchart LR
 - **Mục tiêu**: Xác nhận số tiền thực nhận chuyển về tài khoản ngân hàng.
 - **Tác nhân**: 👤 Nhân viên.
 - **Luồng chính**: Hiển thị Phần III: Số tiền thực nhận nổi bật màu xanh lá cây kèm thông tin tài khoản ngân hàng thụ hưởng.
+
+---
+
+### 3.12.2. Chức năng Chấm công Trực tuyến & Giải trình công (`Attendance.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Chấm công & Giải trình công ESS
+```mermaid
+flowchart LR
+    EMP["👤 Nhân viên (Employee)"]
+
+    subgraph FUNC_ESS_ATT ["CỔNG ESS: CHẤM CÔNG & GIẢI TRÌNH"]
+        UC1(["UC-ESS-01-01: Điểm danh vào ca Check-in & Ra ca Check-out"])
+        UC2(["UC-ESS-01-02: Tra cứu Log vân tay & Lịch sử ngày công"])
+        UC3(["UC-ESS-01-03: Lập Đơn xác nhận công & In biên bản A4"])
+        UC4(["UC-ESS-01-04: Lập Đơn xin đi muộn (Hạn mức 3 lần/tháng)"])
+        UC5(["UC-ESS-01-05: Đăng ký Làm thêm giờ OT (Điều 107 BLLĐ)"])
+    end
+
+    EMP --> UC1
+    EMP --> UC2
+    EMP --> UC3
+    EMP --> UC4
+    EMP --> UC5
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class EMP actor;
+    class UC1,UC2,UC3,UC4,UC5 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-ESS-01-01: Điểm danh vào ca (Check-in) & Ra ca (Check-out)
+- **Mã Use Case**: `UC-ESS-01-01`
+- **Mục tiêu**: Nhân viên thực hiện bấm giờ điểm danh vào/ra ca làm việc trực tuyến đồng bộ thời gian thực vào cơ sở dữ liệu.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: 
+  1. Nhân viên truy cập phân hệ "Chấm công & Giải trình".
+  2. Tại khối Log máy chấm công hôm nay, nếu chưa vào ca $\rightarrow$ Bấm nút **"Check-in Vào ca"** $\rightarrow$ Hệ thống ghi nhận giờ vào ca thực tế.
+  3. Khi kết thúc ngày làm việc $\rightarrow$ Bấm nút **"Check-out Ra ca"** $\rightarrow$ Hệ thống tính toán tổng giờ làm việc thực tế và quy đổi ngày công tương ứng ($\ge 7.5\text{h} \to 1.0$ công, $\ge 3.5\text{h} \to 0.5$ công).
+- **Luồng ngoại lệ**: Đã Check-in rồi mà bấm tiếp $\rightarrow$ Hệ thống báo lỗi: *"Hôm nay bạn đã Check-in rồi!"*.
+
+##### 📋 UC-ESS-01-02: Tra cứu Log vân tay & Lịch sử ngày công cá nhân
+- **Mã Use Case**: `UC-ESS-01-02`
+- **Mục tiêu**: Tự kiểm tra lịch sử quẹt vân tay, giờ In/Out và số ngày công tích lũy theo từng tháng.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Chọn Tháng/Năm $\rightarrow$ Bảng hiển thị danh sách các ngày làm việc: Ngày, Giờ vào, Giờ ra, Phút đi muộn, Trạng thái (Bình thường, Đi muộn, Về sớm, Nghỉ phép) và Tổng công tích lũy tháng.
+
+##### 📋 UC-ESS-01-03: Lập Đơn xin xác nhận chấm công & In biên bản A4
+- **Mã Use Case**: `UC-ESS-01-03`
+- **Mục tiêu**: Lập văn bản giải trình khi quên quẹt vân tay hoặc chưa làm dấu vân tay để trình Trưởng bộ phận ký xác nhận và nộp về phòng HCNS.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: 
+  1. Nhấn nút "Làm Đơn xác nhận công".
+  2. Màn hình mở giao diện soạn thảo toàn trang song song với bản xem trước văn bản khổ A4 chuẩn hóa.
+  3. Chọn Ngày cần xác nhận, Giờ vào/ra thực tế, nhập Lý do.
+  4. Nhấn "Gửi đơn" $\rightarrow$ Dữ liệu gửi lên Admin chờ duyệt.
+  5. Bấm nút **"In biên bản A4 (Trình PM ký)"** để in văn bản có sẵn chữ ký mẫu 3 bên trình Quản lý dự án phê duyệt.
+
+##### 📋 UC-ESS-01-04: Lập Đơn xin phép đi muộn (Hạn mức 3 lần/tháng miễn phạt)
+- **Mã Use Case**: `UC-ESS-01-04`
+- **Mục tiêu**: Xin phép đến muộn từ 5 phút đến 1 tiếng theo đúng quy chuẩn Sổ tay vận hành LLA để được tính đủ ngày công và miễn phạt.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Nhấn "Làm Đơn xin đi muộn" $\rightarrow$ Chọn ngày, khoảng thời gian xin muộn, nhập lý do $\rightarrow$ Hệ thống kiểm tra hạn mức đã dùng trong tháng (tối đa 3 lần) $\rightarrow$ Gửi đơn lên hệ thống.
+
+##### 📋 UC-ESS-01-05: Đăng ký Làm thêm giờ OT (Tuân thủ Điều 107 BLLĐ)
+- **Mã Use Case**: `UC-ESS-01-05`
+- **Mục tiêu**: Đăng ký làm thêm giờ phục vụ tiến độ dự án có phê duyệt trước, tránh tình trạng OT tự do.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Nhấn "Đăng ký làm thêm (OT)" $\rightarrow$ Modal hiển thị qua `createPortal` $\rightarrow$ Nhập Ngày làm thêm, Số giờ (0.5h - 4h/ngày), Lý do công việc $\rightarrow$ Hệ thống kiểm tra trần giới hạn ngày (4h) và trần năm (200h) $\rightarrow$ Gửi lên Quản lý duyệt. Khi đơn còn ở trạng thái `PENDING`, nhân viên có thể bấm "Hủy" nếu kế hoạch thay đổi.
+
+---
+
+### 3.12.3. Chức năng Quản lý Nghỉ phép Cá nhân (`Leave.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Quản lý Nghỉ phép ESS
+```mermaid
+flowchart LR
+    EMP["👤 Nhân viên (Employee)"]
+
+    subgraph FUNC_ESS_LEA ["CỔNG ESS: NGHỈ PHÉP CÁ NHÂN"]
+        UC1(["UC-ESS-02-01: Tra cứu quỹ phép năm & Phép thâm niên"])
+        UC2(["UC-ESS-02-02: Nộp đơn xin nghỉ phép Cả ngày / Nửa ngày"])
+        UC3(["UC-ESS-02-03: Ràng buộc tồn quỹ phép & Đăng ký không lương"])
+        UC4(["UC-ESS-02-04: Theo dõi phê duyệt & Tự hủy đơn PENDING"])
+    end
+
+    EMP --> UC1
+    EMP --> UC2
+    EMP --> UC3
+    EMP --> UC4
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class EMP actor;
+    class UC1,UC2,UC3,UC4 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-ESS-02-01: Tra cứu quỹ phép năm & Ngày phép thâm niên
+- **Mã Use Case**: `UC-ESS-02-01`
+- **Mục tiêu**: Nắm rõ số ngày nghỉ phép năm được hưởng theo luật, số ngày đã sử dụng và số dư phép năm khả dụng.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Mở "Quản lý nghỉ phép" $\rightarrow$ Xem thẻ thống kê: Tổng quỹ phép năm (bao gồm ngày phép chuẩn 12 ngày + ngày phép thâm niên cứ 5 năm cộng 1 ngày), Số ngày đã sử dụng, Số ngày đang tạm giữ (Soft-lock) và Số dư khả dụng.
+
+##### 📋 UC-ESS-02-02: Nộp đơn xin nghỉ phép (Cả ngày / Nửa ngày)
+- **Mã Use Case**: `UC-ESS-02-02`
+- **Mục tiêu**: Gửi yêu cầu xin nghỉ làm việc theo quy định công ty.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: 
+  1. Nhấn nút "+ Tạo đơn xin nghỉ".
+  2. Chọn Loại nghỉ: *Nghỉ phép năm, Nghỉ ốm đau (hưởng BHXH), Nghỉ chế độ (kết hôn, tang chế), Nghỉ không lương*.
+  3. Chọn Chế độ nghỉ: *Cả ngày, Buổi sáng (0.5 công), Buổi chiều (0.5 công)*.
+  4. Chọn Từ ngày $\rightarrow$ Đến ngày. Hệ thống tự động tính số ngày công làm việc thực tế cần nghỉ (bỏ qua ngày nghỉ tuần).
+  5. Nhập Lý do nghỉ phép $\rightarrow$ Nhấn "Gửi đơn xin nghỉ".
+- **Hậu điều kiện**: Hệ thống tạm khóa số dư ngày phép tương ứng để tránh nộp trùng lặp, đẩy đơn vào danh sách Chờ duyệt của Trưởng phòng.
+
+##### 📋 UC-ESS-02-03: Ràng buộc tồn quỹ phép & Đăng ký nghỉ không lương
+- **Mã Use Case**: `UC-ESS-02-03`
+- **Mục tiêu**: Đảm bảo nhân viên không nộp đơn vượt quá số ngày phép năm còn tồn.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng ngoại lệ**: Nếu số ngày nghỉ phép năm yêu cầu > Số dư phép năm khả dụng $\rightarrow$ Hệ thống cảnh báo đỏ và chặn gửi: *"Không đủ số dư ngày phép! Quỹ phép năm còn X ngày, vui lòng chọn loại Nghỉ không lương (UNPAID)"*.
+
+##### 📋 UC-ESS-02-04: Theo dõi tiến trình phê duyệt & Tự hủy đơn PENDING
+- **Mã Use Case**: `UC-ESS-02-04`
+- **Mục tiêu**: Nắm bắt phản hồi từ cấp trên; chủ động thu hồi đơn khi kế hoạch cá nhân thay đổi.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Theo dõi trạng thái đơn trên bảng lịch sử (Chờ duyệt, Đã duyệt, Từ chối kèm lý do). Nếu đơn còn ở trạng thái `PENDING`, nhân viên nhấn nút "Hủy đơn" $\rightarrow$ Hệ thống lập tức hủy đơn và hoàn trả số ngày phép đã tạm giữ về quỹ khả dụng.
+
+---
+
+### 3.12.4. Chức năng Mục tiêu & Tự đánh giá KPI (`KPI.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Mục tiêu & Tự đánh giá KPI
+```mermaid
+flowchart LR
+    EMP["👤 Nhân viên (Employee)"]
+
+    subgraph FUNC_ESS_KPI ["CỔNG ESS: MỤC TIÊU & ĐÁNH GIÁ KPI"]
+        UC1(["UC-ESS-04-01: Xem danh mục mục tiêu KPI được giao"])
+        UC2(["UC-ESS-04-02: Cập nhật kết quả thực tế đạt được Achieved"])
+        UC3(["UC-ESS-04-03: Tự động tính điểm tự chấm theo trọng số"])
+        UC4(["UC-ESS-04-04: Khóa cứng Target/Weight chống gian lận"])
+    end
+
+    EMP --> UC1
+    EMP --> UC2
+    EMP --> UC3
+    EMP --> UC4
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class EMP actor;
+    class UC1,UC2,UC3,UC4 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-ESS-04-01: Xem danh mục mục tiêu KPI được giao theo chu kỳ
+- **Mã Use Case**: `UC-ESS-04-01`
+- **Mục tiêu**: Người lao động nắm rõ các chỉ tiêu công việc và tỷ lệ trọng số chịu trách nhiệm trong kỳ.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Mở "Mục tiêu & Đánh giá KPI" $\rightarrow$ Xem danh sách tiêu chí: Tên tiêu chí, Mô tả phương pháp đo, Chỉ tiêu giao (Target), Trọng số %, Kết quả thực tế, Thanh tiến độ hoàn thành %.
+
+##### 📋 UC-ESS-04-02: Cập nhật kết quả thực tế đạt được (Achieved)
+- **Mã Use Case**: `UC-ESS-04-02`
+- **Mục tiêu**: Ghi nhận sản lượng hoặc tiến độ thực tế hoàn thành định kỳ.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Nhập số lượng thực tế đạt được vào ô `Achieved` $\rightarrow$ Nhập ghi chú minh chứng công việc $\rightarrow$ Bấm "Cập nhật tiến độ".
+
+##### 📋 UC-ESS-04-03: Tự động tính điểm tự đánh giá theo trọng số (Self Score)
+- **Mã Use Case**: `UC-ESS-04-03`
+- **Mục tiêu**: Minh bạch hóa điểm số năng lực cá nhân thời gian thực.
+- **Tác nhân**: ⚙️ Hệ thống tự động.
+- **Luồng chính**: Khi nhân viên nhập kết quả thực tế, hệ thống tự động tính tỷ lệ hoàn thành = $(\text{Achieved} / \text{Target}) \times \text{Weight}$, tổng hợp ra Điểm tự đánh giá cá nhân (thang điểm 100) và đồng bộ trực tiếp sang màn hình chấm điểm của Quản lý trực tiếp (`/internal/performance/reviews`).
+
+##### 📋 UC-ESS-04-04: Khóa cứng Target & Trọng số chống gian lận
+- **Mã Use Case**: `UC-ESS-04-04`
+- **Mục tiêu**: Bảo toàn tính liêm chính dữ liệu đánh giá hiệu suất.
+- **Tác nhân**: ⚙️ Hệ thống tự động.
+- **Luồng chính**: Hệ thống khóa hoàn toàn chế độ chỉnh sửa đối với cột Chỉ tiêu (Target) và Trọng số (Weight) trên giao diện nhân viên, chỉ cho phép chỉnh sửa giá trị Kết quả thực tế (`Achieved`).
+
+---
+
+### 3.12.5. Chức năng Hồ sơ Cá nhân & Đăng ký Thân nhân (`Profile.jsx`)
+
+#### A. Sơ đồ Use Case Cấp 3: Hồ sơ Cá nhân & Thân nhân ESS
+```mermaid
+flowchart LR
+    EMP["👤 Nhân viên (Employee)"]
+
+    subgraph FUNC_ESS_PRF ["CỔNG ESS: HỒ SƠ CÁ NHÂN & THÂN NHÂN"]
+        UC1(["UC-ESS-05-01: Xem chi tiết lý lịch 8 Tab thông tin"])
+        UC2(["UC-ESS-05-02: Chỉnh sửa thông tin liên lạc & STK ngân hàng"])
+        UC3(["UC-ESS-05-03: Đăng ký Người phụ thuộc giảm trừ gia cảnh"])
+        UC4(["UC-ESS-05-04: Tải lên & Quản lý scan Bằng cấp, Chứng chỉ"])
+    end
+
+    EMP --> UC1
+    EMP --> UC2
+    EMP --> UC3
+    EMP --> UC4
+
+    classDef actor fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef uc fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a;
+    class EMP actor;
+    class UC1,UC2,UC3,UC4 uc;
+```
+
+#### B. Bản đặc tả chi tiết nghiệp vụ từng Use Case con:
+
+##### 📋 UC-ESS-05-01: Xem chi tiết lý lịch 8 Tab thông tin
+- **Mã Use Case**: `UC-ESS-05-01`
+- **Mục tiêu**: Người lao động tra cứu hồ sơ 360° của chính mình trong doanh nghiệp.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Mở "Hồ sơ cá nhân" $\rightarrow$ Xem 8 nhóm thông tin: *Thông tin chung, Công việc & Vị trí, Hợp đồng lao động, Tài chính & Thuế/BHXH, Người thân & Phụ thuộc, Học vấn & Bằng cấp, Tài sản được cấp phát, Quyết định nhân sự*.
+
+##### 📋 UC-ESS-05-02: Chỉnh sửa thông tin liên lạc & STK ngân hàng
+- **Mã Use Case**: `UC-ESS-05-02`
+- **Mục tiêu**: Cập nhật thông tin khi thay đổi chỗ ở, số điện thoại hoặc tài khoản nhận lương.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Bật chế độ "Chỉnh sửa hồ sơ" $\rightarrow$ Sửa SĐT cá nhân, Email cá nhân, Địa chỉ thường trú, Tạm trú, Tên ngân hàng, Số tài khoản ngân hàng $\rightarrow$ Bấm "Lưu thay đổi" $\rightarrow$ Dữ liệu cập nhật ngay lập tức.
+
+##### 📋 UC-ESS-05-03: Đăng ký Người phụ thuộc giảm trừ gia cảnh thuế TNCN
+- **Mã Use Case**: `UC-ESS-05-03`
+- **Mục tiêu**: Đăng ký người thân (con nhỏ, cha mẹ già) để được giảm trừ 4.400.000 đ/người/tháng vào thu nhập tính thuế TNCN trên Bảng lương.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Vào tab "Người thân & Phụ thuộc" $\rightarrow$ Nhấn "+ Thêm người thân" $\rightarrow$ Nhập Họ tên, Mối quan hệ, Ngày sinh, Số CCCD/Mã định danh, Mã số thuế thân nhân, Thời điểm bắt đầu tính giảm trừ $\rightarrow$ Lưu thông tin. Hệ thống tự động tính giảm trừ trên động cơ tiền lương.
+
+##### 📋 UC-ESS-05-04: Tải lên & Quản lý file scan Bằng cấp, Chứng chỉ
+- **Mã Use Case**: `UC-ESS-05-04`
+- **Mục tiêu**: Lưu trữ và cập nhật các văn bằng tốt nghiệp, chứng chỉ nghề nghiệp mới hoàn thành.
+- **Tác nhân**: 👤 Nhân viên.
+- **Luồng chính**: Vào tab "Học vấn & Bằng cấp" $\rightarrow$ Thêm bằng cấp/chứng chỉ $\rightarrow$ Tải tệp scan chứng chỉ/bằng đại học $\rightarrow$ Hỗ trợ xem trước phóng to trực tiếp trên giao diện.
 
 ---
 

@@ -608,8 +608,8 @@ router.get('/adjustments', authenticateToken, async (req: any, res: Response) =>
                 : 'Đơn xin phép đi muộn (5p - 60p)',
               oldTime: isMissingOut ? `${inTimeStr} / — (Thiếu giờ ra)` : `${inTimeStr} (Đi muộn > 5p)`,
               newTime: isMissingOut
-                ? 'Xác nhận đủ ca (08:00 - 17:30)'
-                : 'Tính đủ 1.0 công (Lần 1/3 trong tháng)',
+                ? 'Bổ sung giờ ra (08:00 - 17:30) & Tính đủ công'
+                : 'Xin miễn phạt tiền đi muộn (Lần 1/3)',
               reason: sampleReasons[i % sampleReasons.length],
               status: 'PENDING'
             }
@@ -687,9 +687,9 @@ router.post('/adjustments', authenticateToken, async (req: any, res: Response): 
       const maxLateQuota = await getSettingValue('MAX_LATE_PERMISSION_PER_MONTH', 3);
       const orderNum = monthLateRequests.length + 1;
       if (orderNum <= Number(maxLateQuota)) {
-        computedNewTime = `Tính đủ 1.0 công (Lần ${orderNum}/${maxLateQuota} trong tháng)`;
+        computedNewTime = `Xin miễn phạt tiền đi muộn (Lần ${orderNum}/${maxLateQuota} trong tháng)`;
       } else {
-        computedNewTime = `Lần ${orderNum}/${maxLateQuota} trong tháng (Vượt hạn mức ${maxLateQuota} lần - Bị phạt)`;
+        computedNewTime = `Lần ${orderNum}/${maxLateQuota} trong tháng (Vượt hạn mức ${maxLateQuota} lần - Vẫn bị phạt)`;
       }
     }
 

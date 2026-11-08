@@ -598,7 +598,7 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
     const standardDays = dynamicStandardDays;
 
     // Đảm bảo hồ sơ mẫu thực tế của Công ty TNHH LLA (Lê Hữu Trúc - Lương CB 7,000,000, Thử việc 85% = 5,950,000, Phụ cấp 500,000) luôn sẵn sàng
-    let trucEmp = await prisma.employee.findFirst({
+    let trucEmp: any = await prisma.employee.findFirst({
       where: { fullName: { contains: 'Lê Hữu Trúc', mode: 'insensitive' } },
       include: { contracts: true }
     });
@@ -612,7 +612,6 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
           email: 'truclh@lla.vn',
           phone: '0988123456',
           status: 'PROBATION',
-          salary: 7000000,
           joinDate: new Date(2026, 8, 1),
           departmentId: firstDept?.id || null,
           positionId: firstPos?.id || null,
@@ -677,7 +676,7 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
       const isTruc = emp.fullName.toLowerCase().includes('lê hữu trúc');
 
       // 1. Mức lương cơ bản, Lương áp dụng tháng (Lương T{month}), Phụ cấp & Lương đóng BHXH theo Hợp đồng ACTIVE
-      const baseSalary = Number(activeContract.baseSalary || emp.salary || 0);
+      const baseSalary = Number(activeContract.baseSalary || (emp as any).salary || 0);
       const isProbation = activeContract.contractType === 'PROBATION' || emp.status === 'PROBATION';
       const isOfficialContract = activeContract.contractType === 'OFFICIAL_1Y' || activeContract.contractType === 'INDEFINITE';
 

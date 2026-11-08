@@ -829,16 +829,17 @@ Toàn bộ cơ sở dữ liệu được tổ chức theo mô hình **Lấy Nhâ
 
 ## 2.43. Bảng `KPITemplate`: Mẫu tiêu chí KPI
 > **Mô tả chức năng:** Khung tiêu chí và trọng số KPI mẫu theo từng phòng ban và chức danh.  
-> **Tổng số cột/trường:** 6 trường dữ liệu.
+> **Tổng số cột/trường:** 7 trường dữ liệu.
 
 | STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
 | :-: | :--- | :--- | :---: | :--- | :--- |
-| 1 | `id` | `String` | Không | 🔑 PRIMARY KEY | Mặc định: `uuid()` | Khóa chính định danh duy nhất (UUIDv4) |
-| 2 | `name` | `String` | Không | Thuộc tính thường | Dữ liệu thông tin name của bản ghi |
-| 3 | `department` | `String` | Không | Thuộc tính thường | Dữ liệu thông tin department của bản ghi |
-| 4 | `criteria` | `Int` | Không | Thuộc tính thường | Dữ liệu thông tin criteria của bản ghi |
-| 5 | `weight` | `String` | Không | Thuộc tính thường | Dữ liệu thông tin weight của bản ghi |
-| 6 | `status` | `String` | Không | Mặc định: `"Active"` | Trạng thái hoạt động / phê duyệt của bản ghi |
+| 1 | `id` | `String` | Có | 🔑 PRIMARY KEY | Khóa chính định danh duy nhất (UUIDv4) |
+| 2 | `name` | `String` | Có | Thuộc tính thường | Tên bộ mẫu tiêu chí KPI (ví dụ: Mẫu KPI Developer Q1) |
+| 3 | `department` | `String` | Có | Thuộc tính thường | Phòng ban áp dụng bộ mẫu tiêu chí |
+| 4 | `criteria` | `Int` | Có | Mặc định: `1` | Số lượng tiêu chuẩn trong bộ mẫu |
+| 5 | `weight` | `String` | Có | Mặc định: `"100%"` | Tổng tỷ lệ trọng số chuẩn hóa (Bắt buộc đạt 100%) |
+| 6 | `status` | `String` | Có | Mặc định: `"Active"` | Trạng thái sử dụng (Active / Inactive) |
+| 7 | `items` | `String (Text)`| Không | Thuộc tính thường | JSON danh sách tiêu chí con `[{ title, category, target, unit, weight, description }]` |
 
 ---
 
@@ -1237,9 +1238,32 @@ erDiagram
         float finalScore
         string rankGrade
     }
+    KPITemplate {
+        string id PK
+        string name
+        string department
+        int criteria
+        string weight
+        string status
+        string items
+    }
+    KPI {
+        string id PK
+        string title
+        string category
+        float target
+        float achieved
+        string unit
+        float weight
+        float selfScore
+        float managerScore
+        string reviewCycleId FK
+        string employeeId FK
+    }
     PayrollPeriod ||--o{ Payslip : "contains"
     Payslip ||--o{ PayslipDetail : "breakdown"
     ReviewCycle ||--o{ PerformanceReview : "evaluates"
+    ReviewCycle ||--o{ KPI : "assigns"
 ```
 
 ---

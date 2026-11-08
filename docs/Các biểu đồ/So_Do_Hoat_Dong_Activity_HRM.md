@@ -1,5 +1,5 @@
 # BỘ HỒ SƠ SƠ ĐỒ HOẠT ĐỘNG (ACTIVITY DIAGRAMS) TOÀN DIỆN HỆ THỐNG HRM
-## ĐẶC TẢ CHI TIẾT 107 QUY TRÌNH HOẠT ĐỘNG TƯƠNG ỨNG 1:1 VỚI TỪNG USE CASE CON CẤP 3
+## ĐẶC TẢ CHI TIẾT 144 QUY TRÌNH HOẠT ĐỘNG TƯƠNG ỨNG 1:1 VỚI TỪNG USE CASE CON CẤP 3
 
 > **Dự án ĐATN:** Hệ Thống Quản Trị Nguồn Nhân Lực Doanh Nghiệp (Enterprise HRM SaaS)  
 > **Sinh viên thực hiện:** Lê Hoàng Trúc | **Lớp:** 66PM1 | **Khoa:** CNTT - ĐHXDHN  
@@ -2319,6 +2319,175 @@ flowchart TD
 ---
 
 
+## PHẦN 12B: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ CORE-04 (ĐIỀU CHUYỂN CÔNG TÁC - Transfers.jsx)
+---
+
+### 57A. Sơ đồ Hoạt động cho UC-CORE-04-01: Xem danh sách điều chuyển công tác
+> **Mục tiêu quy trình:** Theo dõi toàn bộ các yêu cầu và quyết định điều chuyển nhân sự giữa các phòng ban hoặc vị trí.  
+> **Tác nhân tham gia:** Quản trị viên, HR Manager. | **Sự kiện kích hoạt:** Chọn chức năng "Điều chuyển công tác" trong menu Nhân sự.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Quản trị viên, HR Manager)"]
+        START((● Bắt đầu))
+        U1["Truy cập màn hình Điều chuyển công tác"]
+        U2["Xem bảng danh sách và các chỉ số thống kê"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tiếp nhận yêu cầu truy vấn dữ liệu"]
+        S2["Kiểm tra quyền truy cập và phân trang dữ liệu"]
+        S3["Truy vấn CSDL danh sách quyết định điều chuyển (Mã quyết định, Nhân viên, Phòng ban cũ/mới, Vị trí cũ/mới, Trạng thái)"]
+        S4["Hiển thị dữ liệu trực quan lên bảng và phân loại trạng thái (PENDING, APPROVED, REJECTED)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng chọn màn hình Điều chuyển công tác.
+- **Xử lý nghiệp vụ:** Làn Hệ thống truy vấn các bản ghi quyết định điều chuyển và hiển thị các số liệu tóm tắt.
+- **Xử lý rẽ nhánh:** Nếu danh sách rỗng, giao diện hiển thị trạng thái chưa có yêu cầu điều chuyển nào.
+- **Điểm kết thúc:** Bảng danh sách điều chuyển hiển thị đầy đủ thông tin chi tiết.
+
+---
+
+### 57B. Sơ đồ Hoạt động cho UC-CORE-04-02: Lập yêu cầu điều chuyển công tác
+> **Mục tiêu quy trình:** Khởi tạo đề xuất luân chuyển nhân sự sang phòng ban mới hoặc bổ nhiệm chức danh mới.  
+> **Tác nhân tham gia:** Trưởng bộ phận, HR. | **Sự kiện kích hoạt:** Nhấn nút "+ Tạo yêu cầu điều chuyển".
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Trưởng bộ phận, HR)"]
+        START((● Bắt đầu))
+        U1["Nhấn nút '+ Tạo yêu cầu điều chuyển'"]
+        U2["Chọn Nhân sự, Phòng ban đích, Vị trí đích, Ngày hiệu lực và nhập Lý do"]
+        U3["Nhận thông báo lập yêu cầu thành công"]
+        U4["Kiểm tra lại thông tin và sửa các trường báo lỗi"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị biểu mẫu điều chuyển và nạp danh mục đơn vị"]
+        S2{"Kiểm tra quy tắc nghiệp vụ:
+- Nhân sự đang ở trạng thái Hoạt động?
+- Đơn vị/vị trí đích khác đơn vị hiện tại?
+- Phòng ban đích còn chỉ tiêu định biên (Quota)?"}
+        S3["Lưu bản ghi quyết định điều chuyển ở trạng thái PENDING"]
+        S4["Gửi thông báo thành công và chuyển vào hàng đợi phê duyệt"]
+        S5["Hiển thị thông báo lỗi vi phạm (hết định biên hoặc trùng vị trí)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Hợp lệ & Còn định biên" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Vi phạm điều kiện" --> S5
+    S5 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng mở biểu mẫu lập yêu cầu điều chuyển.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra tình trạng nhân sự và chỉ tiêu định biên tại phòng ban tiếp nhận.
+- **Xử lý rẽ nhánh:** Nếu phòng ban đích đã đầy định biên hoặc trùng đơn vị cũ, hệ thống chặn gửi và cảnh báo chi tiết.
+- **Điểm kết thúc:** Yêu cầu điều chuyển được lưu ở trạng thái chờ duyệt.
+
+---
+
+### 57C. Sơ đồ Hoạt động cho UC-CORE-04-03: Phê duyệt quyết định điều chuyển
+> **Mục tiêu quy trình:** Ban Giám đốc hoặc HR Manager phê duyệt chính thức yêu cầu điều chuyển, tự động cập nhật sơ đồ nhân sự.  
+> **Tác nhân tham gia:** Ban Giám đốc, HR Manager. | **Sự kiện kích hoạt:** Nhấn "Phê duyệt" trên hồ sơ điều chuyển PENDING.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Ban Giám đốc, HR Manager)"]
+        START((● Bắt đầu))
+        U1["Mở hồ sơ yêu cầu điều chuyển đang ở trạng thái PENDING"]
+        U2["Nhấn 'Phê duyệt quyết định' và xác nhận"]
+        U3["Nhận thông báo phê duyệt thành công"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Kiểm tra thẩm quyền phê duyệt và trạng thái hồ sơ"]
+        S2{"Hồ sơ còn ở trạng thái PENDING?"}
+        S3["Cập nhật trạng thái quyết định thành APPROVED"]
+        S4["Tự động cập nhật DepartmentId, PositionId mới cho Nhân viên"]
+        S5["Tự động ghi nhận một dòng mới vào Lịch sử công tác (EmploymentHistory)"]
+        S6["Đồng bộ sơ đồ tổ chức cây phòng ban và gửi thông báo"]
+        S7["Báo lỗi hồ sơ đã được xử lý trước đó"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 -- "Hợp lệ" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> S6
+    S6 --> U3
+    U3 --> END_NODE
+    S2 -- "Không hợp lệ" --> S7
+    S7 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Cấp quản lý có thẩm quyền xem xét hồ sơ điều chuyển.
+- **Xử lý nghiệp vụ:** Hệ thống kích hoạt chuỗi cập nhật tự động: đổi trạng thái quyết định, đổi phòng ban/vị trí trên hồ sơ nhân viên, và lưu vết vào bảng Lịch sử công tác.
+- **Xử lý rẽ nhánh:** Nếu hồ sơ đã bị từ chối hoặc đã duyệt trước đó, hệ thống không thực hiện lại.
+- **Điểm kết thúc:** Nhân viên chính thức thuộc về phòng ban mới trên toàn bộ hệ thống.
+
+---
+
+### 57D. Sơ đồ Hoạt động cho UC-CORE-04-04: Từ chối yêu cầu điều chuyển kèm lý do
+> **Mục tiêu quy trình:** Bác bỏ đề xuất điều chuyển nhân sự không phù hợp kèm lý do phản hồi rõ ràng.  
+> **Tác nhân tham gia:** Ban Giám đốc, HR Manager. | **Sự kiện kích hoạt:** Nhấn "Từ chối" trên hồ sơ điều chuyển PENDING.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Ban Giám đốc, HR Manager)"]
+        START((● Bắt đầu))
+        U1["Nhấn nút 'Từ chối' trên yêu cầu điều chuyển PENDING"]
+        U2["Nhập lý do từ chối vào hộp thoại và bấm Xác nhận"]
+        U3["Nhận thông báo đã từ chối yêu cầu"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị hộp thoại yêu cầu bắt buộc nhập lý do"]
+        S2{"Lý do từ chối có hợp lệ (không để trống)?"}
+        S3["Cập nhật trạng thái quyết định sang REJECTED và lưu lý do"]
+        S4["Bảo toàn nguyên vẹn phòng ban, chức danh hiện tại của nhân sự"]
+        S5["Gửi thông báo phản hồi kết quả đến người lập yêu cầu"]
+        S6["Báo lỗi yêu cầu phải nhập lý do từ chối"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Đã nhập lý do" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+    S2 -- "Để trống lý do" --> S6
+    S6 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Quản lý thực hiện từ chối yêu cầu luân chuyển.
+- **Xử lý nghiệp vụ:** Hệ thống yêu cầu bắt buộc nhập lý do từ chối và ghi nhận vào lịch sử.
+- **Xử lý rẽ nhánh:** Nếu người dùng không nhập lý do, hệ thống chặn xác nhận.
+- **Điểm kết thúc:** Quyết định bị bác bỏ, vị trí và phòng ban của nhân sự giữ nguyên.
+
+---
+
+
 ## PHẦN 13: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ ATT-01
 ---
 
@@ -2627,6 +2796,175 @@ flowchart TD
 - **Xử lý nghiệp vụ:** Làn Hệ thống tiếp nhận, thẩm định các quy tắc nghiệp vụ tại điểm rẽ nhánh hình thoi.
 - **Xử lý rẽ nhánh:** Nếu thỏa mãn điều kiện, hệ thống lưu trữ và hoàn tất; nếu vi phạm, hệ thống hiển thị cảnh báo hướng dẫn người dùng sửa đổi khép kín.
 - **Điểm kết thúc:** Quy trình hoàn tất và cập nhật trạng thái mới nhất lên toàn hệ thống.
+
+---
+
+
+## PHẦN 14B: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ ATT-03 (CA LÀM VIỆC - Shifts.jsx)
+---
+
+### 65A. Sơ đồ Hoạt động cho UC-ATT-03-01: Xem danh mục ca làm việc
+> **Mục tiêu quy trình:** Quản trị các ca làm việc đang áp dụng trong doanh nghiệp (Ca hành chính 08:00 - 17:30, Ca sáng, Ca chiều).  
+> **Tác nhân tham gia:** Chuyên viên C&B, HR. | **Sự kiện kích hoạt:** Truy cập chức năng "Ca làm việc" trong menu Chấm công.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Chuyên viên C&B, HR)"]
+        START((● Bắt đầu))
+        U1["Truy cập màn hình Quản lý Ca làm việc"]
+        U2["Xem bảng danh mục ca và các thông số cài đặt"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tiếp nhận yêu cầu truy vấn danh mục ca"]
+        S2["Kiểm tra quyền truy cập và tải dữ liệu ca"]
+        S3["Truy vấn CSDL bảng Shift (Mã ca, Tên ca, Giờ bắt đầu, Giờ kết thúc, Thời gian nghỉ, Hệ số công, Trạng thái)"]
+        S4["Hiển thị danh sách ca làm việc kèm các nút thao tác chỉnh sửa / bật tắt"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng chọn màn hình Ca làm việc.
+- **Xử lý nghiệp vụ:** Làn Hệ thống truy xuất danh sách các ca từ CSDL và định dạng hiển thị khung giờ.
+- **Xử lý rẽ nhánh:** Nếu chưa có ca làm việc nào, hiển thị bảng trống kèm nút hướng dẫn tạo ca.
+- **Điểm kết thúc:** Toàn bộ thông số ca làm việc được thể hiện trực quan.
+
+---
+
+### 65B. Sơ đồ Hoạt động cho UC-ATT-03-02: Thiết lập khung giờ ca & Nghỉ giữa ca
+> **Mục tiêu quy trình:** Thêm mới hoặc điều chỉnh khung giờ làm việc theo quy chế công ty LLA.  
+> **Tác nhân tham gia:** HR Manager, Quản trị viên. | **Sự kiện kích hoạt:** Nhấn nút "+ Thêm ca làm việc" hoặc biểu tượng Sửa.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (HR Manager, Quản trị viên)"]
+        START((● Bắt đầu))
+        U1["Nhấn '+ Thêm ca làm việc' (hoặc 'Sửa ca')"]
+        U2["Nhập Tên ca, Mã ca, Giờ vào, Giờ ra, Giờ nghỉ trưa và Hệ số công"]
+        U3["Nhận thông báo lưu ca làm việc thành công"]
+        U4["Điều chỉnh lại các trường giờ bị báo lỗi"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị biểu mẫu cài đặt ca làm việc"]
+        S2{"Kiểm tra tính logic thời gian:
+- Giờ ra > Giờ vào?
+- Khung nghỉ trưa nằm trong khung giờ làm việc?
+- Mã ca chưa từng tồn tại?"}
+        S3["Lưu bản ghi ca làm việc mới / cập nhật vào CSDL"]
+        S4["Gửi thông báo thành công và làm mới bảng danh sách"]
+        S5["Hiển thị thông báo lỗi logic thời gian hoặc trùng mã ca"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Hợp lệ" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Lỗi thời gian / Trùng mã" --> S5
+    S5 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng nhập các mốc thời gian của ca làm việc.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra tính chặt chẽ của khung thời gian (giờ kết thúc phải sau giờ bắt đầu, thời lượng nghỉ trưa phải nằm trong khoảng ca).
+- **Xử lý rẽ nhánh:** Nếu giờ kết thúc trước giờ bắt đầu hoặc trùng mã, hệ thống từ chối lưu và chỉ rõ lỗi.
+- **Điểm kết thúc:** Ca làm việc được lưu trữ và áp dụng vào thuật toán chấm công.
+
+---
+
+### 65C. Sơ đồ Hoạt động cho UC-ATT-03-03: Cấu hình thời gian ân hạn đi muộn (Grace Period)
+> **Mục tiêu quy trình:** Thiết lập số phút châm chước đi muộn đầu ca làm việc (mặc định 5 hoặc 15 phút theo chính sách).  
+> **Tác nhân tham gia:** HR Manager. | **Sự kiện kích hoạt:** Chỉnh sửa giá trị số phút ân hạn đi muộn trên ca làm việc.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (HR Manager)"]
+        START((● Bắt đầu))
+        U1["Chọn ca làm việc cần cấu hình thời gian ân hạn"]
+        U2["Nhập số phút ân hạn đi muộn (Grace Period) và bấm Lưu"]
+        U3["Nhận thông báo cập nhật quy tắc ân hạn thành công"]
+        U4["Nhập lại số phút trong khoảng hợp lệ"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Mở hộp thoại thiết lập chính sách chấm công của ca"]
+        S2{"Kiểm tra số phút ân hạn:
+- Giá trị là số nguyên?
+- 0 <= Số phút <= 60?"}
+        S3["Cập nhật trường GracePeriod vào bảng Shift trong CSDL"]
+        S4["Gửi thông báo thành công và cập nhật động cơ tính công"]
+        S5["Cảnh báo số phút ân hạn không được âm hoặc vượt quá 60 phút"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Hợp lệ" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Không hợp lệ" --> S5
+    S5 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** HR Manager thiết lập số phút miễn phạt đi muộn cho ca làm việc.
+- **Xử lý nghiệp vụ:** Hệ thống xác thực số phút nằm trong giới hạn cho phép từ 0 đến 60 phút.
+- **Xử lý rẽ nhánh:** Nếu nhập số âm hoặc vượt quá 60 phút, hệ thống từ chối và yêu cầu nhập lại.
+- **Điểm kết thúc:** Tham số ân hạn được lưu vào CSDL, áp dụng tự động khi nhân viên quẹt thẻ.
+
+---
+
+### 65D. Sơ đồ Hoạt động cho UC-ATT-03-04: Kích hoạt / Tạm dừng ca làm việc
+> **Mục tiêu quy trình:** Đóng mở ca làm việc theo mùa hoặc dự án mà không làm mất lịch sử chấm công cũ.  
+> **Tác nhân tham gia:** HR Manager. | **Sự kiện kích hoạt:** Gạt công tắc chuyển đổi trạng thái Active/Inactive của ca.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (HR Manager)"]
+        START((● Bắt đầu))
+        U1["Gạt công tắc chuyển trạng thái của ca làm việc"]
+        U2["Xác nhận thay đổi trạng thái trong hộp thoại xác thực"]
+        U3["Nhận thông báo cập nhật trạng thái thành công"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị cảnh báo ảnh hưởng đến lịch làm việc hiện tại"]
+        S2{"Kiểm tra ràng buộc:
+- Ca có đang được gán cho nhân viên trong chu kỳ này?"}
+        S3["Cập nhật trạng thái Active/Inactive vào CSDL"]
+        S4["Đổi màu sắc hiển thị của ca và làm mới giao diện"]
+        S5["Cảnh báo ca đang áp dụng thực tế, yêu cầu điều chuyển trước khi tạm dừng"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Không xung đột" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Có xung đột dữ liệu" --> S5
+    S5 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng chuyển đổi trạng thái hoạt động của ca.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra xem ca có đang được phân bổ trong lịch làm việc hiện hành của nhân viên hay không.
+- **Xử lý rẽ nhánh:** Nếu đang được áp dụng trực tiếp, hệ thống cảnh báo để tránh gián đoạn dữ liệu chấm công.
+- **Điểm kết thúc:** Trạng thái ca được cập nhật an toàn trong CSDL.
 
 ---
 
@@ -3138,6 +3476,346 @@ flowchart TD
 ---
 
 
+## PHẦN 17B: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ KPI-02 (MẪU TIÊU CHÍ KPI - KPITemplates.jsx)
+---
+
+### 78A. Sơ đồ Hoạt động cho UC-KPI-02-01: Xem thư viện mẫu tiêu chí theo phòng ban
+> **Mục tiêu quy trình:** Quản lý kho biểu mẫu KPI được thiết lập sẵn cho từng bộ phận (Kỹ thuật, Kinh doanh, Nhân sự, Vận hành).  
+> **Tác nhân tham gia:** HR Manager, Trưởng bộ phận. | **Sự kiện kích hoạt:** Truy cập phân hệ Mẫu KPI.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (HR Manager, Trưởng bộ phận)"]
+        START((● Bắt đầu))
+        U1["Truy cập thư viện Mẫu KPI"]
+        U2["Chọn lọc theo phòng ban và duyệt danh sách các mẫu"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tiếp nhận truy vấn danh mục mẫu KPI"]
+        S2["Kiểm tra quyền truy cập và phân trang (8 mẫu/trang)"]
+        S3["Truy vấn CSDL bảng KPITemplate kèm danh sách tiêu chí con"]
+        S4["Hiển thị danh sách mẫu dưới dạng thẻ/bảng kèm cơ cấu trọng số"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng mở màn hình Thư viện Mẫu KPI.
+- **Xử lý nghiệp vụ:** Làn Hệ thống truy vấn các mẫu tiêu chí đã lưu theo phòng ban.
+- **Xử lý rẽ nhánh:** Nếu phòng ban chưa có mẫu, hiển thị giao diện trống gợi ý tạo mới.
+- **Điểm kết thúc:** Danh sách bộ mẫu tiêu chí hiển thị trực quan.
+
+---
+
+### 78B. Sơ đồ Hoạt động cho UC-KPI-02-02: Tạo bộ mẫu tiêu chí & Ràng buộc tổng trọng số 100%
+> **Mục tiêu quy trình:** Thiết lập bộ khung KPI chuẩn cho một vị trí/phòng ban với yêu cầu nghiệp vụ bắt buộc tổng trọng số các tiêu chí phải đạt đúng 100%.  
+> **Tác nhân tham gia:** HR Manager, Trưởng bộ phận. | **Sự kiện kích hoạt:** Nhấn "+ Tạo mẫu mới" và điền các tiêu chí.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (HR Manager, Trưởng bộ phận)"]
+        START((● Bắt đầu))
+        U1["Nhấn '+ Tạo mẫu mới'"]
+        U2["Nhập Tên mẫu, Chọn phòng ban, Thêm các tiêu chí và nhập tỷ lệ % Trọng số"]
+        U3["Nhận thông báo lưu mẫu KPI thành công"]
+        U4["Cân đối lại trọng số giữa các tiêu chí cho đủ 100%"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Mở biểu mẫu cấu hình bộ tiêu chí KPI"]
+        S2{"Kiểm tra quy tắc nghiệp vụ:
+- Tổng trọng số SUM(Weight) = 100%?
+- Tên mẫu không trùng trong phòng ban?
+- Mỗi tiêu chí đều có đơn vị đo?"}
+        S3["Lưu bản ghi KPITemplate và các tiêu chí chi tiết vào CSDL"]
+        S4["Gửi thông báo thành công và làm mới thư viện mẫu"]
+        S5["Báo lỗi tổng trọng số khác 100% (hiển thị độ chênh lệch)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Đạt chuẩn 100%" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Chưa đủ hoặc vượt 100%" --> S5
+    S5 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng tạo mới bộ mẫu tiêu chí KPI.
+- **Xử lý nghiệp vụ:** Hệ thống tự động tính tổng trọng số của các tiêu chí thành phần.
+- **Xử lý rẽ nhánh:** Bắt buộc tổng tỷ lệ trọng số phải bằng chính xác 100%; nếu khác 100%, hệ thống từ chối lưu và hướng dẫn cân đối lại.
+- **Điểm kết thúc:** Bộ mẫu tiêu chuẩn được lưu trữ để sẵn sàng giao việc.
+
+---
+
+### 78C. Sơ đồ Hoạt động cho UC-KPI-02-03: Chỉnh sửa cơ cấu trọng số & tiêu chí
+> **Mục tiêu quy trình:** Cập nhật lại chỉ tiêu hoặc điều chỉnh tỷ trọng giữa các đầu việc cho phù hợp với định hướng mới của doanh nghiệp.  
+> **Tác nhân tham gia:** HR Manager. | **Sự kiện kích hoạt:** Nhấn biểu tượng "Sửa" trên thẻ mẫu KPI.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (HR Manager)"]
+        START((● Bắt đầu))
+        U1["Nhấn biểu tượng Sửa trên bộ mẫu KPI"]
+        U2["Điều chỉnh nội dung tiêu chí hoặc phân bổ lại % trọng số"]
+        U3["Nhận thông báo cập nhật mẫu thành công"]
+        U4["Chỉnh lại số liệu trọng số cho cân bằng"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tải dữ liệu mẫu vào form chỉnh sửa"]
+        S2{"Kiểm tra tổng trọng số sau sửa đổi:
+- Tổng SUM(Weight) = 100%?"}
+        S3["Cập nhật bản ghi mẫu và danh sách tiêu chí con trong CSDL"]
+        S4["Gửi thông báo thành công và cập nhật lại giao diện"]
+        S5["Cảnh báo tổng trọng số chưa đạt 100%"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Hợp lệ" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Không hợp lệ" --> S5
+    S5 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng mở chế độ chỉnh sửa bộ mẫu KPI.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra điều kiện cân bằng 100% sau khi sửa đổi.
+- **Xử lý rẽ nhánh:** Nếu vi phạm quy tắc 100%, hệ thống chặn cập nhật.
+- **Điểm kết thúc:** Dữ liệu mới của bộ mẫu được lưu an toàn vào CSDL.
+
+---
+
+### 78D. Sơ đồ Hoạt động cho UC-KPI-02-04: Xóa mẫu tiêu chí & Phân trang danh sách (8 mẫu/trang)
+> **Mục tiêu quy trình:** Loại bỏ mẫu không còn sử dụng và chuyển trang linh hoạt trong thư viện mẫu.  
+> **Tác nhân tham gia:** HR Manager. | **Sự kiện kích hoạt:** Nhấn icon Thùng rác để Xóa hoặc chọn trang mới.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (HR Manager)"]
+        START((● Bắt đầu))
+        U1["Thao tác: Nhấn Xóa mẫu (hoặc Chuyển trang phân trang)"]
+        U2["Xác nhận thao tác xóa trong hộp thoại"]
+        U3["Nhận kết quả phản hồi từ hệ thống"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1{"Phân loại tác vụ?"}
+        S2["Tải dữ liệu trang N (Limit 8 mẫu) từ CSDL"]
+        S3{"Kiểm tra liên kết dữ liệu:
+- Mẫu đã được gán cho nhân sự nào chưa?"}
+        S4["Xóa bản ghi mẫu KPI khỏi CSDL và tính lại phân trang"]
+        S5["Từ chối xóa do mẫu đang được áp dụng trong chu kỳ đánh giá"]
+        S6["Làm mới giao diện hiển thị"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 -- "Chuyển trang" --> S2
+    S2 --> S6
+    S1 -- "Xóa mẫu" --> U2
+    U2 --> S3
+    S3 -- "Chưa gán ai" --> S4
+    S4 --> S6
+    S3 -- "Đang được dùng" --> S5
+    S5 --> U3
+    S6 --> U3
+    U3 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng thực hiện xóa mẫu hoặc chuyển trang danh mục.
+- **Xử lý nghiệp vụ:** Hệ thống phân trang (8 mẫu/trang) hoặc kiểm tra toàn vẹn dữ liệu trước khi xóa.
+- **Xử lý rẽ nhánh:** Không cho phép xóa mẫu nếu đang được gán cho nhân sự trong kỳ đánh giá.
+- **Điểm kết thúc:** Giao diện được làm mới và dữ liệu được bảo toàn.
+
+---
+
+
+## PHẦN 17C: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ KPI-03 (GIAO MỤC TIÊU KPI - KPIAssignments.jsx)
+---
+
+### 78E. Sơ đồ Hoạt động cho UC-KPI-03-01: Xem danh sách KPI đã giao theo chu kỳ
+> **Mục tiêu quy trình:** Theo dõi tình hình giao chỉ tiêu công việc cho từng cán bộ nhân viên trong từng chu kỳ đánh giá (Tháng, Quý, Năm).  
+> **Tác nhân tham gia:** Trưởng bộ phận, HR. | **Sự kiện kích hoạt:** Truy cập màn hình Giao KPI.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Trưởng bộ phận, HR)"]
+        START((● Bắt đầu))
+        U1["Truy cập màn hình Giao KPI"]
+        U2["Chọn chu kỳ đánh giá và xem bảng phân bổ mục tiêu"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tiếp nhận yêu cầu truy vấn bảng giao KPI"]
+        S2["Kiểm tra quyền quản lý và nạp dữ liệu chu kỳ"]
+        S3["Truy vấn CSDL danh sách KPI (Mã NV, Tên, Tiêu chí, Target, Achieved, Weight, Trạng thái)"]
+        S4["Hiển thị bảng dữ liệu tổng hợp và thanh phân trang (8 dòng/trang)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Quản lý truy cập phân hệ Giao KPI và chọn kỳ làm việc.
+- **Xử lý nghiệp vụ:** Làn Hệ thống truy xuất danh mục chỉ tiêu đã giao của các nhân sự trong quyền quản lý.
+- **Xử lý rẽ nhánh:** Nếu chu kỳ mới chưa giao, hiển thị thông báo chưa có dữ liệu và kích hoạt nút giao nhanh.
+- **Điểm kết thúc:** Bảng phân bổ KPI hiển thị đầy đủ thông tin chi tiết.
+
+---
+
+### 78F. Sơ đồ Hoạt động cho UC-KPI-03-02: Giao mục tiêu theo mẫu chuẩn phòng ban 1-chạm
+> **Mục tiêu quy trình:** Giao trọn bộ 4-5 tiêu chí KPI cho nhân viên mới vào đơn vị chỉ bằng một thao tác chọn mẫu chuẩn.  
+> **Tác nhân tham gia:** Trưởng bộ phận. | **Sự kiện kích hoạt:** Nhấn "+ Giao KPI mới" và chọn Mẫu KPI phòng ban.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Trưởng bộ phận)"]
+        START((● Bắt đầu))
+        U1["Nhấn '+ Giao KPI mới'"]
+        U2["Chọn Nhân viên, Chọn Mẫu KPI phòng ban và Chọn Chu kỳ"]
+        U3["Nhận thông báo giao KPI thành công"]
+        U4["Chọn thao tác chỉnh sửa thay vì tạo mới"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị danh sách mẫu KPI tương ứng với phòng ban của nhân sự"]
+        S2{"Kiểm tra nhân viên đã có KPI trong chu kỳ chưa?"}
+        S3["Nhân bản toàn bộ các tiêu chí từ mẫu vào hồ sơ KPI của nhân viên"]
+        S4["Lưu các bản ghi KPI chi tiết vào CSDL ở trạng thái Đang thực hiện"]
+        S5["Gửi thông báo thành công và cập nhật bảng danh sách"]
+        S6["Cảnh báo nhân sự đã được giao KPI trong chu kỳ này"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Chưa có KPI" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+    S2 -- "Đã có KPI chu kỳ này" --> S6
+    S6 --> U4
+    U4 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Quản lý chọn nhân viên cần giao mục tiêu.
+- **Xử lý nghiệp vụ:** Hệ thống sao chép trọn gói tiêu chí từ mẫu chuẩn sang hồ sơ KPI của nhân viên chỉ bằng một thao tác.
+- **Xử lý rẽ nhánh:** Nếu nhân viên đã có mục tiêu trong chu kỳ, hệ thống chặn tạo trùng và đề xuất chỉnh sửa trực tiếp.
+- **Điểm kết thúc:** Toàn bộ mục tiêu được giao đồng bộ chỉ trong 1 chạm.
+
+---
+
+### 78G. Sơ đồ Hoạt động cho UC-KPI-03-03: Thiết lập Target & Khóa cứng Weight bảo vệ dữ liệu
+> **Mục tiêu quy trình:** Tùy biến chỉ tiêu phù hợp năng lực nhân sự nhưng khóa cứng trọng số để đảm bảo tính công bằng toàn công ty.  
+> **Tác nhân tham gia:** Trưởng bộ phận. | **Sự kiện kích hoạt:** Nhập chỉ tiêu Target và kích hoạt Khóa trọng số.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Trưởng bộ phận)"]
+        START((● Bắt đầu))
+        U1["Mở chi tiết KPI của nhân viên"]
+        U2["Nhập số lượng chỉ tiêu cần đạt (Target) và kích hoạt chế độ Khóa trọng số"]
+        U3["Nhận thông báo thiết lập chỉ tiêu thành công"]
+        U4["Nhập lại giá trị Target hợp lệ"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Kiểm tra giá trị chỉ tiêu Target:
+- Target > 0?"]
+        S2{"Target hợp lệ?"}
+        S3["Lưu giá trị Target vào CSDL"]
+        S4["Thiết lập cờ IsWeightLocked = TRUE cho bản ghi KPI"]
+        S5["Khóa quyền chỉnh sửa cột Trọng số đối với tài khoản nhân viên"]
+        S6["Gửi thông báo thành công và cập nhật trạng thái ổ khóa trên giao diện"]
+        S7["Báo lỗi giá trị chỉ tiêu Target phải lớn hơn 0"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 -- "Hợp lệ" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> S6
+    S6 --> U3
+    U3 --> END_NODE
+    S2 -- "Không hợp lệ" --> S7
+    S7 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Quản lý nhập số lượng chỉ tiêu công việc cần hoàn thành.
+- **Xử lý nghiệp vụ:** Hệ thống lưu Target và kích hoạt cơ chế khóa cứng trọng số (Weight) chống gian lận.
+- **Xử lý rẽ nhánh:** Nếu Target để trống hoặc bằng 0, hệ thống yêu cầu nhập lại.
+- **Điểm kết thúc:** Chỉ tiêu được xác lập và trường trọng số được bảo vệ tuyệt đối.
+
+---
+
+### 78H. Sơ đồ Hoạt động cho UC-KPI-03-04: Lọc & Phân trang bảng giao KPI
+> **Mục tiêu quy trình:** Tìm kiếm nhanh nhân sự theo tên/mã, lọc theo phòng ban và duyệt danh sách theo từng trang (8 bản ghi/trang).  
+> **Tác nhân tham gia:** Quản lý, HR. | **Sự kiện kích hoạt:** Nhập từ khóa tìm kiếm hoặc bấm chọn trang phân trang.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Quản lý, HR)"]
+        START((● Bắt đầu))
+        U1["Nhập từ khóa tìm kiếm (Tên/Mã NV) hoặc chọn Bộ lọc phòng ban, số trang"]
+        U2["Xem bảng kết quả lọc và thanh điều hướng phân trang"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tiếp nhận tiêu chí tìm kiếm và số trang yêu cầu (Page, PageSize = 8)"]
+        S2["Thực thi truy vấn lọc trên CSDL kèm mệnh đề giới hạn phân trang (LIMIT 8 OFFSET N)"]
+        S3{"Có bản ghi phù hợp?"}
+        S4["Kết xuất 8 bản ghi của trang hiện tại và tính toán tổng số trang"]
+        S5["Hiển thị thông báo không tìm thấy kết quả phù hợp"]
+        S6["Cập nhật bảng dữ liệu và thanh phân trang trực quan"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 -- "Tìm thấy kết quả" --> S4
+    S4 --> S6
+    S3 -- "Không khớp" --> S5
+    S5 --> S6
+    S6 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Người dùng nhập điều kiện tìm kiếm hoặc chọn phòng ban và chọn trang dữ liệu.
+- **Xử lý nghiệp vụ:** Làn Hệ thống lọc dữ liệu và phân chia chính xác 8 bản ghi mỗi trang.
+- **Xử lý rẽ nhánh:** Nếu không có dữ liệu khớp, thông báo rõ ràng cho người dùng.
+- **Điểm kết thúc:** Bảng phân bổ hiển thị kết quả chính xác theo trang.
+
+---
+
+
 ## PHẦN 18: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ PAY-01
 ---
 
@@ -3577,6 +4255,170 @@ flowchart TD
 ---
 
 
+## PHẦN 19B: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ AST-02 (KHO THIẾT BỊ SERIAL - AssetInventory.jsx)
+---
+
+### 89A. Sơ đồ Hoạt động cho UC-AST-02-01: Xem danh mục kho thiết bị & Tình trạng sử dụng
+> **Mục tiêu quy trình:** Theo dõi toàn bộ số lượng trang thiết bị công nghệ hiện có trong kho công ty và tình trạng cấp phát.  
+> **Tác nhân tham gia:** Cán bộ Quản trị IT. | **Sự kiện kích hoạt:** Truy cập phân hệ Kho Thiết bị.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Cán bộ Quản trị IT)"]
+        START((● Bắt đầu))
+        U1["Truy cập màn hình Kho thiết bị"]
+        U2["Chọn lọc theo chủng loại, trạng thái và xem danh mục tài sản"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tiếp nhận truy vấn danh mục thiết bị kho"]
+        S2["Kiểm tra quyền truy cập và nạp danh mục tài sản"]
+        S3["Truy vấn CSDL bảng Asset (Mã tài sản, Tên máy, Serial, Chủng loại, Giá trị, Tình trạng, Người đang giữ)"]
+        S4["Hiển thị danh sách thiết bị và thống kê số lượng tồn kho theo trạng thái (Sẵn sàng, Đang cấp phát, Bảo dưỡng, Hỏng)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Cán bộ IT truy cập giao diện Kho thiết bị.
+- **Xử lý nghiệp vụ:** Làn Hệ thống truy xuất danh mục máy móc định danh theo số Serial và tình trạng thực tế.
+- **Xử lý rẽ nhánh:** Nếu kho chưa có thiết bị, hiển thị trạng thái kho trống và nút thêm mới.
+- **Điểm kết thúc:** Toàn bộ dữ liệu thiết bị kho được kết xuất trực quan.
+
+---
+
+### 89B. Sơ đồ Hoạt động cho UC-AST-02-02: Nhập mới thiết bị định danh theo Serial/Model
+> **Mục tiêu quy trình:** Nhập kho các lô máy móc thiết bị mới mua sắm, kiểm soát nghiêm ngặt theo số Serial duy nhất.  
+> **Tác nhân tham gia:** Cán bộ IT. | **Sự kiện kích hoạt:** Nhấn nút "+ Thêm tài sản" và điền thông số.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Cán bộ IT)"]
+        START((● Bắt đầu))
+        U1["Nhấn '+ Thêm tài sản'"]
+        U2["Nhập Tên thiết bị, Hãng, Model, Số Serial, Ngày mua, Bảo hành, Giá mua"]
+        U3["Nhận thông báo nhập kho thành công"]
+        U4["Kiểm tra lại số Serial trên thân máy và nhập lại"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị biểu mẫu nhập kho thiết bị"]
+        S2{"Kiểm tra số Serial:
+- Số Serial chưa từng tồn tại trong CSDL?"}
+        S3["Tạo bản ghi mới trong bảng Asset ở trạng thái 'Sẵn sàng cấp phát'"]
+        S4["Gửi thông báo thành công và cập nhật lại bảng danh mục kho"]
+        S5["Báo lỗi số Serial đã tồn tại trên hệ thống (chống trùng lặp thiết bị vật lý)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Serial hợp lệ" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Serial đã tồn tại" --> S5
+    S5 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Cán bộ IT nhập thông số thiết bị mới.
+- **Xử lý nghiệp vụ:** Hệ thống xác thực số Serial là duy nhất trên toàn bộ cơ sở dữ liệu.
+- **Xử lý rẽ nhánh:** Nếu phát hiện trùng Serial, hệ thống từ chối lưu để bảo vệ tính toàn vẹn tài sản thực tế.
+- **Điểm kết thúc:** Thiết bị được nhập kho thành công ở trạng thái sẵn sàng bàn giao.
+
+---
+
+### 89C. Sơ đồ Hoạt động cho UC-AST-02-03: Cập nhật tình trạng kỹ thuật & Ghi nhận bảo dưỡng
+> **Mục tiêu quy trình:** Theo dõi lịch sử bảo trì, nâng cấp linh kiện (RAM, SSD) hoặc sửa chữa hỏng hóc.  
+> **Tác nhân tham gia:** Cán bộ Kỹ thuật IT. | **Sự kiện kích hoạt:** Chọn thiết bị và nhấn Cập nhật bảo dưỡng.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Cán bộ Kỹ thuật IT)"]
+        START((● Bắt đầu))
+        U1["Chọn thiết bị cần bảo trì trong kho"]
+        U2["Chuyển trạng thái sang 'Đang bảo dưỡng/sửa chữa' và nhập nội dung kỹ thuật"]
+        U3["Nhận thông báo cập nhật nhật ký bảo trì thành công"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị biểu mẫu ghi nhận kỹ thuật"]
+        S2["Cập nhật trường Status = MAINTENANCE trong bảng Asset"]
+        S3["Ghi nhận dòng lịch sử bảo trì vào bảng nhật ký kỹ thuật thiết bị"]
+        S4["Đổi nhãn màu trạng thái thiết bị sang màu cam (Đang bảo dưỡng)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Cán bộ IT mở biểu mẫu bảo trì thiết bị.
+- **Xử lý nghiệp vụ:** Làn Hệ thống lưu lại vết xử lý kỹ thuật và đổi trạng thái máy sang bảo dưỡng.
+- **Xử lý rẽ nhánh:** Ngăn chặn việc cấp phát thiết bị khi đang ở trạng thái sửa chữa.
+- **Điểm kết thúc:** Nhật ký máy móc được cập nhật đầy đủ để theo dõi khấu hao.
+
+---
+
+### 89D. Sơ đồ Hoạt động cho UC-AST-02-04: Thanh lý / Loại bỏ thiết bị hư hỏng khỏi kho
+> **Mục tiêu quy trình:** Xóa sổ hoặc thanh lý các thiết bị đã hết khấu hao hoặc hư hỏng nặng không thể khắc phục.  
+> **Tác nhân tham gia:** Cán bộ IT, Kế toán trưởng. | **Sự kiện kích hoạt:** Nhấn "Thanh lý tài sản" trên thiết bị hỏng.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Cán bộ IT, Kế toán trưởng)"]
+        START((● Bắt đầu))
+        U1["Chọn thiết bị hỏng và nhấn 'Thanh lý tài sản'"]
+        U2["Nhập lý do thanh lý, số tiền thu hồi (nếu có) và xác nhận"]
+        U3["Nhận thông báo hoàn tất thanh lý tài sản"]
+        U4["Làm thủ tục thu hồi thiết bị về kho trước khi thanh lý"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị hộp thoại cảnh báo thanh lý tài sản"]
+        S2{"Kiểm tra hiện trạng thiết bị:
+- Thiết bị đã thu hồi về kho (không ai đang giữ)?"}
+        S3["Cập nhật trạng thái thiết bị sang 'DISPOSED' (Đã thanh lý)"]
+        S4["Khóa tính năng cấp phát và loại khỏi danh mục kho thông thường"]
+        S5["Gửi thông báo thành công và lưu vết kiểm toán"]
+        S6["Từ chối thanh lý: Thiết bị vẫn đang do nhân viên giữ"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Đã thu hồi về kho" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+    S2 -- "Chưa thu hồi" --> S6
+    S6 --> U4
+    U4 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Cán bộ quản lý thực hiện thanh lý thiết bị cũ hỏng.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra thiết bị đã thu hồi về kho, không còn người lao động nào đứng tên.
+- **Xử lý rẽ nhánh:** Nếu máy chưa thu hồi, hệ thống từ chối thanh lý để tránh thất thoát tài sản.
+- **Điểm kết thúc:** Trạng thái tài sản chuyển sang Đã thanh lý, rút khỏi luân chuyển sử dụng.
+
+---
+
+
 ## PHẦN 20: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ OFFB-01
 ---
 
@@ -3862,7 +4704,386 @@ flowchart TD
 ---
 
 
-## PHẦN 22: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ ESS-03
+## PHẦN 22A: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ ESS-01 (CHẤM CÔNG TRỰC TUYẾN - Attendance.jsx)
+---
+
+### 96A. Sơ đồ Hoạt động cho UC-ESS-01-01: Điểm danh vào ca (Check-in) & Ra ca (Check-out)
+> **Mục tiêu quy trình:** Nhân viên thực hiện bấm giờ điểm danh vào/ra ca làm việc trực tuyến đồng bộ thời gian thực vào cơ sở dữ liệu.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Nhấn nút Check-in hoặc Check-out trên cổng nhân viên.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Nhấn nút 'Điểm danh vào ca (Check-in)' hoặc 'Check-out'"]
+        U2["Xem thông báo xác nhận và đồng hồ đếm giờ làm việc"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tiếp nhận thời gian bấm máy từ phía client"]
+        S2["Lấy giờ hệ thống chuẩn từ Server (Timestamp Now)"]
+        S3{"Kiểm tra lịch sử điểm danh trong ngày:
+- Đã Check-in chưa?"}
+        S4["Tạo bản ghi chấm công mới với CheckIn = Now"]
+        S5["Cập nhật giờ CheckOut = Now và tính tổng giờ làm việc trong ngày"]
+        S6["Đồng bộ tức thì lên bảng chấm công cá nhân"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 -- "Chưa Check-in" --> S4
+    S4 --> S6
+    S3 -- "Đã Check-in" --> S5
+    S5 --> S6
+    S6 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên bấm nút Check-in hoặc Check-out.
+- **Xử lý nghiệp vụ:** Làn Hệ thống lấy giờ thực từ máy chủ và ghi nhận trạng thái vào/ra.
+- **Xử lý rẽ nhánh:** Nếu chưa Check-in thì ghi nhận giờ vào; nếu đã vào thì ghi nhận giờ ra và tính số giờ làm.
+- **Điểm kết thúc:** Dữ liệu chấm công đồng bộ tức thì lên bảng công cá nhân.
+
+---
+
+### 96B. Sơ đồ Hoạt động cho UC-ESS-01-02: Tra cứu Log vân tay & Lịch sử ngày công cá nhân
+> **Mục tiêu quy trình:** Tự kiểm tra lịch sử quẹt vân tay, giờ In/Out và số ngày công tích lũy theo từng tháng.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Chọn Tháng/Năm trên màn hình Chấm công cá nhân.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Chọn chu kỳ Tháng/Năm cần xem lịch sử"]
+        U2["Xem bảng nhật ký quẹt vân tay và tổng hợp công tháng"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Xác thực danh tính nhân viên từ phiên đăng nhập (Anti-IDOR)"]
+        S2["Truy vấn CSDL bảng Attendance và log máy quét của chính nhân viên đó"]
+        S3["Tính toán tổng số công chuẩn, số giờ OT và số lần đi muộn"]
+        S4["Hiển thị trực quan dữ liệu theo định dạng lịch và bảng chi tiết"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên chọn tháng cần xem lịch sử công.
+- **Xử lý nghiệp vụ:** Hệ thống thực thi cơ chế Anti-IDOR, chỉ trả về dữ liệu của đúng nhân viên đó.
+- **Xử lý rẽ nhánh:** Nếu tháng chưa có dữ liệu, hiển thị giao diện thông báo chưa phát sinh công.
+- **Điểm kết thúc:** Bảng công chi tiết hiển thị minh bạch từng ngày.
+
+---
+
+### 96C. Sơ đồ Hoạt động cho UC-ESS-01-03: Lập Đơn xin xác nhận chấm công & In biên bản A4
+> **Mục tiêu quy trình:** Lập văn bản giải trình khi quên quẹt vân tay hoặc chưa làm dấu vân tay để trình Trưởng bộ phận ký xác nhận và nộp về phòng HCNS.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Nhấn "Làm đơn giải trình quên chấm công" và chọn "In biên bản A4".
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Nhấn 'Lập đơn giải trình quên chấm công'"]
+        U2["Nhập Ngày quên quẹt, Giờ vào thực tế, Giờ ra thực tế và Lý do"]
+        U3["Nhận thông báo nộp đơn thành công và bấm 'In biên bản A4'"]
+        U4["In biên bản giấy trình Trưởng phòng ký duyệt"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị biểu mẫu đơn xác nhận công"]
+        S2{"Kiểm tra ngày xin giải trình:
+- Kỳ lương đã bị khóa sổ (Locked) chưa?"}
+        S3["Lưu đơn giải trình vào CSDL ở trạng thái PENDING"]
+        S4["Tự động kết xuất biểu mẫu A4 chuẩn theo quy chế công ty LLA"]
+        S5["Cảnh báo kỳ lương đã khóa sổ, không thể lập đơn hồi tố"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Chưa khóa kỳ lương" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> U4
+    U4 --> END_NODE
+    S2 -- "Kỳ lương đã khóa" --> S5
+    S5 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên lập đơn giải trình quên chấm công.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra tình trạng sổ lương tháng và tạo mẫu in A4 chuẩn.
+- **Xử lý rẽ nhánh:** Chặn gửi đơn nếu kỳ tính lương đã được đóng sổ.
+- **Điểm kết thúc:** Đơn được ghi nhận và bản in A4 sẵn sàng trình ký.
+
+---
+
+### 96D. Sơ đồ Hoạt động cho UC-ESS-01-04: Lập Đơn xin phép đi muộn (Hạn mức 3 lần/tháng miễn phạt)
+> **Mục tiêu quy trình:** Xin phép đến muộn từ 5 phút đến 1 tiếng theo đúng quy chuẩn Sổ tay vận hành LLA để được tính đủ ngày công và miễn phạt.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Nhấn "Làm Đơn xin đi muộn" và chọn ngày, số phút muộn.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Nhấn 'Làm Đơn xin đi muộn'"]
+        U2["Chọn ngày, khoảng thời gian xin muộn và nhập lý do"]
+        U3["Nhận thông báo gửi đơn thành công (kèm số lượt miễn phạt còn lại)"]
+        U4["Xác nhận đồng ý nộp đơn dù vượt hạn mức miễn phạt"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Mở biểu mẫu xin phép đi muộn"]
+        S2{"Kiểm tra số lần xin muộn trong tháng:
+- Đã dùng < 3 lần?"}
+        S3["Lưu đơn xin đi muộn với trạng thái Miễn phạt trong hạn mức"]
+        S4["Ghi nhận đơn kèm cờ Vượt hạn mức (áp dụng chế tài quy chế)"]
+        S5["Cập nhật số lượt đã dùng lên thẻ theo dõi cá nhân"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Còn hạn mức (< 3 lần)" --> S3
+    S3 --> S5
+    S2 -- "Hết hạn mức (>= 3 lần)" --> S4
+    S4 --> U4
+    U4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên lập đơn xin phép đến muộn.
+- **Xử lý nghiệp vụ:** Hệ thống đếm số lần xin muộn trong tháng theo hạn mức 3 lần của Sổ tay nhân sự.
+- **Xử lý rẽ nhánh:** Nếu vượt hạn mức 3 lần, cảnh báo trước khi nộp đơn để áp dụng quy chế trừ thưởng.
+- **Điểm kết thúc:** Đơn được ghi nhận chính xác vào cơ sở dữ liệu.
+
+---
+
+### 96E. Sơ đồ Hoạt động cho UC-ESS-01-05: Đăng ký Làm thêm giờ OT (Tuân thủ Điều 107 BLLĐ)
+> **Mục tiêu quy trình:** Đăng ký làm thêm giờ phục vụ tiến độ dự án có phê duyệt trước, tránh tình trạng OT tự do.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Nhấn "Đăng ký làm thêm (OT)" và điền số giờ làm.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Nhấn 'Đăng ký làm thêm (OT)'"]
+        U2["Nhập Ngày làm thêm, Số giờ OT (0.5h - 4h) và Nội dung công việc"]
+        U3["Nhận thông báo đăng ký OT thành công"]
+        U4["Điều chỉnh lại số giờ OT cho đúng luật định"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Mở hộp thoại đăng ký OT qua createPortal"]
+        S2{"Kiểm tra ngưỡng Điều 107 Bộ luật Lao động:
+- Số giờ ngày <= 4 giờ?
+- Tổng giờ OT tháng + Số giờ mới <= 40 giờ?"}
+        S3["Lưu bản ghi OTRequest ở trạng thái PENDING"]
+        S4["Gửi thông báo thành công và chuyển vào hàng đợi phê duyệt"]
+        S5["Cảnh báo vi phạm trần thời gian làm thêm theo Bộ luật Lao động"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Hợp lệ theo luật" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Vượt trần luật định" --> S5
+    S5 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên đăng ký làm ngoài giờ.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra trần thời gian theo Điều 107 BLLĐ (tối đa 4h/ngày và 40h/tháng).
+- **Xử lý rẽ nhánh:** Chặn đăng ký nếu số giờ vượt trần pháp luật.
+- **Điểm kết thúc:** Đơn OT chuyển đến cấp quản lý xem xét.
+
+---
+
+
+## PHẦN 22B: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ ESS-02 (NGHỈ PHÉP CÁ NHÂN - Leave.jsx)
+---
+
+### 96F. Sơ đồ Hoạt động cho UC-ESS-02-01: Tra cứu quỹ phép năm & Ngày phép thâm niên
+> **Mục tiêu quy trình:** Nắm rõ số ngày nghỉ phép năm được hưởng theo luật, số ngày đã sử dụng và số dư phép năm khả dụng.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Truy cập màn hình Nghỉ phép cá nhân.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Truy cập màn hình Nghỉ phép cá nhân"]
+        U2["Xem các thẻ chỉ số: Tổng quỹ phép, Đã dùng, Tạm giữ và Số dư khả dụng"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Xác thực nhân viên từ token đăng nhập"]
+        S2["Truy vấn CSDL bảng LeaveBalance (Phép chuẩn 12 ngày + Phép thâm niên)"]
+        S3["Tính toán số dư khả dụng = Tổng quỹ - (Đã nghỉ + Đang tạm giữ Soft-lock)"]
+        S4["Hiển thị trực quan các thẻ quỹ phép và bảng lịch sử nghỉ"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên mở phân hệ Nghỉ phép cá nhân.
+- **Xử lý nghiệp vụ:** Làn Hệ thống tính toán chính xác quỹ phép chuẩn và ngày phép thâm niên (cứ 5 năm làm việc được cộng 1 ngày).
+- **Xử lý rẽ nhánh:** Hiển thị rõ số ngày đang tạm giữ (Soft-lock) của các đơn chờ duyệt.
+- **Điểm kết thúc:** Số dư khả dụng hiển thị rõ ràng để nhân viên chủ động kế hoạch.
+
+---
+
+### 96G. Sơ đồ Hoạt động cho UC-ESS-02-02: Nộp đơn xin nghỉ phép (Cả ngày / Nửa ngày)
+> **Mục tiêu quy trình:** Gửi yêu cầu xin nghỉ làm việc theo quy định công ty (Nghỉ phép năm, ốm đau, chế độ, không lương).  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Nhấn "+ Tạo đơn xin nghỉ" và điền thông tin.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Nhấn '+ Tạo đơn xin nghỉ'"]
+        U2["Chọn Loại nghỉ, Khoảng ngày, Ca nghỉ (Cả ngày / Sáng / Chiều) và nhập Lý do"]
+        U3["Nhận thông báo nộp đơn thành công"]
+        U4["Chuyển sang đăng ký Nghỉ không lương hoặc điều chỉnh ngày"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị biểu mẫu xin nghỉ"]
+        S2["Tự động loại trừ Thứ Bảy, Chủ Nhật và ngày Lễ để tính số ngày nghỉ thực tế"]
+        S3{"Kiểm tra quỹ phép khả dụng:
+- Số ngày nghỉ <= Số dư phép khả dụng?"}
+        S4["Tạo bản ghi LeaveRequest ở trạng thái PENDING"]
+        S5["Kích hoạt cơ chế Soft-lock tạm giữ số ngày phép tương ứng"]
+        S6["Gửi thông báo thành công và cập nhật bảng đơn"]
+        S7["Cảnh báo cạn quỹ phép năm"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 --> S3
+    S3 -- "Đủ quỹ phép" --> S4
+    S4 --> S5
+    S5 --> S6
+    S6 --> U3
+    U3 --> END_NODE
+    S3 -- "Không đủ quỹ phép" --> S7
+    S7 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên điền thông tin đơn xin nghỉ phép.
+- **Xử lý nghiệp vụ:** Hệ thống tự loại trừ ngày lễ/T7-CN và kiểm tra số dư phép khả dụng.
+- **Xử lý rẽ nhánh:** Nếu đủ phép, cơ chế Soft-lock tạm giữ số ngày để chống nộp trùng lặp; nếu thiếu phép, đề xuất chuyển sang nghỉ không lương.
+- **Điểm kết thúc:** Đơn được đưa vào hàng đợi phê duyệt.
+
+---
+
+### 96H. Sơ đồ Hoạt động cho UC-ESS-02-03: Ràng buộc tồn quỹ phép & Đăng ký nghỉ không lương
+> **Mục tiêu quy trình:** Đảm bảo nhân viên không nộp đơn vượt quá số ngày phép năm còn tồn, hướng dẫn chuyển sang nghỉ không lương.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Chọn loại nghỉ Phép năm khi số dư bằng 0.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Chọn loại nghỉ Phép năm khi số dư = 0"]
+        U2["Nhận cảnh báo và nhấn 'Đồng ý chuyển sang Nghỉ không lương'"]
+        U3["Nhận thông báo nộp đơn Nghỉ không lương thành công"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Phát hiện số dư quỹ phép năm = 0"]
+        S2["Hiển thị thông báo: Quỹ phép năm đã hết, bạn có muốn chuyển sang Nghỉ không lương (UNPAID)?"]
+        S3{"Xác nhận từ người dùng?"}
+        S4["Tự động chuyển đổi Type sang UNPAID và lưu đơn ở trạng thái PENDING"]
+        S5["Gửi thông báo thành công (không trừ quỹ phép năm)"]
+        S6["Hủy thao tác và giữ nguyên biểu mẫu"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 -- "Đồng ý chuyển" --> S4
+    S4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+    S3 -- "Hủy bỏ" --> S6
+    S6 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên nộp đơn phép năm khi đã hết hạn mức.
+- **Xử lý nghiệp vụ:** Hệ thống gợi ý chuyển loại hình sang Nghỉ không lương.
+- **Xử lý rẽ nhánh:** Nếu nhân viên xác nhận, lưu đơn loại `UNPAID` không trừ phép năm.
+- **Điểm kết thúc:** Phân biệt rành mạch giữa nghỉ hưởng lương và không hưởng lương.
+
+---
+
+### 96I. Sơ đồ Hoạt động cho UC-ESS-02-04: Theo dõi tiến trình phê duyệt & Tự hủy đơn PENDING
+> **Mục tiêu quy trình:** Nắm bắt phản hồi từ cấp trên; chủ động thu hồi đơn khi kế hoạch cá nhân thay đổi.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Nhấn nút "Hủy đơn" trên dòng đơn đang ở trạng thái Chờ duyệt.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Xem bảng lịch sử đơn và nhấn 'Hủy đơn' trên đơn PENDING"]
+        U2["Xác nhận hủy đơn trong hộp thoại cảnh báo"]
+        U3["Nhận thông báo hủy đơn thành công và số ngày phép được hoàn trả"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Tiếp nhận yêu cầu hủy đơn"]
+        S2{"Kiểm tra trạng thái đơn:
+- Đơn vẫn ở trạng thái PENDING?"}
+        S3["Cập nhật trạng thái đơn thành CANCELLED"]
+        S4["Giải phóng số ngày phép tạm giữ (Release Soft-lock) về lại Quỹ phép khả dụng"]
+        S5["Cập nhật lại bảng đơn và số dư hiển thị"]
+        S6["Từ chối hủy: Đơn đã được Quản lý duyệt hoặc từ chối trước đó"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 -- "Vẫn PENDING" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+    S2 -- "Đã duyệt/Từ chối" --> S6
+    S6 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên bấm hủy đơn xin nghỉ khi chưa được duyệt.
+- **Xử lý nghiệp vụ:** Hệ thống xác thực trạng thái `PENDING` và lập tức giải phóng số ngày phép tạm giữ.
+- **Xử lý rẽ nhánh:** Nếu đơn đã được duyệt hoặc từ chối, chặn tự hủy và yêu cầu liên hệ quản lý.
+- **Điểm kết thúc:** Quỹ phép khả dụng được hoàn trả đầy đủ ngay tức thì.
+
+---
+
+
+## PHẦN 22C: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ ESS-03 (PHIẾU LƯƠNG ĐIỆN TỬ - Payslip.jsx)
 ---
 
 ### 97. Sơ đồ Hoạt động cho UC-ESS-03-01: Xem danh sách phiếu lương các tháng
@@ -4072,6 +5293,340 @@ flowchart TD
 - **Xử lý nghiệp vụ:** Làn Hệ thống tiếp nhận, thẩm định các quy tắc nghiệp vụ tại điểm rẽ nhánh hình thoi.
 - **Xử lý rẽ nhánh:** Nếu thỏa mãn điều kiện, hệ thống lưu trữ và hoàn tất; nếu vi phạm, hệ thống hiển thị cảnh báo hướng dẫn người dùng sửa đổi khép kín.
 - **Điểm kết thúc:** Quy trình hoàn tất và cập nhật trạng thái mới nhất lên toàn hệ thống.
+
+---
+
+
+## PHẦN 22D: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ ESS-04 (TỰ ĐÁNH GIÁ KPI - KPI.jsx)
+---
+
+### 102A. Sơ đồ Hoạt động cho UC-ESS-04-01: Xem danh mục mục tiêu KPI được giao theo chu kỳ
+> **Mục tiêu quy trình:** Người lao động nắm rõ các chỉ tiêu công việc và tỷ lệ trọng số chịu trách nhiệm trong kỳ.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Truy cập phân hệ Mục tiêu & Đánh giá KPI.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Truy cập màn hình Đánh giá KPI cá nhân"]
+        U2["Chọn chu kỳ đánh giá (Tháng/Quý) và xem bảng mục tiêu"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Xác thực nhân viên từ token đăng nhập"]
+        S2["Truy vấn CSDL danh sách KPI do Quản lý giao cho nhân sự trong chu kỳ"]
+        S3["Tính toán tỷ lệ hoàn thành tạm tính của các tiêu chí"]
+        S4["Hiển thị danh mục tiêu chí: Tên, Target, Đơn vị tính, Trọng số %, Kết quả thực tế"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên mở trang KPI trên cổng ESS.
+- **Xử lý nghiệp vụ:** Làn Hệ thống truy vấn các tiêu chí và tỷ lệ trọng số tương ứng do cấp trên giao.
+- **Xử lý rẽ nhánh:** Nếu chu kỳ chưa có KPI, hiển thị thông báo chưa được phân bổ mục tiêu.
+- **Điểm kết thúc:** Bảng mục tiêu cá nhân hiển thị rõ ràng từng chỉ tiêu.
+
+---
+
+### 102B. Sơ đồ Hoạt động cho UC-ESS-04-02: Cập nhật kết quả thực tế đạt được (Achieved)
+> **Mục tiêu quy trình:** Ghi nhận sản lượng hoặc tiến độ thực tế hoàn thành định kỳ.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Nhập giá trị vào cột Achieved và bấm "Cập nhật tiến độ".
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Nhập số lượng thực tế đạt được vào ô Achieved"]
+        U2["Nhập ghi chú / liên kết minh chứng công việc và bấm Lưu"]
+        U3["Nhận thông báo cập nhật tiến độ thành công"]
+        U4["Điều chỉnh lại số liệu cho hợp lệ"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Kiểm tra định dạng số liệu nhập vào:
+- Achieved >= 0 và là số hợp lệ?"]
+        S2{"Số liệu hợp lệ?"}
+        S3["Lưu giá trị Achieved và liên kết minh chứng vào CSDL"]
+        S4["Kích hoạt động cơ tính điểm tự chấm thời gian thực"]
+        S5["Gửi thông báo thành công và cập nhật thanh tiến độ"]
+        S6["Báo lỗi số liệu thực tế không được là số âm hoặc sai định dạng"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 -- "Hợp lệ" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+    S2 -- "Không hợp lệ" --> S6
+    S6 --> U4
+    U4 --> U1
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên nhập số liệu công việc đã hoàn thành.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra tính hợp lệ số học và lưu kết quả cùng minh chứng.
+- **Xử lý rẽ nhánh:** Nếu nhập số âm hoặc sai kiểu dữ liệu, hệ thống từ chối cập nhật.
+- **Điểm kết thúc:** Kết quả thực tế được ghi nhận vào cơ sở dữ liệu.
+
+---
+
+### 102C. Sơ đồ Hoạt động cho UC-ESS-04-03: Tự động tính điểm tự đánh giá theo trọng số (Self Score)
+> **Mục tiêu quy trình:** Minh bạch hóa điểm số năng lực cá nhân thời gian thực và đồng bộ sang màn hình chấm điểm của Quản lý.  
+> **Tác nhân tham gia:** Hệ thống tự động. | **Sự kiện kích hoạt:** Sau khi cập nhật giá trị Achieved thành công.
+
+```mermaid
+flowchart TD
+    subgraph SYS ["⚙️ ĐỘNG CƠ TÍNH ĐIỂM KPI TỰ ĐỘNG"]
+        START((● Bắt đầu))
+        S1["Kích hoạt sau khi cập nhật Achieved"]
+        S2["Lấy danh sách các tiêu chí: Target_i, Achieved_i, Weight_i"]
+        S3["Tính Tỷ lệ hoàn thành từng tiêu chí = (Achieved_i / Target_i)"]
+        S4["Tính Điểm thành phần = Tỷ lệ * Weight_i"]
+        S5["Tổng hợp Điểm tự chấm SelfScore = SUM(Điểm thành phần) (Thang điểm 100)"]
+        S6["Lưu SelfScore vào bảng PerformanceReview trong CSDL"]
+        S7["Đồng bộ ngay sang màn hình chấm điểm Quản lý (/internal/performance/reviews)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> S6
+    S6 --> S7
+    S7 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Động cơ tính điểm tự động chạy ngầm sau khi nhân viên cập nhật sản lượng.
+- **Xử lý nghiệp vụ:** Tính toán tỷ lệ hoàn thành theo trọng số từng tiêu chí và tổng hợp điểm thang 100.
+- **Xử lý rẽ nhánh:** Xử lý ngoại lệ chia cho 0 an toàn.
+- **Điểm kết thúc:** Điểm số tự chấm được đồng bộ sang màn hình duyệt của Quản lý trực tiếp.
+
+---
+
+### 102D. Sơ đồ Hoạt động cho UC-ESS-04-04: Khóa cứng Target & Trọng số chống gian lận
+> **Mục tiêu quy trình:** Bảo toàn tính liêm chính dữ liệu đánh giá hiệu suất, ngăn chặn nhân viên tự ý thay đổi chỉ tiêu và tỷ lệ phân bổ.  
+> **Tác nhân tham gia:** Nhân viên, Hệ thống tự động. | **Sự kiện kích hoạt:** Nhân viên tương tác trên bảng mục tiêu KPI.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Thao tác nhấp vào ô Chỉ tiêu (Target) hoặc Trọng số (Weight)"]
+        U2["Nhận thấy ô bị khóa chỉ đọc (Disabled / Read-only) và có icon ổ khóa"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG BẢO VỆ DỮ LIỆU"]
+        S1["Kiểm tra vai trò người dùng hiện tại (Role = EMPLOYEE)"]
+        S2{"Yêu cầu đến từ giao diện hay API trực tiếp?"}
+        S3["Giao diện: Thiết lập thuộc tính disabled/read-only trên các input Target, Weight"]
+        S4["Chặn yêu cầu API sửa đổi Target/Weight với mã 403 Forbidden"]
+        S5["Ghi log cảnh báo can thiệp dữ liệu trái phép (Data Tampering Guard)"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 -- "Giao diện UI" --> S3
+    S3 --> U2
+    U2 --> END_NODE
+    S2 -- "Can thiệp API" --> S4
+    S4 --> S5
+    S5 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên xem hoặc cố ý sửa trường Target/Weight.
+- **Xử lý nghiệp vụ:** Hệ thống khóa cứng 2 trường này trên giao diện và bảo vệ chặn request ở tầng API.
+- **Xử lý rẽ nhánh:** Nếu phát hiện cố tình bypass giao diện, hệ thống trả về mã lỗi 403 và ghi nhật ký kiểm toán.
+- **Điểm kết thúc:** Dữ liệu mục tiêu và trọng số được bảo vệ liêm chính tuyệt đối.
+
+---
+
+
+## PHẦN 22E: SƠ ĐỒ HOẠT ĐỘNG PHÂN HỆ ESS-05 (HỒ SƠ CÁ NHÂN & BẢO MẬT - Profile.jsx)
+---
+
+### 102E. Sơ đồ Hoạt động cho UC-ESS-05-01: Xem chi tiết lý lịch 8 Tab thông tin
+> **Mục tiêu quy trình:** Người lao động tra cứu hồ sơ 360° của chính mình trong doanh nghiệp.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Truy cập phân hệ Hồ sơ cá nhân.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Truy cập màn hình Hồ sơ cá nhân"]
+        U2["Chuyển đổi giữa 8 Tab: Thông tin chung, Công việc, Hợp đồng, Thuế/BHXH, Người thân, Bằng cấp, Tài sản, Quyết định"]
+        U3["Xem chi tiết từng phân khu hồ sơ"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Xác thực token phiên làm việc của nhân viên"]
+        S2["Truy vấn CSDL gom đủ dữ liệu từ 8 bảng liên kết"]
+        S3["Định dạng dữ liệu an toàn và trả về theo cấu trúc tab"]
+        S4["Hiển thị giao diện hồ sơ 360 độ trực quan"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S4 --> U2
+    U2 --> U3
+    U3 --> END_NODE
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên mở trang Hồ sơ cá nhân.
+- **Xử lý nghiệp vụ:** Làn Hệ thống gom dữ liệu từ 8 phân khu hồ sơ cá nhân.
+- **Xử lý rẽ nhánh:** Đảm bảo nhân viên chỉ xem được hồ sơ của chính mình (chống rò rỉ IDOR).
+- **Điểm kết thúc:** Hồ sơ 360 độ hiển thị đầy đủ và an toàn.
+
+---
+
+### 102F. Sơ đồ Hoạt động cho UC-ESS-05-02: Chỉnh sửa thông tin liên lạc & STK ngân hàng
+> **Mục tiêu quy trình:** Cập nhật thông tin khi thay đổi chỗ ở, số điện thoại hoặc tài khoản nhận lương.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Bật chế độ "Chỉnh sửa hồ sơ" và lưu thay đổi.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Bật chế độ 'Chỉnh sửa thông tin'"]
+        U2["Sửa Số điện thoại, Email cá nhân, Địa chỉ tạm trú, Tên ngân hàng, Số tài khoản"]
+        U3["Nhận thông báo cập nhật hồ sơ thành công"]
+        U4["Sửa lại trường dữ liệu bị báo lỗi định dạng"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Mở khóa các trường cho phép tự chỉnh sửa"]
+        S2{"Kiểm tra định dạng:
+- SĐT 10 chữ số hợp lệ?
+- STK ngân hàng không để trống?
+- Email đúng cú pháp?"}
+        S3["Cập nhật bản ghi Employee trong CSDL"]
+        S4["Gửi thông báo thành công và khóa lại biểu mẫu"]
+        S5["Báo lỗi định dạng số điện thoại hoặc số tài khoản"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Hợp lệ" --> S3
+    S3 --> S4
+    S4 --> U3
+    U3 --> END_NODE
+    S2 -- "Sai định dạng" --> S5
+    S5 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên cập nhật số điện thoại hoặc tài khoản ngân hàng.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra định dạng dữ liệu liên lạc và tài chính.
+- **Xử lý rẽ nhánh:** Nếu sai định dạng, chặn lưu và hướng dẫn sửa lại.
+- **Điểm kết thúc:** Dữ liệu mới được cập nhật để phục vụ chi trả lương kỳ tiếp theo.
+
+---
+
+### 102G. Sơ đồ Hoạt động cho UC-ESS-05-03: Đăng ký Người phụ thuộc giảm trừ gia cảnh thuế TNCN
+> **Mục tiêu quy trình:** Đăng ký người thân (con nhỏ, cha mẹ già) để được giảm trừ 4.400.000 đ/người/tháng vào thu nhập tính thuế TNCN trên Bảng lương.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Vào tab "Người thân & Phụ thuộc", nhấn "+ Thêm người thân".
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Nhấn '+ Thêm người thân' trong tab Người thân & Phụ thuộc"]
+        U2["Nhập Họ tên, Quan hệ, Ngày sinh, Số CCCD/Mã định danh, MST người phụ thuộc"]
+        U3["Nhận thông báo đăng ký người phụ thuộc thành công"]
+        U4["Bổ sung đầy đủ mã số định danh cá nhân"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Hiển thị biểu mẫu khai báo người thân"]
+        S2{"Kiểm tra tính pháp lý:
+- Số CCCD/Mã định danh không rỗng?
+- Ngày sinh hợp lệ?"}
+        S3["Lưu bản ghi Relative kèm cờ IsDependent = TRUE"]
+        S4["Tự động cập nhật mức giảm trừ gia cảnh 4.400.000 đ/người vào công thức lương"]
+        S5["Gửi thông báo thành công và cập nhật danh sách"]
+        S6["Cảnh báo thiếu mã số định danh cá nhân hoặc sai thông tin"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Hợp lệ" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+    S2 -- "Thiếu định danh" --> S6
+    S6 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên khai báo thông tin người phụ thuộc.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra căn cước công dân/mã định danh và lưu hồ sơ giảm trừ gia cảnh.
+- **Xử lý rẽ nhánh:** Nếu thiếu mã định danh, chặn lưu để đảm bảo tính pháp lý thuế.
+- **Điểm kết thúc:** Người phụ thuộc được tính giảm trừ tự động khi chạy bảng lương.
+
+---
+
+### 102H. Sơ đồ Hoạt động cho UC-ESS-05-04: Tải lên & Quản lý file scan Bằng cấp, Chứng chỉ
+> **Mục tiêu quy trình:** Lưu trữ và cập nhật các văn bằng tốt nghiệp, chứng chỉ nghề nghiệp mới hoàn thành.  
+> **Tác nhân tham gia:** Nhân viên. | **Sự kiện kích hoạt:** Vào tab "Học vấn & Bằng cấp", tải tệp scan văn bằng lên hệ thống.
+
+```mermaid
+flowchart TD
+    subgraph USER ["👤 NGƯỜI DÙNG (Nhân viên)"]
+        START((● Bắt đầu))
+        U1["Nhấn 'Thêm bằng cấp / chứng chỉ'"]
+        U2["Chọn tệp scan (PDF, JPG, PNG) và điền Tên bằng, Trường cấp, Xếp loại"]
+        U3["Nhận thông báo tải lên thành công và có thể xem trước tệp"]
+        U4["Chọn lại tệp đúng định dạng và dung lượng < 10MB"]
+    end
+    subgraph SYS ["⚙️ HỆ THỐNG HRM"]
+        S1["Mở hộp thoại tải lên tài liệu scan"]
+        S2{"Kiểm tra tệp tin:
+- Dung lượng tệp < 10MB?
+- Định dạng an toàn (PDF, JPG, PNG)?"}
+        S3["Lưu tệp vào kho lưu trữ tài liệu bảo mật"]
+        S4["Tạo bản ghi Degree / Certificate kèm đường dẫn tệp vào CSDL"]
+        S5["Gửi thông báo thành công và hỗ trợ xem trước (Preview Modal)"]
+        S6["Cảnh báo tệp quá lớn hoặc sai định dạng"]
+        END_NODE(((◎ Kết thúc)))
+    end
+    START --> U1
+    U1 --> S1
+    S1 --> U2
+    U2 --> S2
+    S2 -- "Tệp hợp lệ" --> S3
+    S3 --> S4
+    S4 --> S5
+    S5 --> U3
+    U3 --> END_NODE
+    S2 -- "Không hợp lệ" --> S6
+    S6 --> U4
+    U4 --> U2
+```
+
+**Mô tả các bước luồng hoạt động:**
+- **Điểm bắt đầu:** Nhân viên tải tệp scan bằng cấp hoặc chứng chỉ.
+- **Xử lý nghiệp vụ:** Hệ thống kiểm tra dung lượng (< 10MB) và định dạng tệp trước khi lưu trữ.
+- **Xử lý rẽ nhánh:** Chặn tải tệp lạ hoặc quá dung lượng để bảo đảm an toàn máy chủ.
+- **Điểm kết thúc:** Văn bằng được số hóa và sẵn sàng xem trước trực tuyến.
 
 ---
 

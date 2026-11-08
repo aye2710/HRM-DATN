@@ -12,8 +12,8 @@ export const EmployeePayslip = () => {
   const [loading, setLoading] = useState(true);
   
   const employeeId = localStorage.getItem('employeeId');
-  const fullName = localStorage.getItem('fullName') || 'Phạm Hoàng Long';
-  const employeeCode = localStorage.getItem('employeeCode') || 'EMP-2026-001';
+  const fullName = localStorage.getItem('fullName') || 'Lê Hữu Trúc';
+  const employeeCode = localStorage.getItem('employeeCode') || 'LLA-001';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,28 +41,36 @@ export const EmployeePayslip = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount) || 0);
   };
 
-  // Mock sample slip if no records in DB yet (for realistic thesis presentation)
-  const displaySlip = selectedPayslip || {
-    id: 'PAY-2026-09',
-    periodMonth: 9,
-    periodYear: 2026,
-    baseSalary: 18000000,
-    allowances: 2500000,
-    bonus: 1500000,
-    overtimePay: 850000,
-    grossSalary: 22850000,
-    socialInsurance: 1440000, // 8%
-    healthInsurance: 270000,  // 1.5%
-    unemploymentInsurance: 180000, // 1%
-    personalTax: 850000,
-    totalDeductions: 2740000,
-    netSalary: 20110000,
-    standardDays: 22,
-    actualDays: 22,
-    status: 'PAID',
-    paymentDate: '2026-10-05',
-    bankAccount: '19036888888888 (Techcombank)'
-  };
+  // Trích xuất dữ liệu phiếu lương chuẩn LLA từ selectedPayslip
+  const lla = selectedPayslip?.lla || {};
+  const monthYearParts = selectedPayslip?.payrollPeriod?.monthYear 
+    ? selectedPayslip.payrollPeriod.monthYear.split('-') 
+    : ['9', '2026'];
+  const monthNum = monthYearParts[0];
+  const yearNum = monthYearParts[1];
+
+  const baseSalary = Number(lla.baseSalary ?? selectedPayslip?.baseSalary ?? 7000000);
+  const appliedMonthSalary = Number(lla.appliedMonthSalary ?? baseSalary);
+  const standardDays = Number(lla.standardWorkingDays ?? selectedPayslip?.payrollPeriod?.standardWorkingDays ?? 26);
+  const actualDays = Number(lla.actualWorkingDays ?? selectedPayslip?.actualWorkingDays ?? 18.5);
+  const salaryByDays = Number(lla.salaryByDays ?? (standardDays > 0 ? Math.round((appliedMonthSalary / standardDays) * actualDays) : 0));
+  const fixedAllowance = Number(lla.fixedAllowance ?? 500000);
+  const ctpAndCommission = Number(lla.ctpAndCommission ?? 0);
+  const otAndBonus = Number(lla.otAndBonus ?? 0);
+  const grossSalary = salaryByDays + fixedAllowance + ctpAndCommission + otAndBonus;
+
+  const insuranceDeduction = Number(lla.insuranceDeduction ?? selectedPayslip?.insuranceDeduction ?? 0);
+  const taxDeduction = Number(selectedPayslip?.taxDeduction ?? 0);
+  const latePenaltyAmount = Number(lla.latePenaltyAmount ?? 0);
+  const advanceAmount = Number(lla.advanceAmount ?? 0);
+  const unionFee = Number(lla.unionFee ?? 0);
+  const totalDeductions = insuranceDeduction + taxDeduction + latePenaltyAmount + advanceAmount + unionFee;
+  const netSalary = Number(lla.netSalary ?? selectedPayslip?.netSalary ?? (grossSalary - totalDeductions));
+  
+  const deptName = selectedPayslip?.employee?.department?.name || 'Tổ chức';
+  const posTitle = selectedPayslip?.employee?.position?.title || 'Chuyên viên';
+  const contractType = lla.contractType || 'PROBATION';
+  const probationPct = lla.probationPercent || (contractType === 'PROBATION' ? 85 : 100);
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -94,7 +102,7 @@ export const EmployeePayslip = () => {
             </h1>
           </div>
           <p style={{ margin: 0, color: '#64748B', fontSize: '0.875rem' }}>
-            Minh bạch thu nhập, thuế TNCN, bảo hiểm và tiền lương thực lĩnh hàng tháng.
+            Minh bạch thu nhập, thuế TNCN, bảo hiểm và tiền lương thực lĩnh hàng tháng theo chuẩn Công ty LLA.
           </p>
         </div>
 
@@ -103,17 +111,20 @@ export const EmployeePayslip = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap' }}>Kỳ lương:</span>
             <select
-              className="form-input"
+              className="form-select"
               value={selectedPayslip?.id || ''}
-              onChange={e => setSelectedPayslip(payslips.find(p => p.id === e.target.value) || displaySlip)}
+              onChange={e => setSelectedPayslip(payslips.find(p => p.id === e.target.value) || null)}
               style={{ width: 'auto', height: '38px', backgroundColor: '#F8FAFC', fontSize: '0.875rem', fontWeight: 600, color: '#0F172A' }}
             >
               {payslips.length > 0 ? (
-                payslips.map(p => (
-                  <option key={p.id} value={p.id}>Tháng {p.periodMonth}/{p.periodYear}</option>
-                ))
+                payslips.map(p => {
+                  const parts = p.payrollPeriod?.monthYear ? p.payrollPeriod.monthYear.split('-') : [9, 2026];
+                  return (
+                    <option key={p.id} value={p.id}>Tháng {parts[0]}/{parts[1]}</option>
+                  );
+                })
               ) : (
-                <option value="PAY-2026-09">Tháng 09/2026 (Mới nhất)</option>
+                <option value="default">Tháng 09/2026</option>
               )}
             </select>
           </div>
@@ -143,17 +154,17 @@ export const EmployeePayslip = () => {
         <div style={{ backgroundColor: '#FFFFFF', padding: '1.25rem', borderRadius: '1rem', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
           <span style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 600 }}>Tổng thu nhập Gross</span>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', marginTop: '0.25rem' }}>
-            {formatCurrency(displaySlip.grossSalary || displaySlip.baseSalary)}
+            {formatCurrency(grossSalary)}
           </div>
-          <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Lương cơ bản + Phụ cấp & Thưởng</span>
+          <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Lương theo công + Phụ cấp & Thưởng</span>
         </div>
 
         <div style={{ backgroundColor: '#FFFFFF', padding: '1.25rem', borderRadius: '1rem', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
           <span style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 600 }}>Tổng các khoản khấu trừ</span>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#DC2626', marginTop: '0.25rem' }}>
-            - {formatCurrency(displaySlip.totalDeductions || 2740000)}
+            - {formatCurrency(totalDeductions)}
           </div>
-          <span style={{ fontSize: '0.75rem', color: '#DC2626' }}>BHXH (8%), BHYT (1.5%), Thuế TNCN</span>
+          <span style={{ fontSize: '0.75rem', color: '#DC2626' }}>BHXH (10.5%), Phạt muộn, Thuế TNCN</span>
         </div>
 
         <div style={{
@@ -171,14 +182,14 @@ export const EmployeePayslip = () => {
               Thực lĩnh (Net Salary)
             </span>
             <span style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
-              Đã chi trả
+              Đã chốt sổ
             </span>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.25rem', letterSpacing: '-0.02em' }}>
-            {formatCurrency(displaySlip.netSalary || 20110000)}
+            {formatCurrency(netSalary)}
           </div>
           <span style={{ fontSize: '0.75rem', color: '#D1FAE5' }}>
-            Chuyển khoản ngày {displaySlip.paymentDate || '05/10/2026'}
+            Kỳ lương Tháng {monthNum}/{yearNum}
           </span>
         </div>
 
@@ -213,15 +224,15 @@ export const EmployeePayslip = () => {
               </div>
               <strong style={{ fontSize: '1.15rem', color: '#0F172A' }}>CÔNG TY TNHH LLA ENTERPRISE</strong>
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Tòa nhà LLA Innovation Tower, Cầu Giấy, Hà Nội • MST: 0108889999</span>
+            <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Trụ sở chính: Hà Nội • MST: 0108889999</span>
           </div>
 
           <div style={{ textAlign: 'right' }}>
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#2563EB', letterSpacing: '0.02em' }}>
-              PHIẾU LƯƠNG NHÂN VIÊN
+              PHIẾU LƯƠNG CHI TIẾT
             </h2>
             <span style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 600 }}>
-              Kỳ trả lương: Tháng {displaySlip.periodMonth || 9}/{displaySlip.periodYear || 2026}
+              KỲ LƯƠNG: THÁNG {monthNum} / {yearNum}
             </span>
           </div>
         </div>
@@ -231,19 +242,19 @@ export const EmployeePayslip = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.875rem' }}>
             <div>
               <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem' }}>Họ và tên nhân viên:</span>
-              <strong style={{ color: '#0F172A', fontSize: '0.95rem' }}>{fullName}</strong>
+              <strong style={{ color: '#0F172A', fontSize: '0.95rem' }}>{selectedPayslip?.employee?.fullName || fullName}</strong>
             </div>
             <div>
               <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem' }}>Mã nhân sự:</span>
-              <strong style={{ color: '#2563EB' }}>{employeeCode}</strong>
+              <strong style={{ color: '#2563EB' }}>{selectedPayslip?.employee?.code || employeeCode}</strong>
             </div>
             <div>
-              <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem' }}>Phòng ban / Bộ phận:</span>
-              <strong style={{ color: '#0F172A' }}>Phần mềm & CNTT</strong>
+              <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem' }}>Phòng ban / Chức danh:</span>
+              <strong style={{ color: '#0F172A' }}>{deptName} - {posTitle}</strong>
             </div>
             <div>
               <span style={{ color: '#64748B', display: 'block', fontSize: '0.75rem' }}>Số công chuẩn / Thực tế:</span>
-              <strong style={{ color: '#059669' }}>{displaySlip.actualDays || 22} / {displaySlip.standardDays || 22} công</strong>
+              <strong style={{ color: '#059669' }}>{actualDays} / {standardDays} công</strong>
             </div>
           </div>
         </div>
@@ -260,23 +271,31 @@ export const EmployeePayslip = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
                   <span>1. Lương cơ bản theo HĐLĐ:</span>
-                  <strong>{formatCurrency(displaySlip.baseSalary || 18000000)}</strong>
+                  <strong>{formatCurrency(baseSalary)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                  <span>2. Phụ cấp ăn trưa & đi lại:</span>
-                  <strong>{formatCurrency(displaySlip.allowances || 2500000)}</strong>
+                  <span>2. Lương áp dụng tháng ({probationPct}%):</span>
+                  <strong>{formatCurrency(appliedMonthSalary)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                  <span>3. Thưởng hiệu suất KPI:</span>
-                  <strong>{formatCurrency(displaySlip.bonus || 1500000)}</strong>
+                  <span>3. Lương theo ngày công làm việc:</span>
+                  <strong style={{ color: '#047857' }}>{formatCurrency(salaryByDays)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                  <span>4. Tiền làm thêm giờ (OT):</span>
-                  <strong>{formatCurrency(displaySlip.overtimePay || 850000)}</strong>
+                  <span>4. Phụ cấp cố định (Ăn trưa, xăng, ĐT):</span>
+                  <strong>{formatCurrency(fixedAllowance)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
+                  <span>5. Phụ cấp CTP / Hoa hồng:</span>
+                  <strong>{formatCurrency(ctpAndCommission)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
+                  <span>6. Thưởng & Làm thêm giờ (OT):</span>
+                  <strong>{formatCurrency(otAndBonus)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: '1px dashed #E2E8F0', color: '#0F172A', fontWeight: 700 }}>
                   <span>TỔNG THU NHẬP (GROSS):</span>
-                  <span style={{ color: '#059669', fontSize: '1rem' }}>{formatCurrency(displaySlip.grossSalary || 22850000)}</span>
+                  <span style={{ color: '#059669', fontSize: '1rem' }}>{formatCurrency(grossSalary)}</span>
                 </div>
               </div>
             </div>
@@ -288,24 +307,28 @@ export const EmployeePayslip = () => {
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                  <span>1. Bảo hiểm Xã hội (BHXH 8%):</span>
-                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(displaySlip.socialInsurance || 1440000)}</strong>
+                  <span>1. Trừ tiền BHXH (10.5% NLĐ):</span>
+                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(insuranceDeduction)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                  <span>2. Bảo hiểm Y tế (BHYT 1.5%):</span>
-                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(displaySlip.healthInsurance || 270000)}</strong>
+                  <span>2. Thuế Thu nhập Cá nhân (TNCN):</span>
+                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(taxDeduction)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                  <span>3. BHTN (1%):</span>
-                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(displaySlip.unemploymentInsurance || 180000)}</strong>
+                  <span>3. Phạt đi muộn (quá 3 lần/tháng):</span>
+                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(latePenaltyAmount)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                  <span>4. Thuế Thu nhập Cá nhân (TNCN):</span>
-                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(displaySlip.personalTax || 850000)}</strong>
+                  <span>4. Tạm ứng lương:</span>
+                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(advanceAmount)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
+                  <span>5. Quỹ Đoàn thể / Công đoàn:</span>
+                  <strong style={{ color: '#DC2626' }}>- {formatCurrency(unionFee)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: '1px dashed #E2E8F0', color: '#0F172A', fontWeight: 700 }}>
                   <span>TỔNG KHẤU TRỪ:</span>
-                  <span style={{ color: '#DC2626', fontSize: '1rem' }}>- {formatCurrency(displaySlip.totalDeductions || 2740000)}</span>
+                  <span style={{ color: '#DC2626', fontSize: '1rem' }}>- {formatCurrency(totalDeductions)}</span>
                 </div>
               </div>
             </div>
@@ -328,11 +351,11 @@ export const EmployeePayslip = () => {
                 SỐ TIỀN THỰC CHUYỂN KHOẢN (NET SALARY):
               </span>
               <span style={{ display: 'block', fontSize: '0.75rem', color: '#15803D' }}>
-                Tài khoản nhận: {displaySlip.bankAccount || '19036888888888 (Techcombank)'}
+                Hình thức chi trả: Chuyển khoản ngân hàng (ATM)
               </span>
             </div>
             <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#166534' }}>
-              {formatCurrency(displaySlip.netSalary || 20110000)}
+              {formatCurrency(netSalary)}
             </div>
           </div>
         </div>

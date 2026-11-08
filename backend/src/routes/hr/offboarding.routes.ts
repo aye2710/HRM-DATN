@@ -161,7 +161,7 @@ router.get('/:employeeId/detail', hrOnly, async (req: Request, res: Response): P
     
     // Mức lương cơ sở hợp đồng để tính 1 ngày công theo STANDARD_WORKING_DAYS động
     const activeContract = (employee as any).contracts?.find((c: any) => c.status === 'ACTIVE') || (employee as any).contracts?.[0];
-    const baseSalary = activeContract?.baseSalary ? Number(activeContract.baseSalary) : Number(employee.salary || 0);
+    const baseSalary = activeContract?.baseSalary ? Number(activeContract.baseSalary) : Number((employee as any).salary || 0);
     const standardWorkDays = Number(await getSettingValue('STANDARD_WORKING_DAYS', 22)) || 22;
     const estimatedLeavePay = remainingLeaveDays > 0 ? Math.round((baseSalary / standardWorkDays) * remainingLeaveDays) : 0;
 

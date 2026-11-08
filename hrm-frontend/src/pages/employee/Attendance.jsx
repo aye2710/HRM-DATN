@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Clock, Cpu, FileText, Send, Printer, AlertTriangle, CheckCircle2,
-  ArrowLeft, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, X, Sparkles
+  ArrowLeft, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, X, Sparkles,
+  LogIn, LogOut
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -24,6 +26,8 @@ export const EmployeeAttendance = () => {
   const [empProfile, setEmpProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   // State cho Đăng ký OT
   const [showOtModal, setShowOtModal] = useState(false);
@@ -140,6 +144,44 @@ export const EmployeeAttendance = () => {
     }
   };
 
+  const handleCheckIn = async () => {
+    if (!employeeId) return toast.error('Không tìm thấy mã nhân viên.');
+    setCheckingIn(true);
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.post(
+        'http://localhost:5000/api/attendance/check-in',
+        { employeeId },
+        { headers }
+      );
+      toast.success(res.data?.message || 'Check-in vào ca thành công!');
+      await fetchAttendanceData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi Check-in');
+    } finally {
+      setCheckingIn(false);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    if (!employeeId) return toast.error('Không tìm thấy mã nhân viên.');
+    setCheckingOut(true);
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.post(
+        'http://localhost:5000/api/attendance/check-out',
+        { employeeId },
+        { headers }
+      );
+      toast.success(res.data?.message || 'Check-out ra ca thành công!');
+      await fetchAttendanceData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi Check-out');
+    } finally {
+      setCheckingOut(false);
+    }
+  };
+
   useEffect(() => {
     fetchAttendanceData();
   }, [employeeId, selectedMonth, selectedYear]);
@@ -206,9 +248,13 @@ export const EmployeeAttendance = () => {
   }, [myAdjustments, selectedMonth, selectedYear]);
 
   const todayRecord = useMemo(() => {
-    const todayStr = now.toISOString().split('T')[0];
-    return attendanceRecords.find(r => r.date && r.date.startsWith(todayStr)) || null;
-  }, [attendanceRecords]);
+    const localTodayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return attendanceRecords.find(r => {
+      if (!r.date) return false;
+      const dStr = typeof r.date === 'string' ? r.date.split('T')[0] : new Date(r.date).toISOString().split('T')[0];
+      return dStr === localTodayStr;
+    }) || null;
+  }, [attendanceRecords, now]);
 
   // Mở trang lập đơn mới (Toàn trang - không dùng popup)
   const openFullPageForm = (category, prefill = {}) => {
@@ -815,14 +861,14 @@ export const EmployeeAttendance = () => {
             </div>
             <div style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '0.5rem', padding: '0.55rem', textAlign: 'center' }}>
               <div style={{ fontSize: '0.66rem', color: '#166534', fontWeight: 600 }}>GIỜ VÀO (IN)</div>
-              <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#15803D', fontFamily: 'monospace' }}>
-                {fmtTime(todayRecord?.checkIn) || '07:52'}
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, color: todayRecord?.checkIn ? '#15803D' : '#94A3B8', fontFamily: 'monospace' }}>
+                {fmtTime(todayRecord?.checkIn) || '--:--'}
               </div>
             </div>
             <div style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '0.5rem', padding: '0.55rem', textAlign: 'center' }}>
               <div style={{ fontSize: '0.66rem', color: '#1E40AF', fontWeight: 600 }}>GIỜ RA (OUT)</div>
-              <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1D4ED8', fontFamily: 'monospace' }}>
-                {fmtTime(todayRecord?.checkOut) || '17:38'}
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, color: todayRecord?.checkOut ? '#1D4ED8' : '#94A3B8', fontFamily: 'monospace' }}>
+                {fmtTime(todayRecord?.checkOut) || '--:--'}
               </div>
             </div>
             <div style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.5rem', padding: '0.55rem', textAlign: 'center' }}>
@@ -830,6 +876,91 @@ export const EmployeeAttendance = () => {
               <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>
                 {totalMonthDays.toFixed(1).replace('.0', '')} công
               </div>
+            </div>
+          </div>
+
+          {/* Nút Chấm công Điện tử Trực tuyến */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            backgroundColor: '#F8FAFC',
+            padding: '0.55rem 0.8rem',
+            borderRadius: '0.5rem',
+            border: '1px solid #E2E8F0',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ fontSize: '0.74rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <Sparkles size={14} color="#2563EB" />
+              <span>Chấm công điện tử trực tuyến (Đồng bộ thời gian thực):</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {!todayRecord?.checkIn ? (
+                <button
+                  type="button"
+                  onClick={handleCheckIn}
+                  disabled={checkingIn}
+                  className="btn"
+                  style={{
+                    backgroundColor: '#059669',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    height: '32px',
+                    padding: '0 0.9rem',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    borderRadius: '0.4rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    cursor: checkingIn ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <LogIn size={14} />
+                  {checkingIn ? 'Đang vào ca...' : 'Check-in Vào ca'}
+                </button>
+              ) : !todayRecord?.checkOut ? (
+                <button
+                  type="button"
+                  onClick={handleCheckOut}
+                  disabled={checkingOut}
+                  className="btn"
+                  style={{
+                    backgroundColor: '#DC2626',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    height: '32px',
+                    padding: '0 0.9rem',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    borderRadius: '0.4rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    cursor: checkingOut ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <LogOut size={14} />
+                  {checkingOut ? 'Đang ra ca...' : 'Check-out Ra ca'}
+                </button>
+              ) : (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  color: '#059669',
+                  backgroundColor: '#ECFDF5',
+                  padding: '4px 10px',
+                  borderRadius: '999px',
+                  border: '1px solid #A7F3D0'
+                }}>
+                  <CheckCircle2 size={13} /> Đã hoàn thành 2 lần chấm công hôm nay
+                </span>
+              )}
             </div>
           </div>
 
@@ -1294,9 +1425,9 @@ export const EmployeeAttendance = () => {
       </div>
 
       {/* MODAL ĐĂNG KÝ LÀM THÊM GIỜ (OT) */}
-      {showOtModal && (
+      {showOtModal && createPortal(
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
+          position: 'fixed', inset: 0, zIndex: 99999,
           backgroundColor: 'rgba(15, 23, 42, 0.5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
         }}>
@@ -1399,7 +1530,8 @@ export const EmployeeAttendance = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

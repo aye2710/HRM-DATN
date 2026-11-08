@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   CalendarRange, Plus, CheckCircle2, Clock, XCircle, AlertCircle, 
   FileText, Calendar, Filter, Sparkles, X, ChevronRight, Info, Award, Users
@@ -237,6 +238,7 @@ export const EmployeeLeave = () => {
             ) : (
               <span>• Thâm niên {quotaInfo.yearsOfService || 0} năm (+1 ngày / 5 năm)</span>
             )}
+            <span style={{ color: '#94A3B8' }}>• Mốc cắt ngày {quotaInfo.cutoffDay || 15} (SOP LLA)</span>
           </div>
         </div>
 
@@ -495,12 +497,12 @@ export const EmployeeLeave = () => {
       </div>
 
       {/* 4. MODAL: TẠO ĐƠN XIN NGHỈ PHÉP SANG TRỌNG */}
-      {showModal && (
+      {showModal && createPortal(
         <div style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 1000,
-          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          zIndex: 99999,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
           backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
@@ -512,9 +514,10 @@ export const EmployeeLeave = () => {
             borderRadius: '1rem',
             width: '100%',
             maxWidth: '520px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
             boxShadow: '0 20px 40px -15px rgba(0,0,0,0.25)',
-            border: '1px solid #E2E8F0',
-            overflow: 'hidden'
+            border: '1px solid #E2E8F0'
           }}>
             {/* Modal Header */}
             <div style={{
@@ -726,7 +729,8 @@ export const EmployeeLeave = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

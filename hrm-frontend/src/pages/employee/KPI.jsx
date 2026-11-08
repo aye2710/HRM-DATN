@@ -102,9 +102,10 @@ export const EmployeeKPI = () => {
 
   const gradeInfo = useMemo(() => {
     const s = Number(totalScore);
-    if (s >= 9.0) return { text: 'Xuất sắc (Hạng A)', color: '#4ADE80' };
-    if (s >= 7.0) return { text: 'Đạt yêu cầu (Hạng B)', color: '#60A5FA' };
-    return { text: 'Cần cải thiện (Hạng C)', color: '#F87171' };
+    if (s >= 9.0) return { text: 'Xuất sắc (Hạng A ≥ 9.0)', color: '#4ADE80' };
+    if (s >= 7.5) return { text: 'Đạt yêu cầu (Hạng B ≥ 7.5)', color: '#60A5FA' };
+    if (s >= 6.0) return { text: 'Cần cải thiện (Hạng C ≥ 6.0)', color: '#FBBF24' };
+    return { text: 'Không đạt (Hạng D < 6.0)', color: '#F87171' };
   }, [totalScore]);
 
   const handleSaveAchieved = async (e) => {
@@ -310,7 +311,7 @@ export const EmployeeKPI = () => {
 
       {/* MODAL CẬP NHẬT KẾT QUẢ ĐẠT ĐƯỢC (ACHIEVED) */}
       {updatingKpi && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
           <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '460px', maxWidth: '95vw', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>

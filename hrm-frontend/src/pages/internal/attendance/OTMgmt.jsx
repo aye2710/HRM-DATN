@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Clock, Plus, Search, Filter, CheckCircle2, XCircle, AlertTriangle,
   FileSpreadsheet, RefreshCw, Calendar, User, Building, Trash2, Check, X,
@@ -109,16 +110,22 @@ export const OTMgmt = () => {
     };
   }, [otRequests]);
 
-  // Mở modal duyệt
+  // Mở modal duyệt (mặc định lấy số giờ đăng ký ban đầu để sếp không phải gõ lại từ 0)
   const handleOpenReview = (request) => {
     setSelectedRequest(request);
-    setActualHoursInput(Number(request.actualHours || request.requestHours || 2));
+    const defaultHours = Number(request.actualHours) > 0
+      ? Number(request.actualHours)
+      : Number(request.requestHours || 2);
+    setActualHoursInput(defaultHours);
     setReviewModalOpen(true);
   };
 
   // Xác nhận Duyệt hoặc Từ chối
   const handleReviewAction = async (status) => {
     if (!selectedRequest) return;
+    if (status === 'APPROVED' && (!Number(actualHoursInput) || Number(actualHoursInput) <= 0)) {
+      return toast.error('Số giờ nghiệm thu thực tế phải lớn hơn 0!');
+    }
     setSubmittingReview(true);
     try {
       await axios.put(
@@ -570,16 +577,17 @@ export const OTMgmt = () => {
       </div>
 
       {/* MODAL PHÊ DUYỆT / NGHIỆM THU GIỜ OT */}
-      {reviewModalOpen && selectedRequest && (
+      {reviewModalOpen && selectedRequest && createPortal(
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          backgroundColor: 'rgba(15, 23, 42, 0.5)',
+          position: 'fixed', inset: 0, zIndex: 99999,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(3px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
         }}>
           <div style={{
             backgroundColor: '#FFFFFF', borderRadius: '0.75rem',
             width: '100%', maxWidth: 460, overflow: 'hidden',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
           }}>
             <div style={{
               padding: '1rem 1.25rem', borderBottom: '1px solid #E2E8F0',
@@ -654,20 +662,22 @@ export const OTMgmt = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL TẠO ĐƠN OT MỚI CHO NHÂN VIÊN */}
-      {createModalOpen && (
+      {createModalOpen && createPortal(
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          backgroundColor: 'rgba(15, 23, 42, 0.5)',
+          position: 'fixed', inset: 0, zIndex: 99999,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(3px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
         }}>
           <div style={{
             backgroundColor: '#FFFFFF', borderRadius: '0.75rem',
             width: '100%', maxWidth: 480, overflow: 'hidden',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
           }}>
             <div style={{
               padding: '1rem 1.25rem', borderBottom: '1px solid #E2E8F0',
@@ -771,7 +781,8 @@ export const OTMgmt = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileDiff, Search, Plus, Filter, Edit2, Trash2, Eye, X, CheckCircle, Award, Target, Layers } from 'lucide-react';
+import { FileDiff, Search, Plus, Filter, Edit2, Trash2, Eye, X, CheckCircle, Award, Target, Layers, Sparkles, BookOpen } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
@@ -9,6 +9,10 @@ export const KPITemplates = () => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Phân trang
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
   // Modal tạo Mẫu mới
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -16,11 +20,16 @@ export const KPITemplates = () => {
     department: 'Tổ Phát triển (Dev)',
     status: 'Active',
     items: [
-      { title: '', category: 'OUTPUT', target: 100, unit: '%', weight: 40, description: '' },
-      { title: '', category: 'QUALITY', target: 90, unit: '%', weight: 30, description: '' },
-      { title: '', category: 'COMPLIANCE', target: 98, unit: '%', weight: 30, description: '' }
+      { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 40, description: '' },
+      { title: '', category: 'QUALITY', target: 100, unit: '%', weight: 30, description: '' },
+      { title: '', category: 'COMPLIANCE', target: 100, unit: '%', weight: 20, description: '' },
+      { title: '', category: 'GROWTH', target: 100, unit: '%', weight: 10, description: '' }
     ]
   });
+
+  // Modal chỉnh sửa Mẫu có sẵn
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState(null);
 
   // Modal xem chi tiết tiêu chuẩn
   const [viewingTemplate, setViewingTemplate] = useState(null);
@@ -41,36 +50,63 @@ export const KPITemplates = () => {
     fetchTemplates();
   }, []);
 
-  const totalWeight = useMemo(() => {
+  const totalCreateWeight = useMemo(() => {
     return formData.items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
   }, [formData.items]);
 
-  const handleAddItem = () => {
-    setFormData({
-      ...formData,
-      items: [
-        ...formData.items,
-        { title: '', category: 'OUTPUT', target: 100, unit: '%', weight: 10, description: '' }
-      ]
-    });
+  const totalEditWeight = useMemo(() => {
+    if (!editFormData || !editFormData.items) return 0;
+    return editFormData.items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
+  }, [editFormData]);
+
+  const handleAddItem = (isEdit = false) => {
+    if (isEdit) {
+      setEditFormData({
+        ...editFormData,
+        items: [
+          ...editFormData.items,
+          { title: '', category: 'OUTPUT', target: 100, unit: '%', weight: 10, description: '' }
+        ]
+      });
+    } else {
+      setFormData({
+        ...formData,
+        items: [
+          ...formData.items,
+          { title: '', category: 'OUTPUT', target: 100, unit: '%', weight: 10, description: '' }
+        ]
+      });
+    }
   };
 
-  const handleRemoveItem = (index) => {
-    if (formData.items.length <= 1) return toast.error('Mẫu phải có tối thiểu 1 tiêu chí');
-    const newItems = formData.items.filter((_, i) => i !== index);
-    setFormData({ ...formData, items: newItems });
+  const handleRemoveItem = (index, isEdit = false) => {
+    if (isEdit) {
+      if (editFormData.items.length <= 1) return toast.error('Mẫu phải có tối thiểu 1 tiêu chí');
+      const newItems = editFormData.items.filter((_, i) => i !== index);
+      setEditFormData({ ...editFormData, items: newItems });
+    } else {
+      if (formData.items.length <= 1) return toast.error('Mẫu phải có tối thiểu 1 tiêu chí');
+      const newItems = formData.items.filter((_, i) => i !== index);
+      setFormData({ ...formData, items: newItems });
+    }
   };
 
-  const handleItemChange = (index, field, value) => {
-    const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setFormData({ ...formData, items: newItems });
+  const handleItemChange = (index, field, value, isEdit = false) => {
+    if (isEdit) {
+      const newItems = [...editFormData.items];
+      newItems[index] = { ...newItems[index], [field]: value };
+      setEditFormData({ ...editFormData, items: newItems });
+    } else {
+      const newItems = [...formData.items];
+      newItems[index] = { ...newItems[index], [field]: value };
+      setFormData({ ...formData, items: newItems });
+    }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return toast.error('Vui lòng nhập tên Mẫu KPI');
-    if (totalWeight !== 100) return toast.error(`Tổng trọng số các tiêu chí phải bằng đúng 100% (Hiện tại: ${totalWeight}%)`);
+    if (totalCreateWeight !== 100) return toast.error(`Tổng trọng số các tiêu chí phải bằng đúng 100% (Hiện tại: ${totalCreateWeight}%)`);
 
     for (let i = 0; i < formData.items.length; i++) {
       if (!formData.items[i].title.trim()) {
@@ -94,14 +130,62 @@ export const KPITemplates = () => {
         department: 'Tổ Phát triển (Dev)',
         status: 'Active',
         items: [
-          { title: '', category: 'OUTPUT', target: 100, unit: '%', weight: 40, description: '' },
-          { title: '', category: 'QUALITY', target: 90, unit: '%', weight: 30, description: '' },
-          { title: '', category: 'COMPLIANCE', target: 98, unit: '%', weight: 30, description: '' }
+          { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 40, description: '' },
+          { title: '', category: 'QUALITY', target: 100, unit: '%', weight: 30, description: '' },
+          { title: '', category: 'COMPLIANCE', target: 100, unit: '%', weight: 20, description: '' },
+          { title: '', category: 'GROWTH', target: 100, unit: '%', weight: 10, description: '' }
         ]
       });
       fetchTemplates();
     } catch (err) {
       toast.error('Lỗi khi tạo mẫu KPI');
+    }
+  };
+
+  const handleOpenEdit = (tpl) => {
+    let parsedItems = [];
+    try {
+      parsedItems = tpl.items ? JSON.parse(tpl.items) : [];
+    } catch (e) {
+      parsedItems = [];
+    }
+    setEditFormData({
+      id: tpl.id,
+      name: tpl.name,
+      department: tpl.department,
+      status: tpl.status || 'Active',
+      items: parsedItems.length > 0 ? parsedItems : [
+        { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 100, description: '' }
+      ]
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editFormData.name.trim()) return toast.error('Vui lòng nhập tên Mẫu KPI');
+    if (totalEditWeight !== 100) return toast.error(`Tổng trọng số các tiêu chí phải bằng đúng 100% (Hiện tại: ${totalEditWeight}%)`);
+
+    for (let i = 0; i < editFormData.items.length; i++) {
+      if (!editFormData.items[i].title.trim()) {
+        return toast.error(`Vui lòng nhập tên cho Tiêu chí #${i + 1}`);
+      }
+    }
+
+    try {
+      await axios.put(`http://localhost:5000/api/kpi/templates/${editFormData.id}`, {
+        name: editFormData.name,
+        department: editFormData.department,
+        criteria: editFormData.items.length,
+        status: editFormData.status,
+        items: editFormData.items
+      });
+      toast.success('Đã cập nhật Mẫu KPI thành công!');
+      setIsEditModalOpen(false);
+      setEditFormData(null);
+      fetchTemplates();
+    } catch (err) {
+      toast.error('Lỗi khi cập nhật Mẫu KPI');
     }
   };
 
@@ -131,6 +215,11 @@ export const KPITemplates = () => {
     t.department.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage) || 1;
+  const paginatedTemplates = useMemo(() => {
+    return filteredTemplates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredTemplates, currentPage, itemsPerPage]);
+
   return (
     <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
       
@@ -155,7 +244,7 @@ export const KPITemplates = () => {
             </h1>
           </div>
           <p className="text-muted text-xs mt-1" style={{ margin: 0, color: '#64748B' }}>
-            Thư viện tiêu chí chuẩn và tỷ lệ trọng số theo từng phòng ban, giúp chuẩn hóa việc giao chỉ tiêu.
+            Thư viện tiêu chí chuẩn và tỷ lệ trọng số 100% theo từng phòng ban, giúp chuẩn hóa và giao mục tiêu chỉ trong 1 click.
           </p>
         </div>
 
@@ -168,7 +257,41 @@ export const KPITemplates = () => {
         </button>
       </div>
 
-      {/* 2. Bảng Danh Sách Mẫu KPI */}
+      {/* 2. Banner Hướng Dẫn Quy Chuẩn Sổ Tay Vận Hành DEV (LLA) */}
+      <div style={{
+        backgroundColor: '#F8FAFC',
+        border: '1px solid #E2E8F0',
+        borderRadius: '12px',
+        padding: '1rem 1.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '1rem',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: '10px',
+            backgroundColor: '#EFF6FF', color: '#2563EB',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+          }}>
+            <BookOpen size={20} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0F172A' }}>
+              Quy chuẩn KPI Khối Phát triển Phần mềm (DEV) theo Sổ tay vận hành LLA
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
+              Cơ cấu 100 điểm bảo vệ lương cứng: <strong>Tiến độ UCP (40%)</strong> • <strong>Chất lượng Review (30%)</strong> • <strong>Kỷ luật Git/Wiki (20%)</strong> • <strong>Đóng góp đội ngũ (10%)</strong>.
+            </div>
+          </div>
+        </div>
+        <span className="badge" style={{ backgroundColor: '#DCFCE7', color: '#166534', fontWeight: 700, fontSize: '0.75rem', padding: '4px 10px' }}>
+          Đã Chuẩn Hóa 100%
+        </span>
+      </div>
+
+      {/* 3. Bảng Danh Sách Mẫu KPI */}
       <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
         
         {/* Tìm kiếm */}
@@ -181,7 +304,7 @@ export const KPITemplates = () => {
               className="form-input"
               style={{ paddingLeft: '34px', fontSize: '0.85rem', height: '36px' }}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
           <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 600 }}>
@@ -206,7 +329,7 @@ export const KPITemplates = () => {
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>Đang tải danh sách Mẫu KPI...</td></tr>
               ) : filteredTemplates.length === 0 ? (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>Chưa có Mẫu KPI nào phù hợp.</td></tr>
-              ) : filteredTemplates.map(tpl => {
+              ) : paginatedTemplates.map(tpl => {
                 const items = parseTemplateItems(tpl.items);
                 return (
                   <tr key={tpl.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
@@ -241,19 +364,27 @@ export const KPITemplates = () => {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         <button 
                           className="btn btn-outline" 
-                          style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#2563EB' }}
+                          style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', borderColor: '#BFDBFE' }}
                           onClick={() => setViewingTemplate(tpl)}
                           title="Xem chi tiết các tiêu chuẩn trong mẫu"
                         >
-                          <Eye size={13} /> Xem tiêu chuẩn
+                          <Eye size={15} />
                         </button>
                         <button 
                           className="btn btn-outline" 
-                          style={{ padding: '4px 8px', fontSize: '0.75rem', color: '#EF4444' }} 
+                          style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#059669', borderColor: '#A7F3D0' }}
+                          onClick={() => handleOpenEdit(tpl)}
+                          title="Chỉnh sửa Mẫu KPI"
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                        <button 
+                          className="btn btn-outline" 
+                          style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444', borderColor: '#FECACA' }} 
                           onClick={() => handleDelete(tpl.id, tpl.name)}
                           title="Xóa mẫu KPI"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -263,11 +394,62 @@ export const KPITemplates = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Phân Trang */}
+        {filteredTemplates.length > 0 && (
+          <div style={{
+            padding: '0.75rem 0.5rem',
+            borderTop: '1px solid #E2E8F0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem'
+          }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
+              Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredTemplates.length)} trong tổng số {filteredTemplates.length} bộ mẫu
+            </span>
+
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button 
+                className="btn btn-outline" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
+              >
+                Trước
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                  style={{
+                    height: '32px', minWidth: '32px', padding: 0,
+                    fontSize: '0.8rem', fontWeight: currentPage === page ? 700 : 500
+                  }}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button 
+                className="btn btn-outline"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL XEM CHI TIẾT CÁC TIÊU CHÍ TRONG MẪU */}
       {viewingTemplate && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
           <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '700px', maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
@@ -327,7 +509,7 @@ export const KPITemplates = () => {
 
       {/* MODAL TẠO MẪU KPI MỚI */}
       {isModalOpen && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
           <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '760px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
@@ -372,11 +554,11 @@ export const KPITemplates = () => {
               <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0F172A' }}>
-                    Các chỉ số tiêu chuẩn trong mẫu (Tổng trọng số: <span style={{ color: totalWeight === 100 ? '#166534' : '#DC2626', fontWeight: 800 }}>{totalWeight}%</span>)
+                    Các chỉ số tiêu chuẩn trong mẫu (Tổng trọng số: <span style={{ color: totalCreateWeight === 100 ? '#166534' : '#DC2626', fontWeight: 800 }}>{totalCreateWeight}%</span>)
                   </div>
                   <button 
                     type="button" 
-                    onClick={handleAddItem}
+                    onClick={() => handleAddItem(false)}
                     className="btn btn-outline" 
                     style={{ fontSize: '0.78rem', padding: '3px 10px', color: '#2563EB', borderColor: '#BFDBFE' }}
                   >
@@ -394,7 +576,7 @@ export const KPITemplates = () => {
                           placeholder={`Tên tiêu chí #${index + 1}...`}
                           required
                           value={item.title}
-                          onChange={e => handleItemChange(index, 'title', e.target.value)}
+                          onChange={e => handleItemChange(index, 'title', e.target.value, false)}
                           style={{ fontSize: '0.82rem', height: '34px' }}
                         />
                       </div>
@@ -402,7 +584,7 @@ export const KPITemplates = () => {
                         <select 
                           className="form-select" 
                           value={item.category} 
-                          onChange={e => handleItemChange(index, 'category', e.target.value)}
+                          onChange={e => handleItemChange(index, 'category', e.target.value, false)}
                           style={{ fontSize: '0.82rem', height: '34px' }}
                         >
                           <option value="OUTPUT">Khối lượng (Output)</option>
@@ -419,7 +601,7 @@ export const KPITemplates = () => {
                           placeholder="Chỉ tiêu"
                           required
                           value={item.target}
-                          onChange={e => handleItemChange(index, 'target', e.target.value)}
+                          onChange={e => handleItemChange(index, 'target', e.target.value, false)}
                           style={{ fontSize: '0.82rem', height: '34px' }}
                         />
                       </div>
@@ -428,9 +610,9 @@ export const KPITemplates = () => {
                           <input 
                             type="text" 
                             className="form-input" 
-                            placeholder="Đơn vị (%, ms, VNĐ...)"
+                            placeholder="Đơn vị (%, ms...)"
                             value={item.unit}
-                            onChange={e => handleItemChange(index, 'unit', e.target.value)}
+                            onChange={e => handleItemChange(index, 'unit', e.target.value, false)}
                             style={{ fontSize: '0.82rem', height: '34px', width: '60px' }}
                           />
                           <input 
@@ -439,7 +621,7 @@ export const KPITemplates = () => {
                             placeholder="Trọng số %"
                             required
                             value={item.weight}
-                            onChange={e => handleItemChange(index, 'weight', e.target.value)}
+                            onChange={e => handleItemChange(index, 'weight', e.target.value, false)}
                             style={{ fontSize: '0.82rem', height: '34px', width: '55px', fontWeight: 700 }}
                           />
                           <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>%</span>
@@ -447,7 +629,7 @@ export const KPITemplates = () => {
                       </div>
                       <button 
                         type="button" 
-                        onClick={() => handleRemoveItem(index)}
+                        onClick={() => handleRemoveItem(index, false)}
                         style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}
                       >
                         <Trash2 size={16} />
@@ -459,7 +641,7 @@ export const KPITemplates = () => {
                       className="form-input" 
                       placeholder="Mô tả / Hướng dẫn cách đo lường chỉ tiêu này..."
                       value={item.description}
-                      onChange={e => handleItemChange(index, 'description', e.target.value)}
+                      onChange={e => handleItemChange(index, 'description', e.target.value, false)}
                       style={{ fontSize: '0.78rem', height: '30px', backgroundColor: '#FFFFFF' }}
                     />
                   </div>
@@ -472,6 +654,161 @@ export const KPITemplates = () => {
                 </button>
                 <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '6px 20px', fontWeight: 700 }}>
                   Lưu Mẫu KPI
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* MODAL CHỈNH SỬA MẪU KPI CÓ SẴN */}
+      {isEditModalOpen && editFormData && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '760px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Edit2 size={18} color="#059669" /> Chỉnh Sửa Mẫu KPI: {editFormData.name}
+              </h3>
+              <button onClick={() => setIsEditModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Tên Mẫu KPI *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    required 
+                    value={editFormData.name} 
+                    onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} 
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Phòng ban áp dụng *</label>
+                  <select 
+                    className="form-select" 
+                    value={editFormData.department} 
+                    onChange={e => setEditFormData({ ...editFormData, department: e.target.value })}
+                  >
+                    <option value="Tổ Phát triển (Dev)">Tổ Phát triển (Dev)</option>
+                    <option value="Tổ Kiểm thử">Tổ Kiểm thử (QA/QC)</option>
+                    <option value="Phòng Nhân sự">Phòng Nhân sự (HR)</option>
+                    <option value="Phòng Kinh doanh">Phòng Kinh doanh (Sales)</option>
+                    <option value="Phòng Tài chính - Kế toán">Phòng Tài chính - Kế toán</option>
+                    <option value="Toàn công ty">Toàn công ty</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Danh sách tiêu chí con */}
+              <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0F172A' }}>
+                    Các chỉ số tiêu chuẩn trong mẫu (Tổng trọng số: <span style={{ color: totalEditWeight === 100 ? '#166534' : '#DC2626', fontWeight: 800 }}>{totalEditWeight}%</span>)
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => handleAddItem(true)}
+                    className="btn btn-outline" 
+                    style={{ fontSize: '0.78rem', padding: '3px 10px', color: '#2563EB', borderColor: '#BFDBFE' }}
+                  >
+                    + Thêm tiêu chí
+                  </button>
+                </div>
+
+                {editFormData.items.map((item, index) => (
+                  <div key={index} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px', backgroundColor: '#F8FAFC', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '8px', alignItems: 'center' }}>
+                      <div>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          placeholder={`Tên tiêu chí #${index + 1}...`}
+                          required
+                          value={item.title}
+                          onChange={e => handleItemChange(index, 'title', e.target.value, true)}
+                          style={{ fontSize: '0.82rem', height: '34px' }}
+                        />
+                      </div>
+                      <div>
+                        <select 
+                          className="form-select" 
+                          value={item.category} 
+                          onChange={e => handleItemChange(index, 'category', e.target.value, true)}
+                          style={{ fontSize: '0.82rem', height: '34px' }}
+                        >
+                          <option value="OUTPUT">Khối lượng (Output)</option>
+                          <option value="QUALITY">Chất lượng (Quality)</option>
+                          <option value="TIMELINE">Tiến độ (Timeline)</option>
+                          <option value="COMPLIANCE">Quy trình (Compliance)</option>
+                          <option value="GROWTH">Đào tạo (Growth)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <input 
+                          type="number" 
+                          className="form-input" 
+                          placeholder="Chỉ tiêu"
+                          required
+                          value={item.target}
+                          onChange={e => handleItemChange(index, 'target', e.target.value, true)}
+                          style={{ fontSize: '0.82rem', height: '34px' }}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            placeholder="Đơn vị (%, ms...)"
+                            value={item.unit}
+                            onChange={e => handleItemChange(index, 'unit', e.target.value, true)}
+                            style={{ fontSize: '0.82rem', height: '34px', width: '60px' }}
+                          />
+                          <input 
+                            type="number" 
+                            className="form-input" 
+                            placeholder="Trọng số %"
+                            required
+                            value={item.weight}
+                            onChange={e => handleItemChange(index, 'weight', e.target.value, true)}
+                            style={{ fontSize: '0.82rem', height: '34px', width: '55px', fontWeight: 700 }}
+                          />
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>%</span>
+                        </div>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => handleRemoveItem(index, true)}
+                        style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="Mô tả / Hướng dẫn cách đo lường chỉ tiêu này..."
+                      value={item.description}
+                      onChange={e => handleItemChange(index, 'description', e.target.value, true)}
+                      style={{ fontSize: '0.78rem', height: '30px', backgroundColor: '#FFFFFF' }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn btn-outline" style={{ fontSize: '0.85rem' }}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '6px 20px', fontWeight: 700, backgroundColor: '#059669', borderColor: '#059669' }}>
+                  Cập nhật Mẫu KPI
                 </button>
               </div>
 

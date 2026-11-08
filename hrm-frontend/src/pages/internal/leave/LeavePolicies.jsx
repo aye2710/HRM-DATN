@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FileBadge, Search, Plus, Filter, Trash2, XCircle } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -80,7 +81,7 @@ export const LeavePolicies = () => {
           </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', fontSize: '0.825rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem', fontSize: '0.825rem' }}>
           <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
             <div style={{ fontWeight: 600, color: '#1E293B', marginBottom: '4px' }}>⏳ Thời hạn báo trước</div>
             <div style={{ color: '#475569', lineHeight: 1.5 }}>
@@ -102,6 +103,14 @@ export const LeavePolicies = () => {
             <div style={{ color: '#475569', lineHeight: 1.5 }}>
               &bull; Phép năm: <strong>12 ngày/năm</strong> + <strong>1 ngày/mỗi 5 năm</strong> thâm niên (Điều 114 BLLĐ).<br />
               &bull; Cưới bản thân: <strong>3 ngày</strong>; Con cưới: <strong>1 ngày</strong>; Tang gia: <strong>3 ngày</strong> (Điều 115 BLLĐ).
+            </div>
+          </div>
+
+          <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+            <div style={{ fontWeight: 600, color: '#1E293B', marginBottom: '4px' }}>🔄 Chuyển phép &amp; Mốc tính tháng (SOP LLA)</div>
+            <div style={{ color: '#475569', lineHeight: 1.5 }}>
+              &bull; <strong>Chuyển phép năm cũ:</strong> Tối đa <strong>5 ngày</strong>, sử dụng đến hết <strong>31/03</strong> năm sau.<br />
+              &bull; <strong>Mốc ngày 15:</strong> Vào làm từ ngày 1-15 tính trọn tháng (+1 ngày phép), sau ngày 15 chưa tính.
             </div>
           </div>
         </div>
@@ -171,9 +180,9 @@ export const LeavePolicies = () => {
         </div>
       </div>
 
-      {showModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          <div className="card glass animate-fade-in" style={{ width: '450px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {showModal && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="card glass animate-fade-in" style={{ width: '450px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', backgroundColor: '#FFFFFF', borderRadius: '0.75rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-main)', margin: 0 }}>Thêm Chính Sách</h2>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
@@ -208,7 +217,8 @@ export const LeavePolicies = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

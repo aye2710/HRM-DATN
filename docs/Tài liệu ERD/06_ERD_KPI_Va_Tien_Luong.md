@@ -63,6 +63,7 @@ erDiagram
         int criteria "Số lượng tiêu chí"
         string weight "Tỷ trọng cấu hình"
         string status "Active / Inactive"
+        text items "JSON danh sách tiêu chuẩn con [{ title, category, target, unit, weight }]"
     }
 
     PayrollPeriod {

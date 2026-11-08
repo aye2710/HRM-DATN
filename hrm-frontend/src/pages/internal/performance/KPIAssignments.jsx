@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Target, Search, Plus, Edit2, Trash2, CheckCircle2, AlertCircle, 
-  TrendingUp, Award, Layers, Sparkles, Filter, X, ArrowRight, UserCheck, Calendar
+  TrendingUp, Award, Layers, Sparkles, Filter, X, ArrowRight, UserCheck, Calendar, BookOpen
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -15,6 +15,10 @@ export const KPIAssignments = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDept, setFilterDept] = useState('ALL');
   const [filterPeriod, setFilterPeriod] = useState('ALL');
+
+  // Phân trang
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   // Modal 1: Giao KPI từ Mẫu chuẩn (Khuyến nghị)
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -38,6 +42,18 @@ export const KPIAssignments = () => {
   // Modal 3: Cập nhật tiến độ thực tế (Achieved)
   const [updatingKpi, setUpdatingKpi] = useState(null);
   const [achievedVal, setAchievedVal] = useState(0);
+
+  // Modal 4: Chỉnh sửa chỉ tiêu KPI (Quản lý)
+  const [editingKpi, setEditingKpi] = useState(null);
+  const [editKpiForm, setEditKpiForm] = useState({
+    description: '',
+    target: 100,
+    achieved: 0,
+    unit: '%',
+    weight: 25,
+    category: 'OUTPUT',
+    period: 'Q3-2026'
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -177,6 +193,42 @@ export const KPIAssignments = () => {
     }
   };
 
+  // Mở modal Sửa Chỉ tiêu KPI
+  const handleOpenEditKpi = (k) => {
+    setEditingKpi(k);
+    setEditKpiForm({
+      description: k.description,
+      target: Number(k.target || 100),
+      achieved: Number(k.achieved || 0),
+      unit: k.unit || '%',
+      weight: Number(k.weight || 25),
+      category: k.category || 'OUTPUT',
+      period: k.period || 'Q3-2026'
+    });
+  };
+
+  // Lưu chỉnh sửa KPI
+  const handleSaveEditKpi = async (e) => {
+    e.preventDefault();
+    if (!editingKpi) return;
+    try {
+      await axios.put(`http://localhost:5000/api/kpi/kpi/${editingKpi.id}`, {
+        description: editKpiForm.description,
+        target: Number(editKpiForm.target),
+        achieved: Number(editKpiForm.achieved),
+        unit: editKpiForm.unit,
+        weight: Number(editKpiForm.weight),
+        category: editKpiForm.category,
+        period: editKpiForm.period
+      });
+      toast.success('Đã cập nhật chỉ tiêu KPI thành công!');
+      setEditingKpi(null);
+      fetchData();
+    } catch (err) {
+      toast.error('Lỗi khi cập nhật chỉ tiêu KPI');
+    }
+  };
+
   const handleDeleteKpi = async (id, desc) => {
     if (!window.confirm(`Xác nhận xóa chỉ tiêu KPI: "${desc}"?`)) return;
     try {
@@ -234,6 +286,12 @@ export const KPIAssignments = () => {
       return matchSearch && matchDept && matchPeriod;
     });
   }, [kpis, searchTerm, filterDept, filterPeriod]);
+
+  // Phân trang
+  const totalPages = Math.ceil(filteredKpis.length / itemsPerPage) || 1;
+  const paginatedKpis = useMemo(() => {
+    return filteredKpis.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredKpis, currentPage, itemsPerPage]);
 
   return (
     <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
@@ -324,14 +382,14 @@ export const KPIAssignments = () => {
                 className="form-input"
                 style={{ paddingLeft: '34px', fontSize: '0.85rem', height: '36px' }}
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
 
             <select
               className="form-select"
               value={filterDept}
-              onChange={e => setFilterDept(e.target.value)}
+              onChange={e => { setFilterDept(e.target.value); setCurrentPage(1); }}
               style={{ width: '180px', height: '36px', fontSize: '0.825rem' }}
             >
               <option value="ALL">-- Tất cả phòng ban --</option>
@@ -343,7 +401,7 @@ export const KPIAssignments = () => {
             <select
               className="form-select"
               value={filterPeriod}
-              onChange={e => setFilterPeriod(e.target.value)}
+              onChange={e => { setFilterPeriod(e.target.value); setCurrentPage(1); }}
               style={{ width: '140px', height: '36px', fontSize: '0.825rem' }}
             >
               <option value="ALL">-- Tất cả kỳ --</option>
@@ -377,7 +435,7 @@ export const KPIAssignments = () => {
                 <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>Đang tải dữ liệu...</td></tr>
               ) : filteredKpis.length === 0 ? (
                 <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>Chưa có chỉ tiêu KPI nào phù hợp.</td></tr>
-              ) : filteredKpis.map(k => {
+              ) : paginatedKpis.map(k => {
                 const progress = computeProgress(k.target, k.achieved, k.unit);
                 const isExcellent = progress >= 90;
                 const isOnTrack = progress >= 70 && progress < 90;
@@ -469,22 +527,30 @@ export const KPIAssignments = () => {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         <button
                           className="btn btn-outline"
-                          style={{ padding: '4px 8px', fontSize: '0.75rem', color: '#2563EB' }}
+                          style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', borderColor: '#BFDBFE' }}
                           title="Cập nhật tiến độ thực tế"
                           onClick={() => {
                             setUpdatingKpi(k);
                             setAchievedVal(Number(k.achieved || 0));
                           }}
                         >
-                          <TrendingUp size={14} />
+                          <TrendingUp size={15} />
                         </button>
                         <button
                           className="btn btn-outline"
-                          style={{ padding: '4px 8px', fontSize: '0.75rem', color: '#EF4444' }}
+                          style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#059669', borderColor: '#A7F3D0' }}
+                          title="Chỉnh sửa chỉ tiêu"
+                          onClick={() => handleOpenEditKpi(k)}
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444', borderColor: '#FECACA' }}
                           title="Xóa chỉ tiêu này"
                           onClick={() => handleDeleteKpi(k.id, k.description)}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -495,11 +561,62 @@ export const KPIAssignments = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Phân Trang */}
+        {filteredKpis.length > 0 && (
+          <div style={{
+            padding: '0.75rem 0.5rem',
+            borderTop: '1px solid #E2E8F0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem'
+          }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
+              Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredKpis.length)} trong tổng số {filteredKpis.length} chỉ tiêu
+            </span>
+
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button 
+                className="btn btn-outline" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
+              >
+                Trước
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+                  style={{
+                    height: '32px', minWidth: '32px', padding: 0,
+                    fontSize: '0.8rem', fontWeight: currentPage === page ? 700 : 500
+                  }}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button 
+                className="btn btn-outline"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL 1: GIAO KPI TỪ MẪU CHUẨN (KHÔNG CẦN TỰ NGHĨ TỪ ĐẦU) */}
       {isTemplateModalOpen && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
           <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '760px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
@@ -621,7 +738,7 @@ export const KPIAssignments = () => {
 
       {/* MODAL 2: GIAO KPI THỦ CÔNG ĐƠN LẺ */}
       {isManualModalOpen && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
           <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '560px', maxWidth: '95vw', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
@@ -711,7 +828,7 @@ export const KPIAssignments = () => {
 
       {/* MODAL 3: CẬP NHẬT TIẾN ĐỘ THỰC TẾ (ACHIEVED) */}
       {updatingKpi && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
           <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '480px', maxWidth: '95vw', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
@@ -762,6 +879,109 @@ export const KPIAssignments = () => {
                 </button>
                 <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '6px 20px', fontWeight: 700 }}>
                   Lưu Tiến Độ
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* MODAL 4: CHỈNH SỬA CHỈ TIÊU KPI (QUẢN LÝ / HR) */}
+      {editingKpi && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '560px', maxWidth: '95vw', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Edit2 size={16} color="#059669" /> Chỉnh Sửa Chỉ Tiêu KPI
+              </h3>
+              <button onClick={() => setEditingKpi(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleSaveEditKpi} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>Nhân sự áp dụng:</span>
+                <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.9rem', marginTop: '2px' }}>
+                  {editingKpi.employee?.fullName} ({editingKpi.employee?.code})
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Mô tả chỉ tiêu *</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  required
+                  value={editKpiForm.description}
+                  onChange={e => setEditKpiForm({ ...editKpiForm, description: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Mục tiêu (`Target`)</label>
+                  <input 
+                    type="number" 
+                    className="form-input" 
+                    required
+                    value={editKpiForm.target}
+                    onChange={e => setEditKpiForm({ ...editKpiForm, target: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Thực tế (`Achieved`)</label>
+                  <input 
+                    type="number" 
+                    className="form-input" 
+                    required
+                    value={editKpiForm.achieved}
+                    onChange={e => setEditKpiForm({ ...editKpiForm, achieved: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Đơn vị đo</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={editKpiForm.unit}
+                    onChange={e => setEditKpiForm({ ...editKpiForm, unit: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Trọng số (%)</label>
+                  <input 
+                    type="number" 
+                    className="form-input" 
+                    required
+                    value={editKpiForm.weight}
+                    onChange={e => setEditKpiForm({ ...editKpiForm, weight: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Kỳ áp dụng</label>
+                  <select 
+                    className="form-select"
+                    value={editKpiForm.period}
+                    onChange={e => setEditKpiForm({ ...editKpiForm, period: e.target.value })}
+                  >
+                    <option value="Q3-2026">Quý 3 - 2026</option>
+                    <option value="Q4-2026">Quý 4 - 2026</option>
+                    <option value="YEAR-2026">Năm 2026</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
+                <button type="button" onClick={() => setEditingKpi(null)} className="btn btn-outline" style={{ fontSize: '0.85rem' }}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '6px 20px', fontWeight: 700, backgroundColor: '#059669', borderColor: '#059669' }}>
+                  Cập nhật Chỉ Tiêu
                 </button>
               </div>
 
