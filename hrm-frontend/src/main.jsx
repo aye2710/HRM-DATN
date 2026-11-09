@@ -5,6 +5,29 @@ import App from './App.jsx'
 
 import axios from 'axios';
 
+// Tự động điều hướng API sang server Cloud khi chạy trên Web Production
+const remoteApi = import.meta.env.VITE_API_URL || '';
+const isProduction = import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1');
+
+if (isProduction || remoteApi) {
+  const targetBase = remoteApi ? remoteApi.replace(/\/$/, '') : '';
+  
+  axios.interceptors.request.use((config) => {
+    if (config.url && config.url.includes('http://localhost:5000')) {
+      config.url = config.url.replace('http://localhost:5000', targetBase);
+    }
+    return config;
+  });
+
+  const originalFetch = window.fetch;
+  window.fetch = function (resource, init) {
+    if (typeof resource === 'string' && resource.includes('http://localhost:5000')) {
+      resource = resource.replace('http://localhost:5000', targetBase);
+    }
+    return originalFetch(resource, init);
+  };
+}
+
 // Tự động đính kèm Token nội bộ vào header Authorization
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
