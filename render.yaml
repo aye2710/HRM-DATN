@@ -45,7 +45,6 @@ services:
   - type: web
     name: hrm-frontend
     env: static
-    region: singapore
     rootDir: hrm-frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -54,8 +53,9 @@ services:
         fromService:
           type: web
           name: hrm-backend
-          property: host
+          envVarKey: RENDER_EXTERNAL_URL
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
+

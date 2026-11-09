@@ -31,3 +31,4 @@ Hệ thống đã được trang bị tệp cấu hình hạ tầng tự động
 ### 🔑 Thông tin tài khoản đăng nhập trên Web thật:
 * **Tài khoản Quản trị (Admin)**: `admin` / Mật khẩu: `123456`
 * **Tài khoản Nhân viên (ESS)**: `emp01` / Mật khẩu: `123456`
+
