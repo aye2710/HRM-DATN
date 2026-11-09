@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Building, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
+import { Building, Search, Plus, Filter, MoreVertical, Edit2, Trash2, X, AlertTriangle, Lock, Unlock, Download, Upload, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { exportToExcel } from '../../../utils/excelHelper';
+import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
 
 // Hàm loại bỏ dấu tiếng Việt
 const removeVietnameseTones = (str) => {
@@ -90,6 +92,191 @@ export const Departments = () => {
   const [deleteId, setDeleteId] = useState(null);
   // Lock/Unlock confirm state
   const [lockTarget, setLockTarget] = useState(null);
+
+  // Modal Nhập dữ liệu dùng chung
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const departmentImportColumns = [
+    { key: 'name', label: 'Tên phòng ban', required: true, sample: 'Phòng Kỹ thuật & Công nghệ' },
+    { key: 'code', label: 'Mã phòng ban (để trống tự sinh)', required: false, sample: 'IT' },
+    { key: 'managerName', label: 'Người đại diện / Trưởng phòng', required: false, sample: 'Nguyễn Văn An' },
+    { key: 'quota', label: 'Định biên nhân sự', required: false, sample: '20' },
+    { key: 'parentName', label: 'Trực thuộc phòng ban cha', required: false, sample: 'Ban Giám đốc' },
+    { key: 'status', label: 'Trạng thái', required: false, sample: 'Hoạt động' }
+  ];
+
+  const sampleDepartmentData = [
+    {
+      name: 'Ban Giám đốc',
+      code: 'BGD',
+      managerName: 'Trần Văn Tổng',
+      quota: '5',
+      parentName: '',
+      status: 'Hoạt động'
+    },
+    {
+      name: 'Phòng Kỹ thuật & Công nghệ',
+      code: 'IT',
+      managerName: 'Lê Hoàng IT',
+      quota: '25',
+      parentName: 'Ban Giám đốc',
+      status: 'Hoạt động'
+    },
+    {
+      name: 'Phòng Nhân sự & Hành chính',
+      code: 'HR',
+      managerName: 'Đặng Mai Phương',
+      quota: '10',
+      parentName: 'Ban Giám đốc',
+      status: 'Hoạt động'
+    },
+    {
+      name: 'Phòng Tài chính - Kế toán',
+      code: 'TCKT',
+      managerName: 'Hoàng Kim Chi',
+      quota: '8',
+      parentName: 'Ban Giám đốc',
+      status: 'Hoạt động'
+    },
+    {
+      name: 'Phòng Marketing & Truyền thông',
+      code: 'MKT',
+      managerName: 'Vũ Quốc Đạt',
+      quota: '12',
+      parentName: 'Ban Giám đốc',
+      status: 'Hoạt động'
+    }
+  ];
+
+  // Tính toán số nhân sự và định biên lũy kế tự động theo cây phả hệ (Rollup Hierarchy)
+  const getDeptHierarchyStats = useMemo(() => {
+    const statsMap = new Map();
+
+    const calculateStats = (deptId) => {
+      if (statsMap.has(deptId)) return statsMap.get(deptId);
+
+      const dept = departments.find(d => d.id === deptId);
+      if (!dept) {
+        return { directHeadcount: 0, totalHeadcount: 0, directQuota: 0, totalQuota: 0, hasChildren: false, childCount: 0 };
+      }
+
+      const directHeadcount = dept._count?.employees || 0;
+      const directQuota = dept.quota || 0;
+
+      const children = departments.filter(d => d.parentId === deptId);
+      const hasChildren = children.length > 0;
+
+      if (!hasChildren) {
+        const res = {
+          directHeadcount,
+          totalHeadcount: directHeadcount,
+          directQuota,
+          totalQuota: directQuota,
+          hasChildren: false,
+          childCount: 0
+        };
+        statsMap.set(deptId, res);
+        return res;
+      }
+
+      let childHeadcountSum = 0;
+      let childQuotaSum = 0;
+
+      for (const child of children) {
+        const cStats = calculateStats(child.id);
+        childHeadcountSum += cStats.totalHeadcount;
+        childQuotaSum += cStats.totalQuota;
+      }
+
+      const totalHeadcount = directHeadcount + childHeadcountSum;
+      const effectiveQuota = Math.max(directQuota, childQuotaSum);
+
+      const res = {
+        directHeadcount,
+        totalHeadcount,
+        directQuota,
+        totalQuota: effectiveQuota,
+        childQuotaSum,
+        hasChildren: true,
+        childCount: children.length
+      };
+      statsMap.set(deptId, res);
+      return res;
+    };
+
+    departments.forEach(d => calculateStats(d.id));
+    return statsMap;
+  }, [departments]);
+
+  // Xuất file Excel cơ cấu phòng ban
+  const handleExportExcelDepartments = () => {
+    if (departments.length === 0) return toast.error('Không có dữ liệu phòng ban để xuất.');
+    try {
+      const parentMap = new Map(departments.map(d => [d.id, d.name]));
+      const exportData = departments.map(d => {
+        const stats = getDeptHierarchyStats.get(d.id) || { directHeadcount: 0, totalHeadcount: d._count?.employees || 0, totalQuota: d.quota || 15, hasChildren: false, childCount: 0 };
+        const headcount = stats.totalHeadcount;
+        const quota = stats.totalQuota;
+        const fillRate = Math.round((headcount / (quota || 1)) * 100);
+        return {
+          code: d.code,
+          name: d.name,
+          managerName: d.managerName || 'Chưa có',
+          parentName: d.parentId ? (parentMap.get(d.parentId) || 'Trực thuộc khác') : 'Cấp cao nhất',
+          quota: quota,
+          headcount: headcount,
+          fillRate: `${fillRate}%`,
+          positionsCount: d._count?.positions || 0,
+          status: d.status === 'ACTIVE' || d.status === 'Hoạt động' ? 'Hoạt động' : 'Tạm khóa',
+          hierarchyType: stats.hasChildren ? `Tổ chức mẹ (Tổng ${stats.childCount} đơn vị con)` : 'Đơn vị trực tiếp'
+        };
+      });
+
+      const columns = [
+        { key: 'code', label: 'Mã phòng ban' },
+        { key: 'name', label: 'Tên phòng ban' },
+        { key: 'managerName', label: 'Người đại diện / Trưởng phòng' },
+        { key: 'parentName', label: 'Phòng ban trực thuộc' },
+        { key: 'quota', label: 'Định biên nhân sự' },
+        { key: 'headcount', label: 'Nhân sự thực tế' },
+        { key: 'fillRate', label: 'Tỷ lệ lấp đầy' },
+        { key: 'positionsCount', label: 'Số vị trí chức danh' },
+        { key: 'status', label: 'Trạng thái' },
+        { key: 'hierarchyType', label: 'Phân cấp tổ chức' }
+      ];
+
+      exportToExcel({
+        data: exportData,
+        fileName: 'Danh_Sach_Phong_Ban_Doanh_Nghiep',
+        sheetName: 'Cơ cấu phòng ban',
+        columns
+      });
+      toast.success('Đã xuất file Excel cơ cấu phòng ban thành công!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi xuất file Excel phòng ban.');
+    }
+  };
+
+  // Xác nhận nạp danh sách phòng ban từ Excel
+  const handleConfirmImportDepartments = async (validRows) => {
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+    const res = await fetch('http://localhost:5000/api/departments/bulk-import', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ departments: validRows })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Lỗi khi nạp danh sách phòng ban');
+    }
+    fetchDepartments();
+    return res.json();
+  };
 
   useEffect(() => {
     fetchDepartments();
@@ -231,9 +418,59 @@ export const Departments = () => {
           <h1 className="page-title">Phòng ban</h1>
           <p className="text-muted text-sm">Quản lý cơ cấu phòng ban, định biên nhân sự và tỷ lệ lấp đầy tổ chức</p>
         </div>
-        <button onClick={handleOpenAdd} className="btn btn-primary">
-          <Plus size={18} /> Thêm Phòng ban
-        </button>
+        <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+          {/* Nút 1: Xuất dữ liệu */}
+          <button 
+            onClick={handleExportExcelDepartments} 
+            className="btn btn-outline"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              padding: '0.5rem 0.95rem', 
+              fontSize: '0.84rem', 
+              fontWeight: 600,
+              backgroundColor: '#FFFFFF',
+              borderColor: '#CBD5E1', 
+              color: '#0F172A',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+          >
+            <Download size={15} color="#475569" />
+            <span>Xuất dữ liệu</span>
+          </button>
+
+          {/* Nút 2: Nhập dữ liệu */}
+          <button 
+            onClick={() => setShowImportModal(true)} 
+            className="btn btn-outline"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              padding: '0.5rem 0.95rem', 
+              fontSize: '0.84rem', 
+              fontWeight: 600,
+              backgroundColor: '#FFFFFF',
+              borderColor: '#CBD5E1', 
+              color: '#0F172A',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+          >
+            <Upload size={15} color="#475569" />
+            <span>Nhập dữ liệu</span>
+          </button>
+
+          {/* Nút 3: Thêm Phòng ban */}
+          <button onClick={handleOpenAdd} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.5rem 1rem', fontSize: '0.84rem', fontWeight: 700 }}>
+            <Plus size={16} /> Thêm Phòng ban
+          </button>
+
+          {/* Nút 4: Làm mới */}
+          <button onClick={fetchDepartments} className="btn btn-outline" style={{ padding: '0.5rem', borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }} title="Tải lại danh sách">
+            <RefreshCw size={15} color="#475569" />
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -290,7 +527,16 @@ export const Departments = () => {
                 </tr>
               ) : (
                 paginatedDepartments.map(dept => {
-                  const currentHeadcount = dept._count?.employees || 0;
+                  const stats = getDeptHierarchyStats.get(dept.id) || {
+                    directHeadcount: dept._count?.employees || 0,
+                    totalHeadcount: dept._count?.employees || 0,
+                    directQuota: dept.quota || 15,
+                    totalQuota: dept.quota || 15,
+                    hasChildren: false,
+                    childCount: 0
+                  };
+                  const currentHeadcount = stats.totalHeadcount;
+                  const quota = stats.totalQuota;
                   const status = dept.status || 'Hoạt động';
 
                   return (
@@ -305,7 +551,21 @@ export const Departments = () => {
                           <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-hover)' }}>
                             <Building size={16} color="var(--text-muted)" />
                           </div>
-                          <span style={{ fontWeight: 500, color: 'var(--text-main)' }}>{dept.name}</span>
+                          <div className="flex-col">
+                            <div className="flex items-center gap-2">
+                              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{dept.name}</span>
+                              {!dept.parentId && (
+                                <span className="badge badge-info" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                                  Pháp nhân gốc
+                                </span>
+                              )}
+                            </div>
+                            {stats.hasChildren && (
+                              <span className="text-xs text-muted" style={{ fontSize: '0.72rem' }}>
+                                Quản lý {stats.childCount} phòng ban trực thuộc
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td>{dept.managerName || '-'}</td>
@@ -315,23 +575,42 @@ export const Departments = () => {
                             {departments.find(d => d.id === dept.parentId)?.name || 'Không rõ'}
                           </span>
                         ) : (
-                          <span className="text-muted text-sm italic">- Độc lập -</span>
+                          <span className="text-xs font-semibold italic" style={{ color: 'var(--primary)' }}>
+                            🏛️ Tổ chức mẹ (Cấp gốc)
+                          </span>
                         )}
                       </td>
                       <td>
                         {(() => {
-                          const quota = dept.quota || 15;
-                          const fillPercent = Math.round((currentHeadcount / quota) * 100);
+                          const fillPercent = Math.round((currentHeadcount / (quota || 1)) * 100);
                           const isOver = currentHeadcount > quota;
-                          const isFull = currentHeadcount === quota;
+                          const isFull = currentHeadcount === quota && quota > 0;
                           const barColor = isOver ? '#DC2626' : (isFull || fillPercent >= 80) ? '#16A34A' : '#2563EB';
 
                           return (
-                            <div style={{ minWidth: 160 }}>
+                            <div style={{ minWidth: 175 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                                  {currentHeadcount} <span style={{ fontWeight: 400, color: '#64748B' }}>/ {quota} người</span>
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                                    {currentHeadcount} <span style={{ fontWeight: 400, color: '#64748B' }}>/ {quota} người</span>
+                                  </span>
+                                  {stats.hasChildren && (
+                                    <span 
+                                      className="badge" 
+                                      style={{ 
+                                        fontSize: '0.65rem', 
+                                        padding: '1px 5px', 
+                                        backgroundColor: '#EFF6FF', 
+                                        color: '#1D4ED8', 
+                                        border: '1px solid #BFDBFE',
+                                        fontWeight: 600
+                                      }}
+                                      title={`Tổng nhân sự và định biên lũy kế gồm ${stats.childCount} đơn vị con`}
+                                    >
+                                      Tổng {stats.childCount} đơn vị
+                                    </span>
+                                  )}
+                                </div>
                                 <span 
                                   style={{ 
                                     fontSize: '0.6875rem', 
@@ -357,6 +636,11 @@ export const Departments = () => {
                                   }} 
                                 />
                               </div>
+                              {stats.hasChildren && (
+                                <div style={{ fontSize: '0.68rem', color: '#64748B', marginTop: 3 }}>
+                                  Trực tiếp: <strong>{stats.directHeadcount}</strong> • Thuộc các phòng con: <strong>{stats.totalHeadcount - stats.directHeadcount}</strong>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
@@ -547,7 +831,7 @@ export const Departments = () => {
                 <input
                   type="number"
                   min="1"
-                  max="500"
+                  max="1000"
                   className="form-input w-full font-semibold"
                   value={formData.quota || 15}
                   onChange={e => setFormData({ ...formData, quota: Math.max(1, parseInt(e.target.value) || 1) })}
@@ -556,6 +840,17 @@ export const Departments = () => {
                 <span className="text-xs text-[var(--text-muted)]">
                   Chỉ tiêu nhân sự trần được duyệt cho phòng ban này để đo lường tỷ lệ lấp đầy và kiểm soát tuyển dụng.
                 </span>
+                {(() => {
+                  const currentStats = editingId ? getDeptHierarchyStats.get(editingId) : null;
+                  if (currentStats && currentStats.hasChildren) {
+                    return (
+                      <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '0.5rem 0.75rem', borderRadius: 6, fontSize: '0.76rem', color: '#1D4ED8', marginTop: 4 }}>
+                        🏢 <strong>Đơn vị cấp cha:</strong> Đang quản lý <strong>{currentStats.childCount}</strong> phòng ban con với tổng định biên con là <strong>{currentStats.childQuotaSum} người</strong>. Ngoài bảng theo dõi, hệ thống sẽ tự động tổng hợp đầy đủ số lượng nhân sự và định biên lũy kế của toàn bộ các đơn vị con thuộc quyền quản lý.
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
 
@@ -630,6 +925,18 @@ export const Departments = () => {
         </div>,
         document.body
       )}
+
+      {/* Modal Nhập Excel Hàng Loạt */}
+      <UniversalImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        title="Nhập danh sách phòng ban từ Excel"
+        subtitle="Tải file mẫu, điền tên phòng ban và nạp cơ cấu tổ chức tự động"
+        templateFileName="Mau_Nhap_Phong_Ban"
+        columns={departmentImportColumns}
+        sampleData={sampleDepartmentData}
+        onConfirmImport={handleConfirmImportDepartments}
+      />
     </div>
   );
 };

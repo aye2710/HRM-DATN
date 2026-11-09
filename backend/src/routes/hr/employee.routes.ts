@@ -249,6 +249,152 @@ router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
   }
 });
 
+// 2.0 Bulk Import Employees (Nhập khẩu hàng loạt nhân sự từ Excel)
+router.post('/bulk-import', hrOnly, async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { employees } = req.body;
+    if (!Array.isArray(employees) || employees.length === 0) {
+      return res.status(400).json({ error: 'Danh sách nhân sự không hợp lệ hoặc rỗng.' });
+    }
+
+    // Lấy toàn bộ phòng ban và chức vụ để ánh xạ thông minh
+    const [departments, positions, existingEmps] = await Promise.all([
+      prisma.department.findMany({ select: { id: true, code: true, name: true } }),
+      prisma.position.findMany({ select: { id: true, title: true } }),
+      prisma.employee.findMany({ select: { code: true, cccd: true, phone: true, email: true } })
+    ]);
+
+    const existingCodes = new Set(existingEmps.map(e => e.code?.toLowerCase()));
+    const existingCccds = new Set(existingEmps.map(e => e.cccd).filter(Boolean));
+    const existingEmails = new Set(existingEmps.map(e => e.email?.toLowerCase()).filter(Boolean));
+
+    // Tính toán số thứ tự mã NV lớn nhất hiện có (ví dụ NV007, NV028 -> max = 28)
+    let maxCodeNum = 0;
+    existingEmps.forEach(e => {
+      const m = String(e.code || '').match(/^NV(\d+)$/i);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        if (num > maxCodeNum) maxCodeNum = num;
+      }
+    });
+
+    const results = {
+      total: employees.length,
+      successCount: 0,
+      skippedCount: 0,
+      errors: [] as string[]
+    };
+
+    for (let i = 0; i < employees.length; i++) {
+      const row = employees[i];
+      let code = String(row.code || '').trim().toUpperCase();
+      const fullName = String(row.fullName || '').trim();
+
+      if (!fullName) {
+        results.skippedCount++;
+        results.errors.push(`Dòng ${i + 1}: Thiếu họ và tên nhân viên.`);
+        continue;
+      }
+
+      // Tự động sinh mã tăng dần nếu người dùng để trống
+      if (!code) {
+        maxCodeNum++;
+        code = `NV${String(maxCodeNum).padStart(3, '0')}`;
+        // Nếu chẳng may mã tự sinh trùng với mã khác thì tăng tiếp
+        while (existingCodes.has(code.toLowerCase())) {
+          maxCodeNum++;
+          code = `NV${String(maxCodeNum).padStart(3, '0')}`;
+        }
+      } else {
+        if (existingCodes.has(code.toLowerCase())) {
+          results.skippedCount++;
+          results.errors.push(`Dòng ${i + 1}: Mã nhân viên "${code}" đã tồn tại.`);
+          continue;
+        }
+      }
+
+      const cccd = row.cccd ? String(row.cccd).trim() : null;
+      if (cccd && existingCccds.has(cccd)) {
+        results.skippedCount++;
+        results.errors.push(`Dòng ${i + 1}: Số CCCD "${cccd}" đã tồn tại.`);
+        continue;
+      }
+
+      // Ánh xạ Phòng ban
+      let departmentId = row.departmentId || null;
+      if (!departmentId && row.departmentName) {
+        const foundDept = departments.find(d => 
+          d.name.toLowerCase() === String(row.departmentName).toLowerCase().trim() || 
+          d.code.toLowerCase() === String(row.departmentName).toLowerCase().trim()
+        );
+        if (foundDept) departmentId = foundDept.id;
+      }
+
+      // Ánh xạ Chức vụ
+      let positionId = row.positionId || null;
+      if (!positionId && row.positionTitle) {
+        const foundPos = positions.find(p => p.title.toLowerCase() === String(row.positionTitle).toLowerCase().trim());
+        if (foundPos) positionId = foundPos.id;
+      }
+
+      // Format ngày tháng
+      const parseDate = (val: any) => {
+        if (!val) return null;
+        if (typeof val === 'string' && val.includes('/')) {
+          const parts = val.split('/');
+          if (parts.length === 3) {
+            return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          }
+        }
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? null : d;
+      };
+
+      const joinDate = parseDate(row.joinDate) || new Date();
+      const dateOfBirth = parseDate(row.dateOfBirth);
+
+      try {
+        await prisma.employee.create({
+          data: {
+            code,
+            fullName,
+            phone: row.phone ? String(row.phone).trim() : null,
+            email: row.email ? String(row.email).trim() : null,
+            cccd,
+            gender: row.gender === 'Nữ' || row.gender === 'FEMALE' ? 'FEMALE' : 'MALE',
+            dateOfBirth,
+            address: row.address || row.permanentAddress || null,
+            permanentAddress: row.permanentAddress || row.address || null,
+            bankAccount: row.bankAccount ? String(row.bankAccount).trim() : null,
+            bankName: row.bankName ? String(row.bankName).trim() : null,
+            taxCode: row.taxCode ? String(row.taxCode).trim() : null,
+            socialInsurance: row.socialInsurance ? String(row.socialInsurance).trim() : null,
+            joinDate,
+            status: row.status === 'PROBATION' ? 'PROBATION' : 'ACTIVE',
+            departmentId,
+            positionId
+          }
+        });
+
+        existingCodes.add(code.toLowerCase());
+        if (cccd) existingCccds.add(cccd);
+        results.successCount++;
+      } catch (err: any) {
+        results.skippedCount++;
+        results.errors.push(`Dòng ${i + 1} (${fullName}): ${err.message || 'Lỗi lưu dữ liệu'}`);
+      }
+    }
+
+    return res.status(200).json({
+      message: `Đã nạp thành công ${results.successCount}/${results.total} nhân sự.`,
+      ...results
+    });
+  } catch (error: any) {
+    console.error('Error in bulk import employees:', error);
+    return res.status(500).json({ error: 'Lỗi server khi nạp dữ liệu hàng loạt' });
+  }
+});
+
 // 2.1 Get all pending profile change requests across all employees (HR Only)
 router.get('/change-requests/pending', hrOnly, async (req: Request, res: Response) => {
   try {

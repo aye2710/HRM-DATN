@@ -67,6 +67,180 @@ router.post('/', hrOrgOnly, async (req: Request, res: Response): Promise<any> =>
   }
 });
 
+// Helper: Sinh mã phòng ban thông minh phía server nếu người dùng để trống
+const generateServerDeptCode = (deptName: string, existingCodes: Set<string>): string => {
+  if (!deptName || !deptName.trim()) return 'PB';
+  const clean = deptName.trim().toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+
+  const keywordMap = [
+    { regex: /nhan\s*su|tuyen\s*dung|hr/i, code: 'HR' },
+    { regex: /tai\s*chinh|ke\s*toan|finance/i, code: 'TCKT' },
+    { regex: /phat\s*trien|phan\s*mem|lap\s*trinh|dev|software/i, code: 'DEV' },
+    { regex: /kiem\s*thu|tester|qa|qc/i, code: 'TEST' },
+    { regex: /phan\s*tich|business\s*analyst|ba/i, code: 'BA' },
+    { regex: /giam\s*doc|ban\s*giam\s*doc|board/i, code: 'BGD' },
+    { regex: /marketing|truyen\s*thong|mkt/i, code: 'MKT' },
+    { regex: /kinh\s*doanh|ban\s*hang|sales/i, code: 'KD' },
+    { regex: /ky\s*thuat|cong\s*nghe|it/i, code: 'IT' },
+    { regex: /van\s*hanh|operations|ops/i, code: 'OPS' },
+    { regex: /hanh\s*chinh|admin/i, code: 'HC' },
+    { regex: /phap\s*che|legal/i, code: 'LEGAL' },
+    { regex: /cham\s*soc\s*khach\s*hang|cskh/i, code: 'CSKH' },
+    { regex: /an\s*ninh|bao\s*mat|security/i, code: 'SEC' }
+  ];
+
+  let baseCode = '';
+  for (const item of keywordMap) {
+    if (item.regex.test(clean)) {
+      baseCode = item.code;
+      break;
+    }
+  }
+
+  if (!baseCode) {
+    const words = clean.split(/[\s\-_]+/).filter(w => !['phong', 'ban', 'to', 'khoi', 'trung', 'tam', 'bo', 'phan'].includes(w));
+    const targetWords = words.length > 0 ? words : clean.split(/[\s\-_]+/);
+    baseCode = targetWords.map(w => w[0]?.toUpperCase()).join('').slice(0, 6);
+  }
+
+  if (!baseCode) baseCode = 'PB';
+
+  let finalCode = baseCode;
+  let counter = 2;
+  while (existingCodes.has(finalCode.toUpperCase())) {
+    finalCode = `${baseCode}${counter}`;
+    counter++;
+  }
+  return finalCode;
+};
+
+// POST: Nạp hàng loạt phòng ban từ file Excel
+router.post('/bulk-import', hrOrgOnly, async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { departments } = req.body;
+    if (!Array.isArray(departments) || departments.length === 0) {
+      return res.status(400).json({ error: 'Danh sách phòng ban không hợp lệ hoặc rỗng.' });
+    }
+
+    const currentDepts = await prisma.department.findMany({
+      select: { id: true, code: true, name: true }
+    });
+
+    const existingCodes = new Set(currentDepts.map(d => d.code.toUpperCase()));
+    const deptMapByName = new Map<string, string>();
+    const deptMapByCode = new Map<string, string>();
+
+    currentDepts.forEach(d => {
+      deptMapByName.set(d.name.trim().toLowerCase(), d.id);
+      deptMapByCode.set(d.code.trim().toUpperCase(), d.id);
+    });
+
+    const results = {
+      total: departments.length,
+      successCount: 0,
+      skippedCount: 0,
+      errors: [] as string[]
+    };
+
+    const createdDepts: any[] = [];
+
+    for (let i = 0; i < departments.length; i++) {
+      const item = departments[i];
+      const rawName = String(item.name || '').trim();
+
+      if (!rawName) {
+        results.skippedCount++;
+        results.errors.push(`Dòng ${i + 1}: Tên phòng ban không được bỏ trống.`);
+        continue;
+      }
+
+      // Kiểm tra trùng tên phòng ban
+      if (deptMapByName.has(rawName.toLowerCase())) {
+        results.skippedCount++;
+        results.errors.push(`Dòng ${i + 1}: Phòng ban "${rawName}" đã tồn tại trong hệ thống.`);
+        continue;
+      }
+
+      // Xử lý mã phòng ban
+      let code = item.code ? String(item.code).trim().toUpperCase() : '';
+      if (!code) {
+        code = generateServerDeptCode(rawName, existingCodes);
+      }
+
+      if (existingCodes.has(code)) {
+        // Tự động thêm hậu tố để tránh lỗi trùng mã
+        let counter = 2;
+        let altCode = `${code}${counter}`;
+        while (existingCodes.has(altCode)) {
+          counter++;
+          altCode = `${code}${counter}`;
+        }
+        code = altCode;
+      }
+
+      // Xử lý định biên và trạng thái
+      const quota = Math.max(1, parseInt(String(item.quota || 15)) || 15);
+      const managerName = item.managerName ? String(item.managerName).trim() : null;
+      const status = item.status && String(item.status).toUpperCase().includes('KHÓA') ? 'INACTIVE' : 'ACTIVE';
+
+      // Xử lý phòng ban cấp cha (nếu có)
+      let parentId: string | null = null;
+      if (item.parentName) {
+        const pName = String(item.parentName).trim().toLowerCase();
+        parentId = deptMapByName.get(pName) || null;
+      }
+      if (!parentId && item.parentCode) {
+        const pCode = String(item.parentCode).trim().toUpperCase();
+        parentId = deptMapByCode.get(pCode) || null;
+      }
+
+      try {
+        const newDept = await prisma.department.create({
+          data: {
+            code,
+            name: rawName,
+            managerName,
+            quota,
+            status,
+            parentId
+          }
+        });
+
+        existingCodes.add(code);
+        deptMapByName.set(rawName.toLowerCase(), newDept.id);
+        deptMapByCode.set(code, newDept.id);
+        createdDepts.push(newDept);
+        results.successCount++;
+      } catch (err: any) {
+        results.skippedCount++;
+        results.errors.push(`Dòng ${i + 1} (${rawName}): ${err.message || 'Lỗi khi lưu phòng ban'}`);
+      }
+    }
+
+    if (results.successCount > 0) {
+      await createAuditLog({
+        action: 'CREATE_DEPARTMENT_BATCH',
+        tableName: 'Department',
+        recordId: 'BATCH_IMPORT',
+        accountId: (req as any).user?.accountId || 'ADMIN',
+        details: `Nhập thành công ${results.successCount}/${results.total} phòng ban từ file Excel.`
+      });
+    }
+
+    return res.status(200).json({
+      message: `Đã nạp thành công ${results.successCount}/${results.total} phòng ban vào hệ thống.`,
+      ...results
+    });
+  } catch (error: any) {
+    console.error('Error in bulk import departments:', error);
+    return res.status(500).json({ error: error.message || 'Lỗi khi nhập hàng loạt phòng ban' });
+  }
+});
+
 // PUT: Cập nhật phòng ban (kèm thuật toán chống vòng lặp phả hệ cha-con và Audit Log)
 router.put('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<any> => {
   try {

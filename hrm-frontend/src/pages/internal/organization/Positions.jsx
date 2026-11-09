@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Search, Plus, Filter, Edit2, Trash2, X, AlertTriangle, Lock, Unlock } from 'lucide-react';
+import { Briefcase, Search, Plus, Filter, Edit2, Trash2, X, AlertTriangle, Lock, Unlock, Download, Upload, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { exportToExcel } from '../../../utils/excelHelper';
+import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
 
 // Hàm loại bỏ dấu tiếng Việt
 const removeVietnameseTones = (str) => {
@@ -143,6 +145,132 @@ export const Positions = () => {
   const [formData, setFormData] = useState({ code: '', title: '', description: '', level: 'Staff', minSalary: 0, maxSalary: 0, departmentId: '', status: 'ACTIVE' });
   const [deleteId, setDeleteId] = useState(null);
   const [lockTarget, setLockTarget] = useState(null);
+
+  // Modal Nhập dữ liệu dùng chung
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const positionImportColumns = [
+    { key: 'title', label: 'Tên vị trí / Chức danh', required: true, sample: 'Lập trình viên Frontend' },
+    { key: 'departmentName', label: 'Phòng ban', required: true, sample: 'Phòng Kỹ thuật & Công nghệ' },
+    { key: 'code', label: 'Mã chức danh (để trống tự sinh)', required: false, sample: 'IT-FE' },
+    { key: 'level', label: 'Cấp bậc (Intern/Junior/Senior/Lead/Manager/Director)', required: false, sample: 'Senior' },
+    { key: 'minSalary', label: 'Lương tối thiểu (VNĐ)', required: false, sample: '15000000' },
+    { key: 'maxSalary', label: 'Lương tối đa (VNĐ)', required: false, sample: '25000000' },
+    { key: 'description', label: 'Mô tả công việc', required: false, sample: 'Phát triển giao diện React và tối ưu hiệu năng web' },
+    { key: 'status', label: 'Trạng thái', required: false, sample: 'Hoạt động' }
+  ];
+
+  const samplePositionData = [
+    {
+      title: 'Lập trình viên Frontend',
+      departmentName: 'Phòng Kỹ thuật & Công nghệ',
+      code: 'IT-FE',
+      level: 'Senior',
+      minSalary: '18000000',
+      maxSalary: '28000000',
+      description: 'Xây dựng giao diện web React/TypeScript',
+      status: 'Hoạt động'
+    },
+    {
+      title: 'Lập trình viên Backend',
+      departmentName: 'Phòng Kỹ thuật & Công nghệ',
+      code: 'IT-BE',
+      level: 'Senior',
+      minSalary: '20000000',
+      maxSalary: '32000000',
+      description: 'Xây dựng REST API Node.js và hệ cơ sở dữ liệu PostgreSQL',
+      status: 'Hoạt động'
+    },
+    {
+      title: 'Chuyên viên Tuyển dụng',
+      departmentName: 'Phòng Nhân sự & Hành chính',
+      code: 'HR-REC',
+      level: 'Staff',
+      minSalary: '10000000',
+      maxSalary: '16000000',
+      description: 'Tìm nguồn ứng viên, sàng lọc CV và điều phối lịch phỏng vấn',
+      status: 'Hoạt động'
+    },
+    {
+      title: 'Kế toán tổng hợp',
+      departmentName: 'Phòng Tài chính - Kế toán',
+      code: 'TCKT-KTTH',
+      level: 'Staff',
+      minSalary: '12000000',
+      maxSalary: '18000000',
+      description: 'Báo cáo thuế, hạch toán sổ sách chứng từ và tính lương',
+      status: 'Hoạt động'
+    },
+    {
+      title: 'Chuyên viên Digital Marketing',
+      departmentName: 'Phòng Marketing & Truyền thông',
+      code: 'MKT-SEO',
+      level: 'Staff',
+      minSalary: '11000000',
+      maxSalary: '17000000',
+      description: 'Quản lý chiến dịch quảng cáo và tối ưu SEO',
+      status: 'Hoạt động'
+    }
+  ];
+
+  // Xuất file Excel danh mục vị trí chức danh
+  const handleExportExcelPositions = () => {
+    if (positions.length === 0) return toast.error('Không có dữ liệu vị trí để xuất.');
+    try {
+      const exportData = positions.map(p => ({
+        code: p.code || '',
+        title: p.title,
+        departmentName: p.department?.name || 'Chưa gán phòng ban',
+        level: p.level || 'Staff',
+        minSalary: p.minSalary || 0,
+        maxSalary: p.maxSalary || 0,
+        description: p.description || '',
+        status: p.status === 'ACTIVE' || p.status === 'Hoạt động' ? 'Hoạt động' : 'Tạm khóa'
+      }));
+
+      const columns = [
+        { key: 'code', label: 'Mã vị trí' },
+        { key: 'title', label: 'Tên chức danh / Vị trí' },
+        { key: 'departmentName', label: 'Phòng ban trực thuộc' },
+        { key: 'level', label: 'Cấp bậc' },
+        { key: 'minSalary', label: 'Lương tối thiểu (VNĐ)', format: 'currency' },
+        { key: 'maxSalary', label: 'Lương tối đa (VNĐ)', format: 'currency' },
+        { key: 'description', label: 'Mô tả công việc' },
+        { key: 'status', label: 'Trạng thái' }
+      ];
+
+      exportToExcel({
+        data: exportData,
+        fileName: 'Danh_Muc_Chuc_Danh_Vi_Tri_Viec_Lam',
+        sheetName: 'Danh mục vị trí',
+        columns
+      });
+      toast.success('Đã xuất file Excel danh mục chức danh thành công!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi xuất file Excel vị trí.');
+    }
+  };
+
+  // Xác nhận nạp danh sách vị trí chức danh từ Excel
+  const handleConfirmImportPositions = async (validRows) => {
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+    const res = await fetch('http://localhost:5000/api/positions/bulk-import', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ positions: validRows })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Lỗi khi nạp danh sách vị trí chức danh');
+    }
+    fetchPositions();
+    return res.json();
+  };
 
   useEffect(() => {
     fetchPositions();
@@ -313,9 +441,59 @@ export const Positions = () => {
           <h1 className="page-title">Vị trí / Chức danh</h1>
           <p className="text-muted text-sm">Quản lý danh mục vị trí, cấp bậc và khung lương theo tiêu chuẩn</p>
         </div>
-        <button onClick={handleOpenAdd} className="btn btn-primary">
-          <Plus size={18} /> Thêm Vị trí
-        </button>
+        <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+          {/* Nút 1: Xuất dữ liệu */}
+          <button 
+            onClick={handleExportExcelPositions} 
+            className="btn btn-outline"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              padding: '0.5rem 0.95rem', 
+              fontSize: '0.84rem', 
+              fontWeight: 600,
+              backgroundColor: '#FFFFFF',
+              borderColor: '#CBD5E1', 
+              color: '#0F172A',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+          >
+            <Download size={15} color="#475569" />
+            <span>Xuất dữ liệu</span>
+          </button>
+
+          {/* Nút 2: Nhập dữ liệu */}
+          <button 
+            onClick={() => setShowImportModal(true)} 
+            className="btn btn-outline"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              padding: '0.5rem 0.95rem', 
+              fontSize: '0.84rem', 
+              fontWeight: 600,
+              backgroundColor: '#FFFFFF',
+              borderColor: '#CBD5E1', 
+              color: '#0F172A',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+          >
+            <Upload size={15} color="#475569" />
+            <span>Nhập dữ liệu</span>
+          </button>
+
+          {/* Nút 3: Thêm Vị trí */}
+          <button onClick={handleOpenAdd} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.5rem 1rem', fontSize: '0.84rem', fontWeight: 700 }}>
+            <Plus size={16} /> Thêm Vị trí
+          </button>
+
+          {/* Nút 4: Làm mới */}
+          <button onClick={() => { fetchPositions(); fetchDepartments(); }} className="btn btn-outline" style={{ padding: '0.5rem', borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }} title="Tải lại danh sách">
+            <RefreshCw size={15} color="#475569" />
+          </button>
+        </div>
       </div>
 
       <div className="card glass flex-col gap-4">
@@ -704,6 +882,18 @@ export const Positions = () => {
         </div>,
         document.body
       )}
+
+      {/* Modal Nhập Excel Hàng Loạt */}
+      <UniversalImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        title="Nhập danh mục vị trí chức danh từ Excel"
+        subtitle="Tải file mẫu, điền tên chức danh, phòng ban và nạp hàng loạt vào hệ thống"
+        templateFileName="Mau_Nhap_Chuc_Danh_Vi_Tri"
+        columns={positionImportColumns}
+        sampleData={samplePositionData}
+        onConfirmImport={handleConfirmImportPositions}
+      />
     </div>
   );
 };

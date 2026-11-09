@@ -11,57 +11,123 @@ router.use(authenticateToken);
 
 const itOrHrOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF', 'IT_SUPPORT');
 
-// Helper to seed demo assets if empty
+// Helper to seed standard LLA Enterprise warehouse (20 PC, 40 Monitor, 20 Arm, 20 Keyboard/Mouse)
 const seedDemoAssets = async () => {
-  const count = await prisma.asset.count();
-  if (count > 0) return;
+  // 0. Xóa sạch mọi tài sản demo/khác không thuộc 4 dòng sản phẩm chuẩn của công ty LLA
+  try {
+    const nonStandard = await prisma.asset.findMany({
+      where: {
+        NOT: {
+          OR: [
+            { code: { startsWith: 'TS-PC-' } },
+            { code: { startsWith: 'TS-MON-' } },
+            { code: { startsWith: 'TS-ARM-' } },
+            { code: { startsWith: 'TS-KB-' } }
+          ]
+        }
+      },
+      select: { id: true }
+    });
 
-  const demoAssets = [
-    {
-      code: 'TS-LAP-001',
-      name: 'MacBook Pro 14" M3 Pro 18GB/512GB Space Black',
-      category: AssetCategory.LAPTOP,
-      serialNumber: 'C02G90XXMD6M',
-      price: 49990000,
-      purchaseDate: new Date('2025-11-15'),
-      supplier: 'FPT Synnex Distribution',
-      status: AssetStatus.AVAILABLE,
-      condition: 'Mới 100%, nguyên hộp',
-      location: 'Kho CNTT - Tủ A1',
-      notes: 'Trang bị cho Senior Software Engineer / Tech Lead'
-    },
-    {
-      code: 'TS-LAP-002',
-      name: 'Dell XPS 15 9530 i7-13700H 32GB RTX 4060',
-      category: AssetCategory.LAPTOP,
-      serialNumber: 'DL-XPS-883921',
-      price: 42500000,
-      purchaseDate: new Date('2025-10-01'),
-      supplier: 'Hapro Distribution',
-      status: AssetStatus.AVAILABLE,
-      condition: 'Hoạt động tốt 99%, có dán màn hình',
-      location: 'Kho CNTT - Tủ A1',
-      notes: 'Thiết bị đồ họa / kỹ thuật'
-    },
-    {
-      code: 'TS-MON-001',
-      name: 'Dell UltraSharp 27" U2724D 2K IPS Black 120Hz',
-      category: AssetCategory.MONITOR,
-      serialNumber: 'CN-0K793H-74443',
-      price: 10490000,
-      purchaseDate: new Date('2025-11-20'),
-      supplier: 'Hapro Distribution',
-      status: AssetStatus.AVAILABLE,
-      condition: 'Hoạt động hoàn hảo, không điểm chết',
-      location: 'Kho CNTT - Kệ Màn Hình',
-      notes: 'Màn hình đồ họa / code'
+    if (nonStandard.length > 0) {
+      const ids = nonStandard.map(a => a.id);
+      await prisma.assetAssignment.deleteMany({ where: { assetId: { in: ids } } });
+      await prisma.asset.deleteMany({ where: { id: { in: ids } } });
+      console.log(`[ASSET CLEANUP] Đã xóa ${nonStandard.length} tài sản cũ ngoài danh mục chuẩn LLA.`);
     }
-  ];
+  } catch (err) {
+    console.error('[ASSET CLEANUP ERROR]', err);
+  }
 
-  for (const a of demoAssets) {
-    await prisma.asset.create({ data: a });
+  const pcCount = await prisma.asset.count({ where: { code: { startsWith: 'TS-PC-' } } });
+  if (pcCount >= 20) return;
+
+  const toCreate: any[] = [];
+
+  // 1. 20 Bộ PC Xeon E5-2680v4 (TS-PC-001 đến TS-PC-020)
+  for (let i = 1; i <= 20; i++) {
+    const num = String(i).padStart(3, '0');
+    toCreate.push({
+      code: `TS-PC-${num}`,
+      name: `Bộ máy tính Xeon E5-2680v4 (Main X99, RAM 32GB ECC, SSD 500GB, VGA M4000 8GB)`,
+      category: AssetCategory.DESKTOP,
+      serialNumber: `LLA-PC-2026-${num}`,
+      price: 14500000,
+      purchaseDate: new Date('2026-05-01'),
+      supplier: 'Công ty TNHH TM Dịch vụ và Công nghệ LLA',
+      status: AssetStatus.AVAILABLE,
+      condition: i <= 5 ? 'Mới 100%' : '2ND hoạt động tốt',
+      location: `Kho CNTT - Kệ PC (Vị trí ${i})`,
+      notes: 'Mainboard X99H DDR4, CPU Xeon E5-2680v4, Tản AM404, RAM 32GB ECC, SSD 500GB, HDD 500GB, VGA M4000 8GB, Nguồn 700W, Case Xeon'
+    });
+  }
+
+  // 2. 40 Màn hình E-Dra 27" (TS-MON-001 đến TS-MON-040)
+  for (let i = 1; i <= 40; i++) {
+    const num = String(i).padStart(3, '0');
+    toCreate.push({
+      code: `TS-MON-${num}`,
+      name: `Màn hình E-Dra 27" (IPS - FHD - 120Hz)`,
+      category: AssetCategory.MONITOR,
+      serialNumber: `EDRA-27-SN26${num}`,
+      price: 3200000,
+      purchaseDate: new Date('2026-05-01'),
+      supplier: 'Mai Hoàng Distribution',
+      status: AssetStatus.AVAILABLE,
+      condition: 'Mới 100%, không điểm chết',
+      location: `Kho CNTT - Kệ Màn hình (Khay ${Math.ceil(i / 10)})`,
+      notes: 'Kèm dây nguồn và cáp DisplayPort chính hãng'
+    });
+  }
+
+  // 3. 20 Giá đỡ 2 màn hình North Bayou F160 (TS-ARM-001 đến TS-ARM-020)
+  for (let i = 1; i <= 20; i++) {
+    const num = String(i).padStart(3, '0');
+    toCreate.push({
+      code: `TS-ARM-${num}`,
+      name: `Giá đỡ 2 màn hình North Bayou F160`,
+      category: AssetCategory.OFFICE_EQUIPMENT,
+      serialNumber: `NB-F160-26${num}`,
+      price: 750000,
+      purchaseDate: new Date('2026-05-01'),
+      supplier: 'North Bayou Official',
+      status: AssetStatus.AVAILABLE,
+      condition: 'Mới 100%',
+      location: 'Kho CNTT - Tủ Phụ kiện Arm',
+      notes: 'Nguyên hộp đầy đủ ốc vít kẹp bàn'
+    });
+  }
+
+  // 4. 20 Bộ Bàn phím chuột + lót EDRA (TS-KB-001 đến TS-KB-020)
+  for (let i = 1; i <= 20; i++) {
+    const num = String(i).padStart(3, '0');
+    toCreate.push({
+      code: `TS-KB-${num}`,
+      name: `Bàn phím chuột + lót EDRA`,
+      category: AssetCategory.OFFICE_EQUIPMENT,
+      serialNumber: `EDRA-KB-26${num}`,
+      price: 450000,
+      purchaseDate: new Date('2026-05-01'),
+      supplier: 'E-Dra Việt Nam',
+      status: AssetStatus.AVAILABLE,
+      condition: 'Mới 100%',
+      location: 'Kho CNTT - Tủ Phụ kiện Phím Chuột',
+      notes: 'Phím cơ + chuột quang + pad full size'
+    });
+  }
+
+  for (const item of toCreate) {
+    const exist = await prisma.asset.findUnique({ where: { code: item.code } });
+    if (!exist) {
+      await prisma.asset.create({ data: item });
+    }
   }
 };
+
+// Tự động làm sạch & nạp kho chuẩn LLA khi khởi động
+seedDemoAssets()
+  .then(() => console.log('[ASSET SEED] Kho tài sản LLA đã làm sạch, chỉ giữ đúng 4 dòng thiết bị chuẩn.'))
+  .catch((err) => console.error('[ASSET SEED ERROR]', err));
 
 // 1. GET /api/assets/stats - Thống kê tài sản kho
 router.get('/stats', async (req: Request, res: Response) => {
@@ -92,6 +158,155 @@ router.get('/stats', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching asset stats:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 1.5 GET /api/assets/products - Danh mục sản phẩm tổng hợp (mỗi sản phẩm 1 mã + cột theo dõi số lượng + danh sách 20 mã bên trong và ma trận người giữ)
+router.get('/products', async (req: Request, res: Response): Promise<any> => {
+  try {
+    await seedDemoAssets();
+
+    const assets = await prisma.asset.findMany({
+      where: { isDeleted: false },
+      orderBy: { code: 'asc' },
+      include: {
+        assignments: {
+          where: { status: AssignmentStatus.ACTIVE },
+          include: {
+            employee: {
+              select: {
+                id: true,
+                code: true,
+                fullName: true,
+                email: true,
+                department: { select: { name: true } },
+                position: { select: { title: true } }
+              }
+            }
+          },
+          take: 1
+        }
+      }
+    });
+
+    // Lấy các biên bản combo đang ACTIVE để fallback map người giữ cho các thiết bị phụ nếu cần
+    const activeCombos = await prisma.assetAssignment.findMany({
+      where: { status: AssignmentStatus.ACTIVE, itemsJson: { not: null } },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            code: true,
+            fullName: true,
+            email: true,
+            department: { select: { name: true } },
+            position: { select: { title: true } }
+          }
+        }
+      }
+    });
+
+    const groupsMap = new Map<string, any>();
+
+    for (const a of assets) {
+      let productCode = '';
+      let productName = a.name;
+
+      if (a.code.startsWith('TS-PC-')) {
+        productCode = 'SP-PC-XEON';
+        productName = 'Bộ máy tính Xeon E5-2680v4 (Main X99, RAM 32GB ECC, SSD 500GB, VGA M4000 8GB)';
+      } else if (a.code.startsWith('TS-MON-')) {
+        productCode = 'SP-MON-EDRA27';
+        productName = 'Màn hình E-Dra 27" (IPS - FHD - 120Hz)';
+      } else if (a.code.startsWith('TS-ARM-')) {
+        productCode = 'SP-ARM-F160';
+        productName = 'Giá đỡ 2 màn hình North Bayou F160';
+      } else if (a.code.startsWith('TS-KB-')) {
+        productCode = 'SP-KB-EDRA';
+        productName = 'Bàn phím chuột + lót EDRA';
+      } else {
+        const match = a.code?.match(/^(TS-[A-Z0-9]+)-/);
+        const prefix = match ? match[1].replace('TS-', '') : (a.category || 'GEN');
+        productCode = `SP-${prefix}`;
+        productName = a.name;
+      }
+
+      if (!groupsMap.has(productCode)) {
+        groupsMap.set(productCode, {
+          productCode,
+          name: productName,
+          category: a.category,
+          price: Number(a.price || 0),
+          supplier: a.supplier,
+          location: a.location,
+          notes: a.notes,
+          totalQuantity: 0,
+          availableQuantity: 0,
+          assignedQuantity: 0,
+          maintenanceQuantity: 0,
+          disposedQuantity: 0,
+          lostQuantity: 0,
+          units: []
+        });
+      }
+
+      const grp = groupsMap.get(productCode);
+      grp.totalQuantity += 1;
+      if (a.status === 'AVAILABLE') grp.availableQuantity += 1;
+      else if (a.status === 'ASSIGNED') grp.assignedQuantity += 1;
+      else if (a.status === 'MAINTENANCE') grp.maintenanceQuantity += 1;
+      else if (a.status === 'DISPOSED') grp.disposedQuantity += 1;
+      else if (a.status === 'LOST') grp.lostQuantity += 1;
+
+      // Tìm thông tin người giữ: ưu tiên assignment trực tiếp, fallback qua combo
+      let holder = a.assignments && a.assignments[0] ? {
+        id: a.assignments[0].id,
+        assignedDate: a.assignments[0].assignedDate,
+        handoverDocCode: a.assignments[0].handoverDocCode,
+        conditionOnAssign: a.assignments[0].conditionOnAssign,
+        employee: a.assignments[0].employee
+      } : null;
+
+      if (!holder && a.status === 'ASSIGNED') {
+        for (const cb of activeCombos) {
+          try {
+            const parsed = JSON.parse(cb.itemsJson || '[]');
+            const found = parsed.some((it: any) => it.assetId === a.id || (Array.isArray(it.assetIds) && it.assetIds.includes(a.id)) || (it.serial && (it.serial.includes(a.code) || (a.serialNumber && it.serial.includes(a.serialNumber)))));
+            if (found) {
+              holder = {
+                id: cb.id,
+                assignedDate: cb.assignedDate,
+                handoverDocCode: cb.handoverDocCode,
+                conditionOnAssign: cb.conditionOnAssign,
+                employee: cb.employee
+              };
+              break;
+            }
+          } catch (e) {}
+        }
+      }
+
+      grp.units.push({
+        id: a.id,
+        code: a.code,
+        name: a.name,
+        category: a.category,
+        serialNumber: a.serialNumber,
+        status: a.status,
+        condition: a.condition,
+        location: a.location,
+        price: a.price,
+        purchaseDate: a.purchaseDate,
+        supplier: a.supplier,
+        notes: a.notes,
+        assignment: holder
+      });
+    }
+
+    return res.json(Array.from(groupsMap.values()));
+  } catch (error: any) {
+    console.error('Error fetching grouped products:', error);
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -139,6 +354,43 @@ router.get('/', async (req: Request, res: Response) => {
         }
       }
     });
+
+    // Fallback: nếu thiết bị ASSIGNED nhưng chưa có assignment trực tiếp (do cấp qua combo)
+    const activeCombos = await prisma.assetAssignment.findMany({
+      where: { status: AssignmentStatus.ACTIVE, itemsJson: { not: null } },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            code: true,
+            fullName: true,
+            department: { select: { name: true } },
+            position: { select: { title: true } }
+          }
+        }
+      }
+    });
+
+    for (const a of assets) {
+      if ((!a.assignments || a.assignments.length === 0) && a.status === 'ASSIGNED') {
+        for (const cb of activeCombos) {
+          try {
+            const parsed = JSON.parse(cb.itemsJson || '[]');
+            const found = parsed.some((it: any) => it.assetId === a.id || (Array.isArray(it.assetIds) && it.assetIds.includes(a.id)) || (it.serial && (it.serial.includes(a.code) || (a.serialNumber && it.serial.includes(a.serialNumber)))));
+            if (found) {
+              (a as any).assignments = [{
+                id: cb.id,
+                assignedDate: cb.assignedDate,
+                handoverDocCode: cb.handoverDocCode,
+                conditionOnAssign: cb.conditionOnAssign,
+                employee: cb.employee
+              }];
+              break;
+            }
+          } catch (e) {}
+        }
+      }
+    }
 
     res.json(assets);
   } catch (error: any) {
@@ -192,56 +444,354 @@ router.get('/assignments', async (req: any, res: Response): Promise<any> => {
   }
 });
 
-// 4. POST /api/assets - Thêm mới tài sản vào kho (IT/HR Only)
+// 4. POST /api/assets - Thêm mới tài sản vào kho (IT/HR Only - Hỗ trợ cả nhập đơn lẻ và nhập theo lô)
 router.post('/', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
   try {
-    const { code, name, category, serialNumber, price, purchaseDate, supplier, condition, location, notes } = req.body;
+    const { code, name, category, serialNumber, price, purchaseDate, supplier, condition, location, notes, quantity } = req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Tên thiết bị không được để trống.' });
     }
 
-    // Auto generate code if empty
+    const qty = Math.max(1, Math.min(Number(quantity) || 1, 100));
+
+    // Auto generate base code if empty
     let assetCode = code ? String(code).trim().toUpperCase() : null;
     if (!assetCode) {
-      const prefix = category ? String(category).slice(0, 3) : 'GEN';
-      const count = await prisma.asset.count();
-      assetCode = `TS-${prefix}-${String(count + 1).padStart(3, '0')}`;
-    }
+      let prefix = 'GEN';
+      if (category === AssetCategory.DESKTOP) prefix = 'PC';
+      else if (category === AssetCategory.MONITOR) prefix = 'MN';
+      else if (category === AssetCategory.LAPTOP) prefix = 'LAP';
+      else if (category === AssetCategory.OFFICE_EQUIPMENT) prefix = 'EQ';
 
-    const existing = await prisma.asset.findUnique({ where: { code: assetCode } });
-    if (existing) {
-      return res.status(400).json({ error: `Mã tài sản "${assetCode}" đã tồn tại trong hệ thống.` });
-    }
-
-    const asset = await prisma.asset.create({
-      data: {
-        code: assetCode,
-        name: String(name).trim(),
-        category: category || AssetCategory.LAPTOP,
-        serialNumber: serialNumber ? String(serialNumber).trim() : null,
-        price: price !== undefined ? Number(price) : 0,
-        purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
-        supplier: supplier ? String(supplier).trim() : null,
-        condition: condition ? String(condition).trim() : 'Mới 100%',
-        location: location ? String(location).trim() : 'Kho CNTT',
-        notes: notes ? String(notes).trim() : null,
-        status: AssetStatus.AVAILABLE
+      const existingAssets = await prisma.asset.findMany({
+        where: { code: { startsWith: `TS-${prefix}-` } },
+        select: { code: true }
+      });
+      let maxNum = 0;
+      for (const a of existingAssets) {
+        const m = a.code.match(new RegExp(`TS-${prefix}-(\\d+)`, 'i'));
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (n > maxNum) maxNum = n;
+        }
       }
-    });
+      assetCode = `TS-${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
+    }
 
-    await createAuditLog({
-      action: 'CREATE_ASSET',
-      tableName: 'Asset',
-      recordId: asset.id,
-      accountId: req.user?.accountId,
-      details: `Nhập kho tài sản mới: [${asset.code}] ${asset.name}`
-    });
+    if (qty === 1) {
+      const existing = await prisma.asset.findUnique({ where: { code: assetCode } });
+      if (existing) {
+        return res.status(400).json({ error: `Mã tài sản "${assetCode}" đã tồn tại trong hệ thống.` });
+      }
 
-    return res.status(201).json(asset);
+      const asset = await prisma.asset.create({
+        data: {
+          code: assetCode,
+          name: String(name).trim(),
+          category: category || AssetCategory.LAPTOP,
+          serialNumber: serialNumber ? String(serialNumber).trim() : null,
+          price: price !== undefined ? Number(price) : 0,
+          purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
+          supplier: supplier ? String(supplier).trim() : null,
+          condition: condition ? String(condition).trim() : 'Mới 100%',
+          location: location ? String(location).trim() : 'Kho CNTT',
+          notes: notes ? String(notes).trim() : null,
+          status: AssetStatus.AVAILABLE
+        }
+      });
+
+      await createAuditLog({
+        action: 'CREATE_ASSET',
+        tableName: 'Asset',
+        recordId: asset.id,
+        accountId: req.user?.accountId,
+        details: `Nhập kho tài sản mới: [${asset.code}] ${asset.name}`
+      });
+
+      return res.status(201).json(asset);
+    } else {
+      // Nhập theo lô (Bulk Import)
+      const match = assetCode.match(/^(.*?)(\d+)$/);
+      const prefixPart = match ? match[1] : `${assetCode}-`;
+      const startNum = match ? parseInt(match[2], 10) : 1;
+      const padLen = match ? match[2].length : 3;
+
+      const itemsToCreate = [];
+      const codesToCheck = [];
+
+      for (let i = 0; i < qty; i++) {
+        const curCode = `${prefixPart}${String(startNum + i).padStart(padLen, '0')}`;
+        codesToCheck.push(curCode);
+        itemsToCreate.push({
+          code: curCode,
+          name: String(name).trim(),
+          category: category || AssetCategory.LAPTOP,
+          serialNumber: serialNumber ? `${String(serialNumber).trim()}-${i + 1}` : null,
+          price: price !== undefined ? Number(price) : 0,
+          purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
+          supplier: supplier ? String(supplier).trim() : null,
+          condition: condition ? String(condition).trim() : 'Mới 100%',
+          location: location ? String(location).trim() : 'Kho CNTT',
+          notes: notes ? String(notes).trim() : null,
+          status: AssetStatus.AVAILABLE
+        });
+      }
+
+      const dupes = await prisma.asset.findMany({
+        where: { code: { in: codesToCheck } },
+        select: { code: true }
+      });
+
+      if (dupes.length > 0) {
+        return res.status(400).json({ 
+          error: `Trùng lặp mã: Các mã [${dupes.map(d => d.code).join(', ')}] đã tồn tại trong hệ thống. Vui lòng chọn số bắt đầu khác.` 
+        });
+      }
+
+      await prisma.$transaction(
+        itemsToCreate.map(item => prisma.asset.create({ data: item }))
+      );
+
+      await createAuditLog({
+        action: 'CREATE_ASSET_BATCH',
+        tableName: 'Asset',
+        recordId: 'BATCH',
+        accountId: req.user?.accountId,
+        details: `Nhập kho theo lô ${qty} tài sản: [${codesToCheck[0]} -> ${codesToCheck[codesToCheck.length - 1]}] ${name}`
+      });
+
+      return res.status(201).json({ 
+        message: `Đã nhập kho thành công lô ${qty} thiết bị từ [${codesToCheck[0]}] đến [${codesToCheck[codesToCheck.length - 1]}]`,
+        count: qty,
+        firstCode: codesToCheck[0],
+        lastCode: codesToCheck[codesToCheck.length - 1]
+      });
+    }
   } catch (error: any) {
     console.error('Error creating asset:', error);
     return res.status(500).json({ error: error.message || 'Lỗi khi nhập kho tài sản' });
+  }
+});
+
+// 2.0 POST /api/assets/bulk-import - Nhập lô thiết bị từ Excel (Hỗ trợ số lượng và tự sinh mã tăng dần)
+router.post('/bulk-import', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const { assets } = req.body;
+    if (!Array.isArray(assets) || assets.length === 0) {
+      return res.status(400).json({ error: 'Danh sách thiết bị không hợp lệ hoặc rỗng.' });
+    }
+
+    const existingAssets = await prisma.asset.findMany({
+      where: { isDeleted: false },
+      select: { code: true, serialNumber: true }
+    });
+
+    const existingCodes = new Set(existingAssets.map(a => a.code?.toUpperCase()));
+    const existingSerials = new Set(existingAssets.map(a => a.serialNumber?.toUpperCase()).filter(Boolean));
+
+    const results = {
+      totalRows: assets.length,
+      successCount: 0,
+      skippedCount: 0,
+      errors: [] as string[]
+    };
+
+    // Helper: Tìm số lớn nhất hiện tại của một tiền tố mã (VD: "TS-PC-")
+    const getNextNumberForPrefix = (prefix: string): number => {
+      let maxNum = 0;
+      for (const c of existingCodes) {
+        if (c.startsWith(prefix)) {
+          const m = c.substring(prefix.length).match(/^(\d+)/);
+          if (m) {
+            const val = parseInt(m[1], 10);
+            if (val > maxNum) maxNum = val;
+          }
+        }
+      }
+      return maxNum + 1;
+    };
+
+    for (let i = 0; i < assets.length; i++) {
+      const item = assets[i];
+      const name = String(item.name || '').trim();
+
+      if (!name) {
+        results.skippedCount++;
+        results.errors.push(`Dòng ${i + 1}: Tên thiết bị không được để trống.`);
+        continue;
+      }
+
+      const qty = Math.max(1, Math.min(Number(item.quantity) || 1, 500));
+
+      // Xác định danh mục dựa theo tên hoặc category
+      let cat: AssetCategory = AssetCategory.OFFICE_EQUIPMENT;
+      const combinedDesc = `${item.category || ''} ${name}`.toUpperCase();
+      if (combinedDesc.includes('PC') || combinedDesc.includes('DESKTOP') || combinedDesc.includes('MÁY TÍNH')) {
+        cat = AssetCategory.DESKTOP;
+      } else if (combinedDesc.includes('MONITOR') || combinedDesc.includes('MÀN HÌNH')) {
+        cat = AssetCategory.MONITOR;
+      } else if (combinedDesc.includes('LAPTOP')) {
+        cat = AssetCategory.LAPTOP;
+      }
+
+      // Xử lý tiền tố và số bắt đầu cho mã thiết bị
+      let rawCode = String(item.code || '').trim().toUpperCase();
+      let prefixPart = '';
+      let startNum = 1;
+      let padLen = 3;
+
+      if (rawCode) {
+        const match = rawCode.match(/^(.*?)(\d+)$/);
+        if (match) {
+          prefixPart = match[1];
+          startNum = parseInt(match[2], 10);
+          padLen = match[2].length;
+        } else {
+          prefixPart = `${rawCode}-`;
+          startNum = 1;
+          padLen = 3;
+        }
+      } else {
+        // Tự động sinh mã thông minh theo chủng loại
+        let defaultPrefix = 'TS-TB-';
+        if (cat === AssetCategory.DESKTOP) defaultPrefix = 'TS-PC-';
+        else if (cat === AssetCategory.MONITOR) defaultPrefix = 'TS-MON-';
+        else if (cat === AssetCategory.LAPTOP) defaultPrefix = 'TS-LAP-';
+        else defaultPrefix = 'TS-EQ-';
+
+        prefixPart = defaultPrefix;
+        startNum = getNextNumberForPrefix(defaultPrefix);
+        padLen = 3;
+      }
+
+      const price = Number(String(item.price || '0').replace(/[^0-9]/g, '')) || 0;
+      let purchaseDate = item.purchaseDate ? new Date(item.purchaseDate) : new Date();
+      if (isNaN(purchaseDate.getTime())) purchaseDate = new Date();
+
+      const supplier = item.supplier ? String(item.supplier).trim() : 'Chưa có thông tin';
+      const condition = item.condition ? String(item.condition).trim() : 'Mới 100%';
+      const location = item.location ? String(item.location).trim() : 'Kho thiết bị';
+      const notes = item.notes ? String(item.notes).trim() : null;
+      const baseSerial = item.serialNumber ? String(item.serialNumber).trim() : null;
+
+      // Sinh danh sách các cá thể thiết bị tương ứng với số lượng (quantity)
+      let lineSuccess = 0;
+      for (let q = 0; q < qty; q++) {
+        let curCode = `${prefixPart}${String(startNum + q).padStart(padLen, '0')}`;
+        
+        // Nếu mã đã tồn tại, tự động tăng tiếp cho đến khi tìm được mã trống
+        while (existingCodes.has(curCode)) {
+          startNum++;
+          curCode = `${prefixPart}${String(startNum + q).padStart(padLen, '0')}`;
+        }
+
+        // Serial cá thể (nếu có)
+        let curSerial: string | null = null;
+        if (baseSerial) {
+          curSerial = qty === 1 ? baseSerial : `${baseSerial}-${String(q + 1).padStart(2, '0')}`;
+          if (existingSerials.has(curSerial.toUpperCase())) {
+            curSerial = `${curSerial}-${Date.now().toString().slice(-4)}`;
+          }
+        }
+
+        try {
+          await prisma.asset.create({
+            data: {
+              code: curCode,
+              name,
+              category: cat,
+              serialNumber: curSerial,
+              price,
+              purchaseDate,
+              supplier,
+              condition,
+              location,
+              notes,
+              status: AssetStatus.AVAILABLE
+            }
+          });
+
+          existingCodes.add(curCode.toUpperCase());
+          if (curSerial) existingSerials.add(curSerial.toUpperCase());
+          lineSuccess++;
+          results.successCount++;
+        } catch (err: any) {
+          results.errors.push(`Dòng ${i + 1} (${curCode}): ${err.message || 'Lỗi lưu thiết bị'}`);
+        }
+      }
+
+      if (lineSuccess === 0) {
+        results.skippedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      message: `Đã nạp thành công ${results.successCount} thiết bị vào kho từ ${results.totalRows} dòng Excel.`,
+      ...results
+    });
+  } catch (error: any) {
+    console.error('Error in bulk import assets:', error);
+    return res.status(500).json({ error: error.message || 'Lỗi khi nhập kho hàng loạt thiết bị' });
+  }
+});
+
+// 4.5. PUT /api/assets/products/:productCode - Sửa thông tin dòng sản phẩm từ bảng chính bên ngoài (IT/HR Only)
+router.put('/products/:productCode', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const { productCode } = req.params;
+    const { name, price, notes, assetIds } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'Tên thiết bị không được để trống.' });
+    }
+
+    const updateData: any = {
+      name: String(name).trim()
+    };
+    if (price !== undefined && price !== '') {
+      updateData.price = Number(price);
+    }
+    if (notes !== undefined) {
+      updateData.notes = notes ? String(notes).trim() : null;
+    }
+
+    let whereClause: any = { isDeleted: false };
+    if (Array.isArray(assetIds) && assetIds.length > 0) {
+      whereClause.id = { in: assetIds };
+    } else {
+      let prefix = '';
+      if (productCode === 'SP-PC-XEON') prefix = 'TS-PC-';
+      else if (productCode === 'SP-MON-EDRA27') prefix = 'TS-MON-';
+      else if (productCode === 'SP-ARM-F160') prefix = 'TS-ARM-';
+      else if (productCode === 'SP-KB-EDRA') prefix = 'TS-KB-';
+      else {
+        const raw = productCode.replace('SP-', '');
+        prefix = `TS-${raw}-`;
+      }
+      whereClause.code = { startsWith: prefix };
+    }
+
+    const result = await prisma.asset.updateMany({
+      where: whereClause,
+      data: updateData
+    });
+
+    await createAuditLog({
+      action: 'UPDATE_ASSET_PRODUCT',
+      tableName: 'Asset',
+      recordId: productCode,
+      accountId: req.user?.accountId,
+      details: `Cập nhật thông tin dòng sản phẩm [${productCode}] (${updateData.name}) cho ${result.count} thiết bị`
+    });
+
+    return res.json({ 
+      message: `Đã cập nhật thông tin dòng sản phẩm cho ${result.count} thiết bị.`,
+      count: result.count
+    });
+  } catch (error: any) {
+    console.error('Error updating product:', error);
+    return res.status(500).json({ error: error.message || 'Lỗi khi cập nhật dòng sản phẩm' });
   }
 });
 
@@ -389,7 +939,7 @@ router.post('/assign', itOrHrOnly, async (req: any, res: Response): Promise<any>
         });
       }
 
-      // Nếu trong items có các assetId cụ thể từ kho, cập nhật tất cả sang ASSIGNED
+      // Nếu trong items có các assetId cụ thể từ kho, cập nhật tất cả sang ASSIGNED và tạo AssetAssignment
       if (Array.isArray(items)) {
         for (const item of items) {
           if (item.assetId && item.assetId !== assetId) {
@@ -397,6 +947,44 @@ router.post('/assign', itOrHrOnly, async (req: any, res: Response): Promise<any>
               where: { id: item.assetId },
               data: { status: AssetStatus.ASSIGNED }
             }).catch(() => {});
+
+            await tx.assetAssignment.create({
+              data: {
+                assetId: item.assetId,
+                employeeId,
+                assignedDate: assignedDate ? new Date(assignedDate) : new Date(),
+                conditionOnAssign: item.condition || conditionOnAssign || 'Mới 100%',
+                handoverDocCode: docCode,
+                notes: `Bàn giao kèm bộ Combo Onboarding (Biên bản ${docCode})`,
+                status: AssignmentStatus.ACTIVE,
+                handoverPerson: handoverPerson ? String(handoverPerson).trim() : 'Đỗ Thị Nguyệt',
+                handoverPersonRole: handoverPersonRole ? String(handoverPersonRole).trim() : 'Hành chính - Kế toán'
+              }
+            }).catch(() => {});
+          }
+          if (Array.isArray(item.assetIds)) {
+            for (const subId of item.assetIds) {
+              if (subId && subId !== assetId) {
+                await tx.asset.update({
+                  where: { id: subId },
+                  data: { status: AssetStatus.ASSIGNED }
+                }).catch(() => {});
+
+                await tx.assetAssignment.create({
+                  data: {
+                    assetId: subId,
+                    employeeId,
+                    assignedDate: assignedDate ? new Date(assignedDate) : new Date(),
+                    conditionOnAssign: item.condition || conditionOnAssign || 'Mới 100%',
+                    handoverDocCode: docCode,
+                    notes: `Bàn giao kèm bộ Combo Onboarding (Biên bản ${docCode})`,
+                    status: AssignmentStatus.ACTIVE,
+                    handoverPerson: handoverPerson ? String(handoverPerson).trim() : 'Đỗ Thị Nguyệt',
+                    handoverPersonRole: handoverPersonRole ? String(handoverPersonRole).trim() : 'Hành chính - Kế toán'
+                  }
+                }).catch(() => {});
+              }
+            }
           }
         }
       }
@@ -443,6 +1031,119 @@ router.post('/assign', itOrHrOnly, async (req: any, res: Response): Promise<any>
   } catch (error: any) {
     console.error('Error assigning asset:', error);
     return res.status(400).json({ error: error.message || 'Lỗi khi bàn giao tài sản' });
+  }
+});
+
+// 7.5 POST /api/assets/assignments/batch-return - Thu hồi trọn bộ thiết bị theo nhân viên (Biểu mẫu BM-02, IT/HR Only)
+router.post('/assignments/batch-return', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const { 
+      employeeId, 
+      assetIds, 
+      returnedDate, 
+      conditionOnReturn, 
+      notes, 
+      compensationAmount,
+      compensationReason,
+      handoverPerson,
+      handoverPersonRole
+    } = req.body;
+
+    if (!employeeId) {
+      return res.status(400).json({ error: 'Vui lòng chọn nhân viên cần thu hồi tài sản.' });
+    }
+
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, fullName: true, code: true, department: { select: { name: true } }, position: { select: { title: true } } }
+    });
+    if (!emp) return res.status(404).json({ error: 'Không tìm thấy nhân viên.' });
+
+    let whereAsset: any = { status: AssetStatus.ASSIGNED, isDeleted: false };
+    if (Array.isArray(assetIds) && assetIds.length > 0) {
+      whereAsset.id = { in: assetIds };
+    }
+
+    const assignedAssets = await prisma.asset.findMany({
+      where: whereAsset,
+      include: {
+        assignments: {
+          where: { employeeId, status: AssignmentStatus.ACTIVE },
+          take: 1
+        }
+      }
+    });
+
+    const activeAssetsForEmp = assignedAssets.filter(a => a.assignments && a.assignments.length > 0);
+    if (activeAssetsForEmp.length === 0) {
+      return res.status(400).json({ error: 'Nhân viên này hiện không giữ tài sản nào đang hoạt động để thu hồi.' });
+    }
+
+    const retDate = returnedDate ? new Date(returnedDate) : new Date();
+    const cond = conditionOnReturn || 'Thiết bị hoàn trả đầy đủ phụ kiện, hoạt động bình thường';
+    const targetAssetIds = activeAssetsForEmp.map(a => a.id);
+    const docCode = `${Math.floor(1000 + Math.random() * 9000)}/2026/BBTH-LLA`;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Cập nhật các tài sản về AVAILABLE
+      await tx.asset.updateMany({
+        where: { id: { in: targetAssetIds } },
+        data: {
+          status: AssetStatus.AVAILABLE,
+          condition: cond
+        }
+      });
+
+      // 2. Cập nhật các Assignment cũ về RETURNED
+      await tx.assetAssignment.updateMany({
+        where: {
+          assetId: { in: targetAssetIds },
+          employeeId,
+          status: AssignmentStatus.ACTIVE
+        },
+        data: {
+          status: AssignmentStatus.RETURNED,
+          returnedDate: retDate,
+          conditionOnReturn: cond,
+          notes: notes ? `Thu hồi trọn bộ: ${notes}` : 'Thu hồi trọn bộ'
+        }
+      });
+    });
+
+    await createAuditLog({
+      action: 'RETURN_ASSET_BATCH',
+      tableName: 'AssetAssignment',
+      recordId: docCode,
+      accountId: req.user?.accountId,
+      details: `Thu hồi trọn bộ ${targetAssetIds.length} thiết bị từ nhân viên [${emp.fullName}] (Biên bản ${docCode})`
+    });
+
+    const bm02Data = {
+      handoverDocCode: docCode,
+      returnedDate: retDate,
+      employee: emp,
+      conditionOnReturn: cond,
+      notes,
+      handoverPerson: handoverPerson || 'Đỗ Thị Nguyệt',
+      handoverPersonRole: handoverPersonRole || 'Hành chính - Kế toán',
+      items: activeAssetsForEmp.map(a => ({
+        name: a.name,
+        code: a.code,
+        serial: a.serialNumber || a.code,
+        quantity: 1,
+        condition: cond
+      })),
+      compensationAmount: compensationAmount || 0,
+      compensationReason: compensationReason || null
+    };
+
+    return res.json({
+      message: `Đã thu hồi thành công ${targetAssetIds.length} thiết bị về kho.`,
+      bm02Data
+    });
+  } catch (error: any) {
+    console.error('Error in batch return:', error);
+    return res.status(500).json({ error: error.message || 'Lỗi khi thu hồi thiết bị' });
   }
 });
 
@@ -493,8 +1194,8 @@ router.post('/assignments/:id/return', itOrHrOnly, async (req: any, res: Respons
         }
       });
 
+      const targetStatus = nextAssetStatus || AssetStatus.AVAILABLE;
       if (assignment.assetId) {
-        const targetStatus = nextAssetStatus || AssetStatus.AVAILABLE;
         await tx.asset.update({
           where: { id: assignment.assetId },
           data: {
@@ -502,6 +1203,57 @@ router.post('/assignments/:id/return', itOrHrOnly, async (req: any, res: Respons
             condition: conditionOnReturn || assignment.asset?.condition
           }
         });
+      }
+
+      // Trả lại toàn bộ các thiết bị con đã bàn giao theo combo về lại kho
+      if (assignment.itemsJson) {
+        try {
+          const parsedItems = JSON.parse(assignment.itemsJson);
+          if (Array.isArray(parsedItems)) {
+            for (const it of parsedItems) {
+              if (it.assetId && it.assetId !== assignment.assetId) {
+                await tx.asset.update({
+                  where: { id: it.assetId },
+                  data: {
+                    status: targetStatus as any,
+                    condition: conditionOnReturn || it.condition
+                  }
+                }).catch(() => {});
+
+                await tx.assetAssignment.updateMany({
+                  where: { assetId: it.assetId, status: AssignmentStatus.ACTIVE },
+                  data: {
+                    returnedDate: returnedDate ? new Date(returnedDate) : new Date(),
+                    status: targetAssignmentStatus,
+                    conditionOnReturn: conditionOnReturn || 'Thu hồi theo combo BBBG-LLA'
+                  }
+                }).catch(() => {});
+              }
+              if (Array.isArray(it.assetIds)) {
+                for (const subId of it.assetIds) {
+                  if (subId && subId !== assignment.assetId) {
+                    await tx.asset.update({
+                      where: { id: subId },
+                      data: {
+                        status: targetStatus as any,
+                        condition: conditionOnReturn || it.condition
+                      }
+                    }).catch(() => {});
+
+                    await tx.assetAssignment.updateMany({
+                      where: { assetId: subId, status: AssignmentStatus.ACTIVE },
+                      data: {
+                        returnedDate: returnedDate ? new Date(returnedDate) : new Date(),
+                        status: targetAssignmentStatus,
+                        conditionOnReturn: conditionOnReturn || 'Thu hồi theo combo BBBG-LLA'
+                      }
+                    }).catch(() => {});
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {}
       }
 
       return { 
@@ -564,6 +1316,52 @@ router.post('/:id/maintenance-complete', itOrHrOnly, async (req: any, res: Respo
     return res.json({ message: 'Hoàn tất bảo trì và đã đưa thiết bị về kho.', asset: updated });
   } catch (error: any) {
     console.error('Error completing maintenance:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// 10. POST /api/assets/:id/maintenance - Báo hỏng / Chuyển 1 cá thể thiết bị sang bảo trì (từ ma trận sản phẩm)
+router.post('/:id/maintenance', itOrHrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const { issueDescription, condition } = req.body;
+
+    const asset = await prisma.asset.findUnique({ where: { id } });
+    if (!asset) {
+      return res.status(404).json({ error: 'Không tìm thấy tài sản.' });
+    }
+
+    const updated = await prisma.asset.update({
+      where: { id },
+      data: {
+        status: AssetStatus.MAINTENANCE,
+        condition: condition || 'Cần sửa chữa / bảo hành',
+        notes: issueDescription 
+          ? `${asset.notes ? asset.notes + ' | ' : ''}Báo hỏng (${new Date().toLocaleDateString('vi-VN')}): ${issueDescription}` 
+          : asset.notes
+      }
+    });
+
+    await prisma.assetAssignment.updateMany({
+      where: { assetId: id, status: AssignmentStatus.ACTIVE },
+      data: {
+        status: AssignmentStatus.DAMAGED,
+        conditionOnReturn: condition || issueDescription || 'Báo hỏng trong quá trình sử dụng',
+        returnedDate: new Date()
+      }
+    });
+
+    await createAuditLog({
+      action: 'SEND_TO_MAINTENANCE',
+      tableName: 'Asset',
+      recordId: id,
+      accountId: req.user?.accountId,
+      details: `Chuyển thiết bị [${asset.code}] sang trạng thái bảo trì/sửa chữa: ${issueDescription || 'Báo hỏng'}`
+    });
+
+    return res.json({ message: 'Đã chuyển thiết bị sang trạng thái bảo trì thành công.', asset: updated });
+  } catch (error: any) {
+    console.error('Error sending asset to maintenance:', error);
     return res.status(500).json({ error: error.message });
   }
 });

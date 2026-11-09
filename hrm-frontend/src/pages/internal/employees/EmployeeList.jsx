@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Search, Plus, Trash2, Edit, X, Eye, 
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users, 
-  FileSpreadsheet, RefreshCw
+  FileSpreadsheet, RefreshCw, Download, Upload
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { exportToExcel } from '../../../utils/excelHelper';
+import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
 
 export const EmployeeList = () => {
   const navigate = useNavigate();
@@ -311,49 +313,126 @@ export const EmployeeList = () => {
     }
   };
 
-  // Export CSV
-  const handleExportCSV = () => {
-    if (filteredEmployees.length === 0) return toast.error('Không có dữ liệu để xuất');
-    const headers = [
-      'Mã NV', 'Họ và Tên', 'CCCD (12 số)', 'Ngày cấp CCCD', 'Nơi cấp CCCD',
-      'Nơi sinh', 'Quê quán', 'Dân tộc', 'Email', 'SĐT',
-      'Thường trú', 'Nơi ở hiện tại', 'Phòng ban', 'Chức danh',
-      'Level năng lực', 'Chức vụ quản lý', 'Địa điểm làm việc', 'Loại hình LĐ',
-      'MST cá nhân', 'Số sổ BHXH', 'Ngày vào làm', 'Trạng thái'
-    ];
-    const rows = filteredEmployees.map(emp => [
-      `"${emp.code}"`,
-      `"${emp.fullName}"`,
-      `"${emp.cccd || ''}"`,
-      `"${emp.cccdIssueDate ? new Date(emp.cccdIssueDate).toLocaleDateString('vi-VN') : ''}"`,
-      `"${emp.cccdIssuePlace || ''}"`,
-      `"${emp.birthPlace || ''}"`,
-      `"${emp.hometown || ''}"`,
-      `"${emp.ethnicity || 'Kinh'}"`,
-      `"${emp.email || ''}"`,
-      `"${emp.phone || ''}"`,
-      `"${emp.permanentAddress || ''}"`,
-      `"${emp.currentAddress || ''}"`,
-      `"${emp.department?.name || ''}"`,
-      `"${emp.position?.title || ''}"`,
-      `"${emp.position?.level || ''}"`,
-      `"${emp.managementRole || 'STAFF'}"`,
-      `"${emp.workLocation || ''}"`,
-      `"${emp.employmentType || ''}"`,
-      `"${emp.taxCode || ''}"`,
-      `"${emp.socialInsuranceNo || ''}"`,
-      `"${new Date(emp.joinDate).toLocaleDateString('vi-VN')}"`,
-      `"${emp.status}"`
-    ]);
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Danh_sach_nhan_su_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Modal Nhập dữ liệu dùng chung
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  // Cấu hình các cột Import cho Hồ sơ Nhân sự
+  const employeeImportColumns = [
+    { key: 'code', label: 'Mã NV (Để trống sẽ tự sinh)', required: false, sample: '' },
+    { key: 'fullName', label: 'Họ và tên', required: true, sample: 'Trần Văn Cường' },
+    { key: 'cccd', label: 'Số CCCD', required: true, sample: '001201019922' },
+    { key: 'phone', label: 'Số điện thoại', required: true, sample: '0987654321' },
+    { key: 'email', label: 'Email công ty', required: false, sample: 'cuong.tran@lla.vn' },
+    { key: 'gender', label: 'Giới tính', required: false, sample: 'Nam' },
+    { key: 'dateOfBirth', label: 'Ngày sinh (DD/MM/YYYY)', required: false, sample: '15/08/1995' },
+    { key: 'joinDate', label: 'Ngày vào làm (DD/MM/YYYY)', required: false, sample: '01/10/2026' },
+    { key: 'departmentName', label: 'Phòng ban', required: false, sample: 'Phòng Công nghệ' },
+    { key: 'positionTitle', label: 'Chức danh', required: false, sample: 'Kỹ sư Lập trình' },
+    { key: 'bankAccount', label: 'Số tài khoản NH', required: false, sample: '1903456789012' },
+    { key: 'bankName', label: 'Ngân hàng', required: false, sample: 'Techcombank' },
+    { key: 'taxCode', label: 'Mã số thuế', required: false, sample: '8392019281' },
+    { key: 'socialInsurance', label: 'Số sổ BHXH', required: false, sample: '7912345678' }
+  ];
+
+  const sampleEmployeeData = [
+    {
+      code: '', // Để trống minh họa tính năng tự động sinh mã
+      fullName: 'Trần Văn Cường',
+      cccd: '001201019922',
+      phone: '0987654321',
+      email: 'cuong.tran@lla.vn',
+      gender: 'Nam',
+      dateOfBirth: '15/08/1995',
+      joinDate: '01/10/2026',
+      departmentName: 'Phòng Công nghệ',
+      positionTitle: 'Kỹ sư Lập trình',
+      bankAccount: '1903456789012',
+      bankName: 'Techcombank',
+      taxCode: '8392019281',
+      socialInsurance: '7912345678'
+    },
+    {
+      code: 'NV030', // Hoặc tự nhập mã theo ý muốn
+      fullName: 'Nguyễn Thị Mai',
+      cccd: '001202028811',
+      phone: '0912345678',
+      email: 'mai.nguyen@lla.vn',
+      gender: 'Nữ',
+      dateOfBirth: '20/11/1998',
+      joinDate: '15/10/2026',
+      departmentName: 'Phòng Nhân sự',
+      positionTitle: 'Chuyên viên Nhân sự',
+      bankAccount: '1029384756',
+      bankName: 'Vietcombank',
+      taxCode: '8492018273',
+      socialInsurance: '7987654321'
+    }
+  ];
+
+  // Xử lý nạp nhân sự hàng loạt
+  const handleConfirmImportEmployees = async (validRows) => {
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await axios.post('http://localhost:5000/api/employees/bulk-import', { employees: validRows }, { headers });
+    fetchData();
+    return res.data;
+  };
+
+  // Export Excel chuẩn Doanh nghiệp
+  const handleExportExcel = () => {
+    if (filteredEmployees.length === 0) return toast.error('Không có dữ liệu nhân sự để xuất');
+    try {
+      const exportData = filteredEmployees.map(emp => ({
+        code: emp.code,
+        fullName: emp.fullName,
+        cccd: emp.cccd || '',
+        phone: emp.phone || '',
+        email: emp.email || '',
+        gender: emp.gender === 'FEMALE' ? 'Nữ' : 'Nam',
+        dateOfBirth: emp.dateOfBirth,
+        departmentName: emp.department?.name || '',
+        positionTitle: emp.position?.title || '',
+        level: emp.position?.level || '',
+        managementRole: emp.managementRole || 'STAFF',
+        joinDate: emp.joinDate,
+        bankAccount: emp.bankAccount || '',
+        bankName: emp.bankName || '',
+        taxCode: emp.taxCode || '',
+        socialInsurance: emp.socialInsurance || emp.socialInsuranceNo || '',
+        status: emp.status === 'ACTIVE' ? 'Đang làm việc' : emp.status === 'PROBATION' ? 'Thử việc' : emp.status === 'RESIGNED' ? 'Đã thôi việc' : emp.status
+      }));
+
+      const columns = [
+        { key: 'code', label: 'Mã NV' },
+        { key: 'fullName', label: 'Họ và tên' },
+        { key: 'cccd', label: 'Số CCCD' },
+        { key: 'phone', label: 'Số điện thoại' },
+        { key: 'email', label: 'Email công ty' },
+        { key: 'gender', label: 'Giới tính' },
+        { key: 'dateOfBirth', label: 'Ngày sinh', format: 'date' },
+        { key: 'departmentName', label: 'Phòng ban' },
+        { key: 'positionTitle', label: 'Chức danh' },
+        { key: 'level', label: 'Cấp bậc' },
+        { key: 'managementRole', label: 'Vai trò' },
+        { key: 'joinDate', label: 'Ngày vào làm', format: 'date' },
+        { key: 'bankAccount', label: 'Số tài khoản NH' },
+        { key: 'bankName', label: 'Ngân hàng' },
+        { key: 'taxCode', label: 'Mã số thuế' },
+        { key: 'socialInsurance', label: 'Sổ BHXH' },
+        { key: 'status', label: 'Trạng thái' }
+      ];
+
+      exportToExcel({
+        data: exportData,
+        fileName: 'Danh_Sach_Nhan_Su',
+        sheetName: 'Nhân sự',
+        columns
+      });
+      toast.success('Đã xuất file Excel danh sách nhân sự thành công!');
+    } catch (error) {
+      console.error(error);
+      toast.error('Lỗi khi xuất file Excel');
+    }
   };
 
   return (
@@ -390,30 +469,74 @@ export const EmployeeList = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          {/* Nút 1: Xuất dữ liệu */}
           <button 
-            onClick={handleExportCSV} 
+            onClick={handleExportExcel} 
             className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 0.9rem', fontSize: '0.875rem', borderColor: '#CBD5E1', color: '#059669' }}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              padding: '0.5rem 0.95rem', 
+              fontSize: '0.84rem', 
+              fontWeight: 600,
+              backgroundColor: '#FFFFFF',
+              borderColor: '#CBD5E1', 
+              color: '#0F172A',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
           >
-            <FileSpreadsheet size={16} /> Xuất Excel
+            <Download size={15} color="#475569" />
+            <span>Xuất dữ liệu</span>
           </button>
 
+          {/* Nút 2: Nhập dữ liệu */}
+          <button 
+            onClick={() => setShowImportModal(true)} 
+            className="btn btn-outline"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              padding: '0.5rem 0.95rem', 
+              fontSize: '0.84rem', 
+              fontWeight: 600,
+              backgroundColor: '#FFFFFF',
+              borderColor: '#CBD5E1', 
+              color: '#0F172A',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+          >
+            <Upload size={15} color="#475569" />
+            <span>Nhập dữ liệu</span>
+          </button>
+
+          {/* Nút 3: Tạo mới / Thêm nhân sự */}
           <button 
             onClick={handleOpenAdd} 
             className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1rem', fontSize: '0.875rem' }}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.45rem', 
+              padding: '0.5rem 1.05rem', 
+              fontSize: '0.84rem',
+              fontWeight: 700
+            }}
           >
-            <Plus size={16} /> Thêm nhân sự
+            <Plus size={16} />
+            <span>Thêm nhân sự</span>
           </button>
 
+          {/* Nút làm mới */}
           <button 
             onClick={fetchData} 
             className="btn btn-outline"
-            style={{ padding: '0.55rem', borderColor: '#CBD5E1', color: '#64748B' }}
+            style={{ padding: '0.5rem', borderColor: '#CBD5E1', color: '#64748B', backgroundColor: '#FFFFFF' }}
             title="Tải lại dữ liệu"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
@@ -1154,6 +1277,18 @@ export const EmployeeList = () => {
         </div>,
         document.body
       )}
+
+      {/* 7. Modal Nhập dữ liệu Excel dùng chung */}
+      <UniversalImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        title="Nhập dữ liệu Hồ sơ Nhân sự từ Excel"
+        subtitle="Tải file mẫu, điền danh sách nhân viên và nạp hàng loạt vào CSDL"
+        templateFileName="Mau_Nhap_Nhan_Su_LLA"
+        columns={employeeImportColumns}
+        sampleData={sampleEmployeeData}
+        onConfirmImport={handleConfirmImportEmployees}
+      />
 
     </div>
   );
