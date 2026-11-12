@@ -4,6 +4,7 @@ import { FileBadge, Search, Plus, Filter, Trash2, XCircle } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const LeavePolicies = () => {
   const [policies, setPolicies] = useState([]);
@@ -39,6 +40,22 @@ export const LeavePolicies = () => {
       .catch(err => toast.error('Lỗi thêm chính sách'));
   };
 
+  const filteredPolicies = policies.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedPolicies,
+    resetPage,
+  } = usePagination(filteredPolicies, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, resetPage]);
+
   const handleDelete = async (id) => {
     const result = await Swal.fire({ title: 'Xóa chính sách?', text: "Hành động này không thể hoàn tác", icon: 'warning', showCancelButton: true, confirmButtonText: 'Xóa', cancelButtonText: 'Hủy' });
     if (result.isConfirmed) {
@@ -49,7 +66,7 @@ export const LeavePolicies = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflowY: 'auto' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 className="page-title">Chính sách Nghỉ phép</h1>
@@ -148,10 +165,10 @@ export const LeavePolicies = () => {
             <tbody>
               {loading ? (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Đang tải...</td></tr>
-              ) : policies.length === 0 ? (
+              ) : filteredPolicies.length === 0 ? (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Chưa có chính sách nào</td></tr>
               ) : (
-                policies.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map(policy => (
+                paginatedPolicies.map(policy => (
                   <tr key={policy.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -178,6 +195,18 @@ export const LeavePolicies = () => {
             </tbody>
           </table>
         </div>
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="chính sách"
+            flush={false}
+          />
+        )}
       </div>
 
       {showModal && createPortal(

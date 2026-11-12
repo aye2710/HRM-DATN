@@ -631,14 +631,28 @@ router.put('/:id', async (req: any, res: Response): Promise<any> => {
       const immediateUpdate: any = {};
       if (phone !== undefined) immediateUpdate.phone = cleanPhone;
       if (personalEmail !== undefined) immediateUpdate.personalEmail = cleanPersonalEmail;
-      if (currentAddress !== undefined) immediateUpdate.currentAddress = currentAddress?.trim() || null;
+      if (currentAddress !== undefined || temporaryAddress !== undefined) {
+        const cleanCurrentAddr = (currentAddress !== undefined ? currentAddress : temporaryAddress)?.trim() || null;
+        immediateUpdate.currentAddress = cleanCurrentAddr;
+        immediateUpdate.temporaryAddress = cleanCurrentAddr;
+      }
       if (emergencyContactName !== undefined) immediateUpdate.emergencyContactName = emergencyContactName?.trim() || null;
       if (emergencyContactPhone !== undefined) immediateUpdate.emergencyContactPhone = emergencyContactPhone?.trim() || null;
       if (emergencyContactRelation !== undefined) immediateUpdate.emergencyContactRelation = emergencyContactRelation?.trim() || null;
+      if (workExperience !== undefined) {
+        immediateUpdate.workExperience = workExperience
+          ? (typeof workExperience === 'string' ? workExperience.trim() || null : JSON.stringify(workExperience))
+          : null;
+      }
+      if (attachedFiles !== undefined) {
+        immediateUpdate.attachedFiles = attachedFiles
+          ? (typeof attachedFiles === 'string' ? attachedFiles : JSON.stringify(attachedFiles))
+          : null;
+      }
 
       // 🟡 2. Các trường nhạy cảm cần HR phê duyệt
       const sensitiveFields = [
-        'fullName', 'gender', 'dateOfBirth', 'nationality', 'ethnicity',
+        'fullName', 'gender', 'dateOfBirth', 'nationality', 'ethnicity', 'religion',
         'birthPlace', 'hometown', 'maritalStatus', 'permanentAddress',
         'cccd', 'cccdIssueDate', 'cccdExpiryDate', 'cccdIssuePlace',
         'highestEducation', 'bankName', 'bankBranch', 'bankAccount',
@@ -748,6 +762,7 @@ router.put('/:id', async (req: any, res: Response): Promise<any> => {
         ...(dataConsentDate && { dataConsentDate: new Date(dataConsentDate) }),
 
         email: cleanEmail,
+        ...(personalEmail !== undefined && { personalEmail: cleanPersonalEmail }),
         phone: cleanPhone,
         gender: gender || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,

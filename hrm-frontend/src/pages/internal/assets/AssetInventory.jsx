@@ -8,9 +8,12 @@ import {
   ShieldAlert, Layers, Package, Grid, List, Wrench, Shield, ChevronRight, UserCheck,
   Download, Upload
 } from 'lucide-react';
+import axios from 'axios';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../../utils/excelHelper';
 import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
+import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const AssetInventory = () => {
   const [assets, setAssets] = useState([]);
@@ -24,6 +27,7 @@ export const AssetInventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -124,11 +128,12 @@ export const AssetInventory = () => {
     }
   ];
 
-  // Xuất file Excel kho tài sản
-  const handleExportExcelAssets = () => {
-    if (assets.length === 0) return toast.error('Không có dữ liệu tài sản để xuất.');
+  // Xuất file Excel kho tài sản (hỗ trợ xuất toàn bộ hoặc các dòng/thiết bị đã chọn)
+  const handleExportExcelAssets = (rowsOverride = null) => {
+    const sourceList = Array.isArray(rowsOverride) ? rowsOverride : assets;
+    if (sourceList.length === 0) return toast.error('Không có dữ liệu tài sản để xuất.');
     try {
-      const exportData = assets.map(a => ({
+      const exportData = sourceList.map(a => ({
         code: a.code,
         name: a.name,
         serialNumber: a.serialNumber || '',
@@ -156,11 +161,11 @@ export const AssetInventory = () => {
 
       exportToExcel({
         data: exportData,
-        fileName: 'Kiem_Ke_Tai_San_Doanh_Nghiep',
+        fileName: Array.isArray(rowsOverride) ? `Tai_San_Da_Chon_${sourceList.length}` : 'Kiem_Ke_Tai_San_Doanh_Nghiep',
         sheetName: 'Kho tài sản',
         columns
       });
-      toast.success('Đã xuất file Excel kiểm kê tài sản thành công!');
+      toast.success(`Đã xuất file Excel (${sourceList.length} thiết bị) thành công!`);
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi xuất file Excel tài sản.');
@@ -534,6 +539,53 @@ export const AssetInventory = () => {
       return matchesSearch && matchesStatus;
     });
   }, [assets, searchTerm, selectedStatus]);
+
+  const productSelection = useTableSelection(products, (p) => p.productCode);
+  const unitSelection = useTableSelection(assets);
+
+  const {
+    currentPage: catalogPage,
+    setCurrentPage: setCatalogPage,
+    pageSize: catalogPageSize,
+    setPageSize: setCatalogPageSize,
+    totalItems: catalogTotalItems,
+    totalPages: catalogTotalPages,
+    paginatedItems: paginatedProducts,
+    resetPage: resetCatalogPage,
+  } = usePagination(filteredProducts, 10);
+
+  const {
+    currentPage: unitPage,
+    setCurrentPage: setUnitPage,
+    pageSize: unitPageSize,
+    setPageSize: setUnitPageSize,
+    totalItems: unitTotalItems,
+    totalPages: unitTotalPages,
+    paginatedItems: paginatedAssets,
+    resetPage: resetUnitPage,
+  } = usePagination(filteredAssets, 10);
+
+  useEffect(() => {
+    resetCatalogPage();
+  }, [searchTerm, selectedCategory, resetCatalogPage]);
+
+  useEffect(() => {
+    resetUnitPage();
+  }, [searchTerm, selectedCategory, selectedStatus, resetUnitPage]);
+
+  const handleBatchDeleteAssets = () => {
+    runBatchDelete({
+      count: unitSelection.selectedCount,
+      itemLabel: 'tài sản',
+      confirmText: 'Hệ thống sẽ chuyển các thiết bị đã chọn sang trạng thái Thanh lý / Xóa mềm (thiết bị đang được nhân viên giữ sẽ được bảo vệ và giữ lại).',
+      executeDeletes: () => unitSelection.selectedIds.map(id => axios.delete(`http://localhost:5000/api/assets/${id}`)),
+      onDone: () => {
+        unitSelection.clearSelection();
+        fetchData();
+      },
+      setIsDeleting: setIsBatchDeleting
+    });
+  };
 
   // Lọc units bên trong Modal Ma Trận
   const filteredMatrixUnits = useMemo(() => {
@@ -1009,14 +1061,14 @@ export const AssetInventory = () => {
       </div>
 
       {/* Search & View Toolbar */}
-      <div className="card glass flex items-center justify-between gap-4" style={{ padding: '0.85rem 1.25rem' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+      <div className="card glass flex items-center justify-between flex-wrap gap-4" style={{ padding: '0.85rem 1.25rem' }}>
+        <div style={{ position: 'relative', width: '300px', maxWidth: '100%' }}>
+          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
           <input 
             type="text" 
-            placeholder="Tìm theo tên thiết bị, mã SP (SP-PC-XEON...), mã cá thể (TS-PC-001...), serial, nhà cung cấp, hoặc người dùng..." 
+            placeholder="Tìm tên, mã SP, mã cá thể, serial..." 
             className="form-input"
-            style={{ paddingLeft: '2.6rem', width: '100%', fontSize: '0.88rem' }}
+            style={{ paddingLeft: '2.35rem', width: '100%', height: 38, fontSize: '0.85rem' }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -1055,6 +1107,27 @@ export const AssetInventory = () => {
         </div>
       </div>
 
+      {viewMode === 'PRODUCT_CATALOG' ? (
+        <BulkSelectionBar
+          selectedCount={productSelection.selectedCount}
+          itemLabel="dòng sản phẩm"
+          onExportSelected={() => {
+            const selectedUnits = productSelection.getSelectedItems().flatMap(p => p.units || []);
+            handleExportExcelAssets(selectedUnits);
+          }}
+          onClear={productSelection.clearSelection}
+        />
+      ) : (
+        <BulkSelectionBar
+          selectedCount={unitSelection.selectedCount}
+          itemLabel="thiết bị"
+          onExportSelected={() => handleExportExcelAssets(unitSelection.getSelectedItems())}
+          onDeleteSelected={handleBatchDeleteAssets}
+          onClear={unitSelection.clearSelection}
+          isDeleting={isBatchDeleting}
+        />
+      )}
+
       {/* Main Inventory Content */}
       {loading ? (
         <div className="card glass flex items-center justify-center" style={{ minHeight: 250 }}>
@@ -1067,6 +1140,14 @@ export const AssetInventory = () => {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 44, textAlign: 'center' }}>
+                    <TableCheckbox
+                      checked={productSelection.getHeaderCheckState(paginatedProducts).checked}
+                      indeterminate={productSelection.getHeaderCheckState(paginatedProducts).indeterminate}
+                      onChange={() => productSelection.toggleMany(paginatedProducts)}
+                      title="Chọn tất cả trang này"
+                    />
+                  </th>
                   <th style={{ width: 140 }}>Mã dòng</th>
                   <th style={{ minWidth: 220 }}>Tên thiết bị</th>
                   <th style={{ minWidth: 150 }}>Nhà cung cấp</th>
@@ -1080,25 +1161,33 @@ export const AssetInventory = () => {
               <tbody>
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center py-8 text-muted">
+                    <td colSpan="9" className="text-center py-8 text-muted">
                       Không tìm thấy dòng sản phẩm nào phù hợp với từ khóa tìm kiếm.
                     </td>
                   </tr>
                 ) : (
-                  filteredProducts.map(prod => {
+                  paginatedProducts.map(prod => {
                     const totalPrice = prod.units?.reduce((sum, u) => sum + Number(u.price || 0), 0) || (Number(prod.price || 0) * prod.totalQuantity);
                     const distinctPrices = Array.from(new Set((prod.units || []).map(u => Number(u.price || 0)).filter(p => p > 0)));
                     const assignedPct = prod.totalQuantity > 0 ? Math.round((prod.assignedQuantity / prod.totalQuantity) * 100) : 0;
                     const availablePct = prod.totalQuantity > 0 ? Math.round((prod.availableQuantity / prod.totalQuantity) * 100) : 0;
                     const maintPct = prod.totalQuantity > 0 ? Math.round((prod.maintenanceQuantity / prod.totalQuantity) * 100) : 0;
+                    const isChecked = productSelection.selectedSet.has(prod.productCode);
 
                     return (
                       <tr 
                         key={prod.productCode} 
-                        style={{ cursor: 'pointer', transition: 'background 0.15s ease' }}
+                        style={{ cursor: 'pointer', transition: 'background 0.15s ease', ...(isChecked ? { backgroundColor: '#F8FAFF' } : {}) }}
                         onClick={() => setSelectedProductCode(prod.productCode)}
                         className="hover:bg-slate-50"
                       >
+                        <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          <TableCheckbox
+                            checked={isChecked}
+                            onChange={() => productSelection.toggleOne(prod.productCode)}
+                            title={`Chọn ${prod.name}`}
+                          />
+                        </td>
                         <td>
                           <span 
                             className="font-mono text-xs px-2.5 py-1 rounded font-bold"
@@ -1200,6 +1289,16 @@ export const AssetInventory = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            currentPage={catalogPage}
+            totalPages={catalogTotalPages}
+            pageSize={catalogPageSize}
+            totalItems={catalogTotalItems}
+            onPageChange={setCatalogPage}
+            onPageSizeChange={setCatalogPageSize}
+            itemLabel="dòng sản phẩm"
+            flush={false}
+          />
         </div>
       ) : (
         /* CHẾ ĐỘ 2: BẢNG DANH SÁCH TOÀN BỘ CÁ THỂ (UNIT SERIAL VIEW) */
@@ -1208,6 +1307,14 @@ export const AssetInventory = () => {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 44, textAlign: 'center' }}>
+                    <TableCheckbox
+                      checked={unitSelection.getHeaderCheckState(paginatedAssets).checked}
+                      indeterminate={unitSelection.getHeaderCheckState(paginatedAssets).indeterminate}
+                      onChange={() => unitSelection.toggleMany(paginatedAssets)}
+                      title="Chọn tất cả trang này"
+                    />
+                  </th>
                   <th>Mã & Tên Thiết Bị</th>
                   <th>Số Serial / SN</th>
                   <th>Nhà cung cấp</th>
@@ -1222,16 +1329,24 @@ export const AssetInventory = () => {
               <tbody>
                 {filteredAssets.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-8 text-muted">
+                    <td colSpan="10" className="text-center py-8 text-muted">
                       Không tìm thấy thiết bị nào phù hợp với bộ lọc.
                     </td>
                   </tr>
                 ) : (
-                  filteredAssets.map(asset => {
+                  paginatedAssets.map(asset => {
                     const activeAssign = asset.assignments && asset.assignments[0];
+                    const isChecked = unitSelection.selectedSet.has(asset.id);
 
                     return (
-                      <tr key={asset.id}>
+                      <tr key={asset.id} style={isChecked ? { backgroundColor: '#F8FAFF' } : undefined}>
+                        <td style={{ textAlign: 'center' }}>
+                          <TableCheckbox
+                            checked={isChecked}
+                            onChange={() => unitSelection.toggleOne(asset.id)}
+                            title={`Chọn ${asset.name}`}
+                          />
+                        </td>
                         <td>
                           <div className="flex-col">
                             <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{asset.name}</span>
@@ -1359,6 +1474,16 @@ export const AssetInventory = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            currentPage={unitPage}
+            totalPages={unitTotalPages}
+            pageSize={unitPageSize}
+            totalItems={unitTotalItems}
+            onPageChange={setUnitPage}
+            onPageSizeChange={setUnitPageSize}
+            itemLabel="thiết bị"
+            flush={false}
+          />
         </div>
       )}
 

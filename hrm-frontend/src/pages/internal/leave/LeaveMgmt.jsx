@@ -8,6 +8,7 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const LeaveMgmt = () => {
   const [leaves, setLeaves] = useState([]);
@@ -17,12 +18,10 @@ export const LeaveMgmt = () => {
   // States bộ lọc
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [selectedMonth, setSelectedMonth] = useState('11');
-  const [selectedYear, setSelectedYear] = useState('2026');
+  const [selectedMonth, setSelectedMonth] = useState('ALL');
+  const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('ALL');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
   // State Modal Tạo đơn nhanh cho HR
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -205,8 +204,15 @@ export const LeaveMgmt = () => {
   }, [leaves, selectedMonth, selectedYear]);
 
   // Phân trang
-  const totalPages = Math.ceil(filteredLeaves.length / itemsPerPage);
-  const currentLeaves = filteredLeaves.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: currentLeaves,
+  } = usePagination(filteredLeaves, 10);
 
   // Helper tính số ngày làm việc sơ bộ hiển thị
   const formatLeaveDays = (startDate, endDate, session) => {
@@ -241,7 +247,7 @@ export const LeaveMgmt = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%', overflowY: 'auto' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
       {/* 1. Header & Quick Actions */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
@@ -429,15 +435,15 @@ export const LeaveMgmt = () => {
           </select>
         </div>
 
-        {(searchTerm || statusFilter !== 'ALL' || selectedMonth !== '11' || selectedDept !== 'ALL' || leaveTypeFilter !== 'ALL') && (
+        {(searchTerm || statusFilter !== 'ALL' || selectedMonth !== 'ALL' || selectedDept !== 'ALL' || leaveTypeFilter !== 'ALL') && (
           <button 
             className="btn btn-outline" 
             style={{ height: '2.4rem', padding: '0 0.75rem', fontSize: '0.75rem', color: '#64748B' }} 
             onClick={() => {
               setSearchTerm('');
               setStatusFilter('ALL');
-              setSelectedMonth('11');
-              setSelectedYear('2026');
+              setSelectedMonth('ALL');
+              setSelectedYear(String(new Date().getFullYear()));
               setSelectedDept('ALL');
               setLeaveTypeFilter('ALL');
               setCurrentPage(1);
@@ -707,33 +713,16 @@ export const LeaveMgmt = () => {
         </div>
 
         {/* Phân trang */}
-        {!loading && totalPages > 1 && (
-          <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FAFAFA' }}>
-            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-              Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredLeaves.length)} / {filteredLeaves.length} đơn
-            </span>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button 
-                className="btn btn-outline" 
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                style={{ padding: '0.25rem 0.65rem', fontSize: '0.8125rem' }}
-              >
-                Trước
-              </button>
-              <span style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem', fontWeight: 600, fontSize: '0.8125rem' }}>
-                {currentPage} / {totalPages}
-              </span>
-              <button 
-                className="btn btn-outline" 
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                style={{ padding: '0.25rem 0.65rem', fontSize: '0.8125rem' }}
-              >
-                Sau
-              </button>
-            </div>
-          </div>
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="đơn"
+          />
         )}
       </div>
 

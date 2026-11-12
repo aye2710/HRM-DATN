@@ -4,6 +4,7 @@ import { CalendarDays, Search, Plus, Filter, Trash2, XCircle } from 'lucide-reac
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
@@ -36,6 +37,22 @@ export const Holidays = () => {
       .catch(err => toast.error('Lỗi khi thêm ngày lễ'));
   };
 
+  const filteredHolidays = holidays.filter(h => h.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedHolidays,
+    resetPage,
+  } = usePagination(filteredHolidays, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, resetPage]);
+
   const handleDelete = async (id) => {
     const result = await Swal.fire({ title: 'Xóa ngày lễ?', text: "Hành động này không thể hoàn tác", icon: 'warning', showCancelButton: true, confirmButtonText: 'Xóa', cancelButtonText: 'Hủy' });
     if (result.isConfirmed) {
@@ -49,7 +66,7 @@ export const Holidays = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflowY: 'auto' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 className="page-title">Lịch Nghỉ Lễ</h1>
@@ -91,10 +108,10 @@ export const Holidays = () => {
             <tbody>
               {loading ? (
                 <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Đang tải...</td></tr>
-              ) : holidays.length === 0 ? (
+              ) : filteredHolidays.length === 0 ? (
                 <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Chưa có lịch nghỉ lễ nào</td></tr>
               ) : (
-                holidays.filter(h => h.name.toLowerCase().includes(searchTerm.toLowerCase())).map(holiday => (
+                paginatedHolidays.map(holiday => (
                   <tr key={holiday.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -124,6 +141,18 @@ export const Holidays = () => {
             </tbody>
           </table>
         </div>
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="ngày lễ"
+            flush={false}
+          />
+        )}
       </div>
 
       {showModal && createPortal(

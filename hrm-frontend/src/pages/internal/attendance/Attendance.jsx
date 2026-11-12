@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Clock, Search, RefreshCw, Calendar, 
-  FileSpreadsheet, X, ShieldAlert, Zap, Edit3, Plus, ChevronLeft, ChevronRight, Upload
+  FileSpreadsheet, X, ShieldAlert, Zap, Edit3, Plus, Upload
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const AttendanceMgmt = () => {
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'daily' | 'monthly'
@@ -25,12 +26,6 @@ export const AttendanceMgmt = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
-
-  // Pagination
-  const [matrixPage, setMatrixPage] = useState(1);
-  const [dailyPage, setDailyPage] = useState(1);
-  const [monthlyPage, setMonthlyPage] = useState(1);
-  const itemsPerPage = 12;
 
   // Manual Adjust Modal
   const [showManualModal, setShowManualModal] = useState(false);
@@ -200,10 +195,15 @@ export const AttendanceMgmt = () => {
     });
   }, [employees, searchTerm, selectedDept]);
 
-  const totalMatrixPages = Math.ceil(filteredMatrixEmployees.length / itemsPerPage) || 1;
-  const paginatedMatrixEmployees = useMemo(() => {
-    return filteredMatrixEmployees.slice((matrixPage - 1) * itemsPerPage, matrixPage * itemsPerPage);
-  }, [filteredMatrixEmployees, matrixPage, itemsPerPage]);
+  const {
+    currentPage: matrixPage,
+    setCurrentPage: setMatrixPage,
+    pageSize: matrixPageSize,
+    setPageSize: setMatrixPageSize,
+    totalItems: totalMatrixItems,
+    totalPages: totalMatrixPages,
+    paginatedItems: paginatedMatrixEmployees,
+  } = usePagination(filteredMatrixEmployees, 10);
 
   // Filtered Daily Records
   const dailyRecords = useMemo(() => {
@@ -282,15 +282,25 @@ export const AttendanceMgmt = () => {
   }, [employees, attendances, selectedMonth, selectedYear, searchTerm, selectedDept, monthSchedule]);
 
   // Phân trang Daily & Monthly
-  const totalDailyPages = Math.ceil(dailyRecords.length / itemsPerPage) || 1;
-  const paginatedDailyRecords = useMemo(() => {
-    return dailyRecords.slice((dailyPage - 1) * itemsPerPage, dailyPage * itemsPerPage);
-  }, [dailyRecords, dailyPage, itemsPerPage]);
+  const {
+    currentPage: dailyPage,
+    setCurrentPage: setDailyPage,
+    pageSize: dailyPageSize,
+    setPageSize: setDailyPageSize,
+    totalItems: totalDailyItems,
+    totalPages: totalDailyPages,
+    paginatedItems: paginatedDailyRecords,
+  } = usePagination(dailyRecords, 10);
 
-  const totalMonthlyPages = Math.ceil(monthlySummary.length / itemsPerPage) || 1;
-  const paginatedMonthly = useMemo(() => {
-    return monthlySummary.slice((monthlyPage - 1) * itemsPerPage, monthlyPage * itemsPerPage);
-  }, [monthlySummary, monthlyPage, itemsPerPage]);
+  const {
+    currentPage: monthlyPage,
+    setCurrentPage: setMonthlyPage,
+    pageSize: monthlyPageSize,
+    setPageSize: setMonthlyPageSize,
+    totalItems: totalMonthlyItems,
+    totalPages: totalMonthlyPages,
+    paginatedItems: paginatedMonthly,
+  } = usePagination(monthlySummary, 10);
 
   // Daily Midnight Sweep Action
   const handleDailySweep = async () => {
@@ -1000,61 +1010,20 @@ export const AttendanceMgmt = () => {
             </div>
 
             {/* Phân trang Matrix */}
-            {totalMatrixPages > 1 && (
-              <div style={{
-                padding: '0.65rem 1rem',
-                borderTop: '1px solid #E2E8F0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                backgroundColor: '#FFFFFF',
-                flexWrap: 'wrap',
-                gap: '0.5rem'
-              }}>
-                <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
-                  Hiển thị {((matrixPage - 1) * itemsPerPage) + 1} - {Math.min(matrixPage * itemsPerPage, filteredMatrixEmployees.length)} / {filteredMatrixEmployees.length} nhân sự
-                </span>
-
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <button
-                    className="btn btn-outline"
-                    disabled={matrixPage === 1}
-                    onClick={() => setMatrixPage(p => Math.max(1, p - 1))}
-                    style={{ height: 28, padding: '0 8px', fontSize: '0.75rem' }}
-                  >
-                    <ChevronLeft size={14} /> Trước
-                  </button>
-                  {Array.from({ length: Math.min(7, totalMatrixPages) }, (_, i) => {
-                    let pageNum = i + 1;
-                    if (totalMatrixPages > 7 && matrixPage > 4) {
-                      pageNum = Math.min(totalMatrixPages - 6 + i, matrixPage - 3 + i);
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        className={`btn ${matrixPage === pageNum ? 'btn-primary' : 'btn-outline'}`}
-                        style={{ height: 28, minWidth: 28, padding: '0 6px', fontSize: '0.75rem' }}
-                        onClick={() => setMatrixPage(pageNum)}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                  <button
-                    className="btn btn-outline"
-                    disabled={matrixPage === totalMatrixPages}
-                    onClick={() => setMatrixPage(p => Math.min(totalMatrixPages, p + 1))}
-                    style={{ height: 28, padding: '0 8px', fontSize: '0.75rem' }}
-                  >
-                    Sau <ChevronRight size={14} />
-                  </button>
-                </div>
-              </div>
-            )}
+            <TablePagination
+              currentPage={matrixPage}
+              totalPages={totalMatrixPages}
+              pageSize={matrixPageSize}
+              totalItems={totalMatrixItems}
+              onPageChange={setMatrixPage}
+              onPageSizeChange={setMatrixPageSize}
+              itemLabel="nhân sự"
+            />
           </div>
         ) : activeTab === 'daily' ? (
           /* TAB 2: DAILY ATTENDANCE */
-          <div style={{ overflowX: 'auto' }}>
+          <div>
+            <div style={{ overflowX: 'auto' }}>
             <table className="w-full text-left" style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.85rem' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.73rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1159,10 +1128,23 @@ export const AttendanceMgmt = () => {
                 )}
               </tbody>
             </table>
+            </div>
+            {!loading && (
+              <TablePagination
+                currentPage={dailyPage}
+                totalPages={totalDailyPages}
+                pageSize={dailyPageSize}
+                totalItems={totalDailyItems}
+                onPageChange={setDailyPage}
+                onPageSizeChange={setDailyPageSize}
+                itemLabel="bản ghi"
+              />
+            )}
           </div>
         ) : (
           /* TAB 3: MONTHLY SUMMARY */
-          <div style={{ overflowX: 'auto' }}>
+          <div>
+            <div style={{ overflowX: 'auto' }}>
             <table className="w-full text-left" style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.85rem' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.73rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1218,6 +1200,18 @@ export const AttendanceMgmt = () => {
                 ))}
               </tbody>
             </table>
+            </div>
+            {!loading && (
+              <TablePagination
+                currentPage={monthlyPage}
+                totalPages={totalMonthlyPages}
+                pageSize={monthlyPageSize}
+                totalItems={totalMonthlyItems}
+                onPageChange={setMonthlyPage}
+                onPageSizeChange={setMonthlyPageSize}
+                itemLabel="nhân sự"
+              />
+            )}
           </div>
         )}
       </div>

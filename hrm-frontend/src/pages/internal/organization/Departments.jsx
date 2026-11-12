@@ -5,6 +5,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../../utils/excelHelper';
 import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
+import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 // Hàm loại bỏ dấu tiếng Việt
 const removeVietnameseTones = (str) => {
@@ -77,8 +79,6 @@ const generateDeptCode = (deptName, existingDepartments = [], currentId = '') =>
 export const Departments = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,6 +90,7 @@ export const Departments = () => {
 
   // Delete confirm state
   const [deleteId, setDeleteId] = useState(null);
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   // Lock/Unlock confirm state
   const [lockTarget, setLockTarget] = useState(null);
 
@@ -185,11 +186,12 @@ export const Departments = () => {
       for (const child of children) {
         const cStats = calculateStats(child.id);
         childHeadcountSum += cStats.totalHeadcount;
-        childQuotaSum += cStats.totalQuota;
+        childQuotaSum += cStats.directQuota;
       }
 
       const totalHeadcount = directHeadcount + childHeadcountSum;
-      const effectiveQuota = Math.max(directQuota, childQuotaSum);
+      // Giữ nguyên định biên trần của đơn vị cha (không tự động cộng dồn / phình theo phòng con)
+      const effectiveQuota = directQuota;
 
       const res = {
         directHeadcount,
@@ -208,15 +210,16 @@ export const Departments = () => {
     return statsMap;
   }, [departments]);
 
-  // Xuất file Excel cơ cấu phòng ban
-  const handleExportExcelDepartments = () => {
-    if (departments.length === 0) return toast.error('Không có dữ liệu phòng ban để xuất.');
+  // Xuất file Excel cơ cấu phòng ban (hỗ trợ xuất toàn bộ hoặc chỉ các dòng đã chọn)
+  const handleExportExcelDepartments = (rowsOverride = null) => {
+    const sourceList = Array.isArray(rowsOverride) ? rowsOverride : departments;
+    if (sourceList.length === 0) return toast.error('Không có dữ liệu phòng ban để xuất.');
     try {
       const parentMap = new Map(departments.map(d => [d.id, d.name]));
-      const exportData = departments.map(d => {
-        const stats = getDeptHierarchyStats.get(d.id) || { directHeadcount: 0, totalHeadcount: d._count?.employees || 0, totalQuota: d.quota || 15, hasChildren: false, childCount: 0 };
-        const headcount = stats.totalHeadcount;
-        const quota = stats.totalQuota;
+      const exportData = sourceList.map(d => {
+        const stats = getDeptHierarchyStats.get(d.id) || { directHeadcount: d._count?.employees || 0, totalHeadcount: d._count?.employees || 0, directQuota: d.quota || 15, hasChildren: false, childCount: 0 };
+        const headcount = stats.directHeadcount;
+        const quota = stats.directQuota;
         const fillRate = Math.round((headcount / (quota || 1)) * 100);
         return {
           code: d.code,
@@ -247,11 +250,11 @@ export const Departments = () => {
 
       exportToExcel({
         data: exportData,
-        fileName: 'Danh_Sach_Phong_Ban_Doanh_Nghiep',
+        fileName: Array.isArray(rowsOverride) ? `Phong_Ban_Da_Chon_${sourceList.length}` : 'Danh_Sach_Phong_Ban_Doanh_Nghiep',
         sheetName: 'Cơ cấu phòng ban',
         columns
       });
-      toast.success('Đã xuất file Excel cơ cấu phòng ban thành công!');
+      toast.success(`Đã xuất file Excel (${sourceList.length} phòng ban) thành công!`);
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi xuất file Excel phòng ban.');
@@ -348,10 +351,13 @@ export const Departments = () => {
       return;
     }
 
+    const parsedQuota = Math.max(1, parseInt(formData.quota, 10) || 1);
+
     const payload = {
       ...formData,
       name: cleanName,
-      code: cleanCode
+      code: cleanCode,
+      quota: parsedQuota
     };
 
     if (modalMode === 'add') {
@@ -408,7 +414,42 @@ export const Departments = () => {
     return matchSearch && matchStatus;
   });
   
-  const paginatedDepartments = filteredDepartments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedDepartments,
+  } = usePagination(filteredDepartments, 10);
+
+  const {
+    selectedIds,
+    selectedSet,
+    selectedCount,
+    toggleOne,
+    toggleMany,
+    getHeaderCheckState,
+    clearSelection,
+    getSelectedItems
+  } = useTableSelection(departments);
+
+  const headerCheckState = getHeaderCheckState(paginatedDepartments);
+
+  const handleBatchDeleteDepartments = () => {
+    runBatchDelete({
+      count: selectedCount,
+      itemLabel: 'phòng ban',
+      confirmText: `Hệ thống sẽ xóa các phòng ban đã chọn (những phòng ban còn nhân sự, vị trí hoặc đơn vị con trực thuộc sẽ được tự động giữ lại).`,
+      executeDeletes: () => selectedIds.map(id => axios.delete(`http://localhost:5000/api/departments/${id}`)),
+      onDone: () => {
+        clearSelection();
+        fetchDepartments();
+      },
+      setIsDeleting: setIsBatchDeleting
+    });
+  };
 
   return (
     <div className="flex-col gap-6 animate-fade-in relative">
@@ -421,7 +462,7 @@ export const Departments = () => {
         <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
           {/* Nút 1: Xuất dữ liệu */}
           <button 
-            onClick={handleExportExcelDepartments} 
+            onClick={() => handleExportExcelDepartments()} 
             className="btn btn-outline"
             style={{ 
               display: 'flex', 
@@ -475,23 +516,23 @@ export const Departments = () => {
 
       {/* Main Content */}
       <div className="card glass flex-col gap-4" style={{ flex: 1 }}>
-        {/* Toolbar */}
-        <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center w-full max-w-2xl">
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+        {/* Toolbar gọn nhẹ tối giản */}
+        <div className="flex justify-between items-center flex-wrap gap-3">
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', width: '260px', maxWidth: '100%' }}>
+              <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
-                placeholder="Tìm kiếm mã PB, tên phòng ban..."
+                placeholder="Tìm mã PB, tên phòng ban..."
                 className="form-input w-full"
-                style={{ paddingLeft: '2.5rem' }}
+                style={{ paddingLeft: '2.35rem', height: 38, fontSize: '0.85rem' }}
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
             <select
               className="form-input"
-              style={{ width: '200px' }}
+              style={{ width: '175px', height: 38, fontSize: '0.85rem' }}
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             >
@@ -502,11 +543,28 @@ export const Departments = () => {
           </div>
         </div>
 
+        <BulkSelectionBar
+          selectedCount={selectedCount}
+          itemLabel="phòng ban"
+          onExportSelected={() => handleExportExcelDepartments(getSelectedItems())}
+          onDeleteSelected={handleBatchDeleteDepartments}
+          onClear={clearSelection}
+          isDeleting={isBatchDeleting}
+        />
+
         {/* Table */}
         <div className="table-container">
           <table>
             <thead>
               <tr>
+                <th style={{ width: '44px', textAlign: 'center' }}>
+                  <TableCheckbox
+                    checked={headerCheckState.checked}
+                    indeterminate={headerCheckState.indeterminate}
+                    onChange={() => toggleMany(paginatedDepartments)}
+                    title="Chọn tất cả trang này"
+                  />
+                </th>
                 <th>Mã PB</th>
                 <th>Tên Phòng ban</th>
                 <th>Người đại diện</th>
@@ -519,11 +577,11 @@ export const Departments = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="text-center text-muted py-8">Đang tải dữ liệu từ server...</td>
+                  <td colSpan="8" className="text-center text-muted py-8">Đang tải dữ liệu từ server...</td>
                 </tr>
               ) : filteredDepartments.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center text-muted py-8">Không tìm thấy phòng ban nào</td>
+                  <td colSpan="8" className="text-center text-muted py-8">Không tìm thấy phòng ban nào</td>
                 </tr>
               ) : (
                 paginatedDepartments.map(dept => {
@@ -531,16 +589,23 @@ export const Departments = () => {
                     directHeadcount: dept._count?.employees || 0,
                     totalHeadcount: dept._count?.employees || 0,
                     directQuota: dept.quota || 15,
-                    totalQuota: dept.quota || 15,
                     hasChildren: false,
                     childCount: 0
                   };
-                  const currentHeadcount = stats.totalHeadcount;
-                  const quota = stats.totalQuota;
+                  const currentHeadcount = stats.directHeadcount;
+                  const quota = stats.directQuota;
                   const status = dept.status || 'Hoạt động';
+                  const isChecked = selectedSet.has(dept.id);
 
                   return (
-                    <tr key={dept.id}>
+                    <tr key={dept.id} style={isChecked ? { backgroundColor: '#F8FAFF' } : undefined}>
+                      <td style={{ textAlign: 'center' }}>
+                        <TableCheckbox
+                          checked={isChecked}
+                          onChange={() => toggleOne(dept.id)}
+                          title={`Chọn ${dept.name}`}
+                        />
+                      </td>
                       <td>
                         <span style={{ color: 'var(--primary)', fontWeight: 600, fontFamily: 'monospace', letterSpacing: '0.5px' }}>
                           {dept.code}
@@ -605,9 +670,9 @@ export const Departments = () => {
                                         border: '1px solid #BFDBFE',
                                         fontWeight: 600
                                       }}
-                                      title={`Tổng nhân sự và định biên lũy kế gồm ${stats.childCount} đơn vị con`}
+                                      title={`Quản lý ${stats.childCount} phòng con (định biên riêng độc lập với phòng cha)`}
                                     >
-                                      Tổng {stats.childCount} đơn vị
+                                      +{stats.childCount} phòng con
                                     </span>
                                   )}
                                 </div>
@@ -638,7 +703,7 @@ export const Departments = () => {
                               </div>
                               {stats.hasChildren && (
                                 <div style={{ fontSize: '0.68rem', color: '#64748B', marginTop: 3 }}>
-                                  Trực tiếp: <strong>{stats.directHeadcount}</strong> • Thuộc các phòng con: <strong>{stats.totalHeadcount - stats.directHeadcount}</strong>
+                                  Phòng con: <strong>{stats.totalHeadcount - stats.directHeadcount}</strong> người • Toàn nhánh: <strong>{stats.totalHeadcount}</strong>
                                 </div>
                               )}
                             </div>
@@ -715,45 +780,16 @@ export const Departments = () => {
           </table>
         </div>
 
-        {(() => {
-          const totalPages = Math.ceil(filteredDepartments.length / itemsPerPage);
-          if (totalPages <= 1) return null;
-          return (
-            <div className="flex justify-between items-center mt-4 px-2">
-              <span className="text-sm text-muted">
-                Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredDepartments.length)} trong tổng số {filteredDepartments.length} phòng ban
-              </span>
-              <div className="flex gap-2">
-                <button 
-                  className="btn btn-outline" 
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  style={{ padding: '0.4rem 0.8rem' }}
-                >
-                  Trước
-                </button>
-                {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                    style={{ minWidth: '40px', padding: '0.4rem 0.8rem' }}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button 
-                  className="btn btn-outline"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  style={{ padding: '0.4rem 0.8rem' }}
-                >
-                  Sau
-                </button>
-              </div>
-            </div>
-          );
-        })()}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="phòng ban"
+          flush={false}
+        />
       </div>
 
       {/* Add/Edit Modal */}
@@ -838,14 +874,14 @@ export const Departments = () => {
                   placeholder="Ví dụ: 15"
                 />
                 <span className="text-xs text-[var(--text-muted)]">
-                  Chỉ tiêu nhân sự trần được duyệt cho phòng ban này để đo lường tỷ lệ lấp đầy và kiểm soát tuyển dụng.
+                  Định biên riêng cho các vị trí trực thuộc trực tiếp đơn vị này (Ví dụ cấp cha gồm Trưởng, Phó, Thư ký...; các phòng/tổ con tự quản lý định biên riêng và không cộng dồn hay giới hạn lẫn nhau).
                 </span>
                 {(() => {
-                  const currentStats = editingId ? getDeptHierarchyStats.get(editingId) : null;
+                  const currentStats = modalMode === 'edit' && editingId ? getDeptHierarchyStats.get(editingId) : null;
                   if (currentStats && currentStats.hasChildren) {
                     return (
                       <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '0.5rem 0.75rem', borderRadius: 6, fontSize: '0.76rem', color: '#1D4ED8', marginTop: 4 }}>
-                        🏢 <strong>Đơn vị cấp cha:</strong> Đang quản lý <strong>{currentStats.childCount}</strong> phòng ban con với tổng định biên con là <strong>{currentStats.childQuotaSum} người</strong>. Ngoài bảng theo dõi, hệ thống sẽ tự động tổng hợp đầy đủ số lượng nhân sự và định biên lũy kế của toàn bộ các đơn vị con thuộc quyền quản lý.
+                        🏢 <strong>Đơn vị cấp cha:</strong> Đang quản lý <strong>{currentStats.childCount}</strong> phòng ban con (Mối quan hệ trực thuộc trên cây tổ chức; định biên của mỗi đơn vị là độc lập).
                       </div>
                     );
                   }

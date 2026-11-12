@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Plus, ArrowRight, X, History, Users, 
-  Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, 
+  Filter, 
   FileText, CheckCircle2, AlertCircle, DollarSign, Building, Briefcase, 
   ExternalLink, RotateCcw, Calendar, FileSignature, Info
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const Transfers = () => {
   const navigate = useNavigate();
@@ -28,14 +29,8 @@ export const Transfers = () => {
   const [deptFilter, setDeptFilter] = useState('');
   const [posFilter, setPosFilter] = useState('');
 
-  // Pagination for Active Employees
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  // Filters and Pagination for History
+  // Filters for History
   const [historySearch, setHistorySearch] = useState('');
-  const [historyPage, setHistoryPage] = useState(1);
-  const [historyItemsPerPage, setHistoryItemsPerPage] = useState(10);
 
   // Fetch initial data
   const fetchData = async () => {
@@ -102,13 +97,20 @@ export const Transfers = () => {
   }, [activeEmployees, searchTerm, deptFilter, posFilter]);
 
   // Pagination for Active Employees
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, deptFilter, posFilter, itemsPerPage]);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize: itemsPerPage,
+    setPageSize: setItemsPerPage,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedEmployees,
+    resetPage,
+  } = usePagination(filteredEmployees, 10);
 
-  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage);
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, deptFilter, posFilter, resetPage]);
 
   // History filtering & pagination
   const filteredHistory = useMemo(() => {
@@ -125,9 +127,20 @@ export const Transfers = () => {
     });
   }, [historyList, historySearch]);
 
-  const totalHistoryPages = Math.ceil(filteredHistory.length / historyItemsPerPage) || 1;
-  const startHistoryIndex = (historyPage - 1) * historyItemsPerPage;
-  const paginatedHistory = filteredHistory.slice(startHistoryIndex, startHistoryIndex + historyItemsPerPage);
+  const {
+    currentPage: historyPage,
+    setCurrentPage: setHistoryPage,
+    pageSize: historyItemsPerPage,
+    setPageSize: setHistoryItemsPerPage,
+    totalItems: totalHistoryItems,
+    totalPages: totalHistoryPages,
+    paginatedItems: paginatedHistory,
+    resetPage: resetHistoryPage,
+  } = usePagination(filteredHistory, 10);
+
+  useEffect(() => {
+    resetHistoryPage();
+  }, [historySearch, resetHistoryPage]);
 
   const formatCurrency = (val) => {
     if (!val && val !== 0) return '—';
@@ -480,115 +493,15 @@ export const Transfers = () => {
           </div>
 
           {/* Phân trang (Pagination) */}
-          {filteredEmployees.length > 0 && (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              padding: '0.75rem 1.25rem', 
-              borderTop: '1px solid var(--border)',
-              backgroundColor: '#ffffff',
-              flexWrap: 'wrap',
-              gap: '0.75rem'
-            }}>
-              {/* Hiển thị số lượng */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
-                <span>Hiển thị</span>
-                <select
-                  className="form-input"
-                  style={{ width: '68px', padding: '2px 6px', fontSize: '0.8rem', borderRadius: '6px' }}
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
-                <span>dòng / trang ({startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredEmployees.length)} trong tổng số {filteredEmployees.length} nhân viên)</span>
-              </div>
-
-              {/* Nút phân trang */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <button 
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: currentPage === 1 ? 0.4 : 1 }}
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(1)}
-                  title="Trang đầu"
-                >
-                  <ChevronsLeft size={14} />
-                </button>
-                <button 
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: currentPage === 1 ? 0.4 : 1 }}
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  title="Trang trước"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-
-                {(() => {
-                  const pages = [];
-                  for (let i = 1; i <= totalPages; i++) {
-                    if (
-                      i === 1 || 
-                      i === totalPages || 
-                      (i >= currentPage - 1 && i <= currentPage + 1)
-                    ) {
-                      pages.push(i);
-                    } else if (pages[pages.length - 1] !== '...') {
-                      pages.push('...');
-                    }
-                  }
-                  return pages.map((page, idx) => 
-                    page === '...' ? (
-                      <span key={`ellipsis-${idx}`} style={{ padding: '0 4px', color: '#94a3b8', fontSize: '0.8rem' }}>...</span>
-                    ) : (
-                      <button
-                        key={`page-${page}`}
-                        onClick={() => setCurrentPage(page)}
-                        style={{
-                          border: 'none',
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          fontWeight: currentPage === page ? 700 : 500,
-                          backgroundColor: currentPage === page ? 'var(--primary)' : 'transparent',
-                          color: currentPage === page ? '#ffffff' : '#64748b',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {page}
-                      </button>
-                    )
-                  );
-                })()}
-
-                <button 
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: currentPage === totalPages ? 0.4 : 1 }}
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  title="Trang sau"
-                >
-                  <ChevronRight size={14} />
-                </button>
-                <button 
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: currentPage === totalPages ? 0.4 : 1 }}
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                  title="Trang cuối"
-                >
-                  <ChevronsRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={itemsPerPage}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setItemsPerPage}
+            itemLabel="nhân viên"
+          />
         </div>
       )}
 
@@ -743,80 +656,15 @@ export const Transfers = () => {
           </div>
 
           {/* Phân trang History */}
-          {filteredHistory.length > 0 && (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              padding: '0.75rem 1.25rem', 
-              borderTop: '1px solid var(--border)',
-              backgroundColor: '#ffffff',
-              flexWrap: 'wrap',
-              gap: '0.75rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
-                <span>Hiển thị</span>
-                <select
-                  className="form-input"
-                  style={{ width: '68px', padding: '2px 6px', fontSize: '0.8rem', borderRadius: '6px' }}
-                  value={historyItemsPerPage}
-                  onChange={(e) => {
-                    setHistoryItemsPerPage(Number(e.target.value));
-                    setHistoryPage(1);
-                  }}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
-                <span>bản ghi / trang ({startHistoryIndex + 1} - {Math.min(startHistoryIndex + historyItemsPerPage, filteredHistory.length)} trong {filteredHistory.length})</span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <button 
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: historyPage === 1 ? 0.4 : 1 }}
-                  disabled={historyPage === 1}
-                  onClick={() => setHistoryPage(1)}
-                  title="Trang đầu"
-                >
-                  <ChevronsLeft size={14} />
-                </button>
-                <button 
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: historyPage === 1 ? 0.4 : 1 }}
-                  disabled={historyPage === 1}
-                  onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
-                  title="Trang trước"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-
-                <span style={{ fontSize: '0.8rem', color: '#475569', padding: '0 8px' }}>
-                  Trang {historyPage} / {totalHistoryPages}
-                </span>
-
-                <button 
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: historyPage === totalHistoryPages ? 0.4 : 1 }}
-                  disabled={historyPage === totalHistoryPages}
-                  onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
-                  title="Trang sau"
-                >
-                  <ChevronRight size={14} />
-                </button>
-                <button 
-                  className="btn btn-outline"
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: historyPage === totalHistoryPages ? 0.4 : 1 }}
-                  disabled={historyPage === totalHistoryPages}
-                  onClick={() => setHistoryPage(totalHistoryPages)}
-                  title="Trang cuối"
-                >
-                  <ChevronsRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+          <TablePagination
+            currentPage={historyPage}
+            totalPages={totalHistoryPages}
+            pageSize={historyItemsPerPage}
+            totalItems={totalHistoryItems}
+            onPageChange={setHistoryPage}
+            onPageSizeChange={setHistoryItemsPerPage}
+            itemLabel="bản ghi"
+          />
         </div>
       )}
 

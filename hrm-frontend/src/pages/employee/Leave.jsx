@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { TablePagination, usePagination } from '../../components/common/TablePagination';
 
 export const EmployeeLeave = () => {
   const [requests, setRequests] = useState([]);
@@ -117,6 +118,21 @@ export const EmployeeLeave = () => {
     if (statusFilter === 'ALL') return true;
     return req.status === statusFilter;
   });
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedRequests,
+    resetPage,
+  } = usePagination(filteredRequests, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [statusFilter, resetPage]);
 
   const getLeaveTypeBadge = (type) => {
     switch (type) {
@@ -432,7 +448,7 @@ export const EmployeeLeave = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredRequests.map((req, idx) => {
+                {paginatedRequests.map((req, idx) => {
                   const typeBadge = getLeaveTypeBadge(req.leaveType);
                   const statusBadge = getStatusBadge(req.status);
                   const countDays = calculateDays(req.startDate, req.endDate, req.session);
@@ -493,6 +509,17 @@ export const EmployeeLeave = () => {
               </tbody>
             </table>
           </div>
+        )}
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="đơn"
+          />
         )}
       </div>
 

@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { 
   CalendarClock, Search, Plus, Filter, Lock, Unlock, PlayCircle, 
-  Trash2, Eye, RefreshCw, Banknote, Users, X, Check, ArrowRight,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  Trash2, Eye, RefreshCw, Banknote, Users, X, Check, ArrowRight
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const PayrollPeriods = () => {
   const navigate = useNavigate();
@@ -17,10 +17,6 @@ export const PayrollPeriods = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [calculatingId, setCalculatingId] = useState(null);
-
-  // Phân trang
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
   // Modal tạo kỳ lương
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -188,11 +184,15 @@ export const PayrollPeriods = () => {
   }, [periods, searchTerm, statusFilter]);
 
   // Phân trang
-  const totalRecords = filteredPeriods.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalRecords);
-  const currentPeriods = filteredPeriods.slice(startIndex, endIndex);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems: totalRecords,
+    totalPages,
+    paginatedItems: currentPeriods,
+  } = usePagination(filteredPeriods, 10);
 
   // Số liệu tổng hợp
   const totalCount = periods.length;
@@ -487,73 +487,15 @@ export const PayrollPeriods = () => {
         </div>
 
         {/* 4. Thanh Phân Trang */}
-        <div className="p-4 flex items-center justify-between gap-4 flex-wrap" style={{ borderTop: '1px solid var(--border)', background: 'rgba(0, 0, 0, 0.1)' }}>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted">
-              Đang hiển thị <strong>{totalRecords === 0 ? 0 : startIndex + 1}</strong> - <strong>{endIndex}</strong> / <strong>{totalRecords}</strong> kỳ lương
-            </span>
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-muted">| Hiển thị:</span>
-              <select 
-                className="form-input" 
-                style={{ width: 'auto', height: 30, padding: '0 0.5rem', fontSize: '0.8rem' }}
-                value={pageSize}
-                onChange={e => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-              >
-                <option value={10}>10 / trang</option>
-                <option value={20}>20 / trang</option>
-                <option value={50}>50 / trang</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button 
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(1)}
-              className="btn btn-outline" 
-              style={{ width: 32, height: 32, padding: 0, opacity: currentPage === 1 ? 0.4 : 1 }}
-              title="Trang đầu"
-            >
-              <ChevronsLeft size={16} />
-            </button>
-            <button 
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              className="btn btn-outline" 
-              style={{ width: 32, height: 32, padding: 0, opacity: currentPage === 1 ? 0.4 : 1 }}
-              title="Trang trước"
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            <span className="px-3 text-xs font-bold text-main">
-              Trang {currentPage} / {totalPages}
-            </span>
-
-            <button 
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              className="btn btn-outline" 
-              style={{ width: 32, height: 32, padding: 0, opacity: currentPage >= totalPages ? 0.4 : 1 }}
-              title="Trang tiếp theo"
-            >
-              <ChevronRight size={16} />
-            </button>
-            <button 
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage(totalPages)}
-              className="btn btn-outline" 
-              style={{ width: 32, height: 32, padding: 0, opacity: currentPage >= totalPages ? 0.4 : 1 }}
-              title="Trang cuối"
-            >
-              <ChevronsRight size={16} />
-            </button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalRecords}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="kỳ lương"
+        />
       </div>
 
       {/* 5. MODAL TẠO KỲ LƯƠNG MỚI (React Portal Full Screen Backdrop) */}

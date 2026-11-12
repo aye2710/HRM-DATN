@@ -3,15 +3,14 @@ import { FileDiff, Search, Plus, Filter, Edit2, Trash2, Eye, X, CheckCircle, Awa
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const KPITemplates = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Phân trang
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+
 
   // Modal tạo Mẫu mới
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -215,10 +214,15 @@ export const KPITemplates = () => {
     t.department.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage) || 1;
-  const paginatedTemplates = useMemo(() => {
-    return filteredTemplates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  }, [filteredTemplates, currentPage, itemsPerPage]);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedTemplates,
+  } = usePagination(filteredTemplates, 10);
 
   return (
     <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
@@ -396,55 +400,16 @@ export const KPITemplates = () => {
         </div>
 
         {/* Phân Trang */}
-        {filteredTemplates.length > 0 && (
-          <div style={{
-            padding: '0.75rem 0.5rem',
-            borderTop: '1px solid #E2E8F0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.75rem'
-          }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
-              Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredTemplates.length)} trong tổng số {filteredTemplates.length} bộ mẫu
-            </span>
-
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <button 
-                className="btn btn-outline" 
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
-              >
-                Trước
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                  style={{
-                    height: '32px', minWidth: '32px', padding: 0,
-                    fontSize: '0.8rem', fontWeight: currentPage === page ? 700 : 500
-                  }}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              ))}
-
-              <button 
-                className="btn btn-outline"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
-              >
-                Sau
-              </button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="bộ mẫu"
+          flush={false}
+        />
       </div>
 
       {/* MODAL XEM CHI TIẾT CÁC TIÊU CHÍ TRONG MẪU */}

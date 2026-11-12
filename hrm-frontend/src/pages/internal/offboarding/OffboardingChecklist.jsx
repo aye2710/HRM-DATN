@@ -7,6 +7,7 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 import { 
   HandoverDrawerModal, 
   Bm02PrintModal 
@@ -72,8 +73,18 @@ export const OffboardingChecklist = () => {
     }
   };
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedInProgress,
+  } = usePagination(inProgressList, 10);
+
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%', overflowY: 'auto' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
       {/* 1. Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
@@ -204,7 +215,7 @@ export const OffboardingChecklist = () => {
                   </td>
                 </tr>
               ) : (
-                inProgressList.map(emp => {
+                paginatedInProgress.map(emp => {
                   const tasks = emp.onboardingTasks || [];
                   const doneTasks = tasks.filter(t => t.isCompleted).length;
                   const totalTasks = tasks.length || 8;
@@ -267,6 +278,17 @@ export const OffboardingChecklist = () => {
             </tbody>
           </table>
         </div>
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="nhân sự"
+          />
+        )}
       </div>
 
       {/* 4. MODALS */}

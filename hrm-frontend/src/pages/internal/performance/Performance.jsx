@@ -7,6 +7,7 @@ import {
 import axios from 'axios';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const Performance = () => {
   const [evaluations, setEvaluations] = useState([]);
@@ -15,9 +16,7 @@ export const Performance = () => {
   const [filterDept, setFilterDept] = useState('ALL');
   const [filterGrade, setFilterGrade] = useState('ALL');
 
-  // Phân trang
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+
 
   // Modal Cycle State
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
@@ -135,10 +134,15 @@ export const Performance = () => {
   }, [evaluations, searchQuery, filterDept, filterGrade]);
 
   // Phân trang
-  const totalPages = Math.ceil(filteredEvaluations.length / itemsPerPage) || 1;
-  const paginatedEvaluations = useMemo(() => {
-    return filteredEvaluations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  }, [filteredEvaluations, currentPage, itemsPerPage]);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedEvaluations,
+  } = usePagination(filteredEvaluations, 10);
 
   // Statistics
   const stats = useMemo(() => {
@@ -553,55 +557,16 @@ export const Performance = () => {
         </div>
 
         {/* Phân Trang */}
-        {filteredEvaluations.length > 0 && (
-          <div style={{
-            padding: '0.75rem 0.5rem',
-            borderTop: '1px solid #E2E8F0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.75rem'
-          }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
-              Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredEvaluations.length)} trong tổng số {filteredEvaluations.length} nhân sự
-            </span>
-
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <button 
-                className="btn btn-outline" 
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
-              >
-                Trước
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                  style={{
-                    height: '32px', minWidth: '32px', padding: 0,
-                    fontSize: '0.8rem', fontWeight: currentPage === page ? 700 : 500
-                  }}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              ))}
-
-              <button 
-                className="btn btn-outline"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
-              >
-                Sau
-              </button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="nhân sự"
+          flush={false}
+        />
 
       </div>
 

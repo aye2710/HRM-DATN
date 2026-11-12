@@ -255,7 +255,7 @@ export const SystemParameters = () => {
           </div>
         </div>
         <span className="badge badge-success" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 600 }}>
-          <CheckCircle size={13} style={{ marginRight: '4px', display: 'inline' }} /> 28 Tham số Đang hoạt động
+          <CheckCircle size={13} style={{ marginRight: '4px', display: 'inline' }} /> {settings.length} Tham số Đang hoạt động
         </span>
       </div>
 
@@ -413,8 +413,8 @@ export const SystemParameters = () => {
                             ) : (
                               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                 <input
-                                  type={item.dataType === 'NUMBER' || item.dataType === 'PERCENT' ? 'number' : 'text'}
-                                  step={item.dataType === 'PERCENT' ? '0.1' : (item.key.includes('HOURS') ? '0.5' : '1')}
+                                  type={item.dataType === 'NUMBER' || item.dataType === 'PERCENT' || item.dataType === 'CURRENCY' ? 'number' : 'text'}
+                                  step={item.dataType === 'PERCENT' ? '0.1' : (item.dataType === 'CURRENCY' ? '10000' : (item.key.includes('HOURS') ? '0.5' : '1'))}
                                   className="form-input font-mono"
                                   style={{ 
                                     height: '36px', 

@@ -3,6 +3,7 @@ import { Clock, Search, Plus, Edit2, Trash2, X, Cpu, CheckCircle2, AlertTriangle
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const Shifts = () => {
   const [shifts, setShifts] = useState([]);
@@ -103,6 +104,21 @@ export const Shifts = () => {
   const filteredShifts = shifts.filter(s =>
     s.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedShifts,
+    resetPage,
+  } = usePagination(filteredShifts, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, resetPage]);
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -220,7 +236,7 @@ export const Shifts = () => {
                   </td>
                 </tr>
               ) : (
-                filteredShifts.map(shift => {
+                paginatedShifts.map(shift => {
                   const graceLimit = addMinutesToTime(shift.startTime, 5);
                   return (
                     <tr key={shift.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
@@ -310,6 +326,15 @@ export const Shifts = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="ca làm việc"
+        />
       </div>
 
       {/* Modal Thêm / Sửa Ca */}

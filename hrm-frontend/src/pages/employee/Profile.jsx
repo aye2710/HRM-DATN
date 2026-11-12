@@ -1,17 +1,84 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
-import { 
+import {
   User, Briefcase, FileText, CreditCard, Award, Clock, Edit3, X, Save, AlertCircle,
-  Users, Laptop, Plus, Trash2, Eye, UploadCloud, ExternalLink
+  Users, Laptop, Plus, Trash2, Eye, EyeOff, UploadCloud, ExternalLink,
+  Paperclip, FolderOpen, Building2, GraduationCap, FileSignature
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import {
+  GENDER_OPTIONS,
+  MARITAL_STATUS_OPTIONS,
+  normalizeGenderCode,
+  normalizeMaritalStatusCode,
+  formatDateVN,
+  toDateInputValue,
+  getEmployeeStatusMeta,
+  getManagementRoleLabel,
+  getEmploymentTypeLabel,
+  calculateSeniority,
+  getContractTypeName,
+  getContractStatusMeta,
+  getDecisionTypeLabel,
+  getAssetAssignmentStatusMeta,
+  parseAttachedFiles,
+  parseContractFiles
+} from '../../utils/employeeProfileHelpers';
 
-// Reusable FormField matching Admin portal inline editing style
+const EMPTY_FALLBACK = {
+  contracts: [],
+  relatives: [],
+  degrees: [],
+  certificates: [],
+  assetAssignments: [],
+  decisions: [],
+  employmentHistories: [],
+  profileChangeRequests: [],
+  trainings: []
+};
+
+const ReadOnlyInfoItem = ({ label, value, highlight = false, badge = null }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+    <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>{label}</span>
+    {badge ? (
+      <div>
+        <span
+          style={{
+            display: 'inline-block',
+            backgroundColor: badge.bg,
+            color: badge.color,
+            border: `1px solid ${badge.border}`,
+            padding: '3px 10px',
+            borderRadius: '9999px',
+            fontSize: '0.78rem',
+            fontWeight: 700
+          }}
+        >
+          {badge.label}
+        </span>
+      </div>
+    ) : (
+      <span
+        style={{
+          fontSize: '0.9rem',
+          color: highlight ? '#2563EB' : '#0F172A',
+          fontWeight: highlight ? 700 : 600,
+          minHeight: '22px'
+        }}
+      >
+        {value || <span style={{ color: '#94A3B8', fontWeight: 400 }}>—</span>}
+      </span>
+    )}
+  </div>
+);
+
+// Reusable FormField matching Admin portal inline editing + ESS permission badges
 const FormField = ({
   label,
   value,
+  displayValue,
   onChange,
   isEdit = false,
   type = 'text',
@@ -19,7 +86,8 @@ const FormField = ({
   options = [],
   badge = null,
   placeholder = '',
-  colSpan = 1
+  colSpan = 1,
+  rows = 3
 }) => {
   const readOnlyStyle = {
     padding: '10px 14px',
@@ -32,7 +100,8 @@ const FormField = ({
     minHeight: '42px',
     display: 'flex',
     alignItems: 'center',
-    width: '100%'
+    width: '100%',
+    whiteSpace: type === 'textarea' ? 'pre-wrap' : 'normal'
   };
 
   const editStyle = {
@@ -49,6 +118,24 @@ const FormField = ({
     transition: 'all 0.2s'
   };
 
+  const normalizedOptions = options.map((opt) =>
+    typeof opt === 'object' && opt !== null ? opt : { value: opt, label: opt }
+  );
+
+  const renderReadValue = () => {
+    if (displayValue !== undefined && displayValue !== null && displayValue !== '') {
+      return displayValue;
+    }
+    if (type === 'select') {
+      const matched = normalizedOptions.find((opt) => String(opt.value) === String(value));
+      return matched ? matched.label : (value || '—');
+    }
+    if (type === 'date') {
+      return formatDateVN(value);
+    }
+    return value || '—';
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: colSpan > 1 ? `span ${colSpan}` : undefined }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -56,14 +143,17 @@ const FormField = ({
           {label}
         </label>
         {isEdit && badge && (
-          <span style={{
-            fontSize: '0.7rem',
-            fontWeight: 700,
-            padding: '2px 8px',
-            borderRadius: '4px',
-            backgroundColor: badge.bg,
-            color: badge.color
-          }}>
+          <span
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: '4px',
+              backgroundColor: badge.bg,
+              color: badge.color,
+              whiteSpace: 'nowrap'
+            }}
+          >
             {badge.text}
           </span>
         )}
@@ -76,15 +166,16 @@ const FormField = ({
             onChange={(e) => onChange(e.target.value)}
             style={editStyle}
           >
-            {options.map((opt) => (
-              <option key={opt.value !== undefined ? opt.value : opt} value={opt.value !== undefined ? opt.value : opt}>
-                {opt.label !== undefined ? opt.label : opt}
+            <option value="">-- Chọn {label.toLowerCase()} --</option>
+            {normalizedOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </select>
         ) : type === 'textarea' ? (
           <textarea
-            rows={2}
+            rows={rows}
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
@@ -93,16 +184,14 @@ const FormField = ({
         ) : (
           <input
             type={type}
-            value={value || ''}
+            value={type === 'date' ? toDateInputValue(value) : (value ?? '')}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             style={editStyle}
           />
         )
       ) : (
-        <div style={readOnlyStyle}>
-          {type === 'date' && value ? new Date(value).toLocaleDateString('vi-VN') : (value || '—')}
-        </div>
+        <div style={readOnlyStyle}>{renderReadValue()}</div>
       )}
     </div>
   );
@@ -115,14 +204,16 @@ export const EmployeeProfile = () => {
 
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'job' | 'contract' | 'finance' | 'relatives' | 'education' | 'assets' | 'decisions'
+  // 'general' | 'job' | 'contract' | 'finance' | 'relatives' | 'education' | 'assets' | 'decisions' | 'attachments'
+  const [activeTab, setActiveTab] = useState('general');
 
-  // Inline Edit Mode
+  // Inline Edit Mode & Sensitive Salary Visibility
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+  const [showSalary, setShowSalary] = useState(false);
 
-  // Modals for Relatives, Degrees, Certificates
+  // Modals: Relatives, Degrees, Certificates, Contract Detail, Decision Detail, File Preview
   const [showAddRelativeModal, setShowAddRelativeModal] = useState(false);
   const [relativeForm, setRelativeForm] = useState({
     fullName: '',
@@ -155,28 +246,31 @@ export const EmployeeProfile = () => {
     fileUrl: ''
   });
 
-  // Modal xem ảnh / file đính kèm phóng to
+  const [attachmentCategory, setAttachmentCategory] = useState('CCCD / Hộ chiếu');
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [viewingContract, setViewingContract] = useState(null);
+  const [viewingDecision, setViewingDecision] = useState(null);
   const [previewImage, setPreviewImage] = useState(null); // { title: '', url: '' }
 
-  // Xử lý upload file scan / ảnh bằng cấp & chứng chỉ
   const handleFileUpload = (e, callback) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
+      e.target.value = '';
       return toast.error('Dung lượng tệp đính kèm không được vượt quá 10MB');
     }
     const reader = new FileReader();
     reader.onload = (event) => {
-      callback(event.target.result);
+      callback(event.target.result, file);
       toast.success('Đã tải lên tệp đính kèm thành công!');
     };
     reader.readAsDataURL(file);
   };
 
-  const employeeCode = localStorage.getItem('employeeCode') || 'NV-2026';
+  const employeeCode = localStorage.getItem('employeeCode') || '';
   const localFullName = localStorage.getItem('fullName') || 'Nhân viên';
 
-  const fetchEmployee = async () => {
+  const fetchEmployee = useCallback(async () => {
     if (!activeEmployeeId) {
       setLoading(false);
       return;
@@ -186,83 +280,66 @@ export const EmployeeProfile = () => {
       setEmployee(res.data);
     } catch (error) {
       console.error('Lỗi tải thông tin nhân viên:', error);
+      toast.error(error.response?.data?.error || 'Không thể tải thông tin hồ sơ nhân sự.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeEmployeeId]);
 
   useEffect(() => {
     fetchEmployee();
-  }, [activeEmployeeId]);
+  }, [fetchEmployee]);
 
-  // Fallback demo data if DB hasn't populated full profile
   const data = employee || {
+    ...EMPTY_FALLBACK,
     id: activeEmployeeId,
     code: employeeCode,
-    fullName: localFullName,
-    email: 'long.ph@lla.vn',
-    personalEmail: 'long.ph@gmail.com',
-    phone: '0988 123 456',
-    gender: 'Nam',
-    birthday: '1998-05-15',
-    idCard: '001098012345',
-    address: 'Số 18, Phố Duy Tân, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
-    department: { name: 'Phòng Phát triển Phần mềm & CNTT' },
-    position: { title: 'Kỹ sư Phần mềm Cao cấp (Senior Software Engineer)' },
-    joinDate: '2023-03-01',
-    status: 'ACTIVE',
-    manager: { fullName: 'Trần Văn Quản Lý' },
-    bankName: 'Techcombank',
-    bankAccount: '19036888888888',
-    taxCode: '8549123011',
-    insuranceNumber: '7912345678',
-    contracts: [
-      {
-        id: 'HDLD-2024-001',
-        contractType: 'INDEFINITE',
-        startDate: '2024-03-01',
-        endDate: null,
-        status: 'ACTIVE'
-      }
-    ],
-    relatives: [],
-    degrees: [],
-    certificates: []
+    fullName: localFullName
   };
 
-  const pendingRequest = (employee?.profileChangeRequests || data?.profileChangeRequests || []).find(r => r.status === 'PENDING');
-  const lastRejectedRequest = (employee?.profileChangeRequests || data?.profileChangeRequests || []).find(r => r.status === 'REJECTED');
+  const statusMeta = getEmployeeStatusMeta(data.status);
+  const attachedFilesList = parseAttachedFiles(data.attachedFiles);
+  const pendingRequest = (data.profileChangeRequests || []).find((r) => r.status === 'PENDING');
+  const lastRejectedRequest = (data.profileChangeRequests || []).find((r) => r.status === 'REJECTED');
 
   const handleStartEdit = () => {
+    // Nếu đang ở tab chỉ xem thì tự chuyển về tab có trường chỉnh sửa
+    if (!['general', 'finance', 'education'].includes(activeTab)) {
+      setActiveTab('general');
+    }
+    const resolvedCurrentAddress = data.temporaryAddress || data.currentAddress || data.address || '';
     setEditFormData({
       fullName: data.fullName || '',
       email: data.email || '',
       personalEmail: data.personalEmail || '',
       phone: data.phone || '',
-      gender: data.gender === 'FEMALE' ? 'Nữ' : (data.gender === 'MALE' ? 'Nam' : (data.gender || 'Nam')),
-      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : (data.birthday ? new Date(data.birthday).toISOString().split('T')[0] : ''),
-      nationality: data.nationality || 'Việt Nam',
-      ethnicity: data.ethnicity || 'Kinh',
+      gender: normalizeGenderCode(data.gender),
+      dateOfBirth: toDateInputValue(data.dateOfBirth || data.birthday),
+      nationality: data.nationality || '',
+      ethnicity: data.ethnicity || '',
+      religion: data.religion || '',
       birthPlace: data.birthPlace || '',
       hometown: data.hometown || '',
-      maritalStatus: data.maritalStatus === 'SINGLE' ? 'Độc thân' : (data.maritalStatus === 'MARRIED' ? 'Đã kết hôn' : (data.maritalStatus === 'DIVORCED' ? 'Ly hôn' : (data.maritalStatus || 'Độc thân'))),
-      currentAddress: data.currentAddress || data.address || '',
-      permanentAddress: data.permanentAddress || '',
-      
+      maritalStatus: normalizeMaritalStatusCode(data.maritalStatus),
+      currentAddress: resolvedCurrentAddress,
+      temporaryAddress: resolvedCurrentAddress,
+      permanentAddress: data.permanentAddress || data.address || '',
+
       cccd: data.cccd || data.idCard || '',
-      cccdIssueDate: data.cccdIssueDate ? new Date(data.cccdIssueDate).toISOString().split('T')[0] : '',
-      cccdExpiryDate: data.cccdExpiryDate ? new Date(data.cccdExpiryDate).toISOString().split('T')[0] : '',
+      cccdIssueDate: toDateInputValue(data.cccdIssueDate),
+      cccdExpiryDate: toDateInputValue(data.cccdExpiryDate),
       cccdIssuePlace: data.cccdIssuePlace || '',
       highestEducation: data.highestEducation || '',
-      
+      workExperience: data.workExperience || '',
+
       bankName: data.bankName || '',
       bankBranch: data.bankBranch || '',
       bankAccount: data.bankAccount || '',
-      bankAccountHolder: data.bankAccountHolder || data.fullName || '',
+      bankAccountHolder: data.bankAccountHolder || '',
       taxCode: data.taxCode || '',
       socialInsurance: data.socialInsurance || '',
       healthInsurance: data.healthInsurance || '',
-      
+
       emergencyContactName: data.emergencyContactName || '',
       emergencyContactPhone: data.emergencyContactPhone || '',
       emergencyContactRelation: data.emergencyContactRelation || '',
@@ -282,10 +359,11 @@ export const EmployeeProfile = () => {
     }
     setIsSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.put(`http://localhost:5000/api/employees/${targetId}`, editFormData, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      const payload = {
+        ...editFormData,
+        temporaryAddress: editFormData.currentAddress
+      };
+      const res = await axios.put(`http://localhost:5000/api/employees/${targetId}`, payload);
       if (res.data?.hasPendingApproval) {
         toast.success(res.data.message || 'Các thông tin nhạy cảm đã gửi tới Ban Nhân sự chờ phê duyệt!', { duration: 6000 });
       } else {
@@ -309,10 +387,7 @@ export const EmployeeProfile = () => {
       return toast.error('Vui lòng điền Họ tên và Mối quan hệ');
     }
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5000/api/employees/${targetId}/relatives`, relativeForm, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      await axios.post(`http://localhost:5000/api/employees/${targetId}/relatives`, relativeForm);
       toast.success('Đã thêm người thân / người phụ thuộc thành công!');
       setShowAddRelativeModal(false);
       setRelativeForm({
@@ -337,10 +412,7 @@ export const EmployeeProfile = () => {
     if (!targetId) return;
     if (!window.confirm('Xác nhận xóa thông tin người thân này?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/employees/${targetId}/relatives/${relId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      await axios.delete(`http://localhost:5000/api/employees/${targetId}/relatives/${relId}`);
       toast.success('Đã xóa thông tin người thân thành công!');
       fetchEmployee();
     } catch (err) {
@@ -357,10 +429,7 @@ export const EmployeeProfile = () => {
       return toast.error('Vui lòng điền Tên bằng cấp, Chuyên ngành và Trường đào tạo');
     }
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5000/api/employees/${targetId}/degrees`, degreeForm, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      await axios.post(`http://localhost:5000/api/employees/${targetId}/degrees`, degreeForm);
       toast.success('Đã thêm bằng cấp thành công!');
       setShowAddDegreeModal(false);
       setDegreeForm({
@@ -382,10 +451,7 @@ export const EmployeeProfile = () => {
     if (!targetId) return;
     if (!window.confirm('Xác nhận xóa bằng cấp này?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/employees/${targetId}/degrees/${degId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      await axios.delete(`http://localhost:5000/api/employees/${targetId}/degrees/${degId}`);
       toast.success('Đã xóa bằng cấp thành công!');
       fetchEmployee();
     } catch (err) {
@@ -402,10 +468,7 @@ export const EmployeeProfile = () => {
       return toast.error('Vui lòng điền Tên chứng chỉ và Đơn vị cấp');
     }
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5000/api/employees/${targetId}/certificates`, certForm, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      await axios.post(`http://localhost:5000/api/employees/${targetId}/certificates`, certForm);
       toast.success('Đã thêm chứng chỉ thành công!');
       setShowAddCertModal(false);
       setCertForm({
@@ -426,10 +489,7 @@ export const EmployeeProfile = () => {
     if (!targetId) return;
     if (!window.confirm('Xác nhận xóa chứng chỉ này?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/employees/${targetId}/certificates/${certId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      await axios.delete(`http://localhost:5000/api/employees/${targetId}/certificates/${certId}`);
       toast.success('Đã xóa chứng chỉ thành công!');
       fetchEmployee();
     } catch (err) {
@@ -437,9 +497,77 @@ export const EmployeeProfile = () => {
     }
   };
 
+  // Quản lý Hồ sơ đính kèm (đồng bộ cột Employee.attachedFiles)
+  const handleUploadAttachment = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const targetId = activeEmployeeId || data?.id;
+    if (!targetId) {
+      e.target.value = '';
+      return toast.error('Không tìm thấy mã nhân viên.');
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      e.target.value = '';
+      return toast.error('Dung lượng tài liệu không được vượt quá 10MB');
+    }
+    setIsUploadingAttachment(true);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const nextFiles = [
+          ...attachedFilesList,
+          {
+            id: `att-${Date.now()}`,
+            name: file.name,
+            category: attachmentCategory,
+            fileUrl: ev.target.result,
+            fileSize: file.size,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: 'Nhân viên'
+          }
+        ];
+        await axios.put(`http://localhost:5000/api/employees/${targetId}`, {
+          attachedFiles: JSON.stringify(nextFiles)
+        });
+        toast.success('Đã tải lên tài liệu đính kèm thành công!');
+        fetchEmployee();
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Lỗi khi tải lên tài liệu đính kèm');
+      } finally {
+        setIsUploadingAttachment(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDeleteAttachment = async (attId) => {
+    const targetId = activeEmployeeId || data?.id;
+    if (!targetId) return;
+    if (!window.confirm('Xác nhận xóa tài liệu đính kèm này?')) return;
+    try {
+      const nextFiles = attachedFilesList.filter((f) => f.id !== attId);
+      await axios.put(`http://localhost:5000/api/employees/${targetId}`, {
+        attachedFiles: nextFiles.length > 0 ? JSON.stringify(nextFiles) : null
+      });
+      toast.success('Đã xóa tài liệu đính kèm!');
+      fetchEmployee();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi xóa tài liệu');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', fontSize: '0.95rem' }}>
+        Đang tải thông tin hồ sơ cá nhân...
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-      
+
       {/* 1. Header Card với Avatar và Thẻ Nhân Viên + Nút Sửa / Lưu hồ sơ */}
       <div style={{
         backgroundColor: '#FFFFFF',
@@ -471,32 +599,34 @@ export const EmployeeProfile = () => {
             fontWeight: 800,
             boxShadow: '0 4px 14px rgba(37,99,235,0.35)'
           }}>
-            {data.fullName?.charAt(0)?.toUpperCase()}
+            {data.fullName?.charAt(0)?.toUpperCase() || 'N'}
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
               <h1 style={{ margin: 0, fontSize: '1.65rem', fontWeight: 800, color: '#0F172A' }}>
                 {data.fullName}
               </h1>
               <span style={{
-                backgroundColor: '#ECFDF5',
-                color: '#059669',
-                border: '1px solid #A7F3D0',
+                backgroundColor: statusMeta.bg,
+                color: statusMeta.color,
+                border: `1px solid ${statusMeta.border}`,
                 padding: '2px 10px',
                 borderRadius: '9999px',
                 fontSize: '0.75rem',
                 fontWeight: 700
               }}>
-                Chính thức
+                {statusMeta.label}
               </span>
             </div>
             <p style={{ margin: 0, color: '#64748B', fontSize: '0.875rem' }}>
-              Mã nhân sự: <strong style={{ color: '#2563EB' }}>{data.code || employeeCode}</strong> • {data.position?.title || 'Kỹ sư Phần mềm'}
+              Mã nhân sự: <strong style={{ color: '#2563EB' }}>{data.code || '—'}</strong>
+              {data.position?.title ? ` • ${data.position.title}` : ''}
+              {data.department?.name ? ` • ${data.department.name}` : ''}
             </p>
           </div>
         </div>
 
-        {/* Nút Sửa hồ sơ / Lưu thay đổi tương tự trang Quản trị */}
+        {/* Nút Sửa hồ sơ / Lưu thay đổi */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {!isEditMode ? (
             <button
@@ -584,9 +714,9 @@ export const EmployeeProfile = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1E40AF', fontSize: '0.875rem', fontWeight: 700 }}>
               <span>✏️</span> Bạn đang ở chế độ chỉnh sửa hồ sơ:
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.8rem' }}>
-              <span style={{ color: '#15803D', fontWeight: 600 }}>🟢 Tự lưu ngay: <span style={{ fontWeight: 400, color: '#334155' }}>SĐT, Email cá nhân, Nơi ở hiện tại, Liên hệ khẩn cấp</span></span>
-              <span style={{ color: '#B45309', fontWeight: 600 }}>🟡 Cần HR duyệt: <span style={{ fontWeight: 400, color: '#334155' }}>CCCD, Ngân hàng nhận lương, MST, Sổ BHXH...</span></span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.8rem', flexWrap: 'wrap' }}>
+              <span style={{ color: '#15803D', fontWeight: 600 }}>🟢 Tự lưu ngay: <span style={{ fontWeight: 400, color: '#334155' }}>SĐT, Email cá nhân, Địa chỉ tạm trú/hiện tại, Liên hệ khẩn cấp, Kinh nghiệm</span></span>
+              <span style={{ color: '#B45309', fontWeight: 600 }}>🟡 Cần HR duyệt: <span style={{ fontWeight: 400, color: '#334155' }}>CCCD, Tôn giáo, Hôn nhân, Ngân hàng, MST, Sổ BHXH...</span></span>
             </div>
           </div>
           <div>
@@ -659,38 +789,39 @@ export const EmployeeProfile = () => {
         </div>
       )}
 
-      {/* 2. Navigation Tabs (8 Tabs) */}
+      {/* 2. Navigation Tabs (9 Tabs đồng bộ đủ trường bên HR) */}
       <div style={{
         display: 'flex',
-        gap: '0.5rem',
+        gap: '0.35rem',
         borderBottom: '1px solid #E2E8F0',
         paddingBottom: '0.25rem',
         overflowX: 'auto'
       }}>
         {[
-          { key: 'general', label: 'Lý lịch & Liên hệ', icon: <User size={16} /> },
-          { key: 'job', label: 'Công việc & Tổ chức', icon: <Briefcase size={16} /> },
-          { key: 'contract', label: 'Hợp đồng lao động', icon: <FileText size={16} /> },
-          { key: 'finance', label: 'Tài khoản lương & Thuế', icon: <CreditCard size={16} /> },
-          { key: 'relatives', label: 'Người thân & Phụ thuộc', icon: <Users size={16} /> },
-          { key: 'education', label: 'Học vấn & Bằng cấp', icon: <Award size={16} /> },
-          { key: 'assets', label: 'Tài sản & Thiết bị', icon: <Laptop size={16} /> },
-          { key: 'decisions', label: 'Quyết định & Lịch sử', icon: <Clock size={16} /> }
-        ].map(tab => (
+          { key: 'general', label: 'Lý lịch & Liên hệ', icon: <User size={15} /> },
+          { key: 'job', label: 'Công việc & Tổ chức', icon: <Briefcase size={15} /> },
+          { key: 'contract', label: 'Hợp đồng & Lương', icon: <FileText size={15} /> },
+          { key: 'finance', label: 'Ngân hàng, Thuế & BHXH', icon: <CreditCard size={15} /> },
+          { key: 'relatives', label: 'Người thân & Phụ thuộc', icon: <Users size={15} /> },
+          { key: 'education', label: 'Học vấn & Kinh nghiệm', icon: <Award size={15} /> },
+          { key: 'assets', label: 'Tài sản & Thiết bị', icon: <Laptop size={15} /> },
+          { key: 'decisions', label: 'Quyết định & Lịch sử', icon: <FileSignature size={15} /> },
+          { key: 'attachments', label: 'Hồ sơ đính kèm', icon: <Paperclip size={15} /> }
+        ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              padding: '0.65rem 1.15rem',
+              padding: '0.65rem 0.95rem',
               borderRadius: '0.5rem 0.5rem 0 0',
               border: 'none',
               background: activeTab === tab.key ? '#FFFFFF' : 'transparent',
               color: activeTab === tab.key ? '#2563EB' : '#64748B',
               fontWeight: 700,
-              fontSize: '0.85rem',
+              fontSize: '0.825rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.45rem',
+              gap: '0.4rem',
               cursor: 'pointer',
               borderBottom: activeTab === tab.key ? '2px solid #2563EB' : '2px solid transparent',
               transition: 'all 0.2s',
@@ -711,13 +842,13 @@ export const EmployeeProfile = () => {
         padding: '2rem'
       }}>
 
-        {/* TAB 1: Lý lịch & Liên hệ (Hỗ trợ sửa Inline) */}
+        {/* TAB 1: Tổng quan & Nhân thân + Liên hệ + Cư trú & Hộ khẩu */}
         {activeTab === 'general' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '8px' }}>
                 <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
-                  Thông tin cá nhân & Giấy tờ tùy thân
+                  Tổng quan & Nhân thân
                 </h3>
                 {isEditMode && (
                   <span style={{ fontSize: '0.8rem', color: '#B45309', fontWeight: 600 }}>
@@ -725,8 +856,8 @@ export const EmployeeProfile = () => {
                   </span>
                 )}
               </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.25rem' }}>
                 <FormField
                   label="Họ và tên khai sinh"
                   value={isEditMode ? editFormData.fullName : data.fullName}
@@ -736,27 +867,20 @@ export const EmployeeProfile = () => {
                   placeholder="Họ và tên..."
                 />
                 <FormField
-                  label="Email công vụ"
-                  value={data.email || 'Chưa cấp'}
+                  label="Mã nhân sự"
+                  value={data.code || '—'}
                   isEdit={isEditMode}
                   readOnly={true}
                   badge={{ text: '🔒 Do công ty cấp', color: '#64748B', bg: '#F1F5F9' }}
                 />
                 <FormField
-                  label="Email cá nhân (Nhận thông báo)"
-                  value={isEditMode ? editFormData.personalEmail : (data.personalEmail || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, personalEmail: v })}
+                  label="Giới tính"
+                  value={isEditMode ? editFormData.gender : normalizeGenderCode(data.gender)}
+                  onChange={(v) => setEditFormData({ ...editFormData, gender: v })}
                   isEdit={isEditMode}
-                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
-                  placeholder="email.canhan@gmail.com..."
-                />
-                <FormField
-                  label="Số điện thoại liên hệ"
-                  value={isEditMode ? editFormData.phone : (data.phone || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, phone: v })}
-                  isEdit={isEditMode}
-                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
-                  placeholder="0912..."
+                  type="select"
+                  options={GENDER_OPTIONS}
+                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
                 />
                 <FormField
                   label="Ngày sinh"
@@ -765,31 +889,6 @@ export const EmployeeProfile = () => {
                   isEdit={isEditMode}
                   type="date"
                   badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                />
-                <FormField
-                  label="Giới tính"
-                  value={isEditMode ? editFormData.gender : (data.gender === 'MALE' ? 'Nam' : (data.gender === 'FEMALE' ? 'Nữ' : (data.gender || 'Nam')))}
-                  onChange={(v) => setEditFormData({ ...editFormData, gender: v })}
-                  isEdit={isEditMode}
-                  type="select"
-                  options={['Nam', 'Nữ', 'Khác']}
-                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                />
-                <FormField
-                  label="Quốc tịch"
-                  value={isEditMode ? editFormData.nationality : (data.nationality || 'Việt Nam')}
-                  onChange={(v) => setEditFormData({ ...editFormData, nationality: v })}
-                  isEdit={isEditMode}
-                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                  placeholder="Việt Nam..."
-                />
-                <FormField
-                  label="Dân tộc"
-                  value={isEditMode ? editFormData.ethnicity : (data.ethnicity || 'Kinh')}
-                  onChange={(v) => setEditFormData({ ...editFormData, ethnicity: v })}
-                  isEdit={isEditMode}
-                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                  placeholder="Kinh..."
                 />
                 <FormField
                   label="Số CCCD / Hộ chiếu"
@@ -808,14 +907,6 @@ export const EmployeeProfile = () => {
                   badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
                 />
                 <FormField
-                  label="Ngày hết hạn CCCD"
-                  value={isEditMode ? editFormData.cccdExpiryDate : data.cccdExpiryDate}
-                  onChange={(v) => setEditFormData({ ...editFormData, cccdExpiryDate: v })}
-                  isEdit={isEditMode}
-                  type="date"
-                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                />
-                <FormField
                   label="Nơi cấp CCCD"
                   value={isEditMode ? editFormData.cccdIssuePlace : (data.cccdIssuePlace || '')}
                   onChange={(v) => setEditFormData({ ...editFormData, cccdIssuePlace: v })}
@@ -824,12 +915,135 @@ export const EmployeeProfile = () => {
                   placeholder="Cục CSQLHC về TTXH..."
                 />
                 <FormField
-                  label="Nơi sinh"
-                  value={isEditMode ? editFormData.birthPlace : (data.birthPlace || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, birthPlace: v })}
+                  label="Ngày hết hạn CCCD"
+                  value={isEditMode ? editFormData.cccdExpiryDate : data.cccdExpiryDate}
+                  onChange={(v) => setEditFormData({ ...editFormData, cccdExpiryDate: v })}
+                  isEdit={isEditMode}
+                  type="date"
+                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
+                />
+                <FormField
+                  label="Quốc tịch"
+                  value={isEditMode ? editFormData.nationality : (data.nationality || '')}
+                  displayValue={!isEditMode ? (data.nationality || 'Việt Nam') : undefined}
+                  onChange={(v) => setEditFormData({ ...editFormData, nationality: v })}
                   isEdit={isEditMode}
                   badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                  placeholder="Hà Nội, Nam Định..."
+                  placeholder="Việt Nam"
+                />
+                <FormField
+                  label="Dân tộc"
+                  value={isEditMode ? editFormData.ethnicity : (data.ethnicity || '')}
+                  displayValue={!isEditMode ? (data.ethnicity || 'Kinh') : undefined}
+                  onChange={(v) => setEditFormData({ ...editFormData, ethnicity: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
+                  placeholder="Kinh"
+                />
+                <FormField
+                  label="Tôn giáo"
+                  value={isEditMode ? editFormData.religion : (data.religion || '')}
+                  displayValue={!isEditMode ? (data.religion || 'Không') : undefined}
+                  onChange={(v) => setEditFormData({ ...editFormData, religion: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
+                  placeholder="Không, Phật giáo, Thiên Chúa giáo..."
+                />
+                <FormField
+                  label="Tình trạng hôn nhân"
+                  value={isEditMode ? editFormData.maritalStatus : normalizeMaritalStatusCode(data.maritalStatus)}
+                  onChange={(v) => setEditFormData({ ...editFormData, maritalStatus: v })}
+                  isEdit={isEditMode}
+                  type="select"
+                  options={MARITAL_STATUS_OPTIONS}
+                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
+                />
+                <FormField
+                  label="Trình độ học vấn cao nhất"
+                  value={isEditMode ? editFormData.highestEducation : (data.highestEducation || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, highestEducation: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
+                  placeholder="Đại học, Thạc sĩ..."
+                />
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.5rem' }}>
+              <h3 style={{ margin: '0 0 1.25rem 0', fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
+                Thông tin liên hệ
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.25rem' }}>
+                <FormField
+                  label="Email doanh nghiệp (Công vụ)"
+                  value={data.email || 'Chưa cấp'}
+                  isEdit={isEditMode}
+                  readOnly={true}
+                  badge={{ text: '🔒 Do công ty cấp', color: '#64748B', bg: '#F1F5F9' }}
+                />
+                <FormField
+                  label="Email cá nhân (Nhận thông báo)"
+                  value={isEditMode ? editFormData.personalEmail : (data.personalEmail || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, personalEmail: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
+                  placeholder="email.canhan@gmail.com..."
+                />
+                <FormField
+                  label="Số điện thoại di động"
+                  value={isEditMode ? editFormData.phone : (data.phone || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, phone: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
+                  placeholder="0912..."
+                />
+                <FormField
+                  label="Người liên hệ khẩn cấp"
+                  value={isEditMode ? editFormData.emergencyContactName : (data.emergencyContactName || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, emergencyContactName: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
+                  placeholder="Nguyễn Văn B..."
+                />
+                <FormField
+                  label="SĐT khẩn cấp"
+                  value={isEditMode ? editFormData.emergencyContactPhone : (data.emergencyContactPhone || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, emergencyContactPhone: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
+                  placeholder="0912..."
+                />
+                <FormField
+                  label="Mối quan hệ người liên hệ"
+                  value={isEditMode ? editFormData.emergencyContactRelation : (data.emergencyContactRelation || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, emergencyContactRelation: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
+                  placeholder="Bố/Mẹ/Vợ/Chồng..."
+                />
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.5rem' }}>
+              <h3 style={{ margin: '0 0 1.25rem 0', fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
+                Cư trú & Hộ khẩu
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+                <FormField
+                  label="Địa chỉ thường trú (theo hộ khẩu / CCCD)"
+                  value={isEditMode ? editFormData.permanentAddress : (data.permanentAddress || data.address || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, permanentAddress: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
+                  placeholder="Địa chỉ thường trú trên CCCD..."
+                />
+                <FormField
+                  label="Địa chỉ tạm trú / Nơi ở hiện tại"
+                  value={isEditMode ? editFormData.currentAddress : (data.temporaryAddress || data.currentAddress || data.address || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, currentAddress: v, temporaryAddress: v })}
+                  isEdit={isEditMode}
+                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
+                  placeholder="Số nhà, đường, phường, quận..."
                 />
                 <FormField
                   label="Quê quán"
@@ -840,174 +1054,228 @@ export const EmployeeProfile = () => {
                   placeholder="Xã/Huyện/Tỉnh..."
                 />
                 <FormField
-                  label="Trình độ học vấn cao nhất"
-                  value={isEditMode ? editFormData.highestEducation : (data.highestEducation || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, highestEducation: v })}
+                  label="Nơi sinh"
+                  value={isEditMode ? editFormData.birthPlace : (data.birthPlace || '')}
+                  onChange={(v) => setEditFormData({ ...editFormData, birthPlace: v })}
                   isEdit={isEditMode}
                   badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                  placeholder="Đại học, Thạc sĩ..."
-                />
-                <FormField
-                  label="Tình trạng hôn nhân"
-                  value={isEditMode ? editFormData.maritalStatus : (data.maritalStatus === 'SINGLE' ? 'Độc thân' : (data.maritalStatus === 'MARRIED' ? 'Đã kết hôn' : (data.maritalStatus === 'DIVORCED' ? 'Ly hôn' : (data.maritalStatus || 'Độc thân'))))}
-                  onChange={(v) => setEditFormData({ ...editFormData, maritalStatus: v })}
-                  isEdit={isEditMode}
-                  type="select"
-                  options={['Độc thân', 'Đã kết hôn', 'Ly hôn', 'Khác']}
-                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1.25rem 0', fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
-                Địa chỉ cư trú & Nơi ở
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
-                <FormField
-                  label="Địa chỉ thường trú (theo hộ khẩu / CCCD)"
-                  value={isEditMode ? editFormData.permanentAddress : (data.permanentAddress || data.address || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, permanentAddress: v })}
-                  isEdit={isEditMode}
-                  badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                  placeholder="Địa chỉ thường trú trên CCCD..."
-                />
-                <FormField
-                  label="Nơi ở hiện tại"
-                  value={isEditMode ? editFormData.currentAddress : (data.currentAddress || data.address || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, currentAddress: v })}
-                  isEdit={isEditMode}
-                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
-                  placeholder="Số nhà, đường, phường, quận..."
-                />
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1.25rem 0', fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
-                Người liên hệ khẩn cấp
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
-                <FormField
-                  label="Họ và tên người liên hệ"
-                  value={isEditMode ? editFormData.emergencyContactName : (data.emergencyContactName || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, emergencyContactName: v })}
-                  isEdit={isEditMode}
-                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
-                  placeholder="Nguyễn Văn B..."
-                />
-                <FormField
-                  label="Số điện thoại khẩn cấp"
-                  value={isEditMode ? editFormData.emergencyContactPhone : (data.emergencyContactPhone || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, emergencyContactPhone: v })}
-                  isEdit={isEditMode}
-                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
-                  placeholder="0912..."
-                />
-                <FormField
-                  label="Mối quan hệ"
-                  value={isEditMode ? editFormData.emergencyContactRelation : (data.emergencyContactRelation || '')}
-                  onChange={(v) => setEditFormData({ ...editFormData, emergencyContactRelation: v })}
-                  isEdit={isEditMode}
-                  badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
-                  placeholder="Bố/Mẹ/Vợ/Chồng..."
+                  placeholder="Hà Nội, Nam Định..."
                 />
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 2: Công việc & Tổ chức (Chỉ xem) */}
+        {/* TAB 2: Phân công công việc & Tổ chức (Đầy đủ 10 trường như HR, Chỉ xem) */}
         {activeTab === 'job' && (
-          <div>
-            <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
-              Vị trí làm việc & Cơ cấu tổ chức
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', fontSize: '0.875rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <div>
-                <span style={{ color: '#64748B', display: 'block', marginBottom: '0.25rem' }}>Phòng ban trực thuộc:</span>
-                <strong style={{ color: '#0F172A' }}>{data.department?.name || 'Phòng Phát triển Phần mềm & CNTT'}</strong>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
+                  Phân công công việc & Vị trí
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
+                  Thông tin tổ chức do Ban Nhân sự quản lý và điều chỉnh thông qua Quyết định nhân sự
+                </p>
               </div>
-              <div>
-                <span style={{ color: '#64748B', display: 'block', marginBottom: '0.25rem' }}>Chức danh chuyên môn:</span>
-                <strong style={{ color: '#0F172A' }}>{data.position?.title || 'Kỹ sư Phần mềm Cao cấp'}</strong>
-              </div>
-              <div>
-                <span style={{ color: '#64748B', display: 'block', marginBottom: '0.25rem' }}>Cấp bậc / Level:</span>
-                <strong style={{ color: '#2563EB' }}>Staff</strong>
-              </div>
-              <div>
-                <span style={{ color: '#64748B', display: 'block', marginBottom: '0.25rem' }}>Người quản lý trực tiếp:</span>
-                <strong style={{ color: '#0F172A' }}>{data.manager?.fullName || 'Trần Văn Quản Lý'}</strong>
-              </div>
-              <div>
-                <span style={{ color: '#64748B', display: 'block', marginBottom: '0.25rem' }}>Ngày chính thức gia nhập:</span>
-                <strong style={{ color: '#0F172A' }}>{data.joinDate ? new Date(data.joinDate).toLocaleDateString('vi-VN') : '01/03/2023'}</strong>
-              </div>
-              <div>
-                <span style={{ color: '#64748B', display: 'block', marginBottom: '0.25rem' }}>Địa điểm làm việc:</span>
-                <strong style={{ color: '#0F172A' }}>{data.workLocation || 'Trụ sở chính'}</strong>
-              </div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', backgroundColor: '#F1F5F9', color: '#475569' }}>
+                🔒 Dữ liệu do HR quản trị
+              </span>
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', padding: '1.25rem', backgroundColor: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <ReadOnlyInfoItem label="Phòng ban trực thuộc" value={data.department?.name} />
+              <ReadOnlyInfoItem
+                label="Vị trí / Chức danh"
+                value={
+                  data.position?.title
+                    ? `${data.position.title}${data.position.level ? ` (${data.position.level})` : ''}`
+                    : null
+                }
+              />
+              <ReadOnlyInfoItem label="Cấp bậc quản lý" value={getManagementRoleLabel(data.managementRole)} highlight={true} />
+              <ReadOnlyInfoItem
+                label="Quản lý trực tiếp"
+                value={
+                  data.manager?.fullName
+                    ? `${data.manager.fullName}${data.manager.code ? ` (${data.manager.code})` : ''}`
+                    : null
+                }
+              />
+              <ReadOnlyInfoItem label="Trạng thái làm việc" badge={statusMeta} />
+              <ReadOnlyInfoItem label="Hình thức nhân sự" value={getEmploymentTypeLabel(data.employmentType)} />
+              <ReadOnlyInfoItem label="Ngày gia nhập công ty" value={formatDateVN(data.joinDate)} />
+              <ReadOnlyInfoItem label="Ngày tiếp nhận chính thức" value={formatDateVN(data.officialJoinDate)} />
+              <ReadOnlyInfoItem label="Thâm niên công tác" value={calculateSeniority(data.joinDate)} highlight={true} />
+              <ReadOnlyInfoItem label="Địa điểm làm việc" value={data.workLocation || 'Trụ sở chính'} />
+            </div>
+
+            {(data.probationStartDate || data.probationEndDate || data.resignationDate) && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', padding: '1rem 1.25rem', backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px dashed #CBD5E1' }}>
+                {data.probationStartDate && (
+                  <ReadOnlyInfoItem label="Ngày bắt đầu thử việc" value={formatDateVN(data.probationStartDate)} />
+                )}
+                {data.probationEndDate && (
+                  <ReadOnlyInfoItem label="Ngày kết thúc thử việc" value={formatDateVN(data.probationEndDate)} />
+                )}
+                {data.resignationDate && (
+                  <ReadOnlyInfoItem label="Ngày nghỉ việc / hiệu lực" value={formatDateVN(data.resignationDate)} />
+                )}
+                {data.resignationReason && (
+                  <ReadOnlyInfoItem label="Lý do nghỉ việc" value={data.resignationReason} />
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* TAB 3: Hợp đồng lao động (Chỉ xem) */}
+        {/* TAB 3: Hợp đồng lao động & Lương (Đồng bộ 100% với HR + modal chi tiết) */}
         {activeTab === 'contract' && (
           <div>
-            <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
-              Thông tin Hợp đồng lao động hiện tại
-            </h3>
-            <div style={{
-              padding: '1.25rem 1.5rem',
-              backgroundColor: '#F8FAFC',
-              borderRadius: '0.75rem',
-              border: '1px solid #E2E8F0',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '1rem'
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                  <strong style={{ fontSize: '1.05rem', color: '#0F172A' }}>
-                    Hợp đồng lao động điện tử
-                  </strong>
-                  <span style={{ backgroundColor: '#ECFDF5', color: '#059669', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
-                    Hiệu lực
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.8125rem', color: '#64748B' }}>
-                  Số hợp đồng: #{data.contracts?.[0]?.id || 'HDLD-2024-001'}
-                </span>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
+                  Hợp đồng lao động & Lương
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
+                  Danh sách toàn bộ hợp đồng lao động, mức lương hợp đồng và phụ lục đã ký kết ({data.contracts?.length || 0} hợp đồng)
+                </p>
               </div>
-              <button 
-                onClick={() => toast('Hợp đồng điện tử đã được lưu trữ bảo mật trên hệ thống.')}
+              <button
+                type="button"
+                onClick={() => setShowSalary((prev) => !prev)}
                 className="btn btn-outline"
-                style={{ fontSize: '0.8125rem', fontWeight: 600 }}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.8rem',
+                  color: showSalary ? '#047857' : '#64748B',
+                  borderColor: '#CBD5E1',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderRadius: '8px',
+                  backgroundColor: '#FFFFFF',
+                  cursor: 'pointer'
+                }}
+                title="Ẩn/Hiện mức lương bảo mật theo Nghị định 13/2023/NĐ-CP"
               >
-                Xem chi tiết HĐ
+                {showSalary ? <EyeOff size={14} /> : <Eye size={14} />}
+                {showSalary ? 'Ẩn mức lương' : 'Hiện mức lương'}
               </button>
             </div>
+
+            {(!data.contracts || data.contracts.length === 0) ? (
+              <div style={{ padding: '2.5rem', textAlign: 'center', backgroundColor: '#F8FAFC', borderRadius: '0.75rem', border: '1px dashed #CBD5E1', color: '#94A3B8', fontSize: '0.875rem' }}>
+                Chưa có hợp đồng lao động nào được ghi nhận trên hệ thống.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {data.contracts.map((c) => {
+                  const contractStatus = getContractStatusMeta(c.status, c.endDate);
+                  return (
+                    <div
+                      key={c.id}
+                      style={{
+                        padding: '1.15rem 1.35rem',
+                        backgroundColor: '#F8FAFC',
+                        borderRadius: '0.75rem',
+                        border: '1px solid #E2E8F0',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '1rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: '0.95rem', color: '#0F172A' }}>
+                            {c.contractNumber || `HĐ-${String(c.id).slice(0, 8).toUpperCase()}`} — {getContractTypeName(c.contractType)}
+                          </strong>
+                          {c.appendices?.length > 0 && (
+                            <span style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 700 }}>
+                              {c.appendices.length} phụ lục
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.82rem', color: '#64748B' }}>
+                          Thời hạn: <strong>{formatDateVN(c.startDate)}</strong> ➔ <strong>{c.endDate ? formatDateVN(c.endDate) : 'Vô thời hạn'}</strong>
+                          {c.workLocation ? ` • Nơi làm việc: ${c.workLocation}` : ''}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#047857', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span>
+                            Lương cơ bản: {showSalary ? `${Number(c.baseSalary || 0).toLocaleString('vi-VN')} VNĐ/tháng` : '••••••••• VNĐ/tháng'}
+                          </span>
+                          {Number(c.allowance || 0) > 0 && (
+                            <span style={{ color: '#475569', fontWeight: 600, fontSize: '0.8rem' }}>
+                              (Phụ cấp: {showSalary ? `${Number(c.allowance).toLocaleString('vi-VN')} VNĐ` : '•••••• VNĐ'})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            backgroundColor: contractStatus.bg,
+                            color: contractStatus.color,
+                            border: `1px solid ${contractStatus.border}`,
+                            padding: '3px 10px',
+                            borderRadius: '9999px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700
+                          }}
+                        >
+                          {contractStatus.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setViewingContract(c)}
+                          className="btn btn-outline"
+                          style={{
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid #CBD5E1',
+                            backgroundColor: '#FFFFFF',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Chi tiết HĐ
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
-        {/* TAB 4: Tài khoản lương & Thuế (Hỗ trợ sửa Inline) */}
+        {/* TAB 4: Tài khoản lương, Thuế & BHXH (7/7 trường) */}
         {activeTab === 'finance' && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '8px' }}>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
-                Tài khoản chi trả lương & Bảo hiểm bắt buộc
+                Ngân hàng, Thuế & Bảo hiểm bắt buộc
               </h3>
               {isEditMode && (
                 <span style={{ fontSize: '0.8rem', color: '#B45309', fontWeight: 600 }}>
-                  🟡 Thay đổi thông tin ngân hàng cần HR duyệt
+                  🟡 Thay đổi thông tin ngân hàng / MST / BHXH cần HR duyệt
                 </span>
               )}
             </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+              <FormField
+                label="Số tài khoản nhận lương"
+                value={isEditMode ? editFormData.bankAccount : (data.bankAccount || '')}
+                onChange={(v) => setEditFormData({ ...editFormData, bankAccount: v })}
+                isEdit={isEditMode}
+                badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
+                placeholder="1903..."
+              />
               <FormField
                 label="Ngân hàng thụ hưởng"
                 value={isEditMode ? editFormData.bankName : (data.bankName || '')}
@@ -1025,20 +1293,13 @@ export const EmployeeProfile = () => {
                 placeholder="Chi nhánh Thăng Long, Ba Đình..."
               />
               <FormField
-                label="Số tài khoản nhận lương"
-                value={isEditMode ? editFormData.bankAccount : (data.bankAccount || '')}
-                onChange={(v) => setEditFormData({ ...editFormData, bankAccount: v })}
-                isEdit={isEditMode}
-                badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                placeholder="1903..."
-              />
-              <FormField
                 label="Tên chủ tài khoản"
-                value={isEditMode ? editFormData.bankAccountHolder : (data.bankAccountHolder || data.fullName || '')}
+                value={isEditMode ? editFormData.bankAccountHolder : (data.bankAccountHolder || '')}
+                displayValue={!isEditMode ? (data.bankAccountHolder || data.fullName || '') : undefined}
                 onChange={(v) => setEditFormData({ ...editFormData, bankAccountHolder: v })}
                 isEdit={isEditMode}
                 badge={{ text: '🟡 Cần HR duyệt', color: '#B45309', bg: '#FEF3C7' }}
-                placeholder="NGUYEN VAN A..."
+                placeholder={data.fullName || 'NGUYEN VAN A...'}
               />
               <FormField
                 label="Mã số thuế cá nhân (MST)"
@@ -1049,7 +1310,7 @@ export const EmployeeProfile = () => {
                 placeholder="8549..."
               />
               <FormField
-                label="Mã số sổ BHXH"
+                label="Số sổ BHXH"
                 value={isEditMode ? editFormData.socialInsurance : (data.socialInsurance || '')}
                 onChange={(v) => setEditFormData({ ...editFormData, socialInsurance: v })}
                 isEdit={isEditMode}
@@ -1057,7 +1318,7 @@ export const EmployeeProfile = () => {
                 placeholder="7912..."
               />
               <FormField
-                label="Số thẻ BHYT"
+                label="Mã thẻ BHYT"
                 value={isEditMode ? editFormData.healthInsurance : (data.healthInsurance || '')}
                 onChange={(v) => setEditFormData({ ...editFormData, healthInsurance: v })}
                 isEdit={isEditMode}
@@ -1068,13 +1329,13 @@ export const EmployeeProfile = () => {
           </div>
         )}
 
-        {/* TAB 5: Người thân & Phụ thuộc (Cho phép Nhân viên tự khai báo & Xóa) */}
+        {/* TAB 5: Người thân & Phụ thuộc */}
         {activeTab === 'relatives' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
-                  Thông tin Thân nhân & Người phụ thuộc
+                  Người thân & Người phụ thuộc
                 </h3>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
                   Khai báo người phụ thuộc để tính giảm trừ gia cảnh thuế TNCN theo quy định
@@ -1098,7 +1359,7 @@ export const EmployeeProfile = () => {
                   boxShadow: '0 2px 4px rgba(37,99,235,0.25)'
                 }}
               >
-                <Plus size={16} /> + Thêm người thân / người phụ thuộc
+                <Plus size={16} /> Thêm người thân / phụ thuộc
               </button>
             </div>
 
@@ -1145,15 +1406,25 @@ export const EmployeeProfile = () => {
                   <tbody>
                     {data.relatives.map((r, i) => (
                       <tr key={r.id || i} style={{ borderTop: '1px solid #E2E8F0' }}>
-                        <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0F172A' }}>{r.fullName}</td>
+                        <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0F172A' }}>
+                          <div>{r.fullName}</div>
+                          {r.proofDocument && (
+                            <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 400 }}>HS: {r.proofDocument}</div>
+                          )}
+                        </td>
                         <td style={{ padding: '12px 16px', color: '#475569' }}>{r.relation || r.relationship}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748B' }}>{r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString('vi-VN') : '—'}</td>
+                        <td style={{ padding: '12px 16px', color: '#64748B' }}>{formatDateVN(r.dateOfBirth)}</td>
                         <td style={{ padding: '12px 16px', color: '#64748B' }}>{r.cccd || r.idNumber || '—'}</td>
                         <td style={{ padding: '12px 16px', color: '#64748B' }}>{r.taxCode || '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
                           <span style={{ backgroundColor: r.isDependent ? '#ECFDF5' : '#F1F5F9', color: r.isDependent ? '#059669' : '#64748B', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
                             {r.isDependent ? 'Đã đăng ký' : 'Không'}
                           </span>
+                          {r.isDependent && (r.taxDeductionStart || r.taxDeductionEnd) && (
+                            <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '3px' }}>
+                              {formatDateVN(r.taxDeductionStart)} ➔ {r.taxDeductionEnd ? formatDateVN(r.taxDeductionEnd) : 'Chưa kết thúc'}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                           <button
@@ -1185,7 +1456,7 @@ export const EmployeeProfile = () => {
           </div>
         )}
 
-        {/* TAB 6: Học vấn & Bằng cấp (Cho phép Nhân viên tự khai báo văn bằng & chứng chỉ) */}
+        {/* TAB 6: Học vấn, Bằng cấp, Chứng chỉ, Đào tạo & Kinh nghiệm */}
         {activeTab === 'education' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div>
@@ -1204,10 +1475,11 @@ export const EmployeeProfile = () => {
               </div>
             </div>
 
+            {/* Bằng cấp học vấn */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
                 <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#334155' }}>
-                  Văn bằng tốt nghiệp ({data.degrees?.length || 0})
+                  Bằng cấp học vấn ({data.degrees?.length || 0})
                 </h4>
                 <button
                   type="button"
@@ -1226,13 +1498,13 @@ export const EmployeeProfile = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  <Plus size={15} /> + Thêm bằng cấp
+                  <Plus size={15} /> Thêm bằng cấp
                 </button>
               </div>
 
               {(!data.degrees || data.degrees.length === 0) ? (
                 <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#F8FAFC', borderRadius: '0.5rem', border: '1px dashed #CBD5E1', color: '#94A3B8', fontSize: '0.875rem' }}>
-                  Chưa có văn bằng nào được ghi nhận. Bấm "+ Thêm bằng cấp" để khai báo văn bằng của bạn.
+                  Chưa có văn bằng nào được ghi nhận. Bấm "Thêm bằng cấp" để khai báo văn bằng của bạn.
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
@@ -1281,6 +1553,7 @@ export const EmployeeProfile = () => {
               )}
             </div>
 
+            {/* Chứng chỉ chuyên môn */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
                 <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#334155' }}>
@@ -1303,13 +1576,13 @@ export const EmployeeProfile = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  <Plus size={15} /> + Thêm chứng chỉ
+                  <Plus size={15} /> Thêm chứng chỉ
                 </button>
               </div>
 
               {(!data.certificates || data.certificates.length === 0) ? (
                 <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#F8FAFC', borderRadius: '0.5rem', border: '1px dashed #CBD5E1', color: '#94A3B8', fontSize: '0.875rem' }}>
-                  Chưa có chứng chỉ nào được ghi nhận. Bấm "+ Thêm chứng chỉ" để tải lên chứng chỉ nghề nghiệp của bạn.
+                  Chưa có chứng chỉ nào được ghi nhận. Bấm "Thêm chứng chỉ" để tải lên chứng chỉ nghề nghiệp của bạn.
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
@@ -1319,8 +1592,8 @@ export const EmployeeProfile = () => {
                         <strong style={{ display: 'block', color: '#0F172A', fontSize: '0.95rem' }}>{c.name}</strong>
                         <span style={{ fontSize: '0.85rem', color: '#059669', display: 'block', marginTop: '2px', fontWeight: 600 }}>Cấp bởi: {c.issuedBy || '—'}</span>
                         <span style={{ fontSize: '0.78rem', color: '#94A3B8', display: 'block', marginTop: '4px' }}>
-                          Ngày cấp: {c.issueDate ? new Date(c.issueDate).toLocaleDateString('vi-VN') : (c.issuedDate ? new Date(c.issuedDate).toLocaleDateString('vi-VN') : '—')}
-                          {c.expiryDate ? ` • Hết hạn: ${new Date(c.expiryDate).toLocaleDateString('vi-VN')}` : ''}
+                          Ngày cấp: {formatDateVN(c.issueDate || c.issuedDate)}
+                          {c.expiryDate ? ` • Hết hạn: ${formatDateVN(c.expiryDate)}` : ''}
                         </span>
                         {c.fileUrl && (
                           <div style={{ marginTop: '8px' }}>
@@ -1359,6 +1632,54 @@ export const EmployeeProfile = () => {
                 </div>
               )}
             </div>
+
+            {/* Kinh nghiệm làm việc trước đây (đồng bộ trực tiếp cột workExperience trong Employee) */}
+            <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+                <Building2 size={18} color="#2563EB" />
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>
+                  Kinh nghiệm làm việc trước đây
+                </h4>
+              </div>
+              <FormField
+                label="Tóm tắt quá trình công tác & Kinh nghiệm tích lũy"
+                value={isEditMode ? editFormData.workExperience : (data.workExperience || '')}
+                onChange={(v) => setEditFormData({ ...editFormData, workExperience: v })}
+                isEdit={isEditMode}
+                type="textarea"
+                rows={4}
+                badge={{ text: '🟢 Lưu ngay', color: '#16A34A', bg: '#DCFCE7' }}
+                placeholder="Mô tả các công ty, chức vụ và dự án đã từng làm việc trước khi gia nhập doanh nghiệp..."
+              />
+            </div>
+
+            {/* Đào tạo nội bộ */}
+            <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+                <GraduationCap size={18} color="#2563EB" />
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>
+                  Quá trình đào tạo nội bộ
+                </h4>
+              </div>
+              {(!data.trainings || data.trainings.length === 0) ? (
+                <div style={{ padding: '1.5rem', textAlign: 'center', backgroundColor: '#F8FAFC', borderRadius: '0.5rem', border: '1px dashed #CBD5E1', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  Chưa có khóa đào tạo nội bộ nào được ghi nhận cho hồ sơ này.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {data.trainings.map((t, idx) => (
+                    <div key={t.id || idx} style={{ padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.75rem', backgroundColor: '#F8FAFC' }}>
+                      <div style={{ fontWeight: 700, color: '#0F172A' }}>{t.courseName}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '4px' }}>
+                        {formatDateVN(t.startDate)} ➔ {formatDateVN(t.endDate)}
+                        {t.decisionNumber ? ` • Quyết định: ${t.decisionNumber}` : ''}
+                        {t.result ? ` • Kết quả: ${t.result}` : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1367,10 +1688,10 @@ export const EmployeeProfile = () => {
           <div>
             <div style={{ marginBottom: '1.25rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
-                Tài sản & Thiết bị công ty cấp phát
+                Tài sản & Thiết bị bàn giao
               </h3>
               <p style={{ margin: '4px 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
-                Danh sách trang thiết bị làm việc đang được giao cho bạn quản lý và sử dụng
+                Danh sách trang thiết bị làm việc đang được giao hoặc đã thu hồi từ hồ sơ của bạn
               </p>
             </div>
 
@@ -1381,7 +1702,7 @@ export const EmployeeProfile = () => {
                   Bạn chưa có tài sản hoặc thiết bị nào được bàn giao
                 </p>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#94A3B8' }}>
-                  Khi phòng IT/Hành chính cấp máy, thông tin thiết bị sẽ hiển thị tại đây
+                  Khi phòng IT/Hành chính cấp thiết bị, thông tin sẽ hiển thị tại đây
                 </p>
               </div>
             ) : (
@@ -1393,23 +1714,46 @@ export const EmployeeProfile = () => {
                       <th style={{ padding: '12px 16px' }}>Tên thiết bị</th>
                       <th style={{ padding: '12px 16px' }}>Số Serial</th>
                       <th style={{ padding: '12px 16px' }}>Ngày bàn giao</th>
+                      <th style={{ padding: '12px 16px' }}>Tình trạng / Biên bản</th>
                       <th style={{ padding: '12px 16px' }}>Trạng thái</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.assetAssignments.map((a, i) => (
-                      <tr key={a.id || i} style={{ borderTop: '1px solid #E2E8F0' }}>
-                        <td style={{ padding: '12px 16px', fontWeight: 600, color: '#2563EB' }}>{a.asset?.code || `TS-${i+1}`}</td>
-                        <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0F172A' }}>{a.asset?.name || 'Thiết bị làm việc'}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748B' }}>{a.asset?.serialNumber || '—'}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748B' }}>{a.assignedDate ? new Date(a.assignedDate).toLocaleDateString('vi-VN') : '—'}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ backgroundColor: '#ECFDF5', color: '#059669', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
-                            {a.status === 'ASSIGNED' ? 'Đang sử dụng' : (a.status || 'Đang sử dụng')}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {data.assetAssignments.map((a, i) => {
+                      const assetStatus = getAssetAssignmentStatusMeta(a);
+                      return (
+                        <tr key={a.id || i} style={{ borderTop: '1px solid #E2E8F0' }}>
+                          <td style={{ padding: '12px 16px', fontWeight: 600, color: '#2563EB' }}>{a.asset?.code || `TS-${i + 1}`}</td>
+                          <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0F172A' }}>{a.asset?.name || 'Thiết bị làm việc'}</td>
+                          <td style={{ padding: '12px 16px', color: '#64748B' }}>{a.asset?.serialNumber || '—'}</td>
+                          <td style={{ padding: '12px 16px', color: '#64748B' }}>
+                            <div>{formatDateVN(a.assignedDate)}</div>
+                            {a.returnedDate && (
+                              <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Thu hồi: {formatDateVN(a.returnedDate)}</div>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.8rem' }}>
+                            <div>{a.conditionOnAssign || '—'}</div>
+                            {a.handoverDocCode && (
+                              <div style={{ color: '#2563EB', fontSize: '0.75rem' }}>BB: {a.handoverDocCode}</div>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{
+                              backgroundColor: assetStatus.bg,
+                              color: assetStatus.color,
+                              border: `1px solid ${assetStatus.border}`,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700
+                            }}>
+                              {assetStatus.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1417,7 +1761,7 @@ export const EmployeeProfile = () => {
           </div>
         )}
 
-        {/* TAB 8: Quyết định & Lịch sử */}
+        {/* TAB 8: Quá trình công tác nội bộ & Quyết định */}
         {activeTab === 'decisions' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div>
@@ -1426,7 +1770,7 @@ export const EmployeeProfile = () => {
                   Quyết định Nhân sự của bạn
                 </h3>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
-                  Các quyết định chính thức do Ban Giám đốc ban hành (Bổ nhiệm, Tăng lương, Khen thưởng...)
+                  Các quyết định chính thức do Ban Giám đốc ban hành (Bổ nhiệm, Điều chuyển, Tăng lương, Khen thưởng...)
                 </p>
               </div>
 
@@ -1443,19 +1787,40 @@ export const EmployeeProfile = () => {
                         <th style={{ padding: '12px 16px' }}>Loại quyết định</th>
                         <th style={{ padding: '12px 16px' }}>Tiêu đề</th>
                         <th style={{ padding: '12px 16px' }}>Ngày hiệu lực</th>
+                        <th style={{ padding: '12px 16px' }}>Cấp ký</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>Thao tác</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.decisions.map((d, i) => (
                         <tr key={d.id || i} style={{ borderTop: '1px solid #E2E8F0' }}>
-                          <td style={{ padding: '12px 16px', fontWeight: 600, color: '#2563EB' }}>{d.decisionNumber || `QD-${i+1}`}</td>
+                          <td style={{ padding: '12px 16px', fontWeight: 600, color: '#2563EB' }}>{d.decisionNumber || `QD-${i + 1}`}</td>
                           <td style={{ padding: '12px 16px' }}>
                             <span style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
-                              {d.type || 'Quyết định'}
+                              {getDecisionTypeLabel(d.type)}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 16px', color: '#0F172A' }}>{d.title}</td>
-                          <td style={{ padding: '12px 16px', color: '#64748B' }}>{d.effectiveDate ? new Date(d.effectiveDate).toLocaleDateString('vi-VN') : '—'}</td>
+                          <td style={{ padding: '12px 16px', color: '#0F172A', fontWeight: 500 }}>{d.title}</td>
+                          <td style={{ padding: '12px 16px', color: '#64748B' }}>{formatDateVN(d.effectiveDate)}</td>
+                          <td style={{ padding: '12px 16px', color: '#475569' }}>{d.signBy || 'Ban Giám Đốc'}</td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              onClick={() => setViewingDecision(d)}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #CBD5E1',
+                                backgroundColor: '#FFFFFF',
+                                color: '#334155',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Xem văn bản
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1489,7 +1854,7 @@ export const EmployeeProfile = () => {
                     <tbody>
                       {data.employmentHistories.map((h, i) => (
                         <tr key={h.id || i} style={{ borderTop: '1px solid #E2E8F0' }}>
-                          <td style={{ padding: '12px 16px', color: '#64748B' }}>{h.effectiveDate ? new Date(h.effectiveDate).toLocaleDateString('vi-VN') : '—'}</td>
+                          <td style={{ padding: '12px 16px', color: '#64748B' }}>{formatDateVN(h.effectiveDate)}</td>
                           <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0F172A' }}>{h.department?.name || '—'}</td>
                           <td style={{ padding: '12px 16px', color: '#475569' }}>{h.position?.title || '—'}</td>
                           <td style={{ padding: '12px 16px', color: '#2563EB', fontWeight: 500 }}>{h.changeReason || 'Điều chuyển / Bổ nhiệm'}</td>
@@ -1499,6 +1864,153 @@ export const EmployeeProfile = () => {
                   </table>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 9: Hồ sơ & Tài liệu đính kèm (đồng bộ cột attachedFiles) */}
+        {activeTab === 'attachments' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
+                Hồ sơ & Tài liệu đính kèm ({attachedFilesList.length})
+              </h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
+                Lưu trữ bản sao CCCD, Sơ yếu lý lịch, Giấy khám sức khỏe và các văn bằng chứng từ nhân sự
+              </p>
+            </div>
+
+            {attachedFilesList.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {attachedFilesList.map((att) => (
+                  <div
+                    key={att.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      borderRadius: '10px',
+                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#F8FAFC',
+                      gap: '12px',
+                      flexWrap: 'wrap'
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.9rem', wordBreak: 'break-word' }}>{att.name}</div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '3px' }}>
+                        Phân loại: <strong style={{ color: '#2563EB' }}>{att.category}</strong>
+                        {att.uploadedAt ? ` • Tải lên: ${formatDateVN(att.uploadedAt)}` : ''}
+                        {att.fileSize ? ` • ${(att.fileSize / 1024).toFixed(0)} KB` : ''}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImage({ title: `${att.name} (${att.category})`, url: att.fileUrl })}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #BFDBFE',
+                          backgroundColor: '#EFF6FF',
+                          color: '#2563EB',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        <Eye size={14} /> Xem tài liệu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttachment(att.id)}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #FCA5A5',
+                          backgroundColor: '#FEF2F2',
+                          color: '#DC2626',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        title="Xóa tài liệu"
+                      >
+                        <Trash2 size={14} /> Xóa
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{
+              border: '2px dashed #CBD5E1',
+              borderRadius: '12px',
+              padding: '2rem',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              backgroundColor: '#F8FAFC'
+            }}>
+              <FolderOpen size={32} color="#3B82F6" />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#1E293B' }}>
+                  Tải lên hồ sơ nhân sự cá nhân
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
+                  Hỗ trợ ảnh chụp (PNG, JPG), file PDF hoặc tài liệu Word (Tối đa 10MB)
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '4px' }}>
+                <select
+                  value={attachmentCategory}
+                  onChange={(e) => setAttachmentCategory(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '0.85rem',
+                    backgroundColor: '#FFFFFF'
+                  }}
+                >
+                  <option value="CCCD / Hộ chiếu">CCCD / Hộ chiếu</option>
+                  <option value="Sơ yếu lý lịch (SYLL)">Sơ yếu lý lịch (SYLL)</option>
+                  <option value="Giấy khám sức khỏe">Giấy khám sức khỏe</option>
+                  <option value="Bản sao bằng cấp">Bản sao bằng cấp</option>
+                  <option value="Tài liệu khác">Tài liệu khác</option>
+                </select>
+                <label style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: '#2563EB',
+                  color: '#FFFFFF',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: isUploadingAttachment ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <UploadCloud size={16} />
+                  {isUploadingAttachment ? 'Đang tải lên...' : 'Chọn & Tải tệp lên'}
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf,.doc,.docx"
+                    disabled={isUploadingAttachment}
+                    style={{ display: 'none' }}
+                    onChange={handleUploadAttachment}
+                  />
+                </label>
+              </div>
             </div>
           </div>
         )}
@@ -1542,6 +2054,7 @@ export const EmployeeProfile = () => {
                     <option value="Con">Con ruột / Con nuôi</option>
                     <option value="Vợ/Chồng">Vợ / Chồng</option>
                     <option value="Bố/Mẹ">Bố / Mẹ</option>
+                    <option value="Anh/Chị/Em">Anh / Chị / Em</option>
                     <option value="Khác">Người phụ thuộc khác</option>
                   </select>
                 </div>
@@ -1639,24 +2152,24 @@ export const EmployeeProfile = () => {
             <form onSubmit={handleAddDegree} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Tên Bằng cấp *</label>
-                <input type="text" required placeholder="VD: Cử nhân, Kỹ sư, Thạc sĩ..." value={degreeForm.degreeName} onChange={e => setDegreeForm({ ...degreeForm, degreeName: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                <input type="text" required placeholder="VD: Cử nhân, Kỹ sư, Thạc sĩ..." value={degreeForm.degreeName} onChange={(e) => setDegreeForm({ ...degreeForm, degreeName: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Chuyên ngành đào tạo *</label>
-                <input type="text" required placeholder="VD: Khoa học máy tính, Công nghệ thông tin..." value={degreeForm.major} onChange={e => setDegreeForm({ ...degreeForm, major: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                <input type="text" required placeholder="VD: Khoa học máy tính, Công nghệ thông tin..." value={degreeForm.major} onChange={(e) => setDegreeForm({ ...degreeForm, major: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Cơ sở / Trường đào tạo *</label>
-                <input type="text" required placeholder="VD: Đại học Bách Khoa..." value={degreeForm.institution} onChange={e => setDegreeForm({ ...degreeForm, institution: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                <input type="text" required placeholder="VD: Đại học Bách Khoa..." value={degreeForm.institution} onChange={(e) => setDegreeForm({ ...degreeForm, institution: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Năm tốt nghiệp</label>
-                  <input type="number" min="1980" max="2040" value={degreeForm.gradYear} onChange={e => setDegreeForm({ ...degreeForm, gradYear: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                  <input type="number" min="1980" max="2040" value={degreeForm.gradYear} onChange={(e) => setDegreeForm({ ...degreeForm, gradYear: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Xếp loại tốt nghiệp</label>
-                  <select value={degreeForm.classification} onChange={e => setDegreeForm({ ...degreeForm, classification: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}>
+                  <select value={degreeForm.classification} onChange={(e) => setDegreeForm({ ...degreeForm, classification: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}>
                     <option value="Xuất sắc">Xuất sắc</option>
                     <option value="Giỏi">Giỏi</option>
                     <option value="Khá">Khá</option>
@@ -1665,23 +2178,22 @@ export const EmployeeProfile = () => {
                 </div>
               </div>
 
-              {/* Upload ảnh scan bằng cấp */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
                   Ảnh chụp / Bản scan bằng tốt nghiệp (Tùy chọn)
                 </label>
                 {degreeForm.fileUrl ? (
                   <div style={{ position: 'relative', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px', backgroundColor: '#F8FAFC', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <img 
-                      src={degreeForm.fileUrl} 
-                      alt="Scan bằng cấp" 
-                      style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #CBD5E1' }} 
+                    <img
+                      src={degreeForm.fileUrl}
+                      alt="Scan bằng cấp"
+                      style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #CBD5E1' }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A', display: 'block' }}>Đã đính kèm ảnh bằng cấp</span>
                       <button
                         type="button"
-                        onClick={() => setDegreeForm(prev => ({ ...prev, fileUrl: '' }))}
+                        onClick={() => setDegreeForm((prev) => ({ ...prev, fileUrl: '' }))}
                         style={{ fontSize: '0.78rem', color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
                       >
                         <Trash2 size={13} /> Xóa & Chọn ảnh khác
@@ -1706,7 +2218,6 @@ export const EmployeeProfile = () => {
                     borderRadius: '8px',
                     backgroundColor: '#F8FAFC',
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
                     gap: '6px'
                   }}>
                     <UploadCloud size={24} color="#3B82F6" />
@@ -1716,11 +2227,11 @@ export const EmployeeProfile = () => {
                     <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
                       Hỗ trợ PNG, JPG, JPEG hoặc PDF (Tối đa 10MB)
                     </span>
-                    <input 
-                      type="file" 
-                      accept="image/*,application/pdf" 
-                      style={{ display: 'none' }} 
-                      onChange={(e) => handleFileUpload(e, (base64) => setDegreeForm(prev => ({ ...prev, fileUrl: base64 })))} 
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleFileUpload(e, (base64) => setDegreeForm((prev) => ({ ...prev, fileUrl: base64 })))}
                     />
                   </label>
                 )}
@@ -1748,40 +2259,39 @@ export const EmployeeProfile = () => {
             <form onSubmit={handleAddCert} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Tên Chứng chỉ *</label>
-                <input type="text" required placeholder="VD: AWS Certified, PMP, IELTS, TOEIC..." value={certForm.name} onChange={e => setCertForm({ ...certForm, name: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                <input type="text" required placeholder="VD: AWS Certified, PMP, IELTS, TOEIC..." value={certForm.name} onChange={(e) => setCertForm({ ...certForm, name: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Đơn vị cấp *</label>
-                <input type="text" required placeholder="VD: Amazon Web Services, British Council, PMI..." value={certForm.issuedBy} onChange={e => setCertForm({ ...certForm, issuedBy: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                <input type="text" required placeholder="VD: Amazon Web Services, British Council, PMI..." value={certForm.issuedBy} onChange={(e) => setCertForm({ ...certForm, issuedBy: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Ngày cấp</label>
-                  <input type="date" value={certForm.issueDate} onChange={e => setCertForm({ ...certForm, issueDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                  <input type="date" value={certForm.issueDate} onChange={(e) => setCertForm({ ...certForm, issueDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Ngày hết hạn (Nếu có)</label>
-                  <input type="date" value={certForm.expiryDate} onChange={e => setCertForm({ ...certForm, expiryDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                  <input type="date" value={certForm.expiryDate} onChange={(e) => setCertForm({ ...certForm, expiryDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
                 </div>
               </div>
 
-              {/* Upload ảnh chứng chỉ */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
                   Ảnh chụp / Bản scan chứng chỉ (Tùy chọn)
                 </label>
                 {certForm.fileUrl ? (
                   <div style={{ position: 'relative', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px', backgroundColor: '#F8FAFC', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <img 
-                      src={certForm.fileUrl} 
-                      alt="Scan chứng chỉ" 
-                      style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #CBD5E1' }} 
+                    <img
+                      src={certForm.fileUrl}
+                      alt="Scan chứng chỉ"
+                      style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #CBD5E1' }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A', display: 'block' }}>Đã đính kèm ảnh chứng chỉ</span>
                       <button
                         type="button"
-                        onClick={() => setCertForm(prev => ({ ...prev, fileUrl: '' }))}
+                        onClick={() => setCertForm((prev) => ({ ...prev, fileUrl: '' }))}
                         style={{ fontSize: '0.78rem', color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
                       >
                         <Trash2 size={13} /> Xóa & Chọn ảnh khác
@@ -1806,21 +2316,20 @@ export const EmployeeProfile = () => {
                     borderRadius: '8px',
                     backgroundColor: '#F8FAFC',
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
                     gap: '6px'
                   }}>
-                    <UploadCloud size={24} color="#059669" />
+                    <UploadCloud size={24} color="#3B82F6" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1E293B' }}>
-                      Bấm vào đây để chọn ảnh scan / chụp chứng chỉ
+                      Bấm vào đây để chọn ảnh chứng chỉ
                     </span>
                     <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
                       Hỗ trợ PNG, JPG, JPEG hoặc PDF (Tối đa 10MB)
                     </span>
-                    <input 
-                      type="file" 
-                      accept="image/*,application/pdf" 
-                      style={{ display: 'none' }} 
-                      onChange={(e) => handleFileUpload(e, (base64) => setCertForm(prev => ({ ...prev, fileUrl: base64 })))} 
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleFileUpload(e, (base64) => setCertForm((prev) => ({ ...prev, fileUrl: base64 })))}
                     />
                   </label>
                 )}
@@ -1837,7 +2346,197 @@ export const EmployeeProfile = () => {
       )}
 
       {/* ======================================================== */}
-      {/* MODAL 4: XEM ẢNH SCAN BẰNG CẤP / CHỨNG CHỈ PHÓNG TO        */}
+      {/* MODAL 4: CHI TIẾT HỢP ĐỒNG LAO ĐỘNG & PHỤ LỤC            */}
+      {/* ======================================================== */}
+      {viewingContract && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', padding: '20px' }}>
+          <div style={{ width: '680px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', position: 'sticky', top: 0 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+                  Chi tiết Hợp đồng: {viewingContract.contractNumber || viewingContract.id}
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: '#64748B' }}>{getContractTypeName(viewingContract.contractType)}</span>
+              </div>
+              <button onClick={() => setViewingContract(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', backgroundColor: '#F8FAFC', padding: '1rem', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                <ReadOnlyInfoItem label="Số hợp đồng" value={viewingContract.contractNumber} highlight={true} />
+                <ReadOnlyInfoItem label="Loại hợp đồng" value={getContractTypeName(viewingContract.contractType)} />
+                <ReadOnlyInfoItem label="Trạng thái" badge={getContractStatusMeta(viewingContract.status, viewingContract.endDate)} />
+                <ReadOnlyInfoItem label="Ngày bắt đầu" value={formatDateVN(viewingContract.startDate)} />
+                <ReadOnlyInfoItem label="Ngày kết thúc" value={viewingContract.endDate ? formatDateVN(viewingContract.endDate) : 'Vô thời hạn'} />
+                <ReadOnlyInfoItem label="Địa điểm làm việc" value={viewingContract.workLocation || data.workLocation || 'Trụ sở chính'} />
+                <ReadOnlyInfoItem label="Người đại diện ký" value={viewingContract.signBy || 'Ban Giám Đốc'} />
+                <ReadOnlyInfoItem label="Ngày ký" value={formatDateVN(viewingContract.signDate)} />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <strong style={{ fontSize: '0.95rem', color: '#0F172A' }}>Thông tin thu nhập theo hợp đồng</strong>
+                <button
+                  type="button"
+                  onClick={() => setShowSalary((prev) => !prev)}
+                  style={{ fontSize: '0.78rem', padding: '4px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#FFFFFF', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {showSalary ? <EyeOff size={13} /> : <Eye size={13} />}
+                  {showSalary ? 'Ẩn số tiền' : 'Hiện số tiền'}
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', padding: '1rem', borderRadius: '10px', border: '1px solid #DCFCE7', backgroundColor: '#F0FDF4' }}>
+                <ReadOnlyInfoItem
+                  label="Lương cơ bản"
+                  value={showSalary ? `${Number(viewingContract.baseSalary || 0).toLocaleString('vi-VN')} VNĐ` : '••••••••• VNĐ'}
+                />
+                <ReadOnlyInfoItem
+                  label="Phụ cấp hợp đồng"
+                  value={showSalary ? `${Number(viewingContract.allowance || 0).toLocaleString('vi-VN')} VNĐ` : '•••••• VNĐ'}
+                />
+                <ReadOnlyInfoItem
+                  label="Lương đóng BHXH"
+                  value={
+                    viewingContract.insuranceSalary
+                      ? (showSalary ? `${Number(viewingContract.insuranceSalary).toLocaleString('vi-VN')} VNĐ` : '••••••••• VNĐ')
+                      : 'Theo lương cơ bản'
+                  }
+                />
+                <ReadOnlyInfoItem
+                  label="Hình thức chi trả"
+                  value={viewingContract.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản ngân hàng'}
+                />
+              </div>
+
+              {viewingContract.appendixNote && (
+                <div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748B', display: 'block', marginBottom: '4px' }}>Ghi chú / Điều khoản bổ sung</span>
+                  <div style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
+                    {viewingContract.appendixNote}
+                  </div>
+                </div>
+              )}
+
+              {viewingContract.appendices && viewingContract.appendices.length > 0 && (
+                <div>
+                  <strong style={{ fontSize: '0.9rem', color: '#0F172A', display: 'block', marginBottom: '8px' }}>
+                    Phụ lục hợp đồng ({viewingContract.appendices.length})
+                  </strong>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {viewingContract.appendices.map((app) => (
+                      <div key={app.id} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', fontSize: '0.85rem' }}>
+                        <div style={{ fontWeight: 700, color: '#1E293B' }}>{app.appendixNumber} — {app.title}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
+                          Hiệu lực: {formatDateVN(app.effectiveDate)}
+                          {app.newSalary ? ` • Lương mới: ${showSalary ? `${Number(app.newSalary).toLocaleString('vi-VN')} VNĐ` : '••••••••• VNĐ'}` : ''}
+                        </div>
+                        {app.content && <div style={{ marginTop: '4px', color: '#475569' }}>{app.content}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {parseContractFiles(viewingContract.fileUrl).length > 0 && (
+                <div>
+                  <strong style={{ fontSize: '0.9rem', color: '#0F172A', display: 'block', marginBottom: '8px' }}>
+                    Bản scan hợp đồng đính kèm
+                  </strong>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {parseContractFiles(viewingContract.fileUrl).map((fileUrl, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setPreviewImage({ title: `Hợp đồng ${viewingContract.contractNumber || ''} - Tệp ${idx + 1}`, url: fileUrl })}
+                        style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #BFDBFE', backgroundColor: '#EFF6FF', color: '#2563EB', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                      >
+                        <Eye size={14} /> Xem bản scan #{idx + 1}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 5: CHI TIẾT QUYẾT ĐỊNH NHÂN SỰ                     */}
+      {/* ======================================================== */}
+      {viewingDecision && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', padding: '20px' }}>
+          <div style={{ width: '620px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', position: 'sticky', top: 0 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+                  {viewingDecision.decisionNumber} — {viewingDecision.title}
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 600 }}>{getDecisionTypeLabel(viewingDecision.type)}</span>
+              </div>
+              <button onClick={() => setViewingDecision(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', backgroundColor: '#F8FAFC', padding: '1rem', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                <ReadOnlyInfoItem label="Số quyết định" value={viewingDecision.decisionNumber} highlight={true} />
+                <ReadOnlyInfoItem label="Loại quyết định" value={getDecisionTypeLabel(viewingDecision.type)} />
+                <ReadOnlyInfoItem label="Ngày hiệu lực" value={formatDateVN(viewingDecision.effectiveDate)} />
+                <ReadOnlyInfoItem label="Cấp ký" value={viewingDecision.signBy || 'Ban Giám Đốc'} />
+                <ReadOnlyInfoItem label="Ngày ký" value={formatDateVN(viewingDecision.signDate)} />
+                <ReadOnlyInfoItem label="Trạng thái" value={viewingDecision.status} />
+                {viewingDecision.newDepartment?.name && (
+                  <ReadOnlyInfoItem label="Đơn vị tiếp nhận mới" value={viewingDecision.newDepartment.name} />
+                )}
+                {viewingDecision.newPosition?.title && (
+                  <ReadOnlyInfoItem label="Chức danh mới" value={viewingDecision.newPosition.title} />
+                )}
+              </div>
+
+              {(viewingDecision.oldSalary || viewingDecision.newSalary || viewingDecision.rewardAmount) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', padding: '1rem', borderRadius: '10px', border: '1px solid #BFDBFE', backgroundColor: '#EFF6FF' }}>
+                  {viewingDecision.oldSalary && (
+                    <ReadOnlyInfoItem label="Mức lương cũ" value={`${Number(viewingDecision.oldSalary).toLocaleString('vi-VN')} VNĐ`} />
+                  )}
+                  {viewingDecision.newSalary && (
+                    <ReadOnlyInfoItem label="Mức lương mới" value={`${Number(viewingDecision.newSalary).toLocaleString('vi-VN')} VNĐ`} highlight={true} />
+                  )}
+                  {viewingDecision.rewardAmount && (
+                    <ReadOnlyInfoItem label="Mức thưởng" value={`${Number(viewingDecision.rewardAmount).toLocaleString('vi-VN')} VNĐ`} highlight={true} />
+                  )}
+                </div>
+              )}
+
+              {viewingDecision.reason && (
+                <div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748B', display: 'block', marginBottom: '4px' }}>Nội dung / Lý do ban hành</span>
+                  <div style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
+                    {viewingDecision.reason}
+                  </div>
+                </div>
+              )}
+
+              {viewingDecision.fileUrl && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImage({ title: `Văn bản: ${viewingDecision.decisionNumber}`, url: viewingDecision.fileUrl })}
+                    style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #BFDBFE', backgroundColor: '#EFF6FF', color: '#2563EB', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Eye size={15} /> Xem bản scan văn bản quyết định
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 6: XEM ẢNH / PDF SCAN PHÓNG TO                      */}
       {/* ======================================================== */}
       {previewImage && createPortal(
         <div style={{
@@ -1905,14 +2604,21 @@ export const EmployeeProfile = () => {
               </div>
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>
-              {previewImage.url.startsWith('data:application/pdf') ? (
-                <iframe src={previewImage.url} title={previewImage.title} style={{ width: '100%', height: '70vh', border: 'none' }} />
-              ) : (
+              {String(previewImage.url).startsWith('data:application/pdf') ? (
+                <iframe src={previewImage.url} title={previewImage.title} style={{ width: '100%', height: '70vh', border: 'none', backgroundColor: '#FFF' }} />
+              ) : String(previewImage.url).startsWith('data:image/') || !String(previewImage.url).startsWith('data:') ? (
                 <img
                   src={previewImage.url}
                   alt={previewImage.title}
                   style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain', borderRadius: '8px' }}
                 />
+              ) : (
+                <div style={{ textAlign: 'center', color: '#CBD5E1', padding: '2rem' }}>
+                  <p style={{ marginBottom: '12px' }}>Trình duyệt không hỗ trợ xem trực tiếp định dạng tệp này.</p>
+                  <a href={previewImage.url} download className="btn btn-primary" style={{ textDecoration: 'none' }}>
+                    Tải xuống tài liệu
+                  </a>
+                </div>
               )}
             </div>
           </div>

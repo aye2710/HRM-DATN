@@ -70,7 +70,14 @@ export const EmployeePayslip = () => {
   const deptName = selectedPayslip?.employee?.department?.name || 'Tổ chức';
   const posTitle = selectedPayslip?.employee?.position?.title || 'Chuyên viên';
   const contractType = lla.contractType || 'PROBATION';
-  const probationPct = lla.probationPercent || (contractType === 'PROBATION' ? 85 : 100);
+  const probationPct = lla.probationPercent ?? (contractType === 'PROBATION' ? 85 : 100);
+  const stageLabel =
+    lla.stageLabel ||
+    (contractType === 'INTERNSHIP'
+      ? 'Thực tập'
+      : probationPct < 100
+        ? `Thử việc ${probationPct}%`
+        : `Chính thức ${probationPct}%`);
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -274,13 +281,25 @@ export const EmployeePayslip = () => {
                   <strong>{formatCurrency(baseSalary)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
-                  <span>2. Lương áp dụng tháng ({probationPct}%):</span>
+                  <span>2. Lương / Trợ cấp áp dụng tháng ({stageLabel}):</span>
                   <strong>{formatCurrency(appliedMonthSalary)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
                   <span>3. Lương theo ngày công làm việc:</span>
                   <strong style={{ color: '#047857' }}>{formatCurrency(salaryByDays)}</strong>
                 </div>
+                {lla.isSplitPeriod && Array.isArray(lla.splitSegments) && lla.splitSegments.length > 1 && (
+                  <div style={{ paddingLeft: '0.75rem', borderLeft: '2px solid #C4B5FD', display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.78rem', color: '#6D28D9' }}>
+                    {lla.splitSegments.map((seg, sIdx) => (
+                      <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>
+                          • {seg.fromDate.slice(8, 10)}/{seg.fromDate.slice(5, 7)}→{seg.toDate.slice(8, 10)}/{seg.toDate.slice(5, 7)} ({seg.stageLabel}, {seg.workingDays} công):
+                        </span>
+                        <strong>{formatCurrency(seg.salaryByDays)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#334155' }}>
                   <span>4. Phụ cấp cố định (Ăn trưa, xăng, ĐT):</span>
                   <strong>{formatCurrency(fixedAllowance)}</strong>

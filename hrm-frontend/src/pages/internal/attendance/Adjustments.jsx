@@ -4,6 +4,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { ExplanationA4Preview, formatExplanationTypeBadge } from '../../../components/attendance/AttendanceShared';
 
 export const Adjustments = () => {
   const navigate = useNavigate();
@@ -187,15 +189,25 @@ export const Adjustments = () => {
     });
   }, [monthFilteredAdjustments, searchTerm, statusFilter]);
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedList,
+    resetPage,
+  } = usePagination(filteredList, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, statusFilter, selectedMonth, selectedYear, resetPage]);
+
   // ============================================================================
   // CHẾ ĐỘ 1: TRANG LẬP & XEM TRƯỚC BIÊN BẢN A4 TOÀN MÀN HÌNH (KHÔNG POPUP)
   // ============================================================================
   if (viewMode === 'FORM_PAGE') {
-    const parsedDate = formData.date ? new Date(formData.date) : now;
-    const dayStr = String(parsedDate.getDate()).padStart(2, '0');
-    const monthStr = String(parsedDate.getMonth() + 1).padStart(2, '0');
-    const yearStr = parsedDate.getFullYear();
-    const isLateDoc = String(formData.type || '').toLowerCase().includes('đi muộn');
 
     return (
       <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -307,6 +319,7 @@ export const Adjustments = () => {
                     <option value="Đơn xác nhận chấm công (Quên Check-in)">Đơn xác nhận công (Quên Check-in)</option>
                     <option value="Đơn xác nhận chấm công (Chưa làm dấu vân tay)">Đơn xác nhận công (Chưa làm vân tay)</option>
                     <option value="Đơn xin phép đi muộn (5p - 60p)">Đơn xin phép đi muộn (5p – 1 tiếng)</option>
+                    <option value="Đơn xin phép về sớm (Trước giờ tan ca)">Đơn xin phép về sớm</option>
                   </select>
                 </div>
               </div>
@@ -340,143 +353,21 @@ export const Adjustments = () => {
           </div>
 
           {/* CỘT PHẢI: TỜ GIẤY A4 XEM TRƯỚC TRỰC TIẾP */}
-          <div style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '0.75rem',
-            border: '1px solid #CBD5E1',
-            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
-            padding: '2rem 2.25rem',
-            fontFamily: '"Times New Roman", Times, serif',
-            color: '#000000',
-            lineHeight: 1.6,
-            fontSize: '15px'
-          }}>
-            {isLateDoc ? (
-              <div>
-                <div style={{ textAlign: 'center', fontWeight: 'bold' }}>
-                  <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-                  <div style={{ textDecoration: 'underline', marginBottom: '1.25rem' }}>Độc lập – Tự do – Hạnh phúc</div>
-                  <div style={{ fontSize: '19px', margin: '1rem 0' }}>ĐƠN XIN PHÉP</div>
-                </div>
-
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <strong>Kính gửi:</strong> Trưởng bộ phận {formData.empDept}
-                </div>
-                <div>
-                  Tên tôi là: <strong>{formData.empFullName}</strong>, hiện đang làm việc tại phòng {formData.empDept} của Công ty TNHH Thương Mại Dịch Vụ và Công Nghệ LLA.
-                </div>
-                <div>
-                  Tôi xin phép được đi muộn ngày <strong>{dayStr}/{monthStr}/{yearStr}</strong> ({formData.type})
-                </div>
-                <div style={{ marginTop: '0.35rem' }}>
-                  <strong>Lý do xin đi muộn:</strong> {formData.reason}
-                </div>
-                <div style={{ marginTop: '0.5rem' }}>
-                  Rất mong được trưởng bộ phận {formData.empDept} phê duyệt.
-                </div>
-                <div style={{ marginBottom: '1.25rem' }}>Trân trọng cảm ơn!</div>
-
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', textAlign: 'center', marginTop: '1rem' }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ border: '1px solid #000', padding: '0.75rem', width: '50%', verticalAlign: 'top' }}>
-                        <strong>Trưởng bộ phận</strong><br />
-                        <em>(Phê duyệt và ký tên)</em>
-                        <div style={{ height: '75px' }} />
-                        <strong>Ngô Xuân Cương</strong>
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '0.75rem', width: '50%', verticalAlign: 'top' }}>
-                        <em>Hà Nội, ngày {now.getDate()} tháng {now.getMonth() + 1} năm {now.getFullYear()}</em><br />
-                        <strong>Người làm đơn</strong><br />
-                        <em>(Ký tên)</em>
-                        <div style={{ height: '55px' }} />
-                        <strong>{formData.empFullName}</strong>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div>
-                <div style={{ textAlign: 'center', fontWeight: 'bold' }}>
-                  <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-                  <div>Độc lập – Tự do – Hạnh phúc</div>
-                  <div>—–</div>
-                </div>
-                <div style={{ textAlign: 'right', fontStyle: 'italic', margin: '0.5rem 0 1rem' }}>
-                  Hà Nội, ngày {now.getDate()} tháng {now.getMonth() + 1} năm {now.getFullYear()}
-                </div>
-                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '19px', marginBottom: '1rem' }}>
-                  ĐƠN XIN XÁC NHẬN CHẤM CÔNG
-                </div>
-
-                <div style={{ marginBottom: '0.75rem', paddingLeft: '1.25rem' }}>
-                  <strong>Kính gửi:</strong> - Giám đốc Công ty TNHH Thương Mại Dịch Vụ và Công Nghệ LLA<br />
-                  <span style={{ paddingLeft: '4.1rem' }}>- Phòng HCNS - Kế Toán</span><br />
-                  <span style={{ paddingLeft: '4.1rem' }}>- Trưởng bộ phận {formData.empDept}</span>
-                </div>
-
-                <div>Tên tôi là: <strong>{formData.empFullName}</strong></div>
-                <div>Chức vụ: <strong>{formData.empPos}</strong></div>
-                <div>Bộ phận: <strong>{formData.empDept}</strong></div>
-
-                <div style={{ marginTop: '0.5rem', textAlign: 'justify' }}>
-                  Nay tôi làm đơn này kính mong Giám đốc Công ty, Phòng HCNS - Kế Toán, trưởng bộ phận (nơi bạn trực tiếp làm việc) {formData.empDept} xác nhận chấm công làm việc của tôi theo đúng thời gian tôi đã làm việc tại công ty trong tháng vừa qua. Trong đó:
-                </div>
-                <div style={{ margin: '0.5rem 0', fontWeight: 'bold' }}>
-                  Xin chấm công ngày {dayStr} tháng {monthStr} năm {yearStr}: {formData.reason}
-                </div>
-                <div>
-                  Tôi cam đoan những thông tin tôi trình bày ở trên là đúng sự thật và xin chịu mọi trách nhiệm trước pháp luật.
-                </div>
-                <div style={{ marginBottom: '1.25rem' }}>Tôi xin chân thành cảm ơn!</div>
-
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', textAlign: 'center', marginTop: '1rem' }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ border: '1px solid #000', padding: '0.65rem', width: '33.3%', verticalAlign: 'top' }}>
-                        <strong>TP. HCNS-KT</strong><br />
-                        <em>(Xác nhận, ký, ghi rõ họ tên)</em>
-                        <div style={{ height: '75px' }} />
-                        <strong>{formData.status === 'APPROVED' ? 'Đã phê duyệt' : ''}</strong>
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '0.65rem', width: '33.3%', verticalAlign: 'top' }}>
-                        <strong>Trưởng bộ phận</strong><br />
-                        <em>(Xác nhận, ký, ghi rõ họ tên)</em>
-                        <div style={{ height: '75px' }} />
-                        <strong>Ngô Xuân Cương</strong>
-                      </td>
-                      <td style={{ border: '1px solid #000', padding: '0.65rem', width: '33.3%', verticalAlign: 'top' }}>
-                        <strong>Người làm đơn</strong><br />
-                        <em>(Ký, ghi rõ họ tên)</em>
-                        <div style={{ height: '75px' }} />
-                        <strong>{formData.empFullName}</strong>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <ExplanationA4Preview
+            fullName={formData.empFullName}
+            positionTitle={formData.empPos}
+            deptName={formData.empDept}
+            date={formData.date}
+            subType={formData.type}
+            reason={formData.reason}
+            status={formData.status}
+          />
         </div>
       </div>
     );
   }
 
-  // Helper rút gọn loại đơn
-  const formatTypeBadge = (type) => {
-    const t = String(type || '').toLowerCase();
-    if (t.includes('đi muộn')) {
-      return { label: 'Xin đi muộn', bg: '#FEF3C7', color: '#B45309', border: '#FDE68A' };
-    }
-    if (t.includes('quên check-out')) {
-      return { label: 'Quên Check-out', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
-    }
-    if (t.includes('quên check-in')) {
-      return { label: 'Quên Check-in', bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE' };
-    }
-    return { label: 'Xác nhận công', bg: '#F1F5F9', color: '#475569', border: '#CBD5E1' };
-  };
+  const formatTypeBadge = formatExplanationTypeBadge;
 
   const formatProposedAction = (adj) => {
     const isLate = String(adj.type || '').toLowerCase().includes('đi muộn');
@@ -689,7 +580,7 @@ export const Adjustments = () => {
                   </td>
                 </tr>
               ) : (
-                filteredList.map(adj => {
+                paginatedList.map(adj => {
                   const typeBadge = formatTypeBadge(adj.type);
                   return (
                     <tr key={adj.id} style={{ borderBottom: '1px solid #F1F5F9', backgroundColor: adj.status === 'PENDING' ? '#FCFDFE' : '#FFFFFF' }}>
@@ -856,6 +747,17 @@ export const Adjustments = () => {
             </tbody>
           </table>
         </div>
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="đơn"
+          />
+        )}
       </div>
 
     </div>

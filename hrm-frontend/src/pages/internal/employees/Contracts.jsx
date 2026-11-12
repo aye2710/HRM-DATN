@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, 
+  Search, 
   Plus, CheckCircle2, FileText, Calendar, Clock, AlertTriangle, AlertCircle, 
   RefreshCw, FileSpreadsheet
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const Contracts = () => {
   const navigate = useNavigate();
@@ -22,10 +23,6 @@ export const Contracts = () => {
   // Sort
   const [sortField, setSortField] = useState('PRIORITY'); // PRIORITY, END_DATE, CODE, NAME
   const [sortOrder, setSortOrder] = useState('asc');
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -170,13 +167,20 @@ export const Contracts = () => {
       });
   }, [employees, searchTerm, deptFilter, filterType, hideResigned, sortField, sortOrder]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, deptFilter, filterType, hideResigned, sortField, sortOrder]);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize: itemsPerPage,
+    setPageSize: setItemsPerPage,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedEmployees,
+    resetPage,
+  } = usePagination(sortedAndFilteredEmployees, 10);
 
-  const totalPages = Math.ceil(sortedAndFilteredEmployees.length / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedEmployees = sortedAndFilteredEmployees.slice(startIndex, startIndex + itemsPerPage);
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, deptFilter, filterType, hideResigned, sortField, sortOrder, resetPage]);
 
   const getDefiniteContractCount = (emp) => {
     if (!emp?.contracts) return 0;
@@ -616,105 +620,16 @@ export const Contracts = () => {
         </div>
 
         {/* Phân trang */}
-        {sortedAndFilteredEmployees.length > 0 && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingTop: '0.5rem',
-            flexWrap: 'wrap',
-            gap: '10px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#64748B' }}>
-              <span>Hiển thị</span>
-              <select
-                className="form-input"
-                style={{ width: '64px', height: '28px', padding: '2px 6px', fontSize: '0.78rem', borderRadius: '6px' }}
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-              <span>nhân sự / trang ({startIndex + 1} - {Math.min(startIndex + itemsPerPage, sortedAndFilteredEmployees.length)} trong {sortedAndFilteredEmployees.length})</span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <button 
-                className="btn btn-outline"
-                style={{ width: '28px', height: '28px', padding: 0, opacity: currentPage === 1 ? 0.35 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(1)}
-              >
-                <ChevronsLeft size={13} />
-              </button>
-              <button 
-                className="btn btn-outline"
-                style={{ width: '28px', height: '28px', padding: 0, opacity: currentPage === 1 ? 0.35 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              >
-                <ChevronLeft size={13} />
-              </button>
-
-              {(() => {
-                const pages = [];
-                for (let i = 1; i <= totalPages; i++) {
-                  if (
-                    i === 1 || 
-                    i === totalPages || 
-                    (i >= currentPage - 1 && i <= currentPage + 1)
-                  ) {
-                    pages.push(i);
-                  } else if (pages[pages.length - 1] !== '...') {
-                    pages.push('...');
-                  }
-                }
-                return pages.map((page, idx) => 
-                  page === '...' ? (
-                    <span key={`ellipsis-${idx}`} style={{ padding: '0 4px', color: '#94A3B8', fontSize: '0.78rem' }}>...</span>
-                  ) : (
-                    <button
-                      key={page}
-                      className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                      style={{ 
-                        minWidth: '28px', 
-                        height: '28px', 
-                        padding: '0 6px', 
-                        fontSize: '0.78rem', 
-                        fontWeight: currentPage === page ? 700 : 500
-                      }}
-                      onClick={() => setCurrentPage(page)}
-                    >
-                      {page}
-                    </button>
-                  )
-                );
-              })()}
-
-              <button 
-                className="btn btn-outline"
-                style={{ width: '28px', height: '28px', padding: 0, opacity: currentPage === totalPages ? 0.35 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              >
-                <ChevronRight size={13} />
-              </button>
-              <button 
-                className="btn btn-outline"
-                style={{ width: '28px', height: '28px', padding: 0, opacity: currentPage === totalPages ? 0.35 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(totalPages)}
-              >
-                <ChevronsRight size={13} />
-              </button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={itemsPerPage}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setItemsPerPage}
+          itemLabel="nhân sự"
+          flush={false}
+        />
       </div>
     </div>
   );

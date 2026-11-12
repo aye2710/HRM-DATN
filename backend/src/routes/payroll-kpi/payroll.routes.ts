@@ -3,6 +3,7 @@ import { prisma } from '../../db';
 import { getSettingValue, calculateMonthlyStandardDays } from '../system/setting.routes';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
+import { computeMonthlySplitCompensation } from '../../utils/hrCompensation';
 
 const router = Router();
 
@@ -27,7 +28,20 @@ export const extractLlaPayslipData = (p: any, fallbackStandardDays = 26) => {
   const baseSalary = Number(p.baseSalary || 0);
   const actualWorkingDays = Number(parsedMeta?.actualWorkingDays ?? p.actualWorkingDays ?? 0);
   const contractType = parsedMeta?.contractType || 'OFFICIAL_1Y';
-  const probationPercent = Number(parsedMeta?.probationPercent || (contractType === 'PROBATION' ? 85 : 100));
+  const probationPercent = Number(parsedMeta?.probationPercent ?? (contractType === 'PROBATION' ? 85 : 100));
+  const stageCode =
+    parsedMeta?.stageCode ||
+    (contractType === 'INTERNSHIP' ? 'INTERN_M2_3' : probationPercent < 100 ? 'PROBATION' : 'OFFICIAL');
+  const stageLabel =
+    parsedMeta?.stageLabel ||
+    (contractType === 'INTERNSHIP'
+      ? parsedMeta?.internMonthIndex
+        ? `Thực tập T${parsedMeta.internMonthIndex}`
+        : 'Thực tập'
+      : probationPercent < 100
+        ? `Thử việc ${probationPercent}%`
+        : 'Chính thức 100%');
+  const internMonthIndex = parsedMeta?.internMonthIndex ?? null;
   const appliedMonthSalary = Number(
     parsedMeta?.appliedMonthSalary ?? Math.round(baseSalary * (probationPercent / 100))
   );
@@ -53,6 +67,11 @@ export const extractLlaPayslipData = (p: any, fallbackStandardDays = 26) => {
 
   return {
     contractType,
+    stageCode,
+    stageLabel,
+    internMonthIndex,
+    isSplitPeriod: Boolean(parsedMeta?.isSplitPeriod),
+    splitSegments: Array.isArray(parsedMeta?.splitSegments) ? parsedMeta.splitSegments : [],
     probationPercent,
     baseSalary,
     appliedMonthSalary,
@@ -569,6 +588,9 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
     // Lấy toàn bộ tham số nghiệp vụ động từ Database (SystemSetting)
     const probationSalaryPercent = Number(await getSettingValue('PROBATION_SALARY_PERCENT', 85));
     const defaultFixedAllowance = Number(await getSettingValue('DEFAULT_FIXED_ALLOWANCE', 500000));
+    const internDurationMonths = Number(await getSettingValue('INTERN_DURATION_MONTHS', 3));
+    const internMonth1Stipend = Number(await getSettingValue('INTERN_MONTH1_STIPEND', 800000));
+    const internMonth2_3Stipend = Number(await getSettingValue('INTERN_MONTH2_3_STIPEND', 1500000));
     const latePenaltyPerTime = Number(await getSettingValue('LATE_PENALTY_AMOUNT', 50000));
     const maxLateQuota = Number(await getSettingValue('MAX_LATE_PERMISSION_PER_MONTH', 3));
     const defaultUnionFee = Number(await getSettingValue('UNION_FEE_RATE', 0));
@@ -646,20 +668,33 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
       });
     }
 
-    // BR-PAY-01-02: Loại trừ nhân sự thôi việc và chỉ tính lương cho nhân viên có Hợp đồng ACTIVE
+    const startDate = new Date(numYear, numMonth - 1, 1);
+    const endDate = new Date(numYear, numMonth, 0, 23, 59, 59);
+
+    // BR-PAY-01-02: Loại trừ nhân sự thôi việc; lấy cả hợp đồng ACTIVE & EXPIRED có hiệu lực giao với kỳ lương (hỗ trợ tách chặng chuyển giai đoạn giữa tháng)
     const employees = await prisma.employee.findMany({
       where: {
         status: { not: 'RESIGNED' },
-        contracts: { some: { status: 'ACTIVE' } }
+        contracts: {
+          some: {
+            status: { in: ['ACTIVE', 'EXPIRED'] },
+            startDate: { lte: endDate },
+            OR: [{ endDate: null }, { endDate: { gte: startDate } }]
+          }
+        }
       },
       include: {
-        contracts: { where: { status: 'ACTIVE' }, orderBy: { startDate: 'desc' } },
+        contracts: {
+          where: {
+            status: { in: ['ACTIVE', 'EXPIRED'] },
+            startDate: { lte: endDate },
+            OR: [{ endDate: null }, { endDate: { gte: startDate } }]
+          },
+          orderBy: { startDate: 'asc' }
+        },
         relatives: { where: { isDependent: true } }
       }
     });
-
-    const startDate = new Date(numYear, numMonth - 1, 1);
-    const endDate = new Date(numYear, numMonth, 0, 23, 59, 59);
 
     // Lấy danh sách ngày lễ trong tháng để tính hệ số OT chuẩn xác theo Điều 98 BLLĐ 2019
     const holidays = await prisma.holiday.findMany({
@@ -670,36 +705,65 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
     let generatedCount = 0;
 
     for (const emp of employees) {
-      const activeContract = emp.contracts[0];
-      if (!activeContract) continue;
+      if (!emp.contracts || emp.contracts.length === 0) continue;
+      const latestOverlapContract = emp.contracts[emp.contracts.length - 1];
 
       const isTruc = emp.fullName.toLowerCase().includes('lê hữu trúc');
 
-      // 1. Mức lương cơ bản, Lương áp dụng tháng (Lương T{month}), Phụ cấp & Lương đóng BHXH theo Hợp đồng ACTIVE
-      const baseSalary = Number(activeContract.baseSalary || (emp as any).salary || 0);
-      const isProbation = activeContract.contractType === 'PROBATION' || emp.status === 'PROBATION';
-      const isOfficialContract = activeContract.contractType === 'OFFICIAL_1Y' || activeContract.contractType === 'INDEFINITE';
-
-      const appliedProbationPct = isProbation ? probationSalaryPercent : 100;
-      const appliedMonthSalary = Math.round(baseSalary * (appliedProbationPct / 100));
-
-      const contractAllowance = Number(activeContract.allowance || 0);
-      const fixedAllowanceDefault = contractAllowance > 0 ? contractAllowance : defaultFixedAllowance;
-      const contractInsuranceSalary = isOfficialContract ? Number(activeContract.insuranceSalary || baseSalary) : 0;
-
-      // 2. Chấm công thực tế trong tháng (từ Module Chấm công - đã bao gồm Thứ 7 đi làm cách tuần x2 công)
+      // 1. Chấm công thực tế trong tháng (từ Module Chấm công - đã bao gồm Thứ 7 đi làm cách tuần x2 công)
       const attendances = await prisma.attendance.findMany({
         where: {
           employeeId: emp.id,
           date: { gte: startDate, lte: endDate }
+        },
+        orderBy: { date: 'asc' }
+      });
+
+      // 2. Tính lương theo từng chặng hợp đồng/giai đoạn trong tháng (Thực tập -> Thử việc -> Chính thức, bao gồm chuyển giao giữa tháng)
+      const splitComp = computeMonthlySplitCompensation({
+        contracts: emp.contracts.map(c => ({
+          id: c.id,
+          contractType: c.contractType,
+          baseSalary: Number(c.baseSalary || 0),
+          allowance: Number(c.allowance || 0),
+          insuranceSalary: Number(c.insuranceSalary || 0),
+          startDate: c.startDate,
+          endDate: c.endDate,
+          status: c.status
+        })),
+        employeeStatus: emp.status,
+        fallbackSalary: Number((emp as any).salary || 0),
+        joinDate: emp.joinDate,
+        attendances: attendances.map(a => ({ date: a.date, workingDay: Number(a.workingDay || 0) })),
+        overrideTotalWorkingDays: isTruc && numMonth === 9 && numYear === 2026 ? 18.5 : null,
+        standardDays,
+        payrollYear: numYear,
+        payrollMonth: numMonth,
+        config: {
+          internDurationMonths,
+          internMonth1Stipend,
+          internMonth2_3Stipend,
+          probationSalaryPercent,
+          defaultFixedAllowance
         }
       });
 
-      let totalWorkingDays = attendances.reduce((sum, att) => sum + Number(att.workingDay || 0), 0);
-      // Với Lê Hữu Trúc trong Tháng 09/2026: mặc định khớp chuẩn 18.5 công như bảng lương thực tế LLA nếu chưa chỉnh tay
-      if (isTruc && numMonth === 9 && numYear === 2026) {
-        totalWorkingDays = 18.5;
-      }
+      const {
+        stageCode,
+        stageLabel,
+        contractType: effectiveContractType,
+        internMonthIndex,
+        isSplitPeriod,
+        splitSegments,
+        isOfficialContract,
+        baseSalary,
+        appliedProbationPct,
+        appliedMonthSalary,
+        totalWorkingDays,
+        salaryByDays: computedSalaryByDays,
+        fixedAllowanceDefault,
+        contractInsuranceSalary
+      } = splitComp;
 
       // Đọc số lần đi muộn vượt hạn mức (MAX_LATE_PERMISSION_PER_MONTH) để tính cột Phạt đi muộn
       const lateCount = attendances.filter(a => a.status === 'LATE').length;
@@ -773,7 +837,9 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
 
         const finalWorkingDays = preserveManual ? prevLla!.actualWorkingDays : totalWorkingDays;
         const finalAppliedSalary = preserveManual ? prevLla!.appliedMonthSalary : appliedMonthSalary;
-        const salaryByDays = standardDays > 0 ? Math.round((finalAppliedSalary / standardDays) * finalWorkingDays) : 0;
+        const salaryByDays = preserveManual
+          ? (standardDays > 0 ? Math.round((finalAppliedSalary / standardDays) * finalWorkingDays) : 0)
+          : computedSalaryByDays;
 
         const ctpAndCommission = preserveManual ? prevLla!.ctpAndCommission : 0;
         const fixedAllowance = preserveManual ? prevLla!.fixedAllowance : fixedAllowanceDefault;
@@ -799,7 +865,12 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
         const netSalary = companyPayout - advanceAmount - latePenaltyAmount - unionFee;
 
         const llaMeta = {
-          contractType: activeContract.contractType,
+          contractType: effectiveContractType || latestOverlapContract.contractType,
+          stageCode,
+          stageLabel,
+          internMonthIndex,
+          isSplitPeriod,
+          splitSegments,
           probationPercent: appliedProbationPct,
           baseSalary,
           appliedMonthSalary: finalAppliedSalary,
@@ -860,11 +931,19 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
             amount: netSalary,
             description: JSON.stringify(llaMeta)
           },
-          {
-            type: 'EARNING',
-            amount: salaryByDays,
-            description: `Tổng lương theo ngày công (${finalWorkingDays} / ${standardDays} công chuẩn × ${finalAppliedSalary.toLocaleString('vi-VN')} đ)`
-          },
+          ...(isSplitPeriod && !preserveManual
+            ? splitSegments.map(seg => ({
+                type: 'EARNING',
+                amount: seg.salaryByDays,
+                description: `Lương theo công (${seg.fromDate.slice(8, 10)}/${seg.fromDate.slice(5, 7)}→${seg.toDate.slice(8, 10)}/${seg.toDate.slice(5, 7)} • ${seg.stageLabel}): ${seg.workingDays} / ${standardDays} công × ${seg.appliedMonthSalary.toLocaleString('vi-VN')} đ`
+              }))
+            : [
+                {
+                  type: 'EARNING',
+                  amount: salaryByDays,
+                  description: `Tổng lương theo ngày công (${finalWorkingDays} / ${standardDays} công chuẩn × ${finalAppliedSalary.toLocaleString('vi-VN')} đ)`
+                }
+              ]),
           ...(ctpAndCommission > 0
             ? [{ type: 'EARNING', amount: ctpAndCommission, description: 'CTP + Hoa hồng + Trách nhiệm + Thưởng' }]
             : []),
@@ -956,6 +1035,7 @@ router.get('/period/info', authenticateToken, async (req: Request, res: Response
       satAnchor: monthSchedule.satAnchor
     });
   } catch (error) {
+    console.error('Period info error:', error);
     return res.status(500).json({ error: 'Lỗi khi lấy thông tin kỳ lương' });
   }
 });

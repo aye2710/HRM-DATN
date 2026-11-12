@@ -11,27 +11,13 @@ import {
   Paperclip, FolderOpen, History, Lock, Unlock, MoreVertical, UploadCloud, Printer, Check
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
-
-const parseContractFiles = (fileUrl) => {
-  if (!fileUrl) return [];
-  try {
-    const parsed = JSON.parse(fileUrl);
-    if (Array.isArray(parsed)) return parsed.filter(Boolean);
-    return [fileUrl];
-  } catch (e) {
-    return [fileUrl];
-  }
-};
-
-const getContractTypeName = (type) => {
-  switch (type) {
-    case 'PROBATION': return 'Thử việc';
-    case 'INTERNSHIP': return 'Thực tập sinh';
-    case 'OFFICIAL_1Y': return 'Chính thức (1 năm)';
-    case 'INDEFINITE': return 'Không xác định thời hạn';
-    default: return type || 'Chưa xác định';
-  }
-};
+import {
+  parseAttachedFiles,
+  parseContractFiles,
+  getContractTypeName,
+  getEmployeeStatusMeta,
+  getAssetAssignmentStatusMeta
+} from '../../../utils/employeeProfileHelpers';
 
 const getContractStatusBadge = (status, endDate) => {
   if (status === 'ACTIVE' && endDate) {
@@ -54,32 +40,6 @@ const getContractStatusBadge = (status, endDate) => {
     case 'EXPIRED': return <span className="badge badge-warning" style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>Hết hạn</span>;
     case 'TERMINATED': return <span className="badge badge-error" style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>Đã chấm dứt</span>;
     default: return <span className="badge badge-info" style={{ padding: '3px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>{status}</span>;
-  }
-};
-
-const getEmployeeStatusName = (status) => {
-  switch (status) {
-    case 'ACTIVE': return 'Chính thức';
-    case 'PROBATION': return 'Thử việc';
-    case 'INTERNSHIP': return 'Thực tập';
-    case 'ONBOARDING': return 'Đang hội nhập';
-    case 'MATERNITY_LEAVE': return 'Nghỉ thai sản';
-    case 'UNPAID_LEAVE': return 'Nghỉ không lương';
-    case 'SUSPENDED': return 'Tạm hoãn HĐLĐ';
-    case 'RESIGNED': return 'Đã thôi việc';
-    default: return status || '—';
-  }
-};
-
-const getManagementRoleLabel = (role) => {
-  switch (role) {
-    case 'BOD': return 'Ban Tổng Giám Đốc';
-    case 'DIRECTOR': return 'Giám đốc Khối';
-    case 'DEPUTY_DIRECTOR': return 'Phó Giám đốc Khối';
-    case 'MANAGER': return 'Trưởng phòng';
-    case 'DEPUTY_MANAGER': return 'Phó Trưởng phòng';
-    case 'TEAM_LEAD': return 'Trưởng nhóm (Lead)';
-    default: return 'Nhân viên';
   }
 };
 
@@ -280,6 +240,10 @@ export const EmployeeDetail = () => {
     description: ''
   });
 
+  // Hồ sơ đính kèm
+  const [attachmentCategory, setAttachmentCategory] = useState('CCCD / Hộ chiếu');
+  const [previewAttachment, setPreviewAttachment] = useState(null);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -314,6 +278,62 @@ export const EmployeeDetail = () => {
 
   const handleChange = (field, value) => {
     setEmployee({ ...employee, [field]: value });
+  };
+
+  const handleUploadAttachment = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      e.target.value = '';
+      return toast.error('Dung lượng tài liệu không được vượt quá 10MB');
+    }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const currentFiles = parseAttachedFiles(employee.attachedFiles);
+        const nextFiles = [
+          ...currentFiles,
+          {
+            id: `att-${Date.now()}`,
+            name: file.name,
+            category: attachmentCategory,
+            fileUrl: ev.target.result,
+            fileSize: file.size,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: 'HR'
+          }
+        ];
+        const attachedFilesJson = JSON.stringify(nextFiles);
+        await axios.put(`http://localhost:5000/api/employees/${id}`, {
+          ...employee,
+          attachedFiles: attachedFilesJson
+        });
+        setEmployee((prev) => ({ ...prev, attachedFiles: attachedFilesJson }));
+        toast.success('Đã tải lên tài liệu đính kèm thành công!');
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Lỗi khi lưu tài liệu đính kèm');
+      } finally {
+        e.target.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDeleteAttachment = async (attId) => {
+    if (!window.confirm('Xác nhận xóa tài liệu đính kèm này?')) return;
+    try {
+      const currentFiles = parseAttachedFiles(employee.attachedFiles);
+      const nextFiles = currentFiles.filter((f) => f.id !== attId);
+      const attachedFilesJson = nextFiles.length > 0 ? JSON.stringify(nextFiles) : null;
+      await axios.put(`http://localhost:5000/api/employees/${id}`, {
+        ...employee,
+        attachedFiles: attachedFilesJson
+      });
+      setEmployee((prev) => ({ ...prev, attachedFiles: attachedFilesJson }));
+      toast.success('Đã xóa tài liệu đính kèm!');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi xóa tài liệu');
+    }
   };
 
   const handleSave = async () => {
@@ -569,8 +589,17 @@ export const EmployeeDetail = () => {
             <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
               {employee.code}
             </span>
-            <span className="badge badge-success" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
-              {getEmployeeStatusName(employee.status)}
+            <span
+              className="badge"
+              style={{
+                fontSize: '0.72rem',
+                padding: '2px 8px',
+                backgroundColor: getEmployeeStatusMeta(employee.status).bg,
+                color: getEmployeeStatusMeta(employee.status).color,
+                border: `1px solid ${getEmployeeStatusMeta(employee.status).border}`
+              }}
+            >
+              {getEmployeeStatusMeta(employee.status).label}
             </span>
           </div>
         </div>
@@ -873,7 +902,12 @@ export const EmployeeDetail = () => {
             {openSections.residence && (
               <div style={{ padding: '1.25rem', borderTop: '1px solid #F1F5F9', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                 <FormField label="Địa chỉ thường trú (Hộ khẩu)" value={employee.permanentAddress} isEditMode={isEditMode} onChange={(v) => handleChange('permanentAddress', v)} />
-                <FormField label="Địa chỉ tạm trú / Hiện tại" value={employee.temporaryAddress} isEditMode={isEditMode} onChange={(v) => handleChange('temporaryAddress', v)} />
+                <FormField
+                  label="Địa chỉ tạm trú / Hiện tại"
+                  value={employee.temporaryAddress || employee.currentAddress}
+                  isEditMode={isEditMode}
+                  onChange={(v) => setEmployee({ ...employee, temporaryAddress: v, currentAddress: v })}
+                />
                 <FormField label="Quê quán" value={employee.hometown} isEditMode={isEditMode} onChange={(v) => handleChange('hometown', v)} />
                 <FormField label="Nơi sinh" value={employee.birthPlace} isEditMode={isEditMode} onChange={(v) => handleChange('birthPlace', v)} />
               </div>
@@ -1196,7 +1230,16 @@ export const EmployeeDetail = () => {
             </div>
 
             {openSections.degrees && (
-              <div style={{ padding: '1.25rem', borderTop: '1px solid #F1F5F9' }}>
+              <div style={{ padding: '1.25rem', borderTop: '1px solid #F1F5F9', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ maxWidth: '340px' }}>
+                  <FormField
+                    label="Trình độ học vấn cao nhất"
+                    value={employee.highestEducation}
+                    placeholder="VD: Đại học, Thạc sĩ, Cao đẳng..."
+                    isEditMode={isEditMode}
+                    onChange={(v) => handleChange('highestEducation', v)}
+                  />
+                </div>
                 {employee.degrees && employee.degrees.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {employee.degrees.map(d => (
@@ -1388,17 +1431,23 @@ export const EmployeeDetail = () => {
               <div style={{ padding: '1.25rem', borderTop: '1px solid #F1F5F9' }}>
                 {employee.assetAssignments && employee.assetAssignments.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {employee.assetAssignments.map(as => (
-                      <div key={as.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
-                        <div>
-                          <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.9rem' }}>{as.asset?.name || 'Thiết bị'} ({as.asset?.code || '—'})</div>
-                          <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Ngày bàn giao: {as.assignedDate ? new Date(as.assignedDate).toLocaleDateString('vi-VN') : '—'}</div>
+                    {employee.assetAssignments.map(as => {
+                      const statusMeta = getAssetAssignmentStatusMeta(as);
+                      return (
+                        <div key={as.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.9rem' }}>{as.asset?.name || 'Thiết bị'} ({as.asset?.code || '—'})</div>
+                            <div style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                              Ngày bàn giao: {as.assignedDate ? new Date(as.assignedDate).toLocaleDateString('vi-VN') : '—'}
+                              {as.returnedDate ? ` • Ngày thu hồi: ${new Date(as.returnedDate).toLocaleDateString('vi-VN')}` : ''}
+                            </div>
+                          </div>
+                          <span className="badge" style={{ backgroundColor: statusMeta.bg, color: statusMeta.color, border: `1px solid ${statusMeta.border}`, fontSize: '0.75rem' }}>
+                            {statusMeta.label}
+                          </span>
                         </div>
-                        <span className="badge" style={{ backgroundColor: as.returnDate ? '#F1F5F9' : '#DCFCE7', color: as.returnDate ? '#64748B' : '#166534', fontSize: '0.75rem' }}>
-                          {as.returnDate ? 'Đã thu hồi' : 'Đang sử dụng'}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem', padding: '1rem' }}>Chưa bàn giao tài sản thiết bị nào.</div>
@@ -1464,23 +1513,74 @@ export const EmployeeDetail = () => {
             </div>
 
             {openSections.attachments && (
-              <div style={{ padding: '1.25rem', borderTop: '1px solid #F1F5F9' }}>
+              <div style={{ padding: '1.25rem', borderTop: '1px solid #F1F5F9', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {parseAttachedFiles(employee.attachedFiles).length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {parseAttachedFiles(employee.attachedFiles).map((att) => (
+                      <div key={att.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', gap: '12px' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.88rem', wordBreak: 'break-word' }}>{att.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
+                            Loại: <strong style={{ color: '#2563EB' }}>{att.category}</strong>
+                            {att.uploadedAt ? ` • Tải lên: ${new Date(att.uploadedAt).toLocaleDateString('vi-VN')}` : ''}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewAttachment(att)}
+                            className="btn btn-outline"
+                            style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <Eye size={13} /> Xem
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAttachment(att.id)}
+                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}
+                            title="Xóa tài liệu"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div style={{
                   border: '2px dashed #CBD5E1',
                   borderRadius: '10px',
-                  padding: '1.5rem',
+                  padding: '1.25rem',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
+                  gap: '10px',
                   backgroundColor: '#F8FAFC'
                 }}>
-                  <FolderOpen size={28} color="#64748B" />
-                  <span style={{ fontSize: '0.85rem', color: '#64748B' }}>Các tài liệu bản sao CCCD, SYLL, Giấy khám sức khỏe, Bản sao bằng cấp</span>
-                  <button type="button" className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '4px 12px', marginTop: '4px' }}>
-                    <Upload size={14} style={{ marginRight: '4px' }} /> Tải lên tài liệu
-                  </button>
+                  <FolderOpen size={26} color="#64748B" />
+                  <span style={{ fontSize: '0.84rem', color: '#64748B', textAlign: 'center' }}>
+                    Các tài liệu bản sao CCCD, SYLL, Giấy khám sức khỏe, Bản sao bằng cấp (Ảnh / PDF / Word ≤ 10MB)
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <select
+                      className="form-select"
+                      value={attachmentCategory}
+                      onChange={(e) => setAttachmentCategory(e.target.value)}
+                      style={{ fontSize: '0.8rem', padding: '4px 10px', height: '34px', width: 'auto' }}
+                    >
+                      <option value="CCCD / Hộ chiếu">CCCD / Hộ chiếu</option>
+                      <option value="Sơ yếu lý lịch (SYLL)">Sơ yếu lý lịch (SYLL)</option>
+                      <option value="Giấy khám sức khỏe">Giấy khám sức khỏe</option>
+                      <option value="Bản sao bằng cấp">Bản sao bằng cấp</option>
+                      <option value="Tài liệu khác">Tài liệu khác</option>
+                    </select>
+                    <label className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '5px 14px', height: '34px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                      <Upload size={14} /> Tải lên tài liệu
+                      <input type="file" accept="image/*,application/pdf,.doc,.docx" style={{ display: 'none' }} onChange={handleUploadAttachment} />
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
@@ -1635,6 +1735,41 @@ export const EmployeeDetail = () => {
                 <button type="submit" className="btn btn-primary">Lưu chứng chỉ</button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* MODAL XEM TÀI LIỆU ĐÍNH KÈM */}
+      {previewAttachment && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15,23,42,0.8)', padding: '20px' }}>
+          <div style={{ width: '820px', maxWidth: '95vw', maxHeight: '90vh', backgroundColor: '#FFFFFF', borderRadius: '14px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{previewAttachment.name}</h3>
+                <span style={{ fontSize: '0.78rem', color: '#64748B' }}>{previewAttachment.category}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <a href={previewAttachment.fileUrl} download={previewAttachment.name} className="btn btn-outline" style={{ fontSize: '0.78rem', padding: '5px 12px', textDecoration: 'none' }}>
+                  Tải về
+                </a>
+                <button type="button" onClick={() => setPreviewAttachment(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: '16px', backgroundColor: '#0F172A', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              {String(previewAttachment.fileUrl).startsWith('data:image/') ? (
+                <img src={previewAttachment.fileUrl} alt={previewAttachment.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain', borderRadius: '6px' }} />
+              ) : String(previewAttachment.fileUrl).startsWith('data:application/pdf') ? (
+                <iframe src={previewAttachment.fileUrl} title={previewAttachment.name} style={{ width: '100%', height: '70vh', border: 'none', backgroundColor: '#FFF' }} />
+              ) : (
+                <div style={{ textAlign: 'center', color: '#CBD5E1', padding: '2rem' }}>
+                  <p style={{ marginBottom: '12px' }}>Trình duyệt không hỗ trợ xem trực tiếp định dạng tệp này.</p>
+                  <a href={previewAttachment.fileUrl} download={previewAttachment.name} className="btn btn-primary" style={{ textDecoration: 'none' }}>
+                    Tải xuống tệp ({previewAttachment.name})
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>,
         document.body

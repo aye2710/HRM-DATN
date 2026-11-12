@@ -7,10 +7,11 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const OTMgmt = () => {
   const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedMonth, setSelectedMonth] = useState('ALL');
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -40,7 +41,7 @@ export const OTMgmt = () => {
   const token = localStorage.getItem('token');
   const headers = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
 
-  const monthStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+  const monthQueryParam = selectedMonth === 'ALL' ? '' : `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
 
   const fetchData = async () => {
     setLoading(true);
@@ -48,7 +49,7 @@ export const OTMgmt = () => {
       const [deptRes, empRes, otRes] = await Promise.all([
         axios.get('http://localhost:5000/api/departments', { headers }).catch(() => ({ data: [] })),
         axios.get('http://localhost:5000/api/employees', { headers }).catch(() => ({ data: [] })),
-        axios.get(`http://localhost:5000/api/ot?month=${monthStr}&departmentId=${selectedDept}&status=${statusFilter}`, { headers })
+        axios.get(`http://localhost:5000/api/ot?month=${monthQueryParam}&year=${selectedYear}&departmentId=${selectedDept}&status=${statusFilter}`, { headers })
       ]);
 
       if (Array.isArray(deptRes.data)) setDepartments(deptRes.data);
@@ -78,6 +79,21 @@ export const OTMgmt = () => {
       return matchSearch && matchDept && matchStatus;
     });
   }, [otRequests, searchTerm, selectedDept, statusFilter]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedRequests,
+    resetPage,
+  } = usePagination(filteredRequests, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, selectedDept, statusFilter, selectedMonth, selectedYear, resetPage]);
 
   // Thống kê KPI
   const stats = useMemo(() => {
@@ -223,7 +239,9 @@ export const OTMgmt = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Bao_Cao_OT_Thang_${selectedMonth}_${selectedYear}.csv`);
+    link.setAttribute('download', selectedMonth === 'ALL'
+      ? `Bao_Cao_OT_Nam_${selectedYear}.csv`
+      : `Bao_Cao_OT_Thang_${selectedMonth}_${selectedYear}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -356,9 +374,10 @@ export const OTMgmt = () => {
               <Calendar size={14} color="#64748B" />
               <select
                 value={selectedMonth}
-                onChange={e => setSelectedMonth(Number(e.target.value))}
+                onChange={e => setSelectedMonth(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
                 style={{ border: 'none', backgroundColor: 'transparent', fontSize: '0.8rem', fontWeight: 700, color: '#1E293B', outline: 'none', cursor: 'pointer' }}
               >
+                <option value="ALL">Cả năm</option>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
                   <option key={m} value={m}>Tháng {m}</option>
                 ))}
@@ -471,7 +490,7 @@ export const OTMgmt = () => {
                   </td>
                 </tr>
               ) : (
-                filteredRequests.map(r => {
+                paginatedRequests.map(r => {
                   const otD = new Date(r.date);
                   const isWeekend = otD.getDay() === 0 || otD.getDay() === 6;
 
@@ -574,6 +593,17 @@ export const OTMgmt = () => {
             </tbody>
           </table>
         </div>
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="đơn OT"
+          />
+        )}
       </div>
 
       {/* MODAL PHÊ DUYỆT / NGHIỆM THU GIỜ OT */}

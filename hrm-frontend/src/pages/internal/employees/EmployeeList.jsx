@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Plus, Trash2, Edit, X, Eye, 
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users, 
+  Search, Plus, Trash2, Edit, X, Eye, Users, 
   FileSpreadsheet, RefreshCw, Download, Upload
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -11,6 +10,8 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { exportToExcel } from '../../../utils/excelHelper';
 import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
+import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const EmployeeList = () => {
   const navigate = useNavigate();
@@ -23,10 +24,6 @@ export const EmployeeList = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
   const [contractFilter, setContractFilter] = useState('');
-
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -120,13 +117,49 @@ export const EmployeeList = () => {
     });
   }, [employees, searchTerm, deptFilter, statusFilter, levelFilter, contractFilter]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, deptFilter, statusFilter, levelFilter, contractFilter]);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize: itemsPerPage,
+    setPageSize: setItemsPerPage,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedEmployees,
+    resetPage,
+  } = usePagination(filteredEmployees, 10);
 
-  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage);
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, deptFilter, statusFilter, levelFilter, contractFilter, resetPage]);
+
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+
+  const {
+    selectedIds,
+    selectedSet,
+    selectedCount,
+    toggleOne,
+    toggleMany,
+    getHeaderCheckState,
+    clearSelection,
+    getSelectedItems
+  } = useTableSelection(employees);
+
+  const headerCheckState = getHeaderCheckState(paginatedEmployees);
+
+  const handleBatchDeleteEmployees = () => {
+    runBatchDelete({
+      count: selectedCount,
+      itemLabel: 'hồ sơ nhân sự',
+      confirmText: 'Thao tác này sẽ xóa các hồ sơ đã chọn khỏi hệ thống (khuyến nghị chuyển sang "Đã thôi việc" đối với nhân sự đã từng công tác).',
+      executeDeletes: () => selectedIds.map(id => axios.delete(`http://localhost:5000/api/employees/${id}`)),
+      onDone: () => {
+        clearSelection();
+        fetchData();
+      },
+      setIsDeleting: setIsBatchDeleting
+    });
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -378,11 +411,12 @@ export const EmployeeList = () => {
     return res.data;
   };
 
-  // Export Excel chuẩn Doanh nghiệp
-  const handleExportExcel = () => {
-    if (filteredEmployees.length === 0) return toast.error('Không có dữ liệu nhân sự để xuất');
+  // Export Excel chuẩn Doanh nghiệp (hỗ trợ xuất theo danh sách lọc hoặc các dòng đã chọn)
+  const handleExportExcel = (rowsOverride = null) => {
+    const sourceList = Array.isArray(rowsOverride) ? rowsOverride : filteredEmployees;
+    if (sourceList.length === 0) return toast.error('Không có dữ liệu nhân sự để xuất');
     try {
-      const exportData = filteredEmployees.map(emp => ({
+      const exportData = sourceList.map(emp => ({
         code: emp.code,
         fullName: emp.fullName,
         cccd: emp.cccd || '',
@@ -424,11 +458,11 @@ export const EmployeeList = () => {
 
       exportToExcel({
         data: exportData,
-        fileName: 'Danh_Sach_Nhan_Su',
+        fileName: Array.isArray(rowsOverride) ? `Nhan_Su_Da_Chon_${sourceList.length}` : 'Danh_Sach_Nhan_Su',
         sheetName: 'Nhân sự',
         columns
       });
-      toast.success('Đã xuất file Excel danh sách nhân sự thành công!');
+      toast.success(`Đã xuất file Excel (${sourceList.length} nhân sự) thành công!`);
     } catch (error) {
       console.error(error);
       toast.error('Lỗi khi xuất file Excel');
@@ -554,15 +588,15 @@ export const EmployeeList = () => {
         boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
       }}>
         {/* Search */}
-        <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+        <div style={{ position: 'relative', width: '250px', maxWidth: '100%' }}>
           <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
           <input 
             type="text" 
             className="form-input w-full"
-            placeholder="Tìm theo Tên, Mã NV, Phòng ban, Chức danh..."
+            placeholder="Tìm Tên, Mã NV, Phòng ban..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            style={{ paddingLeft: '2.25rem', fontSize: '0.875rem' }}
+            style={{ paddingLeft: '2.25rem', fontSize: '0.85rem', height: 38 }}
           />
         </div>
 
@@ -638,6 +672,15 @@ export const EmployeeList = () => {
         </div>
       </div>
 
+      <BulkSelectionBar
+        selectedCount={selectedCount}
+        itemLabel="nhân sự"
+        onExportSelected={() => handleExportExcel(getSelectedItems())}
+        onDeleteSelected={handleBatchDeleteEmployees}
+        onClear={clearSelection}
+        isDeleting={isBatchDeleting}
+      />
+
       {/* 4. Table or Grid View */}
       <div style={{
         backgroundColor: '#FFFFFF',
@@ -662,6 +705,14 @@ export const EmployeeList = () => {
             <table className="w-full text-left" style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.875rem' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ padding: '0.85rem 0.75rem', width: 44, textAlign: 'center' }}>
+                    <TableCheckbox
+                      checked={headerCheckState.checked}
+                      indeterminate={headerCheckState.indeterminate}
+                      onChange={() => toggleMany(paginatedEmployees)}
+                      title="Chọn tất cả trang này"
+                    />
+                  </th>
                   <th style={{ padding: '0.85rem 1rem', width: 110 }}>Mã NV</th>
                   <th style={{ padding: '0.85rem 1rem', minWidth: 200 }}>Họ và Tên</th>
                   <th style={{ padding: '0.85rem 1rem', minWidth: 190 }}>Chức danh & Cấp bậc</th>
@@ -672,8 +723,17 @@ export const EmployeeList = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedEmployees.map(emp => (
-                  <tr key={emp.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background-color 0.15s' }} className="hover:bg-slate-50">
+                {paginatedEmployees.map(emp => {
+                  const isChecked = selectedSet.has(emp.id);
+                  return (
+                  <tr key={emp.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background-color 0.15s', ...(isChecked ? { backgroundColor: '#F8FAFF' } : {}) }} className="hover:bg-slate-50">
+                    <td style={{ padding: '0.85rem 0.75rem', textAlign: 'center' }}>
+                      <TableCheckbox
+                        checked={isChecked}
+                        onChange={() => toggleOne(emp.id)}
+                        title={`Chọn ${emp.fullName}`}
+                      />
+                    </td>
                     {/* 1. Mã NV */}
                     <td style={{ padding: '0.85rem 1rem' }}>
                       <span 
@@ -772,89 +832,23 @@ export const EmployeeList = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
 
         {/* 5. Pagination Footer */}
-        {filteredEmployees.length > 0 && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '0.85rem 1.25rem',
-            borderTop: '1px solid #E2E8F0',
-            backgroundColor: '#FFFFFF',
-            flexWrap: 'wrap',
-            gap: '0.75rem'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748B' }}>
-              <span>Hiển thị</span>
-              <select
-                className="form-input"
-                style={{ width: 70, padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-              <span>
-                nhân sự/trang (Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredEmployees.length)} / {filteredEmployees.length} nhân sự)
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <button 
-                className="btn btn-outline"
-                style={{ padding: '0.35rem 0.55rem', opacity: currentPage === 1 ? 0.4 : 1 }}
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(1)}
-                title="Trang đầu"
-              >
-                <ChevronsLeft size={15} />
-              </button>
-              <button 
-                className="btn btn-outline"
-                style={{ padding: '0.35rem 0.55rem', opacity: currentPage === 1 ? 0.4 : 1 }}
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                title="Trang trước"
-              >
-                <ChevronLeft size={15} />
-              </button>
-
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A', padding: '0 0.5rem' }}>
-                Trang {currentPage} / {totalPages}
-              </span>
-
-              <button 
-                className="btn btn-outline"
-                style={{ padding: '0.35rem 0.55rem', opacity: currentPage === totalPages ? 0.4 : 1 }}
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                title="Trang sau"
-              >
-                <ChevronRight size={15} />
-              </button>
-              <button 
-                className="btn btn-outline"
-                style={{ padding: '0.35rem 0.55rem', opacity: currentPage === totalPages ? 0.4 : 1 }}
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(totalPages)}
-                title="Trang cuối"
-              >
-                <ChevronsRight size={15} />
-              </button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={itemsPerPage}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setItemsPerPage}
+          itemLabel="nhân sự"
+        />
       </div>
 
       {/* 6. Modal Thêm / Sửa nhân sự */}

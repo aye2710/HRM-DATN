@@ -163,19 +163,31 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
         }
       });
 
-      // Xử lý Đánh giá Thử việc & Cập nhật trạng thái Employee
+      // Xử lý Đánh giá & Đồng bộ trạng thái Nhân sự theo giai đoạn (Thực tập 3T -> Thử việc 2T -> Chính thức)
       let updatedEmployee = null;
-      if (evaluationResult === 'PASSED') {
-        if (contractType === 'OFFICIAL_1Y' || contractType === 'INDEFINITE') {
-          updatedEmployee = await tx.employee.update({
-            where: { id: employeeId },
-            data: { status: 'ACTIVE', officialJoinDate: start }
-          });
-        }
-      } else if (evaluationResult === 'FAILED') {
+      if (evaluationResult === 'FAILED') {
         updatedEmployee = await tx.employee.update({
           where: { id: employeeId },
-          data: { status: 'RESIGNED', resignationDate: end || now, resignationReason: 'Không đạt đánh giá thử việc' }
+          data: {
+            status: 'RESIGNED',
+            resignationDate: end || now,
+            resignationReason: contractType === 'INTERNSHIP' ? 'Không đạt đánh giá thực tập' : 'Không đạt đánh giá thử việc'
+          }
+        });
+      } else if (contractType === 'INTERNSHIP') {
+        updatedEmployee = await tx.employee.update({
+          where: { id: employeeId },
+          data: { status: 'INTERNSHIP', probationEndDate: null }
+        });
+      } else if (contractType === 'PROBATION') {
+        updatedEmployee = await tx.employee.update({
+          where: { id: employeeId },
+          data: { status: 'PROBATION', probationEndDate: end }
+        });
+      } else if (evaluationResult === 'PASSED' && (contractType === 'OFFICIAL_1Y' || contractType === 'INDEFINITE')) {
+        updatedEmployee = await tx.employee.update({
+          where: { id: employeeId },
+          data: { status: 'ACTIVE', officialJoinDate: start }
         });
       }
 

@@ -5,6 +5,7 @@ import {
   Check, X, Plus, Send, AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const AssetAssignments = () => {
   const [assignments, setAssignments] = useState([]);
@@ -434,6 +435,21 @@ export const AssetAssignments = () => {
     return matchesStatus && matchesSearch;
   });
 
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedAssignments,
+    resetPage,
+  } = usePagination(filteredAssignments, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, assignmentStatusFilter, resetPage]);
+
   return (
     <div className="flex-col gap-6 animate-fade-in" style={{ paddingBottom: '3rem' }}>
       {/* Header */}
@@ -528,7 +544,7 @@ export const AssetAssignments = () => {
                   </td>
                 </tr>
               ) : (
-                filteredAssignments.map(assign => {
+                paginatedAssignments.map(assign => {
                   const itemsList = parseItems(assign);
                   const firstItem = itemsList[0];
                   const remainingCount = itemsList.length - 1;
@@ -608,6 +624,17 @@ export const AssetAssignments = () => {
             </tbody>
           </table>
         </div>
+
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="đợt bàn giao"
+          flush={false}
+        />
       </div>
 
       {/* MODAL 1: BÀN GIAO THIẾT BỊ CHO NHÂN SỰ (NHANH GỌN, KHÔNG THỦ TỤC RƯỜM RÀ) */}

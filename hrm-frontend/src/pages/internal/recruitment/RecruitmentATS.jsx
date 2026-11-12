@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const RecruitmentATS = () => {
   const [candidates, setCandidates] = useState([]);
@@ -20,8 +21,6 @@ export const RecruitmentATS = () => {
   const [filterDepartment, setFilterDepartment] = useState('');
   const [filterJob, setFilterJob] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
 
   // Modals state
   const [showJobModal, setShowJobModal] = useState(false);
@@ -68,6 +67,21 @@ export const RecruitmentATS = () => {
       .catch(() => toast.error("Lỗi khi tạo tin tuyển dụng"));
   };
 
+  const getJobPositionLabel = (job, includeCampaign = false) => {
+    if (!job) return 'Chưa gán vị trí';
+    const posTitle = job.position?.title || job.title || 'Chưa gán vị trí';
+    const deptName = job.department?.name ? ` • ${job.department.name}` : '';
+    if (includeCampaign && job.position?.title && job.title && job.title !== job.position.title) {
+      return `${posTitle}${deptName} — [${job.title}]`;
+    }
+    return `${posTitle}${deptName}`;
+  };
+
+  const openJobPostings = useMemo(
+    () => jobPostings.filter(j => j.status === 'PUBLISHED'),
+    [jobPostings]
+  );
+
   const handleCreateCandidate = () => {
     if (!candidateForm.name.trim() || !candidateForm.email.trim() || !candidateForm.jobPostingId) {
       return toast.error("Vui lòng nhập Tên, Email và Chọn Vị trí tuyển dụng");
@@ -79,7 +93,7 @@ export const RecruitmentATS = () => {
         setCandidateForm({ name: '', email: '', phone: '', cvUrl: '', jobPostingId: '' });
         toast.success("Đã thêm ứng viên vào hệ thống!");
       })
-      .catch(() => toast.error("Lỗi khi thêm ứng viên"));
+      .catch(err => toast.error(err.response?.data?.error || "Lỗi khi thêm ứng viên"));
   };
 
   // --- Business Workflow Logic ---
@@ -149,7 +163,7 @@ export const RecruitmentATS = () => {
       .then(() => toast.success(`Đã cập nhật trạng thái ứng viên!`))
       .catch(err => {
         console.error("Lỗi khi chuyển trạng thái", err);
-        toast.error("Lỗi khi lưu trạng thái. Đang làm mới...");
+        toast.error(err.response?.data?.error || "Lỗi khi lưu trạng thái. Đang làm mới...");
         fetchJobsAndCandidates();
       });
   };
@@ -193,6 +207,16 @@ export const RecruitmentATS = () => {
       return matchesSearch && matchesDept && matchesJob && matchesStatus;
     });
   }, [candidates, searchQuery, filterDepartment, filterJob, filterStatus]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedCandidates,
+  } = usePagination(processedCandidates, 10);
 
   // High-Density ATS Metrics
   const stats = useMemo(() => {
@@ -343,7 +367,7 @@ export const RecruitmentATS = () => {
           >
             <option value="">Tất cả vị trí tuyển</option>
             {jobPostings.map(j => (
-              <option key={j.id} value={j.id}>{j.title}</option>
+              <option key={j.id} value={j.id}>{getJobPositionLabel(j)}</option>
             ))}
           </select>
         </div>
@@ -536,10 +560,10 @@ export const RecruitmentATS = () => {
                             <div style={{
                               fontSize: '0.78rem', color: '#475569', fontWeight: 500,
                               display: 'flex', alignItems: 'center', gap: '4px'
-                            }}>
+                            }} title={c.jobPosting?.title || ''}>
                               <Briefcase size={12} color="#94A3B8" style={{ flexShrink: 0 }} />
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {c.jobPosting?.title || 'Chưa gán vị trí'}
+                                {c.jobPosting?.position?.title || c.jobPosting?.title || 'Chưa gán vị trí'}
                               </span>
                             </div>
                           </div>
@@ -704,9 +728,7 @@ export const RecruitmentATS = () => {
                     </td>
                   </tr>
                 ) : (
-                  processedCandidates
-                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                    .map(c => {
+                  paginatedCandidates.map(c => {
                       const statusObj = statuses.find(s => s.id === c.status) || statuses[0];
                       const nextStep = getNextStageInfo(c.status);
 
@@ -736,9 +758,14 @@ export const RecruitmentATS = () => {
                             </div>
                           </td>
                           <td>
-                            <span style={{ fontWeight: 500, color: '#334155', fontSize: '0.85rem' }}>
-                              {c.jobPosting?.title || 'Chưa gán'}
+                            <span style={{ fontWeight: 500, color: '#334155', fontSize: '0.85rem' }} title={c.jobPosting?.title || ''}>
+                              {c.jobPosting?.position?.title || c.jobPosting?.title || 'Chưa gán'}
                             </span>
+                            {c.jobPosting?.position?.title && c.jobPosting?.title && c.jobPosting.title !== c.jobPosting.position.title && (
+                              <div style={{ fontSize: '0.73rem', color: '#94A3B8', marginTop: '2px' }}>
+                                {c.jobPosting.title}
+                              </div>
+                            )}
                           </td>
                           <td>
                             <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
@@ -865,44 +892,15 @@ export const RecruitmentATS = () => {
           </div>
 
           {/* Pagination */}
-          {processedCandidates.length > itemsPerPage && (
-            <div style={{
-              padding: '0.85rem 1.5rem', borderTop: '1px solid var(--border)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, processedCandidates.length)} trong tổng số {processedCandidates.length} ứng viên
-              </span>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button 
-                  className="btn btn-outline" 
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  style={{ height: 32, padding: '0 10px', fontSize: '0.8rem' }}
-                >
-                  Trước
-                </button>
-                {Array.from({ length: Math.ceil(processedCandidates.length / itemsPerPage) }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                    style={{ height: 32, minWidth: 32, padding: 0, fontSize: '0.8rem' }}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button 
-                  className="btn btn-outline" 
-                  disabled={currentPage === Math.ceil(processedCandidates.length / itemsPerPage)}
-                  onClick={() => setCurrentPage(p => p + 1)}
-                  style={{ height: 32, padding: '0 10px', fontSize: '0.8rem' }}
-                >
-                  Sau
-                </button>
-              </div>
-            </div>
-          )}
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="ứng viên"
+          />
         </div>
       )}
 
@@ -1004,10 +1002,20 @@ export const RecruitmentATS = () => {
                   value={candidateForm.jobPostingId} 
                   onChange={e => setCandidateForm({...candidateForm, jobPostingId: e.target.value})}
                 >
-                  <option value="">-- Chọn vị trí tuyển dụng --</option>
-                  {jobPostings.map(j => (
-                    <option key={j.id} value={j.id}>{j.title}</option>
-                  ))}
+                  <option value="">-- Chọn vị trí đang phát hành --</option>
+                  {openJobPostings.length === 0 ? (
+                    <option value="" disabled>Hiện chưa có vị trí nào đang Phát hành</option>
+                  ) : (
+                    openJobPostings.map(j => {
+                      const hiredCount = j.candidates ? j.candidates.filter(c => c.status === 'HIRED').length : 0;
+                      const quotaTag = j.amount ? ` (${hiredCount}/${j.amount})` : '';
+                      return (
+                        <option key={j.id} value={j.id}>
+                          {getJobPositionLabel(j, true)}{quotaTag}
+                        </option>
+                      );
+                    })
+                  )}
                 </select>
               </div>
 

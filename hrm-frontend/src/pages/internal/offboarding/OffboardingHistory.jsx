@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  FileText, Search, Printer, ChevronsLeft, ChevronLeft, 
-  ChevronRight, ChevronsRight, CheckCircle2, UserMinus, ArrowLeft
+  FileText, Search, Printer, CheckCircle2, UserMinus, ArrowLeft
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Bm02PrintModal } from './OffboardingModals';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const OffboardingHistory = () => {
   const navigate = useNavigate();
@@ -14,8 +14,6 @@ export const OffboardingHistory = () => {
   const [loading, setLoading] = useState(true);
   const [resignedList, setResignedList] = useState([]);
   const [historySearch, setHistorySearch] = useState('');
-  const [historyPage, setHistoryPage] = useState(1);
-  const [historyItemsPerPage, setHistoryItemsPerPage] = useState(10);
 
   // Modal
   const [showBm02Modal, setShowBm02Modal] = useState(null);
@@ -51,12 +49,18 @@ export const OffboardingHistory = () => {
     });
   }, [resignedList, historySearch]);
 
-  const totalHistoryPages = Math.ceil(filteredResigned.length / historyItemsPerPage) || 1;
-  const startHistoryIndex = (historyPage - 1) * historyItemsPerPage;
-  const paginatedResigned = filteredResigned.slice(startHistoryIndex, startHistoryIndex + historyItemsPerPage);
+  const {
+    currentPage: historyPage,
+    setCurrentPage: setHistoryPage,
+    pageSize: historyItemsPerPage,
+    setPageSize: setHistoryItemsPerPage,
+    totalItems: totalHistoryItems,
+    totalPages: totalHistoryPages,
+    paginatedItems: paginatedResigned,
+  } = usePagination(filteredResigned, 10);
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%', overflowY: 'auto' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
       {/* 1. Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
@@ -172,19 +176,16 @@ export const OffboardingHistory = () => {
         </div>
 
         {/* Phân trang */}
-        {filteredResigned.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)', backgroundColor: '#ffffff' }}>
-            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-              Hiển thị {startHistoryIndex + 1} - {Math.min(startHistoryIndex + historyItemsPerPage, filteredResigned.length)} trong {filteredResigned.length} hồ sơ
-            </div>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button className="btn btn-outline" disabled={historyPage === 1} onClick={() => setHistoryPage(1)} style={{ padding: '3px 8px' }}><ChevronsLeft size={14} /></button>
-              <button className="btn btn-outline" disabled={historyPage === 1} onClick={() => setHistoryPage(p => Math.max(1, p - 1))} style={{ padding: '3px 8px' }}><ChevronLeft size={14} /></button>
-              <span style={{ fontSize: '0.8rem', padding: '0 8px', display: 'flex', alignItems: 'center' }}>Trang {historyPage} / {totalHistoryPages}</span>
-              <button className="btn btn-outline" disabled={historyPage === totalHistoryPages} onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))} style={{ padding: '3px 8px' }}><ChevronRight size={14} /></button>
-              <button className="btn btn-outline" disabled={historyPage === totalHistoryPages} onClick={() => setHistoryPage(totalHistoryPages)} style={{ padding: '3px 8px' }}><ChevronsRight size={14} /></button>
-            </div>
-          </div>
+        {!loading && (
+          <TablePagination
+            currentPage={historyPage}
+            totalPages={totalHistoryPages}
+            pageSize={historyItemsPerPage}
+            totalItems={totalHistoryItems}
+            onPageChange={setHistoryPage}
+            onPageSizeChange={setHistoryItemsPerPage}
+            itemLabel="hồ sơ"
+          />
         )}
       </div>
 

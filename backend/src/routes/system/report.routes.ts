@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
+import { buildHierarchyStats } from '../../utils/hrAnalytics';
 
 const router = Router();
 
@@ -91,11 +92,10 @@ router.get('/overview', managementOnly, async (req: Request, res: Response): Pro
     // 5. Thâm niên công tác & Cấp bậc
     const allEmployees = await prisma.employee.findMany({
       where: { status: { not: 'RESIGNED' } },
-      select: { joinDate: true, position: { select: { level: true } } }
+      select: { joinDate: true, position: { select: { level: true, title: true } } }
     });
     const now = new Date();
     let under1Year = 0, from1To3Years = 0, over3Years = 0;
-    const hierarchyLevels: Record<string, number> = { 'Nhân viên': 0, 'Trưởng nhóm': 0, 'Quản lý': 0, 'Ban Giám đốc': 0 };
 
     allEmployees.forEach(e => {
       const join = e.joinDate ? new Date(e.joinDate) : now;
@@ -103,13 +103,14 @@ router.get('/overview', managementOnly, async (req: Request, res: Response): Pro
       if (years < 1) under1Year++;
       else if (years <= 3) from1To3Years++;
       else over3Years++;
-
-      const lvl = e.position?.level || 'Staff';
-      if (lvl === 'Manager') hierarchyLevels['Quản lý']++;
-      else if (lvl === 'Lead' || lvl === 'Leader') hierarchyLevels['Trưởng nhóm']++;
-      else if (lvl === 'Director' || lvl === 'Executive') hierarchyLevels['Ban Giám đốc']++;
-      else hierarchyLevels['Nhân viên']++;
     });
+
+    const hierarchyStats = buildHierarchyStats(allEmployees).map(item => ({
+      level: item.level,
+      label: item.label,
+      count: item.count,
+      percent: item.percent
+    }));
 
     const seniorityStats = [
       { label: 'Dưới 1 năm (Mới gia nhập)', count: under1Year, percent: allEmployees.length > 0 ? Math.round((under1Year / allEmployees.length) * 100) : 0 },
@@ -156,7 +157,7 @@ router.get('/overview', managementOnly, async (req: Request, res: Response): Pro
     // 8. Tuyển dụng theo phễu (Recruitment Funnel)
     const [totalJobPostings, openJobPostings, totalCandidates, hiredCandidates] = await Promise.all([
       prisma.jobPosting.count(),
-      prisma.jobPosting.count({ where: { status: 'OPEN' } }),
+      prisma.jobPosting.count({ where: { status: 'PUBLISHED' } }),
       prisma.candidate.count(),
       prisma.candidate.count({ where: { status: 'HIRED' } })
     ]);
@@ -271,7 +272,7 @@ router.get('/overview', managementOnly, async (req: Request, res: Response): Pro
       genderStats,
       contractStats,
       seniorityStats,
-      hierarchyStats: Object.entries(hierarchyLevels).map(([level, count]) => ({ level, count })),
+      hierarchyStats,
       payrollTrends,
       salaryBreakdown: {
         baseSalary: latestBaseSum,
@@ -312,13 +313,13 @@ router.get('/overview', managementOnly, async (req: Request, res: Response): Pro
       },
       kpiStats: {
         totalReviews,
-        gradeA: gradeA || 6,
-        gradeB: gradeB || 14,
-        gradeC: gradeC || 3,
-        gradeD: gradeD || 0,
+        gradeA,
+        gradeB,
+        gradeC,
+        gradeD,
         totalKpis,
         completedKpis,
-        kpiCompletionRate: totalKpis > 0 ? Math.round((completedKpis / totalKpis) * 100) : 85
+        kpiCompletionRate: totalKpis > 0 ? Math.round((completedKpis / totalKpis) * 100) : 0
       }
     });
   } catch (error) {

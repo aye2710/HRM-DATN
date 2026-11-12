@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { 
   Briefcase, Search, Plus, Filter, Edit2, Trash2, Users, X, 
   AlertTriangle, Calendar, Sparkles, MapPin, Building, FileText, 
-  Clock, UserCheck, CheckCircle2 
+  Clock, UserCheck, CheckCircle2, Lock 
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 // Danh mục chuẩn các cấp bậc
 const REQUISITION_LEVELS = [
@@ -18,8 +19,6 @@ export const Requisitions = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
   
   const [requisitions, setRequisitions] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -31,6 +30,7 @@ export const Requisitions = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
   const [editingId, setEditingId] = useState('');
+  const [editingMeta, setEditingMeta] = useState({ originalStatus: 'DRAFT', candidateCount: 0, hiredCount: 0 });
   
   const getTodayStr = () => new Date().toLocaleDateString('en-CA');
 
@@ -78,6 +78,7 @@ export const Requisitions = () => {
 
   const handleOpenAdd = () => {
     setModalMode('add');
+    setEditingMeta({ originalStatus: 'DRAFT', candidateCount: 0, hiredCount: 0 });
     setFormData({
       ...initialFormState,
       publishDate: getTodayStr()
@@ -88,6 +89,13 @@ export const Requisitions = () => {
   const handleOpenEdit = (req) => {
     setModalMode('edit');
     setEditingId(req.id);
+    const candidateCount = req._count?.candidates ?? (req.candidates?.length || 0);
+    const hiredCount = req.candidates ? req.candidates.filter(c => c.status === 'HIRED').length : 0;
+    setEditingMeta({
+      originalStatus: req.status || 'DRAFT',
+      candidateCount,
+      hiredCount
+    });
     const todayStr = getTodayStr();
     setFormData({
       title: req.title || '',
@@ -222,9 +230,12 @@ export const Requisitions = () => {
     if (!formData.title?.trim()) return toast.error("Vui lòng nhập tên chiến dịch tuyển dụng");
     if (!formData.positionId) return toast.error("Vui lòng chọn Vị trí (Chức danh) cần tuyển");
     if (!formData.deadline) return toast.error("Vui lòng chọn Ngày kết thúc");
+    if (modalMode === 'edit' && formData.amount < editingMeta.hiredCount) {
+      return toast.error(`Số lượng cần tuyển (${formData.amount}) không được nhỏ hơn số nhân sự đã tiếp nhận (${editingMeta.hiredCount})!`);
+    }
     
     const today = getTodayStr();
-    if (formData.publishDate && formData.publishDate < today) {
+    if (modalMode === 'add' && formData.publishDate && formData.publishDate < today) {
       return toast.error("Ngày phát hành không được chọn ngày trong quá khứ!");
     }
     const minEndDate = formData.publishDate || today;
@@ -242,7 +253,7 @@ export const Requisitions = () => {
         .catch(err => {
           const errMsg = err.response?.data?.error || "Lỗi khi thêm yêu cầu";
           Swal.fire({
-            title: 'Kiểm Soát Định Biên',
+            title: 'Kiểm Soát Tuyển Dụng',
             text: errMsg,
             icon: 'warning',
             confirmButtonText: 'Đã hiểu',
@@ -259,7 +270,7 @@ export const Requisitions = () => {
         .catch(err => {
           const errMsg = err.response?.data?.error || "Lỗi khi cập nhật";
           Swal.fire({
-            title: 'Kiểm Soát Định Biên',
+            title: 'Kiểm Soát Tuyển Dụng',
             text: errMsg,
             icon: 'warning',
             confirmButtonText: 'Đã hiểu',
@@ -288,12 +299,20 @@ export const Requisitions = () => {
     }
   };
 
+  // Trạng thái khóa thông tin khi đang Phát hành / đã có ứng viên
+  const isPublishedEdit = modalMode === 'edit' && editingMeta.originalStatus === 'PUBLISHED';
+  const hasCandidates = modalMode === 'edit' && editingMeta.candidateCount > 0;
+  const lockCoreFields = isPublishedEdit;
+  const lockPositionField = isPublishedEdit || hasCandidates;
+  const lockedInputStyle = { opacity: 0.72, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' };
+
   // Tính định biên phòng ban hiện tại
   const selectedDept = departments.find(d => d.id === formData.departmentId);
   const currentEmpCount = selectedDept?._count?.employees || 0;
   const deptQuota = selectedDept?.quota || 15;
   const remainingQuota = Math.max(0, deptQuota - currentEmpCount);
-  const isOverQuota = selectedDept && formData.amount > remainingQuota;
+  const remainingNeeded = Math.max(0, formData.amount - (modalMode === 'edit' ? editingMeta.hiredCount : 0));
+  const isOverQuota = selectedDept && remainingNeeded > remainingQuota;
 
   const filteredRequisitions = requisitions.filter(r => {
     const matchSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -302,7 +321,15 @@ export const Requisitions = () => {
     return matchSearch && matchDept && matchStatus;
   });
 
-  const paginatedRequisitions = filteredRequisitions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedRequisitions,
+  } = usePagination(filteredRequisitions, 10);
 
   return (
     <div className="flex-col gap-6 animate-fade-in relative">
@@ -423,7 +450,7 @@ export const Requisitions = () => {
                         <span className="text-xs font-medium text-[var(--text-main)]">
                           {req.publishDate 
                             ? new Date(req.publishDate).toLocaleDateString('vi-VN') 
-                            : (req.createdAt ? new Date(req.createdAt).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN'))}
+                            : (req.createdAt ? new Date(req.createdAt).toLocaleDateString('vi-VN') : '-')}
                         </span>
                       </td>
                       <td>
@@ -464,14 +491,42 @@ export const Requisitions = () => {
                         })()}
                       </td>
                       <td className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => handleOpenEdit(req)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }}>
-                            <Edit2 size={16} color="var(--text-muted)" />
-                          </button>
-                          <button onClick={() => handleDelete(req.id)} className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }}>
-                            <Trash2 size={16} color="var(--error)" />
-                          </button>
-                        </div>
+                        {(() => {
+                          const totalCandidates = req._count?.candidates ?? (req.candidates?.length || 0);
+                          const cannotDelete = req.status === 'PUBLISHED' || totalCandidates > 0;
+                          const deleteTooltip = req.status === 'PUBLISHED'
+                            ? 'Không thể xóa tin đang Phát hành (cần Ngừng phát hành trước)'
+                            : totalCandidates > 0
+                              ? `Không thể xóa chiến dịch đã có ${totalCandidates} ứng viên ứng tuyển`
+                              : 'Xóa chiến dịch';
+
+                          return (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleOpenEdit(req)}
+                                className="btn btn-outline"
+                                style={{ padding: '0.4rem', border: 'none' }}
+                                title={req.status === 'PUBLISHED' ? 'Quản lý / Gia hạn / Ngừng phát hành' : 'Chỉnh sửa chiến dịch'}
+                              >
+                                <Edit2 size={16} color="var(--text-muted)" />
+                              </button>
+                              <button
+                                onClick={() => !cannotDelete && handleDelete(req.id)}
+                                disabled={cannotDelete}
+                                className="btn btn-outline"
+                                style={{
+                                  padding: '0.4rem',
+                                  border: 'none',
+                                  opacity: cannotDelete ? 0.35 : 1,
+                                  cursor: cannotDelete ? 'not-allowed' : 'pointer'
+                                }}
+                                title={deleteTooltip}
+                              >
+                                <Trash2 size={16} color="var(--error)" />
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
@@ -481,45 +536,16 @@ export const Requisitions = () => {
           </table>
         </div>
         
-        {(() => {
-          const totalPages = Math.ceil(filteredRequisitions.length / itemsPerPage);
-          if (totalPages <= 1) return null;
-          return (
-            <div className="flex justify-between items-center mt-4 px-2">
-              <span className="text-sm text-muted">
-                Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredRequisitions.length)} trong tổng số {filteredRequisitions.length} chiến dịch
-              </span>
-              <div className="flex gap-2">
-                <button 
-                  className="btn btn-outline" 
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  style={{ padding: '0.4rem 0.8rem' }}
-                >
-                  Trước
-                </button>
-                {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                    style={{ minWidth: '40px', padding: '0.4rem 0.8rem' }}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button 
-                  className="btn btn-outline"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  style={{ padding: '0.4rem 0.8rem' }}
-                >
-                  Sau
-                </button>
-              </div>
-            </div>
-          );
-        })()}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="chiến dịch"
+          flush={false}
+        />
       </div>
 
       {/* Modal */}
@@ -541,16 +567,63 @@ export const Requisitions = () => {
             </div>
 
             <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.15rem', overflowY: 'auto' }}>
+              {isPublishedEdit && (
+                <div
+                  style={{
+                    gridColumn: 'span 2',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.65rem',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                    border: '1px solid rgba(37, 99, 235, 0.28)',
+                    color: '#1d4ed8',
+                    fontSize: '0.8rem',
+                    lineHeight: '1.45'
+                  }}
+                >
+                  <Lock size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <strong>Chiến dịch đang Phát hành công khai:</strong> Các thông tin cốt lõi (Vị trí, Tiêu đề, Mức lương, Ngày phát hành, Hình thức làm việc, JD) đã được khóa để đảm bảo minh bạch với ứng viên. Bạn chỉ có thể <strong>gia hạn Ngày kết thúc</strong>, <strong>điều chỉnh Số lượng</strong> hoặc chuyển trạng thái sang <strong>Ngừng phát hành</strong>.
+                  </div>
+                </div>
+              )}
+
+              {!isPublishedEdit && hasCandidates && (
+                <div
+                  style={{
+                    gridColumn: 'span 2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.65rem 0.9rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(217, 119, 6, 0.08)',
+                    border: '1px solid rgba(217, 119, 6, 0.28)',
+                    color: '#b45309',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  <Lock size={15} style={{ flexShrink: 0 }} />
+                  <span>
+                    Chiến dịch đã có <strong>{editingMeta.candidateCount} ứng viên</strong> ứng tuyển — Vị trí và Phòng ban được khóa cố định để bảo toàn hồ sơ ứng viên.
+                  </span>
+                </div>
+              )}
+
               {/* Row 1: Vị trí & Phòng ban */}
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">
                   Vị trí (Chức danh) <span style={{ color: 'var(--error)' }}>*</span>
+                  {lockPositionField && <Lock size={12} style={{ display: 'inline', marginLeft: '6px' }} />}
                 </label>
                 <select 
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
+                  style={{ padding: '0.55rem', ...(lockPositionField ? lockedInputStyle : {}) }} 
                   value={formData.positionId} 
                   onChange={handlePositionChange}
+                  disabled={lockPositionField}
                 >
                   <option value="" className="text-black">-- Chọn vị trí cần tuyển --</option>
                   {positions.map(p => (
@@ -576,7 +649,7 @@ export const Requisitions = () => {
                 </div>
                 <select 
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem', opacity: 0.75, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }} 
+                  style={{ padding: '0.55rem', ...lockedInputStyle }} 
                   value={formData.departmentId} 
                   disabled
                 >
@@ -593,21 +666,25 @@ export const Requisitions = () => {
                   <label className="text-sm font-medium text-[var(--text-muted)]">
                     Tiêu đề chiến dịch <span style={{ color: 'var(--error)' }}>*</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleSuggestTitle}
-                    className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <Sparkles size={13} />
-                    <span>Gợi ý tiêu đề chuẩn</span>
-                  </button>
+                  {!lockCoreFields && (
+                    <button
+                      type="button"
+                      onClick={handleSuggestTitle}
+                      className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      <Sparkles size={13} />
+                      <span>Gợi ý tiêu đề chuẩn</span>
+                    </button>
+                  )}
                 </div>
                 <input 
                   type="text" 
                   className="form-input w-full font-medium" 
+                  style={lockCoreFields ? lockedInputStyle : undefined}
                   value={formData.title} 
                   onChange={e => setFormData({...formData, title: e.target.value})} 
+                  disabled={lockCoreFields}
                   placeholder="VD: Tuyển dụng 2 Frontend Developer (Mid-level)" 
                 />
               </div>
@@ -619,7 +696,7 @@ export const Requisitions = () => {
                 </label>
                 <select 
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem', opacity: 0.75, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }} 
+                  style={{ padding: '0.55rem', ...lockedInputStyle }} 
                   value={formData.level} 
                   disabled
                 >
@@ -636,7 +713,7 @@ export const Requisitions = () => {
                 <input 
                   type="text" 
                   className="form-input w-full font-medium" 
-                  style={{ opacity: 0.75, cursor: 'not-allowed', backgroundColor: 'var(--bg-hover)' }} 
+                  style={lockedInputStyle} 
                   value={formData.salaryRange} 
                   disabled
                   placeholder="Tự động theo vị trí..." 
@@ -649,8 +726,10 @@ export const Requisitions = () => {
                 <input 
                   type="text" 
                   className="form-input w-full font-medium" 
+                  style={lockCoreFields ? lockedInputStyle : undefined}
                   value={formData.experienceLevel} 
                   onChange={e => setFormData({...formData, experienceLevel: e.target.value})} 
+                  disabled={lockCoreFields}
                   placeholder="VD: 1 - 2 năm kinh nghiệm, Không yêu cầu..." 
                 />
               </div>
@@ -659,9 +738,10 @@ export const Requisitions = () => {
                 <label className="text-sm font-medium text-[var(--text-muted)]">Loại hình làm việc</label>
                 <select 
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
+                  style={{ padding: '0.55rem', ...(lockCoreFields ? lockedInputStyle : {}) }} 
                   value={formData.jobType} 
                   onChange={e => setFormData({...formData, jobType: e.target.value})}
+                  disabled={lockCoreFields}
                 >
                   <option value="Full-time" className="text-black">Toàn thời gian (Full-time)</option>
                   <option value="Part-time" className="text-black">Bán thời gian (Part-time)</option>
@@ -674,8 +754,10 @@ export const Requisitions = () => {
                 <input 
                   type="text" 
                   className="form-input w-full font-medium" 
+                  style={lockCoreFields ? lockedInputStyle : undefined}
                   value={formData.location} 
                   onChange={e => setFormData({...formData, location: e.target.value})} 
+                  disabled={lockCoreFields}
                   placeholder="VD: Hà Nội, TP. Hồ Chí Minh, Toàn quốc..." 
                 />
               </div>
@@ -684,9 +766,10 @@ export const Requisitions = () => {
                 <label className="text-sm font-medium text-[var(--text-muted)]">Chế độ làm việc</label>
                 <select 
                   className="form-input w-full bg-white border border-[var(--border)] text-[var(--text-heading)]" 
-                  style={{ padding: '0.55rem' }} 
+                  style={{ padding: '0.55rem', ...(lockCoreFields ? lockedInputStyle : {}) }} 
                   value={formData.workplaceType} 
                   onChange={e => setFormData({...formData, workplaceType: e.target.value})}
+                  disabled={lockCoreFields}
                 >
                   <option value="On-site" className="text-black">Tại văn phòng (On-site)</option>
                   <option value="Hybrid" className="text-black">Linh hoạt kết hợp (Hybrid)</option>
@@ -698,17 +781,23 @@ export const Requisitions = () => {
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 1' }}>
                 <label className="text-sm font-medium text-[var(--text-muted)]">
                   Số lượng cần tuyển <span style={{ color: 'var(--error)' }}>*</span>
+                  {modalMode === 'edit' && editingMeta.hiredCount > 0 && (
+                    <span className="text-xs text-[var(--text-muted)] font-normal"> (Đã tuyển: {editingMeta.hiredCount})</span>
+                  )}
                 </label>
                 <input 
                   type="number" 
                   className="form-input w-full font-bold" 
                   value={formData.amount} 
-                  onChange={e => setFormData({...formData, amount: Math.max(1, parseInt(e.target.value) || 1)})} 
-                  min="1" 
+                  onChange={e => {
+                    const minAllowed = Math.max(1, modalMode === 'edit' ? editingMeta.hiredCount : 1);
+                    setFormData({...formData, amount: Math.max(minAllowed, parseInt(e.target.value) || minAllowed)});
+                  }} 
+                  min={Math.max(1, modalMode === 'edit' ? editingMeta.hiredCount : 1)} 
                 />
                 {isOverQuota && (
                   <span className="text-xs text-red-500 font-medium flex items-center gap-1" style={{ fontSize: '0.75rem' }}>
-                    <AlertTriangle size={12} /> Cảnh báo: Vượt {formData.amount - remainingQuota} chỉ tiêu so với định biên còn trống ({remainingQuota})!
+                    <AlertTriangle size={12} /> Cảnh báo: Vượt {remainingNeeded - remainingQuota} chỉ tiêu so với định biên còn trống ({remainingQuota})!
                   </span>
                 )}
               </div>
@@ -718,8 +807,10 @@ export const Requisitions = () => {
                 <input 
                   type="text" 
                   className="form-input w-full font-medium" 
+                  style={lockCoreFields ? lockedInputStyle : undefined}
                   value={formData.recruitmentReason} 
                   onChange={e => setFormData({...formData, recruitmentReason: e.target.value})} 
+                  disabled={lockCoreFields}
                   placeholder="VD: Mở rộng quy mô, thay thế nhân sự nghỉ..." 
                 />
               </div>
@@ -732,10 +823,11 @@ export const Requisitions = () => {
                 <input 
                   type="date" 
                   className="form-input w-full font-medium" 
-                  style={{ colorScheme: 'dark' }} 
+                  style={{ colorScheme: 'dark', ...(lockCoreFields ? lockedInputStyle : {}) }} 
                   value={formData.publishDate} 
                   onChange={e => handlePublishDateChange(e.target.value)} 
-                  min={getTodayStr()}
+                  min={modalMode === 'add' ? getTodayStr() : undefined}
+                  disabled={lockCoreFields}
                 />
               </div>
 
@@ -778,7 +870,9 @@ export const Requisitions = () => {
                   value={formData.status} 
                   onChange={e => setFormData({...formData, status: e.target.value})}
                 >
-                  <option value="DRAFT" className="text-black">Nháp (DRAFT - Nội bộ)</option>
+                  <option value="DRAFT" className="text-black" disabled={isPublishedEdit && hasCandidates}>
+                    Nháp (DRAFT - Nội bộ){isPublishedEdit && hasCandidates ? ' — Đã có ứng viên, không thể đưa về Nháp' : ''}
+                  </option>
                   <option value="PUBLISHED" className="text-black">Phát hành (PUBLISHED - Công khai)</option>
                   <option value="CLOSED" className="text-black">Ngừng phát hành (CLOSED - Đã đóng)</option>
                 </select>
@@ -788,21 +882,24 @@ export const Requisitions = () => {
               <div className="flex-col gap-1.5" style={{ gridColumn: 'span 2' }}>
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-medium text-[var(--text-muted)]">Mô tả công việc & Quyền lợi (JD)</label>
-                  <button
-                    type="button"
-                    onClick={handleGenerateJdTemplate}
-                    className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <Sparkles size={13} />
-                    <span>Điền mẫu JD chuẩn</span>
-                  </button>
+                  {!lockCoreFields && (
+                    <button
+                      type="button"
+                      onClick={handleGenerateJdTemplate}
+                      className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      <Sparkles size={13} />
+                      <span>Điền mẫu JD chuẩn</span>
+                    </button>
+                  )}
                 </div>
                 <textarea 
                   className="form-input w-full font-mono text-xs" 
-                  style={{ minHeight: '130px', padding: '0.75rem', lineHeight: '1.6' }} 
+                  style={{ minHeight: '130px', padding: '0.75rem', lineHeight: '1.6', ...(lockCoreFields ? lockedInputStyle : {}) }} 
                   value={formData.description} 
                   onChange={e => setFormData({...formData, description: e.target.value})} 
+                  disabled={lockCoreFields}
                   placeholder="Mô tả công việc, yêu cầu ứng viên và chế độ đãi ngộ..." 
                 />
               </div>

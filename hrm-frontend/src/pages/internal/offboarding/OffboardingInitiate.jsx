@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  UserMinus, Search, Filter, ChevronsLeft, ChevronLeft, 
-  ChevronRight, ChevronsRight, CheckCircle2, ArrowRight
+  UserMinus, Search, Filter, CheckCircle2, ArrowRight
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { InitiateOffboardingModal } from './OffboardingModals';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const OffboardingInitiate = () => {
   const navigate = useNavigate();
@@ -18,8 +18,6 @@ export const OffboardingInitiate = () => {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Modal
   const [showInitiateModal, setShowInitiateModal] = useState(null);
@@ -58,12 +56,18 @@ export const OffboardingInitiate = () => {
     });
   }, [allEmployees, searchTerm, deptFilter]);
 
-  const totalPages = Math.ceil(filteredActiveEmployees.length / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedEmployees = filteredActiveEmployees.slice(startIndex, startIndex + itemsPerPage);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize: itemsPerPage,
+    setPageSize: setItemsPerPage,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedEmployees,
+  } = usePagination(filteredActiveEmployees, 10);
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%', overflowY: 'auto' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
       {/* 1. Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
@@ -200,19 +204,16 @@ export const OffboardingInitiate = () => {
         </div>
 
         {/* Phân trang */}
-        {filteredActiveEmployees.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)', backgroundColor: '#ffffff' }}>
-            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-              Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredActiveEmployees.length)} trong {filteredActiveEmployees.length} nhân viên
-            </div>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button className="btn btn-outline" disabled={currentPage === 1} onClick={() => setCurrentPage(1)} style={{ padding: '3px 8px' }}><ChevronsLeft size={14} /></button>
-              <button className="btn btn-outline" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} style={{ padding: '3px 8px' }}><ChevronLeft size={14} /></button>
-              <span style={{ fontSize: '0.8rem', padding: '0 8px', display: 'flex', alignItems: 'center' }}>Trang {currentPage} / {totalPages}</span>
-              <button className="btn btn-outline" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} style={{ padding: '3px 8px' }}><ChevronRight size={14} /></button>
-              <button className="btn btn-outline" disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)} style={{ padding: '3px 8px' }}><ChevronsRight size={14} /></button>
-            </div>
-          </div>
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={itemsPerPage}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setItemsPerPage}
+            itemLabel="nhân viên"
+          />
         )}
       </div>
 

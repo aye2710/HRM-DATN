@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Clock, CalendarRange, Award, DollarSign, FileText, Target, User, ArrowRight, CheckCircle2, AlertTriangle
+  Clock, CalendarRange, Award, DollarSign, FileText, Target
 } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -12,8 +12,9 @@ export const EmployeeDashboard = () => {
   );
 
   const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [standardWorkingDays, setStandardWorkingDays] = useState(null);
   const [myAdjustments, setMyAdjustments] = useState([]);
-  const [leaveBalance, setLeaveBalance] = useState({ totalDays: 12, usedDays: 0 });
+  const [leaveBalance, setLeaveBalance] = useState({ totalDays: 0, usedDays: 0 });
 
   const fullName = localStorage.getItem('fullName') || 'Lê Văn Đôn';
   const employeeCode = localStorage.getItem('employeeCode') || 'NV0144';
@@ -34,6 +35,9 @@ export const EmployeeDashboard = () => {
 
         const recordsList = Array.isArray(attRes.data) ? attRes.data : (attRes.data?.records || []);
         setAttendanceRecords(recordsList);
+        if (attRes.data?.summary?.standardWorkingDays !== undefined) {
+          setStandardWorkingDays(attRes.data.summary.standardWorkingDays);
+        }
         if (Array.isArray(adjRes.data)) setMyAdjustments(adjRes.data);
         if (leaveRes.data?.balance) setLeaveBalance(leaveRes.data.balance);
       } catch (e) {
@@ -109,7 +113,7 @@ export const EmployeeDashboard = () => {
 
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
           <button
-            onClick={() => navigate('/employee/attendance')}
+            onClick={() => navigate('/employee/attendance/records')}
             className="btn"
             style={{
               backgroundColor: '#F59E0B',
@@ -121,7 +125,7 @@ export const EmployeeDashboard = () => {
               padding: '0 0.95rem'
             }}
           >
-            <Clock size={15} /> Bảng công & Giải trình
+            <Clock size={15} /> Theo dõi chấm công
           </button>
           <button
             onClick={() => navigate('/employee/leave')}
@@ -156,7 +160,7 @@ export const EmployeeDashboard = () => {
       {/* 2. 4 Thẻ Chỉ số Tổng quan Cá nhân */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.9rem' }}>
         <div
-          onClick={() => navigate('/employee/attendance')}
+          onClick={() => navigate('/employee/attendance/records')}
           style={{ backgroundColor: '#FFFFFF', borderRadius: '0.75rem', padding: '1.1rem', border: '1px solid #E2E8F0', cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
@@ -164,7 +168,7 @@ export const EmployeeDashboard = () => {
             <Award size={18} color="#059669" />
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#059669' }}>
-            {actualWorkingDays > 0 ? actualWorkingDays.toFixed(1).replace('.0', '') : 21} <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>/ 22 công</span>
+            {actualWorkingDays.toFixed(1).replace('.0', '')} <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>/ {standardWorkingDays ?? '--'} công</span>
           </div>
           <div style={{ fontSize: '0.72rem', color: '#2563EB', fontWeight: 600, marginTop: '0.25rem' }}>
             Xem chi tiết bảng công →
@@ -172,11 +176,11 @@ export const EmployeeDashboard = () => {
         </div>
 
         <div
-          onClick={() => navigate('/employee/attendance')}
+          onClick={() => navigate('/employee/attendance/explanations')}
           style={{ backgroundColor: '#FFFFFF', borderRadius: '0.75rem', padding: '1.1rem', border: '1px solid #E2E8F0', cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Hạn mức Xin đi muộn</span>
+            <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>Hạn mức Xin đi muộn</span>
             <Clock size={18} color="#D97706" />
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, color: lateUsedCount >= 3 ? '#DC2626' : '#D97706' }}>
@@ -204,7 +208,7 @@ export const EmployeeDashboard = () => {
         </div>
 
         <div
-          onClick={() => navigate('/employee/attendance')}
+          onClick={() => navigate('/employee/attendance/explanations')}
           style={{ backgroundColor: '#FFFFFF', borderRadius: '0.75rem', padding: '1.1rem', border: '1px solid #E2E8F0', cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
@@ -245,7 +249,7 @@ export const EmployeeDashboard = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', fontSize: '0.8rem', color: '#334155', lineHeight: 1.45 }}>
             <div style={{ padding: '0.6rem 0.75rem', backgroundColor: '#F8FAFC', borderRadius: '0.5rem', border: '1px solid #E2E8F0' }}>
               <strong>1. Quên Check-in / Check-out hoặc chưa làm dấu vân tay:</strong><br />
-              Nhân viên vào mục <strong>Chấm công & Giải trình</strong> lập <em>"Đơn xin xác nhận chấm công"</em> (ghi rõ ngày và lý do), in biên bản trình <strong>Trưởng bộ phận (PM)</strong> ký xác nhận rồi nộp về Phòng <strong>HCNS - Kế Toán</strong> duyệt.
+              Nhân viên vào mục <strong>Chấm công ➔ Giải trình công</strong> lập <em>&quot;Đơn xin xác nhận chấm công&quot;</em> (ghi rõ ngày và lý do), in biên bản trình <strong>Trưởng bộ phận (PM)</strong> ký xác nhận rồi nộp về Phòng <strong>HCNS - Kế Toán</strong> duyệt.
             </div>
             <div style={{ padding: '0.6rem 0.75rem', backgroundColor: '#FFFBEB', borderRadius: '0.5rem', border: '1px solid #FDE68A' }}>
               <strong>2. Quy định Đi muộn từ 5 phút đến 1 tiếng (08:06 – 09:00):</strong><br />
@@ -276,8 +280,10 @@ export const EmployeeDashboard = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
             {[
-              { to: '/employee/attendance', title: 'Bảng công & Giải trình', desc: 'Tra cứu vân tay, in Đơn xác nhận công & Đơn xin đi muộn', icon: <Clock size={18} color="#2563EB" />, bg: '#EFF6FF' },
-              { to: '/employee/leave', title: 'Quản lý Nghỉ phép', desc: 'Đăng ký nghỉ phép năm, nghỉ ốm, làm thêm giờ', icon: <CalendarRange size={18} color="#059669" />, bg: '#ECFDF5' },
+              { to: '/employee/attendance/records', title: 'Theo dõi Chấm công', desc: 'Xem log máy chấm công & bảng công chi tiết theo tháng', icon: <Clock size={18} color="#2563EB" />, bg: '#EFF6FF' },
+              { to: '/employee/attendance/explanations', title: 'Giải trình Công', desc: 'Đơn xác nhận công, xin đi muộn & xin về sớm', icon: <FileText size={18} color="#D97706" />, bg: '#FFFBEB' },
+              { to: '/employee/attendance/ot', title: 'Làm thêm giờ (OT)', desc: 'Đăng ký OT & theo dõi hạn mức tháng/năm', icon: <Clock size={18} color="#7C3AED" />, bg: '#F3E8FF' },
+              { to: '/employee/leave', title: 'Quản lý Nghỉ phép', desc: 'Đăng ký nghỉ phép năm, nghỉ ốm, nghỉ nửa buổi', icon: <CalendarRange size={18} color="#059669" />, bg: '#ECFDF5' },
               { to: '/employee/payslip', title: 'Phiếu lương Điện tử', desc: 'Tra cứu bảng lương chi tiết, phụ cấp & khấu trừ', icon: <DollarSign size={18} color="#D97706" />, bg: '#FFFBEB' },
               { to: '/employee/kpi', title: 'Mục tiêu & KPI', desc: 'Tự đánh giá hiệu suất công việc định kỳ', icon: <Target size={18} color="#7C3AED" />, bg: '#F3E8FF' }
             ].map((item, idx) => (

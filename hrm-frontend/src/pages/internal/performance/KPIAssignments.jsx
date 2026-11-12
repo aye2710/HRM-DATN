@@ -6,6 +6,7 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const KPIAssignments = () => {
   const [kpis, setKpis] = useState([]);
@@ -16,9 +17,7 @@ export const KPIAssignments = () => {
   const [filterDept, setFilterDept] = useState('ALL');
   const [filterPeriod, setFilterPeriod] = useState('ALL');
 
-  // Phân trang
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+
 
   // Modal 1: Giao KPI từ Mẫu chuẩn (Khuyến nghị)
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -288,10 +287,15 @@ export const KPIAssignments = () => {
   }, [kpis, searchTerm, filterDept, filterPeriod]);
 
   // Phân trang
-  const totalPages = Math.ceil(filteredKpis.length / itemsPerPage) || 1;
-  const paginatedKpis = useMemo(() => {
-    return filteredKpis.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  }, [filteredKpis, currentPage, itemsPerPage]);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedKpis,
+  } = usePagination(filteredKpis, 10);
 
   return (
     <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
@@ -563,55 +567,16 @@ export const KPIAssignments = () => {
         </div>
 
         {/* Phân Trang */}
-        {filteredKpis.length > 0 && (
-          <div style={{
-            padding: '0.75rem 0.5rem',
-            borderTop: '1px solid #E2E8F0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.75rem'
-          }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
-              Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredKpis.length)} trong tổng số {filteredKpis.length} chỉ tiêu
-            </span>
-
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <button 
-                className="btn btn-outline" 
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
-              >
-                Trước
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                  style={{
-                    height: '32px', minWidth: '32px', padding: 0,
-                    fontSize: '0.8rem', fontWeight: currentPage === page ? 700 : 500
-                  }}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              ))}
-
-              <button 
-                className="btn btn-outline"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem' }}
-              >
-                Sau
-              </button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="chỉ tiêu"
+          flush={false}
+        />
       </div>
 
       {/* MODAL 1: GIAO KPI TỪ MẪU CHUẨN (KHÔNG CẦN TỰ NGHĨ TỪ ĐẦU) */}

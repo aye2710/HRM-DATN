@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
+import { assertJobHasOpenSlots, autoCloseJobIfFilled, RecruitmentLimitError } from '../../utils/recruitment.helper';
 
 const router = Router();
 
@@ -228,6 +229,11 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
     // 2. Xử lý trường hợp chuyển sang HIRED (Auto-provisioning Employee & Contract)
     if (status === 'HIRED') {
       const result = await prisma.$transaction(async (tx) => {
+        // Kiểm tra chiến dịch tuyển dụng còn chỉ tiêu hay đã tuyển đủ
+        if (candidate.jobPostingId) {
+          await assertJobHasOpenSlots(tx, candidate.jobPostingId);
+        }
+
         // Cập nhật trạng thái ứng viên
         const updatedCandidate = await tx.candidate.update({
           where: { id },
@@ -321,19 +327,8 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
         }
 
         // Auto-close JobPosting nếu đủ quân số
-        if (candidate.jobPostingId && candidate.jobPosting) {
-          const job = candidate.jobPosting;
-          if (job.status === 'PUBLISHED') {
-            const hiredCount = await tx.candidate.count({
-              where: { jobPostingId: job.id, status: 'HIRED' }
-            });
-            if (hiredCount >= job.amount) {
-              await tx.jobPosting.update({
-                where: { id: job.id },
-                data: { status: 'CLOSED' }
-              });
-            }
-          }
+        if (candidate.jobPostingId) {
+          await autoCloseJobIfFilled(tx, candidate.jobPostingId);
         }
 
         return updatedCandidate;
@@ -356,6 +351,9 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
 
     return res.json(updatedCandidate);
   } catch (error: any) {
+    if (error instanceof RecruitmentLimitError) {
+      return res.status(400).json({ error: error.message });
+    }
     console.error("Lỗi cập nhật ứng viên:", error);
     if (error.code === 'P2002') {
       return res.status(400).json({ error: 'Mã nhân viên, CCCD hoặc email đã tồn tại trong hệ thống.' });

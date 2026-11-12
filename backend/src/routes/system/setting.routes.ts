@@ -77,7 +77,25 @@ const DEFAULT_SETTINGS = [
     value: '500000',
     dataType: 'NUMBER',
     unit: 'VNĐ / tháng',
-    description: 'Mức phụ cấp cố định (Điện thoại + Xăng xe + Ăn trưa) mặc định hàng tháng theo quy chế Công ty LLA.'
+    description: 'Mức phụ cấp cố định (Điện thoại + Xăng xe + Ăn trưa) mặc định hàng tháng cho Thực tập tháng 2+, Thử việc và Chính thức theo quy chế Công ty LLA.'
+  },
+  {
+    category: 'PAYROLL',
+    key: 'INTERN_MONTH1_STIPEND',
+    name: 'Trợ cấp thực tập tháng đầu tiên (đủ công chuẩn)',
+    value: '800000',
+    dataType: 'CURRENCY',
+    unit: 'VNĐ / tháng',
+    description: 'Mức trợ cấp cơ bản cho Thực tập sinh trong tháng thứ 1 (chia theo ngày công thực tế / công chuẩn, chưa áp dụng phụ cấp cố định).'
+  },
+  {
+    category: 'PAYROLL',
+    key: 'INTERN_MONTH2_3_STIPEND',
+    name: 'Trợ cấp thực tập từ tháng thứ 2 trở đi (chưa gồm phụ cấp)',
+    value: '1500000',
+    dataType: 'CURRENCY',
+    unit: 'VNĐ / tháng',
+    description: 'Mức trợ cấp cơ bản cho Thực tập sinh từ tháng thứ 2 đến hết tháng thứ 3 (chia theo ngày công thực tế, cộng thêm phụ cấp cố định).'
   },
   {
     category: 'PAYROLL',
@@ -345,6 +363,24 @@ const DEFAULT_SETTINGS = [
   },
   {
     category: 'RECRUITMENT',
+    key: 'INTERN_DURATION_MONTHS',
+    name: 'Thời gian thực tập tiêu chuẩn',
+    value: '3',
+    dataType: 'NUMBER',
+    unit: 'Tháng',
+    description: 'Thời gian thực tập chuẩn trước khi đánh giá chuyển sang Thử việc (Tháng 1: 800k; Tháng 2-3: 1.5M + 500k phụ cấp).'
+  },
+  {
+    category: 'RECRUITMENT',
+    key: 'PROBATION_DURATION_MONTHS',
+    name: 'Thời gian thử việc tiêu chuẩn',
+    value: '2',
+    dataType: 'NUMBER',
+    unit: 'Tháng',
+    description: 'Thời gian thử việc chuẩn (2 tháng) hưởng 85% lương hợp đồng + phụ cấp trước khi chuyển Chính thức 100% lương.'
+  },
+  {
+    category: 'RECRUITMENT',
     key: 'OFFER_EXPIRY_DAYS',
     name: 'Thời hạn phản hồi Thư mời nhận việc (Offer Letter)',
     value: '3',
@@ -394,18 +430,30 @@ const DEFAULT_SETTINGS = [
   }
 ];
 
+let seedInFlight: Promise<void> | null = null;
+
 export const seedDefaultSettings = async () => {
-  for (const s of DEFAULT_SETTINGS) {
-    const existing = await prisma.systemSetting.findUnique({ where: { key: s.key } });
-    if (!existing) {
-      await prisma.systemSetting.create({ data: s });
-    } else if (s.key === 'STANDARD_WORKING_DAYS' && existing.value === '22') {
-      await prisma.systemSetting.update({
+  if (seedInFlight) return seedInFlight;
+
+  seedInFlight = (async () => {
+    for (const s of DEFAULT_SETTINGS) {
+      await prisma.systemSetting.upsert({
         where: { key: s.key },
-        data: { value: '26', name: s.name, description: s.description }
+        update: {},
+        create: s
       });
+      if (s.key === 'STANDARD_WORKING_DAYS') {
+        await prisma.systemSetting.updateMany({
+          where: { key: s.key, value: '22' },
+          data: { value: '26', name: s.name, description: s.description }
+        });
+      }
     }
-  }
+  })().finally(() => {
+    seedInFlight = null;
+  });
+
+  return seedInFlight;
 };
 
 // GET /api/settings - Lấy toàn bộ tham số nghiệp vụ (Cần đăng nhập)
@@ -508,7 +556,7 @@ export const getSettingValue = async (key: string, defaultValue: number | string
   try {
     const setting = await prisma.systemSetting.findUnique({ where: { key } });
     if (!setting) return defaultValue;
-    if (setting.dataType === 'NUMBER' || setting.dataType === 'PERCENT') {
+    if (setting.dataType === 'NUMBER' || setting.dataType === 'PERCENT' || setting.dataType === 'CURRENCY') {
       const num = Number(setting.value);
       return isNaN(num) ? defaultValue : num;
     }

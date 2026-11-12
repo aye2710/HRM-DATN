@@ -37,6 +37,14 @@ export const ContractDetail = () => {
   const [showSignModal, setShowSignModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signMode, setSignMode] = useState('RENEW'); // 'PROBATION_TO_OFFICIAL', 'RENEW_OR_NEW'
+  const [policyConfig, setPolicyConfig] = useState({
+    internDurationMonths: 3,
+    probationDurationMonths: 2,
+    internMonth1Stipend: 800000,
+    internMonth2_3Stipend: 1500000,
+    probationSalaryPercent: 85,
+    defaultFixedAllowance: 500000
+  });
   const [formData, setFormData] = useState({
     contractType: 'OFFICIAL_1Y',
     contractNumber: '',
@@ -57,8 +65,27 @@ export const ContractDetail = () => {
   const fetchEmployeeData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/employees/${id}`);
-      setEmployee(res.data);
+      const [empRes, settingsRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/employees/${id}`),
+        axios.get('http://localhost:5000/api/settings').catch(() => ({ data: [] }))
+      ]);
+      setEmployee(empRes.data);
+      const settingsList = Array.isArray(settingsRes.data) ? settingsRes.data : [];
+      if (settingsList.length > 0) {
+        const getNum = (key, fallback) => {
+          const found = settingsList.find(s => s.key === key);
+          const n = Number(found?.value);
+          return Number.isFinite(n) && n > 0 ? n : fallback;
+        };
+        setPolicyConfig({
+          internDurationMonths: getNum('INTERN_DURATION_MONTHS', 3),
+          probationDurationMonths: getNum('PROBATION_DURATION_MONTHS', 2),
+          internMonth1Stipend: getNum('INTERN_MONTH1_STIPEND', 800000),
+          internMonth2_3Stipend: getNum('INTERN_MONTH2_3_STIPEND', 1500000),
+          probationSalaryPercent: getNum('PROBATION_SALARY_PERCENT', 85),
+          defaultFixedAllowance: getNum('DEFAULT_FIXED_ALLOWANCE', 500000)
+        });
+      }
     } catch (error) {
       console.error(error);
       toast.error('Không tìm thấy thông tin nhân viên hoặc hồ sơ hợp đồng.');
@@ -84,7 +111,7 @@ export const ContractDetail = () => {
     const d = new Date(startStr);
     if (isNaN(d.getTime())) return '';
     if (type === 'PROBATION') {
-      d.setDate(d.getDate() + 60);
+      d.setMonth(d.getMonth() + (policyConfig.probationDurationMonths || 2));
       return d.toISOString().split('T')[0];
     }
     if (type === 'OFFICIAL_1Y') {
@@ -93,7 +120,7 @@ export const ContractDetail = () => {
       return d.toISOString().split('T')[0];
     }
     if (type === 'INTERNSHIP') {
-      d.setMonth(d.getMonth() + 3);
+      d.setMonth(d.getMonth() + (policyConfig.internDurationMonths || 3));
       return d.toISOString().split('T')[0];
     }
     return '';
@@ -116,6 +143,8 @@ export const ContractDetail = () => {
     let initType = 'OFFICIAL_1Y';
     if (definiteCount >= 2) {
       initType = 'INDEFINITE';
+    } else if (employee.status === 'INTERNSHIP') {
+      initType = 'PROBATION';
     } else if (isProbationEmp) {
       initType = 'OFFICIAL_1Y';
     }
@@ -131,9 +160,16 @@ export const ContractDetail = () => {
     const year = new Date().getFullYear();
     const genNumber = `HĐLĐ-${year}/${Math.floor(100 + Math.random() * 900)}/${employee.code || 'NV'}`;
 
-    const defaultSalary = latestContract?.baseSalary ? Number(latestContract.baseSalary) : (employee.salary ? Number(employee.salary) : 10000000);
-    const defaultAllowance = latestContract?.allowance ? Number(latestContract.allowance) : 0;
-    const defaultInsurance = latestContract?.insuranceSalary ? Number(latestContract.insuranceSalary) : defaultSalary;
+    const isPromotingFromIntern = employee.status === 'INTERNSHIP' && initType === 'PROBATION';
+    const defaultSalary = isPromotingFromIntern
+      ? (employee.salary && Number(employee.salary) > policyConfig.internMonth2_3Stipend ? Number(employee.salary) : 7000000)
+      : (latestContract?.baseSalary ? Number(latestContract.baseSalary) : (employee.salary ? Number(employee.salary) : 10000000));
+    const defaultAllowance = initType === 'PROBATION'
+      ? (latestContract?.allowance && Number(latestContract.allowance) > 0 ? Number(latestContract.allowance) : policyConfig.defaultFixedAllowance)
+      : (latestContract?.allowance ? Number(latestContract.allowance) : 0);
+    const defaultInsurance = (initType === 'PROBATION' || initType === 'INTERNSHIP')
+      ? 0
+      : (latestContract?.insuranceSalary ? Number(latestContract.insuranceSalary) : defaultSalary);
 
     setFormData({
       contractType: initType,
@@ -166,11 +202,30 @@ export const ContractDetail = () => {
   }, [employee, location.search]);
 
   const handleContractTypeChange = (newType) => {
-    setFormData(prev => ({
-      ...prev,
-      contractType: newType,
-      endDate: calculateDefaultEndDate(newType, prev.startDate)
-    }));
+    setFormData(prev => {
+      const next = {
+        ...prev,
+        contractType: newType,
+        endDate: calculateDefaultEndDate(newType, prev.startDate)
+      };
+      if (newType === 'INTERNSHIP') {
+        next.baseSalary = policyConfig.internMonth1Stipend;
+        next.allowance = 0;
+        next.insuranceSalary = 0;
+      } else if (newType === 'PROBATION') {
+        if (!prev.baseSalary || Number(prev.baseSalary) <= policyConfig.internMonth2_3Stipend) {
+          next.baseSalary = 7000000;
+        }
+        next.allowance = Number(prev.allowance) > 0 ? prev.allowance : policyConfig.defaultFixedAllowance;
+        next.insuranceSalary = 0;
+      } else if (newType === 'OFFICIAL_1Y' || newType === 'INDEFINITE') {
+        if (!prev.baseSalary || Number(prev.baseSalary) <= policyConfig.internMonth2_3Stipend) {
+          next.baseSalary = 7000000;
+        }
+        next.insuranceSalary = next.insuranceSalary > 0 ? next.insuranceSalary : next.baseSalary;
+      }
+      return next;
+    });
   };
 
   const handleStartDateChange = (newStart) => {
@@ -932,6 +987,11 @@ export const ContractDetail = () => {
                       {definiteCount < 2 && <option value="PROBATION">Hợp đồng thử việc</option>}
                       {definiteCount < 2 && <option value="INTERNSHIP">Hợp đồng thực tập</option>}
                     </select>
+                    <span style={{ fontSize: '0.73rem', color: '#475569', display: 'block', marginTop: '4px' }}>
+                      {formData.contractType === 'INTERNSHIP' && `Lộ trình Thực tập (${policyConfig.internDurationMonths}T): Tháng 1 tự động áp dụng ${formatCurrency(policyConfig.internMonth1Stipend)} chia ngày công (0đ PC); Tháng 2–${policyConfig.internDurationMonths} tự động chuyển ${formatCurrency(policyConfig.internMonth2_3Stipend)} chia ngày công + ${formatCurrency(policyConfig.defaultFixedAllowance)} PC mà không cần ký lại HĐ.`}
+                      {formData.contractType === 'PROBATION' && `Lộ trình Thử việc (${policyConfig.probationDurationMonths}T): Hưởng ${policyConfig.probationSalaryPercent}% lương hợp đồng + ${formatCurrency(policyConfig.defaultFixedAllowance)} phụ cấp cố định, chưa đóng BHXH.`}
+                      {(formData.contractType === 'OFFICIAL_1Y' || formData.contractType === 'INDEFINITE') && `Chính thức (Sau ${policyConfig.probationDurationMonths}T thử việc): Hưởng 100% lương hợp đồng + phụ cấp + đóng BHXH.`}
+                    </span>
                   </div>
 
                   <div>

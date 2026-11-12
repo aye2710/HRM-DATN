@@ -9,6 +9,7 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 const TYPE_META = {
   RECRUITMENT: {
@@ -245,6 +246,21 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
     const matchStatus = statusFilter ? d.status === statusFilter : true;
     return matchSearch && matchType && matchStatus;
   });
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedDecisions,
+    resetPage,
+  } = usePagination(filteredDecisions, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, typeFilter, statusFilter, activeFixed, resetPage]);
 
   const renderTypeBadge = (type) => {
     switch (type) {
@@ -782,7 +798,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
                   <td colSpan={getColSpan()} className="text-center py-8 text-muted">Chưa có quyết định nào phù hợp trong danh mục này.</td>
                 </tr>
               ) : (
-                filteredDecisions.map(dec => (
+                paginatedDecisions.map(dec => (
                   <tr key={dec.id}>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -893,6 +909,17 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             </tbody>
           </table>
         </div>
+
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="quyết định"
+          flush={false}
+        />
       </div>
 
       {/* MODAL XEM BẢN SCAN GỐC ĐÍNH KÈM */}

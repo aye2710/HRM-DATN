@@ -4,6 +4,7 @@ import { Settings, Search, Plus, Filter, Trash2, XCircle, CalendarHeart } from '
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const LeaveTypes = () => {
   const [types, setTypes] = useState([]);
@@ -39,6 +40,22 @@ export const LeaveTypes = () => {
       .catch(err => toast.error(err.response?.data?.error || 'Lỗi thêm loại phép'));
   };
 
+  const filteredTypes = types.filter(l => l.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedTypes,
+    resetPage,
+  } = usePagination(filteredTypes, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchTerm, resetPage]);
+
   const handleDelete = async (id) => {
     const result = await Swal.fire({ title: 'Xóa loại phép?', text: "Hành động này không thể hoàn tác", icon: 'warning', showCancelButton: true, confirmButtonText: 'Xóa', cancelButtonText: 'Hủy' });
     if (result.isConfirmed) {
@@ -49,7 +66,7 @@ export const LeaveTypes = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflowY: 'auto' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 className="page-title">Loại Nghỉ phép</h1>
@@ -92,10 +109,10 @@ export const LeaveTypes = () => {
             <tbody>
               {loading ? (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Đang tải...</td></tr>
-              ) : types.length === 0 ? (
+              ) : filteredTypes.length === 0 ? (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Chưa có loại phép nào</td></tr>
               ) : (
-                types.filter(l => l.name.toLowerCase().includes(searchTerm.toLowerCase())).map(leave => (
+                paginatedTypes.map(leave => (
                   <tr key={leave.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -135,6 +152,18 @@ export const LeaveTypes = () => {
             </tbody>
           </table>
         </div>
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="loại phép"
+            flush={false}
+          />
+        )}
       </div>
 
       {showModal && createPortal(

@@ -4,6 +4,7 @@ import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { sendWelcomeAccountEmail } from '../../utils/mailer';
 import { getSettingValue } from '../system/setting.routes';
+import { assertJobHasOpenSlots, autoCloseJobIfFilled, RecruitmentLimitError } from '../../utils/recruitment.helper';
 
 const router = Router();
 router.use(authenticateToken);
@@ -107,6 +108,10 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
       return res.status(400).json({ error: 'Ứng viên này đã được tiếp nhận chính thức thành nhân viên, không thể gửi lại Offer.' });
     }
 
+    if (candidate.jobPostingId) {
+      await assertJobHasOpenSlots(prisma, candidate.jobPostingId);
+    }
+
     const now = new Date();
     const expiresAt = new Date(now.getTime() + offerExpiryDays * 24 * 60 * 60 * 1000); // Hạn phản hồi theo OFFER_EXPIRY_DAYS
 
@@ -150,6 +155,9 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
 
     return res.status(201).json({ message: `Đã gửi Thư mời nhận việc (Offer) tới Ứng viên (Hạn phản hồi ${offerExpiryDays} ngày)!`, offer: result });
   } catch (error: any) {
+    if (error instanceof RecruitmentLimitError) {
+      return res.status(400).json({ error: error.message });
+    }
     console.error("Lỗi khi gửi Offer:", error);
     return res.status(500).json({ error: error.message || 'Lỗi hệ thống khi gửi Offer.' });
   }
@@ -181,7 +189,12 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
 
       // Kiểm tra xem ứng viên đã được tiếp nhận trước đó chưa (Chống trùng lặp tạo NV)
       if (candidate.status === 'HIRED') {
-        throw new Error("Ứng viên này đã được tiếp nhận thành nhân viên chính thức trước đó!");
+        throw new RecruitmentLimitError("Ứng viên này đã được tiếp nhận thành nhân viên chính thức trước đó!");
+      }
+
+      // Kiểm tra chiến dịch tuyển dụng còn chỉ tiêu hay đã tuyển đủ
+      if (candidate.jobPostingId) {
+        await assertJobHasOpenSlots(tx, candidate.jobPostingId);
       }
 
       const po = candidate.preOnboarding;
@@ -316,18 +329,7 @@ router.post('/accept', async (req: Request, res: Response): Promise<any> => {
 
       // 6. Tự động đóng Tin tuyển dụng nếu đã tuyển đủ chỉ tiêu
       if (candidate.jobPostingId) {
-        const job = candidate.jobPosting;
-        if (job && job.status === 'PUBLISHED') {
-          const hiredCount = await tx.candidate.count({
-            where: { jobPostingId: job.id, status: 'HIRED' }
-          });
-          if (hiredCount >= job.amount) {
-            await tx.jobPosting.update({
-              where: { id: job.id },
-              data: { status: 'CLOSED' }
-            });
-          }
-        }
+        await autoCloseJobIfFilled(tx, candidate.jobPostingId);
       }
 
       return {

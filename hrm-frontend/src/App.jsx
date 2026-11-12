@@ -57,6 +57,8 @@ import { PlaceholderPage } from './components/PlaceholderPage';
 // Employee Portal
 import { EmployeeDashboard } from './pages/employee/Dashboard';
 import { EmployeeAttendance } from './pages/employee/Attendance';
+import { EmployeeExplanations } from './pages/employee/AttendanceExplanations';
+import { EmployeeOT } from './pages/employee/EmployeeOT';
 import { EmployeeProfile } from './pages/employee/Profile';
 import { EmployeeLeave } from './pages/employee/Leave';
 import { EmployeePayslip } from './pages/employee/Payslip';
@@ -70,7 +72,7 @@ import { CandidateAuthPage } from './pages/candidate/CandidateAuthPage';
 import { LayoutDashboard, Users, Clock, CalendarRange, FileText, ShieldCheck, Target, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User, UserMinus, FileSignature } from 'lucide-react';
 
 const internalLinks = [
-  { to: '/internal/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+  { to: '/internal/dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
   {
     to: '/internal/organization', label: 'Tổ chức', icon: <Building size={20} />,
     children: [
@@ -171,8 +173,15 @@ const internalLinks = [
 
 const employeeLinks = [
   { to: '/employee/dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
-  { to: '/employee/attendance', label: 'Chấm công & Giải trình', icon: <Clock size={20} /> },
   { to: '/employee/profile', label: 'Hồ sơ cá nhân', icon: <User size={20} /> },
+  {
+    to: '/employee/attendance', label: 'Chấm công', icon: <Clock size={20} />,
+    children: [
+      { to: '/employee/attendance/records', label: 'Theo dõi chấm công' },
+      { to: '/employee/attendance/explanations', label: 'Giải trình công' },
+      { to: '/employee/attendance/ot', label: 'Làm thêm giờ (OT)' },
+    ]
+  },
   { to: '/employee/leave', label: 'Quản lý nghỉ phép', icon: <CalendarRange size={20} /> },
   { to: '/employee/payslip', label: 'Phiếu lương điện tử', icon: <FileText size={20} /> },
   { to: '/employee/kpi', label: 'Mục tiêu & Đánh giá KPI', icon: <Target size={20} /> },
@@ -316,7 +325,10 @@ function App() {
             <Route path="/employee" element={<AppLayout portalName="EMPLOYEE SELF-SERVICE" navLinks={employeeLinks} />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<EmployeeDashboard />} />
-              <Route path="attendance" element={<EmployeeAttendance />} />
+              <Route path="attendance" element={<Navigate to="records" replace />} />
+              <Route path="attendance/records" element={<EmployeeAttendance />} />
+              <Route path="attendance/explanations" element={<EmployeeExplanations />} />
+              <Route path="attendance/ot" element={<EmployeeOT />} />
               <Route path="profile" element={<EmployeeProfile />} />
               <Route path="leave" element={<EmployeeLeave />} />
               <Route path="payslip" element={<EmployeePayslip />} />

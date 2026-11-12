@@ -1,167 +1,158 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Users, 
-  Building2, 
-  Clock, 
-  DollarSign, 
-  UserCheck, 
-  Briefcase, 
-  TrendingUp, 
-  AlertCircle, 
-  AlertTriangle,
-  CheckCircle2, 
-  RefreshCw, 
-  ArrowRight, 
-  FileText, 
-  Calendar, 
-  Laptop, 
-  ShieldCheck, 
-  ChevronRight, 
-  Activity, 
-  PieChart, 
-  BarChart3, 
-  ArrowUpRight,
-  ArrowDownRight,
+import {
+  Users,
+  Clock,
+  UserCheck,
+  Briefcase,
+  TrendingUp,
+  AlertCircle,
+  RefreshCw,
+  DollarSign,
+  ChevronRight,
+  Activity,
+  PieChart,
+  BarChart3,
   UserMinus,
-  UserX,
-  UserPlus,
-  Sparkles,
-  ExternalLink,
-  Layers,
-  CheckCircle,
-  FileCheck2,
-  FileSpreadsheet
+  FileCheck2
 } from 'lucide-react';
 import axios from 'axios';
 
+const EMPTY_ARRAY = [];
+
+function formatCompactVnd(amount) {
+  const n = Number(amount || 0);
+  if (n >= 1_000_000_000) {
+    return `${(n / 1_000_000_000).toFixed(2).replace(/\.?0+$/, '')} tỷ`;
+  }
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')} tr`;
+  }
+  return new Intl.NumberFormat('vi-VN').format(n);
+}
+
+function formatFullVnd(amount) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount) || 0);
+}
+
+const ALERT_BADGE_STYLES = {
+  CRITICAL: {
+    rowBg: '#FFF5F5',
+    borderLeft: '3px solid #DC2626',
+    badgeBg: '#FEE2E2',
+    badgeColor: '#DC2626'
+  },
+  WARNING: {
+    rowBg: '#F8FAFC',
+    borderLeft: '3px solid #F59E0B',
+    badgeBg: '#FEF3C7',
+    badgeColor: '#D97706'
+  },
+  INFO: {
+    rowBg: '#F8FAFC',
+    borderLeft: '3px solid #3B82F6',
+    badgeBg: '#EFF6FF',
+    badgeColor: '#2563EB'
+  }
+};
+
+function buildGrowthChartGeometry(points) {
+  if (!Array.isArray(points) || points.length === 0) {
+    return {
+      coords: [],
+      polyline: '',
+      polygon: '',
+      lastCoord: { x: 320, y: 90 }
+    };
+  }
+
+  const values = points.map(p => Number(p.headcount || 0));
+  const maxVal = Math.max(...values, 1);
+  const minVal = Math.min(...values, 0);
+  const span = Math.max(1, maxVal - minVal);
+  const width = 320;
+  const topY = 24;
+  const bottomY = 95;
+  const stepX = points.length > 1 ? width / (points.length - 1) : 0;
+
+  const coords = points.map((p, idx) => {
+    const x = Number((idx * stepX).toFixed(1));
+    const ratio = (Number(p.headcount || 0) - minVal) / span;
+    const y = Number((bottomY - ratio * (bottomY - topY)).toFixed(1));
+    return { x, y, point: p };
+  });
+
+  const polyline = coords.map(c => `${c.x},${c.y}`).join(' ');
+  const firstX = coords[0].x;
+  const lastCoord = coords[coords.length - 1];
+  const polygon = `${polyline} ${lastCoord.x},105 ${firstX},105`;
+
+  return { coords, polyline, polygon, lastCoord };
+}
+
+function buildDonutSegments(hierarchyStats) {
+  let offset = 0;
+  return (hierarchyStats || []).map(item => {
+    const seg = {
+      ...item,
+      dashArray: `${item.percent}, 100`,
+      dashOffset: -offset
+    };
+    offset += item.percent;
+    return seg;
+  });
+}
+
 export const InternalDashboard = () => {
   const navigate = useNavigate();
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
 
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
-  const [activePeriod, setActivePeriod] = useState('MONTH'); // 'MONTH' | 'QUARTER' | 'YEAR'
+  const [activePeriod, setActivePeriod] = useState('MONTH'); // 'MONTH' | 'YEAR'
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [overview, setOverview] = useState(null);
 
-  // Data states
-  const [reportData, setReportData] = useState(null);
-  const [dashboardStats, setDashboardStats] = useState(null);
-  const [employees, setEmployees] = useState([]);
-  const [adjustments, setAdjustments] = useState([]);
-  const [contracts, setContracts] = useState([]);
+  const adminName = localStorage.getItem('fullName') || 'HR Admin';
 
-  const fetchData = async () => {
+  const yearOptions = useMemo(() => {
+    const curY = now.getFullYear();
+    return [curY - 2, curY - 1, curY];
+  }, [now]);
+
+  const fetchData = useCallback(async (periodToLoad, yearToLoad, monthToLoad) => {
     try {
+      setErrorMsg('');
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      const [reportRes, statsRes, empRes, adjRes, contractRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/reports/overview', { headers }).catch(() => ({ data: null })),
-        axios.get('http://localhost:5000/api/dashboard/stats', { headers }).catch(() => ({ data: null })),
-        axios.get('http://localhost:5000/api/employees', { headers }).catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/attendance/adjustments', { headers }).catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/contracts', { headers }).catch(() => ({ data: [] }))
-      ]);
-
-      if (reportRes.data) setReportData(reportRes.data);
-      if (statsRes.data) setDashboardStats(statsRes.data);
-      if (empRes.data) setEmployees(Array.isArray(empRes.data) ? empRes.data : []);
-      if (adjRes.data) setAdjustments(Array.isArray(adjRes.data) ? adjRes.data : []);
-      if (contractRes.data) setContracts(Array.isArray(contractRes.data) ? contractRes.data : []);
-
+      const res = await axios.get(
+        `http://localhost:5000/api/dashboard/overview?period=${periodToLoad}&year=${yearToLoad}&month=${monthToLoad}`,
+        { headers }
+      );
+      setOverview(res.data || null);
       setLastUpdated(new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
     } catch (error) {
-      console.error('Lỗi khi tải dữ liệu Dashboard:', error);
+      console.error('Lỗi khi tải dữ liệu Tổng quan:', error);
+      setErrorMsg(error.response?.data?.error || 'Không thể tải dữ liệu tổng quan từ máy chủ');
     } finally {
       setLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(activePeriod, selectedYear, selectedMonth);
+  }, [activePeriod, selectedYear, selectedMonth, fetchData]);
 
   const handleManualRefresh = () => {
     setIsRefreshing(true);
-    fetchData();
+    fetchData(activePeriod, selectedYear, selectedMonth);
   };
 
-  // Helper định dạng tiền VNĐ
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount) || 0);
-  };
-
-  // 1. Chỉ số tổng hợp
-  const summary = reportData?.summary || {};
-  const activeEmpsList = useMemo(() => employees.filter(e => e.status !== 'RESIGNED'), [employees]);
-  const totalEmps = summary.activeEmployees || activeEmpsList.length || 28;
-  const officialEmps = summary.officialEmployees || employees.filter(e => e.status === 'ACTIVE').length || 23;
-  const probationEmps = summary.probationEmployees || employees.filter(e => e.status === 'PROBATION').length || 2;
-  const resignedEmps = summary.resignedEmployees || employees.filter(e => e.status === 'RESIGNED').length || 6;
-  const turnoverRate = summary.turnoverRate !== undefined ? summary.turnoverRate : (totalEmps > 0 ? Math.round((resignedEmps / (totalEmps + resignedEmps)) * 100) : 18);
-  const openJobs = summary.openJobPostings || dashboardStats?.openJobPostings || 4;
-  const totalCands = summary.totalCandidates || 38;
-  const pendingLeaves = summary.pendingLeaves !== undefined ? summary.pendingLeaves : (dashboardStats?.pendingLeaves || 2);
-  const pendingAdjustments = adjustments.filter(a => a.status === 'PENDING').length || 1;
-
-  // Hợp đồng sắp hết hạn
-  const expiringContractsCount = useMemo(() => {
-    if (contracts.length > 0) {
-      return contracts.filter(c => c.isExpiringSoon || (c.daysUntilExpiry !== null && c.daysUntilExpiry >= 0 && c.daysUntilExpiry <= 30)).length;
-    }
-    return 2;
-  }, [contracts]);
-
-  // Cảnh báo đỏ đang mở
-  const criticalAlertsCount = useMemo(() => {
-    let count = 0;
-    if (expiringContractsCount > 0) count += 1;
-    if (pendingLeaves + pendingAdjustments > 0) count += 1;
-    if (probationEmps > 0) count += 1;
-    if (openJobs > 0) count += 1;
-    return count || 4;
-  }, [expiringContractsCount, pendingLeaves, pendingAdjustments, probationEmps, openJobs]);
-
-  // Đếm ngược ngày chốt công (mặc định chốt vào ngày 25 hàng tháng)
-  const daysToPayrollCutoff = useMemo(() => {
-    const today = now.getDate();
-    const cutoffDay = 25;
-    if (today <= cutoffDay) {
-      return cutoffDay - today;
-    }
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return (daysInMonth - today) + cutoffDay;
-  }, [now]);
-
-  // Chất lượng Hồ sơ Nhân sự & Tuân thủ định danh
-  const dataQualityStats = useMemo(() => {
-    const list = activeEmpsList.length > 0 ? activeEmpsList : employees;
-    const total = list.length || 1;
-    const missingCccd = list.filter(e => !e.cccd || String(e.cccd).trim() === '').length;
-    const missingBank = list.filter(e => !e.bankAccount || String(e.bankAccount).trim() === '').length;
-    const missingTaxOrBhxh = list.filter(e => !e.taxCode || !e.socialInsurance).length;
-    const completeProfiles = list.filter(e => e.cccd && e.bankAccount && (e.taxCode || e.socialInsurance)).length;
-    const completenessPercent = total > 0 ? Math.round((completeProfiles / total) * 100) : 92;
-    return {
-      total,
-      missingCccd: missingCccd || 3,
-      missingBank: missingBank || 2,
-      missingTaxOrBhxh: missingTaxOrBhxh || 4,
-      completeProfiles: completeProfiles || (total - 3),
-      completenessPercent: Math.min(100, Math.max(0, completenessPercent))
-    };
-  }, [activeEmpsList, employees]);
-
-  // Nhân sự tiếp nhận mới nhất
-  const recentEmployees = useMemo(() => {
-    return [...employees]
-      .sort((a, b) => new Date(b.joinDate || b.createdAt || 0) - new Date(a.joinDate || a.createdAt || 0))
-      .slice(0, 5);
-  }, [employees]);
-
-  // Format ngày tiếng Việt
   const todayVietnamese = useMemo(() => {
     const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
     const dayStr = dayNames[now.getDay()];
@@ -169,10 +160,98 @@ export const InternalDashboard = () => {
     return `${dayStr}, ${dateStr}`;
   }, [now]);
 
+  const headcount = overview?.headcount || {
+    activeTotal: 0,
+    officialCount: 0,
+    probationCount: 0,
+    otherActiveCount: 0,
+    resignedTotal: 0,
+    totalEmployees: 0,
+    joinedInPeriod: 0,
+    resignedInPeriod: 0,
+    turnoverCumulativeRate: 0,
+    turnoverPeriodRate: 0,
+    retentionRate: 100
+  };
+
+  const growth12Months = overview?.growth12Months || { points: [], growthPercent: 0 };
+  const growthChart = useMemo(() => buildGrowthChartGeometry(growth12Months.points), [growth12Months.points]);
+  const net6MonthsChange = useMemo(() => {
+    const recent6 = growth12Months.points.slice(-6);
+    return recent6.reduce((sum, p) => sum + Number(p.joined || 0) - Number(p.resigned || 0), 0);
+  }, [growth12Months.points]);
+
+  const hierarchySegments = useMemo(
+    () => buildDonutSegments(overview?.hierarchyStats || []),
+    [overview?.hierarchyStats]
+  );
+
+  const movement6Points = overview?.movement6Months?.points || EMPTY_ARRAY;
+  const movementMaxVal = useMemo(() => {
+    return Math.max(1, ...movement6Points.flatMap(p => [Number(p.joined || 0), Number(p.resigned || 0)]));
+  }, [movement6Points]);
+
+  const payrollCutoff = overview?.payrollCutoff || { cutoffDay: 25, daysRemaining: 0, pendingApprovals: 0 };
+  const alerts = overview?.alerts || { criticalCount: 0, totalCount: 0, avgAgeDays: 0, items: [] };
+  const pendingQueue = overview?.pendingQueue || {
+    totalCount: 0,
+    actionApprovalsCount: 0,
+    pendingDecisions: 0,
+    items: []
+  };
+  const payrollSummary = overview?.payrollSummary || {
+    source: 'CONTRACTS',
+    displayAmount: 0,
+    subAmount: 0,
+    payslipCount: 0,
+    activeContractCount: 0
+  };
+  const attendanceAndLeave = overview?.attendanceAndLeave || {
+    pendingApprovals: 0,
+    expiringLeaveDays: 0,
+    breakdown: [],
+    lateAttendanceCount: 0
+  };
+  const recruitment = overview?.recruitment || {
+    openJobsCount: 0,
+    candidatesInPeriod: 0,
+    totalCandidatesAll: 0,
+    openJobs: []
+  };
+  const onboarding = overview?.onboarding || { activeCount: 0, items: [] };
+  const processes = overview?.processes || [];
+  const contractsSummary = overview?.contractsSummary || {
+    overdueCount: 0,
+    le15Count: 0,
+    d16to45Count: 0,
+    d46to90Count: 0,
+    expiringWithinWarnCount: 0,
+    warnDays: 30
+  };
+  const dataQuality = overview?.dataQuality || {
+    total: 0,
+    missingCccd: 0,
+    missingBank: 0,
+    missingTaxOrBhxh: 0,
+    completeProfiles: 0,
+    completenessPercent: 0
+  };
+
+  const formatMetric = val => (loading && !overview ? '…' : val);
+
+  const periodRangeText = useMemo(() => {
+    const pts = growth12Months.points;
+    if (pts.length === 0) return 'Biến động quy mô nhân sự thực tế theo tháng';
+    return `Biến động nhân sự thực tế từ ${pts[0].fullLabel} đến ${pts[pts.length - 1].fullLabel}`;
+  }, [growth12Months.points]);
+
+  const movementRangeText = useMemo(() => {
+    if (movement6Points.length === 0) return 'So sánh tiếp nhận mới và thôi việc 6 tháng gần nhất';
+    return `Tiếp nhận mới và thôi việc từ T${movement6Points[0].monthLabel} đến T${movement6Points[movement6Points.length - 1].monthLabel}`;
+  }, [movement6Points]);
+
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.1rem', paddingBottom: '2.5rem' }}>
-      
-      {/* Dynamic Responsive Styles for Perfect Layout at All Screen Sizes */}
       <style>{`
         .dashboard-grid-6 {
           display: grid;
@@ -206,7 +285,7 @@ export const InternalDashboard = () => {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
           .dashboard-grid-3 > div:nth-child(3) {
-            grid-column: 1 / -1; /* Lấp đầy 100% dòng 2 khi thu nhỏ, loại bỏ hoàn toàn khoảng trống */
+            grid-column: 1 / -1;
           }
         }
         @media (max-width: 768px) {
@@ -240,8 +319,8 @@ export const InternalDashboard = () => {
           overflow: hidden;
         }
       `}</style>
-      
-      {/* 1. Header Bảng Điều Hành: Xin chào + Thời gian + Bộ lọc Kỳ (Tháng / Quý / Năm) */}
+
+      {/* 1. Header Bảng Điều Hành */}
       <div style={{
         backgroundColor: '#FFFFFF',
         borderRadius: '0.85rem',
@@ -254,7 +333,6 @@ export const InternalDashboard = () => {
         flexWrap: 'wrap',
         gap: '1rem'
       }}>
-        {/* Left: Lời chào và trạng thái */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div style={{
             width: 44,
@@ -272,7 +350,7 @@ export const InternalDashboard = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em' }}>
-                Xin chào, HR Admin
+                Xin chào, {adminName}
               </h1>
               <span style={{
                 display: 'inline-flex',
@@ -296,10 +374,7 @@ export const InternalDashboard = () => {
           </div>
         </div>
 
-        {/* Right: Period Switcher [Tháng 10/2026] [Quý IV] [Năm 2026] + Nút Làm mới & Báo cáo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          
-          {/* Bộ gạt Kỳ báo cáo chuyên nghiệp theo phong cách GHC.Lexora */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
           <div style={{
             display: 'inline-flex',
             backgroundColor: '#F1F5F9',
@@ -307,58 +382,74 @@ export const InternalDashboard = () => {
             borderRadius: '8px',
             border: '1px solid #E2E8F0'
           }}>
-            <button
-              onClick={() => setActivePeriod('MONTH')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                fontSize: '0.78rem',
-                fontWeight: activePeriod === 'MONTH' ? 700 : 500,
-                backgroundColor: activePeriod === 'MONTH' ? '#FFFFFF' : 'transparent',
-                color: activePeriod === 'MONTH' ? '#2563EB' : '#64748B',
-                boxShadow: activePeriod === 'MONTH' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              Tháng {now.getMonth() + 1}/{now.getFullYear()}
-            </button>
-            <button
-              onClick={() => setActivePeriod('QUARTER')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                fontSize: '0.78rem',
-                fontWeight: activePeriod === 'QUARTER' ? 700 : 500,
-                backgroundColor: activePeriod === 'QUARTER' ? '#FFFFFF' : 'transparent',
-                color: activePeriod === 'QUARTER' ? '#2563EB' : '#64748B',
-                boxShadow: activePeriod === 'QUARTER' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              Quý {Math.floor(now.getMonth() / 3) + 1}
-            </button>
-            <button
-              onClick={() => setActivePeriod('YEAR')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                fontSize: '0.78rem',
-                fontWeight: activePeriod === 'YEAR' ? 700 : 500,
-                backgroundColor: activePeriod === 'YEAR' ? '#FFFFFF' : 'transparent',
-                color: activePeriod === 'YEAR' ? '#2563EB' : '#64748B',
-                boxShadow: activePeriod === 'YEAR' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              Năm {now.getFullYear()}
-            </button>
+            {[
+              { id: 'MONTH', label: 'Theo tháng' },
+              { id: 'YEAR', label: 'Theo năm' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActivePeriod(tab.id)}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.78rem',
+                  fontWeight: activePeriod === tab.id ? 700 : 500,
+                  backgroundColor: activePeriod === tab.id ? '#FFFFFF' : 'transparent',
+                  color: activePeriod === tab.id ? '#2563EB' : '#64748B',
+                  boxShadow: activePeriod === tab.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
+
+          {activePeriod === 'MONTH' && (
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(Number(e.target.value))}
+              aria-label="Chọn tháng"
+              style={{
+                height: 34,
+                padding: '0 0.65rem',
+                borderRadius: '8px',
+                border: '1px solid #E2E8F0',
+                backgroundColor: '#FFFFFF',
+                color: '#0F172A',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              {Array.from({ length: 12 }, (_, idx) => idx + 1).map(m => (
+                <option key={m} value={m}>Tháng {m}</option>
+              ))}
+            </select>
+          )}
+
+          <select
+            value={selectedYear}
+            onChange={e => setSelectedYear(Number(e.target.value))}
+            aria-label="Chọn năm"
+            style={{
+              height: 34,
+              padding: '0 0.65rem',
+              borderRadius: '8px',
+              border: '1px solid #E2E8F0',
+              backgroundColor: '#FFFFFF',
+              color: '#0F172A',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            {yearOptions.map(y => (
+              <option key={y} value={y}>Năm {y}</option>
+            ))}
+          </select>
 
           <button
             onClick={handleManualRefresh}
@@ -370,22 +461,26 @@ export const InternalDashboard = () => {
             <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
             <span>Làm mới</span>
           </button>
-
-          <button
-            onClick={() => navigate('/internal/reports')}
-            className="btn btn-primary"
-            style={{ height: 34, padding: '0 0.95rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-          >
-            <FileSpreadsheet size={14} />
-            <span>Báo cáo chuyên sâu</span>
-          </button>
         </div>
       </div>
 
-      {/* 2. TẦNG 1: 6 THẺ CHỈ SỐ ĐIỀU HÀNH CẤP CAO (GHC.LEXORA COMMAND CARDS) */}
+      {errorMsg && (
+        <div style={{
+          backgroundColor: '#FEF2F2',
+          border: '1px solid #FECACA',
+          color: '#991B1B',
+          borderRadius: '0.75rem',
+          padding: '0.7rem 1rem',
+          fontSize: '0.82rem',
+          fontWeight: 600
+        }}>
+          ⚠ {errorMsg}
+        </div>
+      )}
+
+      {/* 2. TẦNG 1: 6 THẺ CHỈ SỐ ĐIỀU HÀNH */}
       <div className="dashboard-grid-6">
-        {/* Card 1: Nhân sự đang làm việc */}
-        <div 
+        <div
           className="dashboard-card"
           onClick={() => navigate('/internal/employees')}
           style={{
@@ -397,8 +492,8 @@ export const InternalDashboard = () => {
             transition: 'all 0.2s ease',
             boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#93C5FD'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#93C5FD'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Nhân sự đang làm việc</span>
@@ -407,15 +502,15 @@ export const InternalDashboard = () => {
             </div>
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>
-            {totalEmps}
+            {formatMetric(headcount.activeTotal)}
           </div>
-          <div style={{ fontSize: '0.73rem', color: '#16A34A', marginTop: '0.45rem', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
-            <span>{officialEmps} chính thức • {probationEmps} thử việc</span>
+          <div style={{ fontSize: '0.73rem', color: '#16A34A', marginTop: '0.45rem', fontWeight: 600 }}>
+            {headcount.officialCount} chính thức • {headcount.probationCount} thử việc
+            {headcount.otherActiveCount > 0 ? ` • ${headcount.otherActiveCount} khác` : ''}
           </div>
         </div>
 
-        {/* Card 2: Vào / ra tháng này (Tăng/Giảm ròng song hành) */}
-        <div 
+        <div
           className="dashboard-card"
           onClick={() => navigate('/internal/employees')}
           style={{
@@ -427,27 +522,28 @@ export const InternalDashboard = () => {
             transition: 'all 0.2s ease',
             boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#86EFAC'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#86EFAC'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Vào / ra tháng này</span>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>
+              Vào / ra ({overview?.periodShortLabel || 'Kỳ này'})
+            </span>
             <div style={{ width: 32, height: 32, borderRadius: '8px', backgroundColor: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <UserCheck size={16} />
             </div>
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, lineHeight: 1.1, display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span style={{ color: '#16A34A' }}>+{probationEmps > 0 ? probationEmps : 2}</span>
+            <span style={{ color: '#16A34A' }}>+{formatMetric(headcount.joinedInPeriod)}</span>
             <span style={{ color: '#94A3B8', fontSize: '1.2rem', fontWeight: 400 }}>/</span>
-            <span style={{ color: '#DC2626' }}>-{resignedEmps > 0 ? resignedEmps : 6}</span>
+            <span style={{ color: '#DC2626' }}>-{formatMetric(headcount.resignedInPeriod)}</span>
           </div>
           <div style={{ fontSize: '0.73rem', color: '#64748B', marginTop: '0.45rem', fontWeight: 500 }}>
-            Ra tháng này: <strong style={{ color: '#DC2626' }}>{resignedEmps}</strong> nhân sự
+            Lũy kế đã nghỉ: <strong style={{ color: '#DC2626' }}>{headcount.resignedTotal}</strong> nhân sự
           </div>
         </div>
 
-        {/* Card 3: Tỷ lệ nghỉ việc lũy kế */}
-        <div 
+        <div
           className="dashboard-card"
           onClick={() => navigate('/internal/offboarding/checklist')}
           style={{
@@ -459,8 +555,8 @@ export const InternalDashboard = () => {
             transition: 'all 0.2s ease',
             boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#C7D2FE'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#C7D2FE'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Tỷ lệ nghỉ việc lũy kế</span>
@@ -469,17 +565,18 @@ export const InternalDashboard = () => {
             </div>
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>
-            {turnoverRate}%
+            {formatMetric(`${headcount.turnoverCumulativeRate}%`)}
           </div>
-          <div style={{ fontSize: '0.73rem', color: turnoverRate <= 15 ? '#16A34A' : '#D97706', marginTop: '0.45rem', fontWeight: 600 }}>
-            {turnoverRate <= 15 ? '✓ Ngưỡng an toàn < 15%' : '⚠ Cần rà soát chính sách giữ chân'}
+          <div style={{ fontSize: '0.73rem', color: headcount.turnoverCumulativeRate <= 15 ? '#16A34A' : '#D97706', marginTop: '0.45rem', fontWeight: 600 }}>
+            {headcount.turnoverCumulativeRate <= 15
+              ? `✓ An toàn < 15% (Kỳ: ${headcount.turnoverPeriodRate}%)`
+              : `⚠ ${headcount.resignedTotal}/${headcount.totalEmployees} hồ sơ (Kỳ: ${headcount.turnoverPeriodRate}%)`}
           </div>
         </div>
 
-        {/* Card 4: Cảnh báo đỏ đang mở */}
-        <div 
+        <div
           className="dashboard-card"
-          onClick={() => navigate('/internal/leave/requests')}
+          onClick={() => navigate(pendingQueue.items[0]?.route || '/internal/leave/requests')}
           style={{
             backgroundColor: '#FFFFFF',
             borderRadius: '0.75rem',
@@ -489,25 +586,26 @@ export const InternalDashboard = () => {
             transition: 'all 0.2s ease',
             boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#FECDD3'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#C4B5FD'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Cảnh báo đỏ đang mở</span>
-            <div style={{ width: 32, height: 32, borderRadius: '8px', backgroundColor: '#FFF1F2', color: '#E11D48', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <AlertTriangle size={16} />
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Việc chờ phê duyệt</span>
+            <div style={{ width: 32, height: 32, borderRadius: '8px', backgroundColor: '#F5F3FF', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileCheck2 size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#E11D48', lineHeight: 1.1 }}>
-            {criticalAlertsCount}
+          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: pendingQueue.totalCount > 0 ? '#7C3AED' : '#16A34A', lineHeight: 1.1 }}>
+            {formatMetric(pendingQueue.totalCount)}
           </div>
           <div style={{ fontSize: '0.73rem', color: '#64748B', marginTop: '0.45rem', fontWeight: 500 }}>
-            Tồn trung bình: <strong>1.0 ngày</strong>
+            {pendingQueue.totalCount > 0
+              ? `${pendingQueue.actionApprovalsCount} đơn công/phép • ${pendingQueue.pendingDecisions} quyết định`
+              : 'Tất cả hồ sơ đã được duyệt'}
           </div>
         </div>
 
-        {/* Card 5: Còn tới kỳ chốt công */}
-        <div 
+        <div
           className="dashboard-card"
           onClick={() => navigate('/internal/attendance/records')}
           style={{
@@ -519,8 +617,8 @@ export const InternalDashboard = () => {
             transition: 'all 0.2s ease',
             boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#FDE68A'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#FDE68A'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>Còn tới kỳ chốt công</span>
@@ -529,17 +627,17 @@ export const InternalDashboard = () => {
             </div>
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#D97706', lineHeight: 1.1 }}>
-            {daysToPayrollCutoff} <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#64748B' }}>ngày</span>
+            {formatMetric(payrollCutoff.daysRemaining)} <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#64748B' }}>ngày</span>
           </div>
           <div style={{ fontSize: '0.73rem', color: '#B45309', marginTop: '0.45rem', fontWeight: 600 }}>
-            {pendingLeaves + pendingAdjustments} đơn chờ phê duyệt
+            {payrollCutoff.pendingApprovals} đơn chờ duyệt (Chốt ngày {payrollCutoff.cutoffDay})
           </div>
         </div>
 
-        {/* Card 6: HĐLĐ theo mốc hết hạn */}
-        <div 
+        <div
           className="dashboard-card"
-          onClick={() => navigate('/internal/contracts')}
+          onClick={() => navigate(payrollSummary.source === 'PAYROLL' ? '/internal/payroll/payslips' : '/internal/payroll/periods')}
+          title={formatFullVnd(payrollSummary.displayAmount)}
           style={{
             backgroundColor: '#FFFFFF',
             borderRadius: '0.75rem',
@@ -549,28 +647,33 @@ export const InternalDashboard = () => {
             transition: 'all 0.2s ease',
             boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#FCA5A5'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#6EE7B7'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>HĐLĐ theo mốc hết hạn</span>
-            <div style={{ width: 32, height: 32, borderRadius: '8px', backgroundColor: '#FEF2F2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileText size={16} />
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B' }}>
+              {payrollSummary.source === 'PAYROLL'
+                ? `Quỹ lương (${overview?.periodShortLabel || 'Kỳ này'})`
+                : 'Quỹ lương HĐ hiệu lực'}
+            </span>
+            <div style={{ width: 32, height: 32, borderRadius: '8px', backgroundColor: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <DollarSign size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: expiringContractsCount > 0 ? '#DC2626' : '#16A34A', lineHeight: 1.1 }}>
-            {expiringContractsCount}
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#059669', lineHeight: 1.1 }}>
+            {loading && !overview ? '…' : formatCompactVnd(payrollSummary.displayAmount)}
           </div>
           <div style={{ fontSize: '0.73rem', color: '#64748B', marginTop: '0.45rem', fontWeight: 500 }}>
-            {expiringContractsCount > 0 ? 'Sắp hết hạn trong 30 ngày' : '0 hợp đồng quá hạn'}
+            {payrollSummary.source === 'PAYROLL'
+              ? `Thực lĩnh: ${formatCompactVnd(payrollSummary.subAmount)} (${payrollSummary.payslipCount} phiếu)`
+              : `${payrollSummary.activeContractCount} HĐ ACTIVE • Dự chi/tháng`}
           </div>
         </div>
       </div>
 
-      {/* 3. TẦNG 2: 3 KHỐI BIỂU ĐỒ TRỰC QUAN HÓA (3-COLUMN ANALYTICS GRID THEO GHC.LEXORA) */}
+      {/* 3. TẦNG 2: 3 KHỐI BIỂU ĐỒ TRỰC QUAN HÓA */}
       <div className="dashboard-grid-3">
-        
-        {/* Biểu đồ 1: Quy mô nhân sự 12 tháng (Area / Line Chart) */}
+        {/* Biểu đồ 1: Quy mô nhân sự 12 tháng */}
         <div className="dashboard-card" style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '0.85rem',
@@ -589,16 +692,22 @@ export const InternalDashboard = () => {
                   Quy mô nhân sự 12 tháng
                 </h3>
               </div>
-              <span style={{ fontSize: '0.72rem', color: '#16A34A', fontWeight: 700, backgroundColor: '#DCFCE7', padding: '2px 7px', borderRadius: '4px' }}>
-                +14.2% YoY
+              <span style={{
+                fontSize: '0.72rem',
+                color: growth12Months.growthPercent >= 0 ? '#16A34A' : '#DC2626',
+                fontWeight: 700,
+                backgroundColor: growth12Months.growthPercent >= 0 ? '#DCFCE7' : '#FEE2E2',
+                padding: '2px 7px',
+                borderRadius: '4px'
+              }}>
+                {growth12Months.growthPercent >= 0 ? '+' : ''}{growth12Months.growthPercent}% 12T
               </span>
             </div>
             <p style={{ margin: '0 0 1rem 0', fontSize: '0.77rem', color: '#64748B' }}>
-              Biến động tăng trưởng nhân sự thực tế từ Tháng 11/2025 đến Tháng 10/2026
+              {periodRangeText}
             </p>
           </div>
 
-          {/* SVG Line / Area Chart mượt mà */}
           <div style={{ position: 'relative', width: '100%', height: '145px', display: 'flex', alignItems: 'flex-end', paddingBottom: '22px' }}>
             <svg viewBox="0 0 320 110" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
               <defs>
@@ -607,57 +716,68 @@ export const InternalDashboard = () => {
                   <stop offset="100%" stopColor="#2563EB" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
-              {/* Grid lines */}
               <line x1="0" y1="20" x2="320" y2="20" stroke="#F1F5F9" strokeDasharray="3 3" />
               <line x1="0" y1="55" x2="320" y2="55" stroke="#F1F5F9" strokeDasharray="3 3" />
               <line x1="0" y1="90" x2="320" y2="90" stroke="#F1F5F9" strokeDasharray="3 3" />
 
-              {/* Area */}
-              <polygon
-                points="0,98 29,95 58,92 87,90 116,88 145,84 174,80 203,74 232,68 261,58 290,44 320,24 320,105 0,105"
-                fill="url(#lexoraEmpGrad)"
-              />
-              {/* Line */}
-              <polyline
-                fill="none"
-                stroke="#2563EB"
-                strokeWidth="2.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                points="0,98 29,95 58,92 87,90 116,88 145,84 174,80 203,74 232,68 261,58 290,44 320,24"
-              />
-              {/* Điểm nhấn cuối kỳ */}
-              <circle cx="320" cy="24" r="5" fill="#FFFFFF" stroke="#2563EB" strokeWidth="2.5" />
-              <g transform="translate(265, 2)">
+              {growthChart.polygon && (
+                <polygon points={growthChart.polygon} fill="url(#lexoraEmpGrad)" />
+              )}
+              {growthChart.polyline && (
+                <polyline
+                  fill="none"
+                  stroke="#2563EB"
+                  strokeWidth="2.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  points={growthChart.polyline}
+                />
+              )}
+              {growthChart.coords.map((c, idx) => (
+                <circle
+                  key={c.point.key}
+                  cx={c.x}
+                  cy={c.y}
+                  r={idx === growthChart.coords.length - 1 ? 5 : 2.5}
+                  fill={idx === growthChart.coords.length - 1 ? '#FFFFFF' : '#2563EB'}
+                  stroke="#2563EB"
+                  strokeWidth={idx === growthChart.coords.length - 1 ? 2.5 : 1}
+                >
+                  <title>Tháng {c.point.fullLabel}: {c.point.headcount} NV</title>
+                </circle>
+              ))}
+              <g transform={`translate(${Math.min(265, Math.max(0, growthChart.lastCoord.x - 28))}, ${Math.max(0, growthChart.lastCoord.y - 24)})`}>
                 <rect width="52" height="18" rx="4" fill="#1D4ED8" />
                 <text x="26" y="13" fill="#FFFFFF" fontSize="10" fontWeight="bold" textAnchor="middle">
-                  {totalEmps} NV
+                  {growthChart.lastCoord?.point?.headcount ?? headcount.activeTotal} NV
                 </text>
               </g>
             </svg>
 
-            {/* Trục hoành tháng */}
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#64748B' }}>
-              <span>11</span>
-              <span>12</span>
-              <span>01</span>
-              <span>02</span>
-              <span>03</span>
-              <span>04</span>
-              <span>05</span>
-              <span>06</span>
-              <span>07</span>
-              <span>08</span>
-              <span>09</span>
-              <strong style={{ color: '#1D4ED8' }}>10</strong>
+              {growth12Months.points.map((p, idx) => (
+                <span
+                  key={p.key}
+                  style={{
+                    fontWeight: idx === growth12Months.points.length - 1 ? 700 : 400,
+                    color: idx === growth12Months.points.length - 1 ? '#1D4ED8' : '#64748B'
+                  }}
+                >
+                  {p.monthLabel}
+                </span>
+              ))}
             </div>
           </div>
 
           <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem' }}>
-            <span style={{ color: '#64748B' }}>Tỷ lệ tuyển ròng dương liên tục 6 tháng</span>
-            <button 
+            <span style={{ color: '#64748B' }}>
+              Biến động ròng 6 tháng: <strong style={{ color: net6MonthsChange >= 0 ? '#16A34A' : '#DC2626' }}>
+                {net6MonthsChange >= 0 ? `+${net6MonthsChange}` : net6MonthsChange} nhân sự
+              </strong>
+            </span>
+            <button
               onClick={() => navigate('/internal/employees')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.73rem' }}
             >
               Hồ sơ nhân sự <ChevronRight size={12} />
@@ -665,7 +785,7 @@ export const InternalDashboard = () => {
           </div>
         </div>
 
-        {/* Biểu đồ 2: Cơ cấu theo cấp bậc (Donut Chart) */}
+        {/* Biểu đồ 2: Cơ cấu theo cấp bậc */}
         <div className="dashboard-card" style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '0.85rem',
@@ -687,11 +807,10 @@ export const InternalDashboard = () => {
               <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Pháp lý &amp; Chức danh</span>
             </div>
             <p style={{ margin: '0 0 1rem 0', fontSize: '0.77rem', color: '#64748B' }}>
-              Tỷ trọng quản lý, chuyên viên và nhân sự vận hành trong tổ chức
+              Phân bổ thực tế theo chức danh của {headcount.activeTotal} nhân sự đang làm việc
             </p>
           </div>
 
-          {/* SVG Donut Chart + Legend */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
               <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
@@ -701,86 +820,48 @@ export const InternalDashboard = () => {
                   stroke="#E2E8F0"
                   strokeWidth="3.8"
                 />
-                {/* 1. Nhân viên chuyên môn (54%) - Xanh dương */}
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#2563EB"
-                  strokeWidth="3.8"
-                  strokeDasharray="54, 100"
-                />
-                {/* 2. Trưởng nhóm / Chuyên gia (25%) - Xanh ngọc */}
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#06B6D4"
-                  strokeWidth="3.8"
-                  strokeDasharray="25, 100"
-                  strokeDashoffset="-54"
-                />
-                {/* 3. Quản lý / Manager (14%) - Tím */}
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#7C3AED"
-                  strokeWidth="3.8"
-                  strokeDasharray="14, 100"
-                  strokeDashoffset="-79"
-                />
-                {/* 4. Ban Giám đốc (7%) - Cam */}
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#F59E0B"
-                  strokeWidth="3.8"
-                  strokeDasharray="7, 100"
-                  strokeDashoffset="-93"
-                />
+                {hierarchySegments.map(seg => (
+                  seg.percent > 0 && (
+                    <path
+                      key={seg.level}
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke={seg.color}
+                      strokeWidth="3.8"
+                      strokeDasharray={seg.dashArray}
+                      strokeDashoffset={seg.dashOffset}
+                    >
+                      <title>{seg.label}: {seg.count} NV ({seg.percent}%)</title>
+                    </path>
+                  )
+                ))}
               </svg>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>{totalEmps}</span>
+                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                  {formatMetric(headcount.activeTotal)}
+                </span>
                 <span style={{ fontSize: '0.65rem', color: '#64748B' }}>Nhân sự</span>
               </div>
             </div>
 
-            {/* Legend gọn gàng */}
             <div style={{ flex: 1, minWidth: '130px', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.74rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '2px', backgroundColor: '#F59E0B' }} />
-                  <span>Ban Giám đốc</span>
+              {hierarchySegments.map(seg => (
+                <div key={seg.level} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '2px', backgroundColor: seg.color }} />
+                    <span>{seg.label}</span>
+                  </div>
+                  <strong>{seg.percent}% ({seg.count})</strong>
                 </div>
-                <strong>7%</strong>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '2px', backgroundColor: '#7C3AED' }} />
-                  <span>Quản lý</span>
-                </div>
-                <strong>14%</strong>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '2px', backgroundColor: '#06B6D4' }} />
-                  <span>Trưởng nhóm / CG</span>
-                </div>
-                <strong>25%</strong>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '2px', backgroundColor: '#2563EB' }} />
-                  <span>Nhân viên</span>
-                </div>
-                <strong>54%</strong>
-              </div>
+              ))}
             </div>
           </div>
 
           <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem' }}>
-            <span style={{ color: '#64748B' }}>Mô hình kim tự tháp chuẩn bền vững</span>
-            <button 
+            <span style={{ color: '#64748B' }}>Tổng hợp trực tiếp từ Position.level</span>
+            <button
               onClick={() => navigate('/internal/organization/departments')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.73rem' }}
             >
               Sơ đồ tổ chức <ChevronRight size={12} />
@@ -788,7 +869,7 @@ export const InternalDashboard = () => {
           </div>
         </div>
 
-        {/* Biểu đồ 3: Biến động 6 tháng (Vào vs Ra - Bar Chart) */}
+        {/* Biểu đồ 3: Biến động 6 tháng */}
         <div className="dashboard-card" style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '0.85rem',
@@ -817,83 +898,80 @@ export const InternalDashboard = () => {
               </div>
             </div>
             <p style={{ margin: '0 0 1rem 0', fontSize: '0.77rem', color: '#64748B' }}>
-              So sánh lượng tiếp nhận mới và thôi việc từ Tháng 5 đến Tháng 10
+              {movementRangeText}
             </p>
           </div>
 
-          {/* SVG Biểu đồ Cột kép Vào / Ra */}
           <div style={{ position: 'relative', width: '100%', height: '145px', display: 'flex', alignItems: 'flex-end', paddingBottom: '22px' }}>
             <svg viewBox="0 0 300 110" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-              {/* Grid lines */}
               <line x1="0" y1="20" x2="300" y2="20" stroke="#F1F5F9" strokeDasharray="3 3" />
               <line x1="0" y1="55" x2="300" y2="55" stroke="#F1F5F9" strokeDasharray="3 3" />
               <line x1="0" y1="90" x2="300" y2="90" stroke="#F1F5F9" strokeDasharray="3 3" />
 
-              {/* Dữ liệu 6 tháng: T5, T6, T7, T8, T9, T10 */}
-              {[
-                { x: 20, in: 4, out: 1 },
-                { x: 70, in: 5, out: 2 },
-                { x: 120, in: 6, out: 1 },
-                { x: 170, in: 7, out: 3 },
-                { x: 220, in: 8, out: 2 },
-                { x: 270, in: (probationEmps > 0 ? probationEmps * 4 : 8), out: (resignedEmps > 0 ? resignedEmps : 2) }
-              ].map((m, idx) => {
-                const inHeight = Math.min(85, m.in * 9);
-                const outHeight = Math.min(85, m.out * 9);
+              {movement6Points.map((m, idx) => {
+                const centerX = 25 + idx * 50;
+                const inHeight = m.joined > 0 ? Math.max(4, (m.joined / movementMaxVal) * 76) : 2;
+                const outHeight = m.resigned > 0 ? Math.max(4, (m.resigned / movementMaxVal) * 76) : 2;
                 return (
-                  <g key={idx}>
-                    {/* Cột Vào (Xanh) */}
+                  <g key={m.key}>
                     <rect
-                      x={m.x - 12}
+                      x={centerX - 12}
                       y={95 - inHeight}
                       width="10"
                       height={inHeight}
                       rx="3"
-                      fill="#10B981"
-                    />
-                    {/* Cột Ra (Đỏ) */}
+                      fill={m.joined > 0 ? '#10B981' : '#E2E8F0'}
+                    >
+                      <title>T{m.fullLabel} - Vào: {m.joined}</title>
+                    </rect>
                     <rect
-                      x={m.x + 2}
+                      x={centerX + 2}
                       y={95 - outHeight}
                       width="10"
                       height={outHeight}
                       rx="3"
-                      fill="#EF4444"
-                    />
+                      fill={m.resigned > 0 ? '#EF4444' : '#E2E8F0'}
+                    >
+                      <title>T{m.fullLabel} - Ra: {m.resigned}</title>
+                    </rect>
                   </g>
                 );
               })}
             </svg>
 
-            {/* Trục hoành tháng */}
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-around', fontSize: '0.68rem', color: '#64748B' }}>
-              <span>T05</span>
-              <span>T06</span>
-              <span>T07</span>
-              <span>T08</span>
-              <span>T09</span>
-              <strong style={{ color: '#059669' }}>T10</strong>
+              {movement6Points.map((m, idx) => (
+                <span
+                  key={m.key}
+                  style={{
+                    fontWeight: idx === movement6Points.length - 1 ? 700 : 400,
+                    color: idx === movement6Points.length - 1 ? '#059669' : '#64748B'
+                  }}
+                >
+                  T{m.monthLabel}
+                </span>
+              ))}
             </div>
           </div>
 
           <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem' }}>
-            <span style={{ color: '#64748B' }}>Tỷ lệ giữ chân nhân tài đạt <strong>82.4%</strong></span>
-            <button 
+            <span style={{ color: '#64748B' }}>
+              Tỷ lệ giữ chân nhân sự đạt <strong>{headcount.retentionRate}%</strong>
+            </span>
+            <button
               onClick={() => navigate('/internal/offboarding/checklist')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.73rem' }}
             >
               Bàn giao nghỉ việc <ChevronRight size={12} />
             </button>
           </div>
         </div>
-
       </div>
 
-      {/* 4. TẦNG 3: TRUNG TÂM CẢNH BÁO, VIỆC CHỜ DUYỆT & CHUYÊN CẦN (4-COLUMN OPERATIONAL QUEUE) */}
+      {/* 4. TẦNG 3: TRUNG TÂM CẢNH BÁO, VIỆC CHỜ DUYỆT & CHUYÊN CẦN */}
       <div className="dashboard-grid-4">
-        
-        {/* Widget 1: Cảnh báo — 5 việc gấp nhất */}
+        {/* Widget 1: Cảnh báo */}
         <div className="dashboard-card" style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '0.85rem',
@@ -909,69 +987,75 @@ export const InternalDashboard = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                 <AlertCircle size={16} color="#DC2626" />
                 <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#0F172A' }}>
-                  Cảnh báo — 5 việc gấp nhất
+                  Cảnh báo ({alerts.totalCount})
                 </h4>
               </div>
-              <span style={{ fontSize: '0.68rem', fontWeight: 700, backgroundColor: '#FEE2E2', color: '#DC2626', padding: '2px 6px', borderRadius: '4px' }}>
-                Khẩn cấp
+              <span style={{
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                backgroundColor: alerts.criticalCount > 0 ? '#FEE2E2' : '#DCFCE7',
+                color: alerts.criticalCount > 0 ? '#DC2626' : '#15803D',
+                padding: '2px 6px',
+                borderRadius: '4px'
+              }}>
+                {alerts.criticalCount > 0 ? `${alerts.criticalCount} khẩn cấp` : 'Ổn định'}
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', fontSize: '0.76rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.6rem', backgroundColor: '#FFF5F5', borderRadius: '6px', borderLeft: '3px solid #DC2626' }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>HĐLĐ hết hạn trong 15 ngày</div>
-                  <div style={{ color: '#64748B', fontSize: '0.7rem' }}>NV Lê Công Dũng • Phòng Kế toán</div>
-                </div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#DC2626', backgroundColor: '#FEE2E2', padding: '2px 6px', borderRadius: '4px' }}>
-                  Trễ 1 ngày
-                </span>
+            {alerts.items.length === 0 ? (
+              <div style={{ padding: '1.25rem 0.75rem', textAlign: 'center', fontSize: '0.76rem', color: '#64748B', backgroundColor: '#F8FAFC', borderRadius: '8px' }}>
+                Không có cảnh báo gấp nào cần xử lý.
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', borderLeft: '3px solid #F59E0B' }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>Hết hạn thử việc 60 ngày</div>
-                  <div style={{ color: '#64748B', fontSize: '0.7rem' }}>NV Đoàn Xuân Khoa • Phòng Công nghệ</div>
-                </div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D97706', backgroundColor: '#FEF3C7', padding: '2px 6px', borderRadius: '4px' }}>
-                  Còn 4 ngày
-                </span>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', fontSize: '0.76rem' }}>
+                {alerts.items.map((item, idx) => {
+                  const st = ALERT_BADGE_STYLES[item.severity] || ALERT_BADGE_STYLES.INFO;
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => navigate(item.route)}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.45rem 0.6rem',
+                        backgroundColor: st.rowBg,
+                        borderRadius: '6px',
+                        borderLeft: st.borderLeft,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.title}
+                        </div>
+                        <div style={{ color: '#64748B', fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.subtitle}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: st.badgeColor, backgroundColor: st.badgeBg, padding: '2px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                        {item.badgeText}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', borderLeft: '3px solid #3B82F6' }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>Bổ sung thông tin CCCD &amp; STK</div>
-                  <div style={{ color: '#64748B', fontSize: '0.7rem' }}>3 nhân sự chưa hoàn thiện hồ sơ</div>
-                </div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#2563EB', backgroundColor: '#EFF6FF', padding: '2px 6px', borderRadius: '4px' }}>
-                  Còn 9 ngày
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', borderLeft: '3px solid #64748B' }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>Biên bản bàn giao thiết bị nghỉ việc</div>
-                  <div style={{ color: '#64748B', fontSize: '0.7rem' }}>Trần Quốc Linh • Khối Sản xuất</div>
-                </div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#475569', backgroundColor: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>
-                  Còn 9 ngày
-                </span>
-              </div>
-            </div>
+            )}
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', textAlign: 'right' }}>
-            <button 
+            <button
               onClick={() => navigate('/internal/contracts')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.72rem' }}
             >
-              Xử lý tất cả <ChevronRight size={12} />
+              Xử lý hợp đồng <ChevronRight size={12} />
             </button>
           </div>
         </div>
 
-        {/* Widget 2: Việc chờ tôi (Đơn từ cần phê duyệt) */}
+        {/* Widget 2: Việc chờ tôi */}
         <div className="dashboard-card" style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '0.85rem',
@@ -987,7 +1071,7 @@ export const InternalDashboard = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                 <FileCheck2 size={16} color="#2563EB" />
                 <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#0F172A' }}>
-                  Việc chờ tôi ({pendingLeaves + pendingAdjustments})
+                  Việc chờ tôi ({pendingQueue.totalCount})
                 </h4>
               </div>
               <span style={{ fontSize: '0.68rem', fontWeight: 700, backgroundColor: '#FEF3C7', color: '#B45309', padding: '2px 6px', borderRadius: '4px' }}>
@@ -995,65 +1079,61 @@ export const InternalDashboard = () => {
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', fontSize: '0.76rem' }}>
-              <div 
-                onClick={() => navigate('/internal/leave/requests')}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', cursor: 'pointer' }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>Đơn WFH &amp; Nghỉ phép năm</div>
-                  <div style={{ color: '#64748B', fontSize: '0.7rem' }}>Nguyễn Kim Hương • 1 ngày • 21/10</div>
-                </div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D97706', backgroundColor: '#FEF3C7', padding: '2px 6px', borderRadius: '4px' }}>
-                  Đang duyệt
-                </span>
+            {pendingQueue.items.length === 0 ? (
+              <div style={{ padding: '1.25rem 0.75rem', textAlign: 'center', fontSize: '0.76rem', color: '#64748B', backgroundColor: '#F8FAFC', borderRadius: '8px' }}>
+                Không có hồ sơ hay đơn từ nào đang chờ duyệt.
               </div>
-
-              <div 
-                onClick={() => navigate('/internal/leave/requests')}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', cursor: 'pointer' }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>Đơn nghỉ phép con ốm</div>
-                  <div style={{ color: '#64748B', fontSize: '0.7rem' }}>Võ Kim Việt • 2 ngày • 19/10</div>
-                </div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D97706', backgroundColor: '#FEF3C7', padding: '2px 6px', borderRadius: '4px' }}>
-                  Đang duyệt
-                </span>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', fontSize: '0.76rem' }}>
+                {pendingQueue.items.map(item => {
+                  const isCritical = item.badgeTone === 'CRITICAL';
+                  const isInfo = item.badgeTone === 'INFO';
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => navigate(item.route)}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.45rem 0.6rem',
+                        backgroundColor: isCritical ? '#FFF5F5' : '#F8FAFC',
+                        borderRadius: '6px',
+                        border: `1px solid ${isCritical ? '#FED7D7' : '#E2E8F0'}`,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.title}
+                        </div>
+                        <div style={{ color: '#64748B', fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.subtitle}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        color: isCritical ? '#DC2626' : isInfo ? '#2563EB' : '#D97706',
+                        backgroundColor: isCritical ? '#FEE2E2' : isInfo ? '#EFF6FF' : '#FEF3C7',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {item.badgeText}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div 
-                onClick={() => navigate('/internal/attendance/adjustments')}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.6rem', backgroundColor: '#FFF5F5', borderRadius: '6px', border: '1px solid #FED7D7', cursor: 'pointer' }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>Đơn xác nhận đi muộn / Quên gạt</div>
-                  <div style={{ color: '#64748B', fontSize: '0.7rem' }}>Mai Ngọc Tuấn • 1 ngày • 18/10</div>
-                </div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#DC2626', backgroundColor: '#FEE2E2', padding: '2px 6px', borderRadius: '4px' }}>
-                  Trễ 2h
-                </span>
-              </div>
-
-              <div 
-                onClick={() => navigate('/internal/attendance/adjustments')}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', cursor: 'pointer' }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0F172A' }}>Đơn tăng ca ngoài giờ (OT 2.5h)</div>
-                  <div style={{ color: '#64748B', fontSize: '0.7rem' }}>Nguyễn Anh Cương • 15/10</div>
-                </div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#2563EB', backgroundColor: '#EFF6FF', padding: '2px 6px', borderRadius: '4px' }}>
-                  Chờ xem
-                </span>
-              </div>
-            </div>
+            )}
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', textAlign: 'right' }}>
-            <button 
+            <button
               onClick={() => navigate('/internal/leave/requests')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.72rem' }}
             >
               Hòm duyệt đơn <ChevronRight size={12} />
@@ -1080,63 +1160,48 @@ export const InternalDashboard = () => {
                   Chấm công &amp; phép
                 </h4>
               </div>
-              <span style={{ fontSize: '0.72rem', color: '#64748B' }}>T10/2026</span>
+              <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600 }}>
+                {overview?.periodShortLabel || `T${now.getMonth() + 1}/${now.getFullYear()}`}
+              </span>
             </div>
 
-            {/* Hai ô số to: Đơn chưa duyệt vs Phép sắp hết hạn */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.85rem' }}>
               <div style={{ backgroundColor: '#FFF7ED', padding: '0.65rem', borderRadius: '8px', border: '1px solid #FFEDD5' }}>
                 <div style={{ fontSize: '0.7rem', color: '#C2410C', fontWeight: 600 }}>Đơn chưa duyệt</div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#EA580C', lineHeight: 1.1, marginTop: '2px' }}>
-                  {pendingLeaves + pendingAdjustments}
+                  {formatMetric(attendanceAndLeave.pendingApprovals)}
                 </div>
               </div>
               <div style={{ backgroundColor: '#F8FAFC', padding: '0.65rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                 <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>Phép sắp hết hạn</div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', lineHeight: 1.1, marginTop: '2px' }}>
-                  0 <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>ngày</span>
+                  {formatMetric(attendanceAndLeave.expiringLeaveDays)} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>ngày</span>
                 </div>
               </div>
             </div>
 
-            {/* Phân rã 3 thanh tiến độ: Phép, WFH, Công tác */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', fontSize: '0.74rem' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                  <span style={{ color: '#475569' }}>Nghỉ phép năm</span>
-                  <strong>{summary.approvedLeaves || 7} đơn (35%)</strong>
+              {attendanceAndLeave.breakdown.map(item => (
+                <div key={item.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                    <span style={{ color: '#475569' }}>{item.label}</span>
+                    <strong>{item.count} đơn ({item.percent}%)</strong>
+                  </div>
+                  <div style={{ height: '5px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${item.percent}%`, backgroundColor: item.color, borderRadius: '999px' }} />
+                  </div>
                 </div>
-                <div style={{ height: '5px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '35%', backgroundColor: '#2563EB', borderRadius: '999px' }} />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                  <span style={{ color: '#475569' }}>Làm việc từ xa (WFH)</span>
-                  <strong>4 đơn (20%)</strong>
-                </div>
-                <div style={{ height: '5px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '20%', backgroundColor: '#7C3AED', borderRadius: '999px' }} />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                  <span style={{ color: '#475569' }}>Đi muộn &amp; Ân hạn 5p</span>
-                  <strong>9 đơn (45%)</strong>
-                </div>
-                <div style={{ height: '5px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '45%', backgroundColor: '#06B6D4', borderRadius: '999px' }} />
-                </div>
+              ))}
+              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>
+                Lượt đi muộn ghi nhận trong kỳ: <strong>{attendanceAndLeave.lateAttendanceCount}</strong>
               </div>
             </div>
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', textAlign: 'right' }}>
-            <button 
+            <button
               onClick={() => navigate('/internal/attendance/records')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.72rem' }}
             >
               Bảng công ma trận <ChevronRight size={12} />
@@ -1164,66 +1229,57 @@ export const InternalDashboard = () => {
                 </h4>
               </div>
               <span style={{ fontSize: '0.68rem', fontWeight: 700, backgroundColor: '#FEF3C7', color: '#B45309', padding: '2px 6px', borderRadius: '4px' }}>
-                {openJobs} vị trí mở
+                {recruitment.openJobsCount} tin đang mở
               </span>
             </div>
 
             <p style={{ margin: '0 0 0.65rem 0', fontSize: '0.75rem', color: '#64748B' }}>
-              Thu hút <strong>{totalCands} ứng viên</strong> nộp CV trong kỳ này
+              Thu hút <strong>{recruitment.candidatesInPeriod} ứng viên</strong> trong kỳ (Tổng {recruitment.totalCandidatesAll} CV)
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.75rem' }}>
-              <div 
-                onClick={() => navigate('/internal/recruitment/offers')}
-                style={{ padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ color: '#0F172A' }}>Kỹ sư Lập trình Fullstack</strong>
-                  <span style={{ fontSize: '0.7rem', color: '#2563EB', fontWeight: 700 }}>12 CV</span>
-                </div>
-                <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Khối Sản xuất • Cần 2 vị trí</div>
+            {recruitment.openJobs.length === 0 ? (
+              <div style={{ padding: '1rem 0.75rem', textAlign: 'center', fontSize: '0.75rem', color: '#64748B', backgroundColor: '#F8FAFC', borderRadius: '8px' }}>
+                Hiện chưa có chiến dịch tuyển dụng nào đang mở.
               </div>
-
-              <div 
-                onClick={() => navigate('/internal/recruitment/offers')}
-                style={{ padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ color: '#0F172A' }}>Thực tập sinh Quản lý Hạ tầng</strong>
-                  <span style={{ fontSize: '0.7rem', color: '#2563EB', fontWeight: 700 }}>8 CV</span>
-                </div>
-                <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Khối Hạ tầng • Cần 1 vị trí</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.75rem' }}>
+                {recruitment.openJobs.map(job => (
+                  <div
+                    key={job.id}
+                    onClick={() => navigate('/internal/recruitment/candidates')}
+                    style={{ padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem' }}>
+                      <strong style={{ color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {job.title}
+                      </strong>
+                      <span style={{ fontSize: '0.7rem', color: '#2563EB', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        {job.candidateCount} CV
+                      </span>
+                    </div>
+                    <div style={{ color: '#64748B', fontSize: '0.68rem' }}>
+                      {job.deptName} • Cần {job.amount} vị trí
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              <div 
-                onClick={() => navigate('/internal/recruitment/offers')}
-                style={{ padding: '0.45rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ color: '#0F172A' }}>Chuyên viên C&amp;B Tiền lương</strong>
-                  <span style={{ fontSize: '0.7rem', color: '#2563EB', fontWeight: 700 }}>5 CV</span>
-                </div>
-                <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Phòng Nhân sự • Cần 1 vị trí</div>
-              </div>
-            </div>
+            )}
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', textAlign: 'right' }}>
-            <button 
+            <button
               onClick={() => navigate('/internal/recruitment/candidates')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.72rem' }}
             >
               Hệ thống ATS <ChevronRight size={12} />
             </button>
           </div>
         </div>
-
       </div>
 
-      {/* 5. TẦNG 4: BẢNG ĐIỀU PHỐI TIẾN TRÌNH & CHẤT LƯỢNG HỒ SƠ (4-PANEL GOVERNANCE GRID) */}
+      {/* 5. TẦNG 4: BẢNG ĐIỀU PHỐI TIẾN TRÌNH & CHẤT LƯỢNG HỒ SƠ */}
       <div className="dashboard-grid-4">
-        
         {/* Panel 1: Hội nhập (Onboarding) */}
         <div className="dashboard-card" style={{
           backgroundColor: '#FFFFFF',
@@ -1241,50 +1297,46 @@ export const InternalDashboard = () => {
                 Hội nhập (Onboarding)
               </h4>
               <span style={{ fontSize: '0.7rem', color: '#64748B' }}>
-                Đang chạy: <strong>{probationEmps || 2}</strong>
+                Đang chạy: <strong>{onboarding.activeCount}</strong>
               </span>
             </div>
             <p style={{ margin: '0 0 0.8rem 0', fontSize: '0.74rem', color: '#64748B' }}>
-              Tiến độ hoàn thành tài liệu hội nhập và bàn giao ban đầu
+              Tiến độ hoàn thành checklist hội nhập thực tế của nhân sự mới
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', fontSize: '0.76rem' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>Ngô Bảo Phương (DEV)</span>
-                  <span style={{ fontWeight: 700, color: '#16A34A' }}>80% • Hạn 12/10</span>
-                </div>
-                <div style={{ height: '6px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '80%', backgroundColor: '#10B981', borderRadius: '999px' }} />
-                </div>
+            {onboarding.items.length === 0 ? (
+              <div style={{ padding: '1rem 0.75rem', textAlign: 'center', fontSize: '0.75rem', color: '#64748B', backgroundColor: '#F8FAFC', borderRadius: '8px' }}>
+                Chưa có hồ sơ hội nhập đang thực hiện.
               </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>Lý Kim Cương (MKT)</span>
-                  <span style={{ fontWeight: 700, color: '#D97706' }}>45% • Hạn 15/10</span>
-                </div>
-                <div style={{ height: '6px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '45%', backgroundColor: '#F59E0B', borderRadius: '999px' }} />
-                </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', fontSize: '0.76rem' }}>
+                {onboarding.items.map(item => {
+                  const barColor = item.percent >= 75 ? '#10B981' : item.percent >= 40 ? '#F59E0B' : '#3B82F6';
+                  const textColor = item.percent >= 75 ? '#16A34A' : item.percent >= 40 ? '#D97706' : '#2563EB';
+                  return (
+                    <div key={item.employeeId}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', gap: '0.4rem' }}>
+                        <span style={{ fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.fullName} ({item.deptCode})
+                        </span>
+                        <span style={{ fontWeight: 700, color: textColor, whiteSpace: 'nowrap' }}>
+                          {item.percent}% • Hạn {item.dueDateLabel}
+                        </span>
+                      </div>
+                      <div style={{ height: '6px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${item.percent}%`, backgroundColor: barColor, borderRadius: '999px' }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontWeight: 600, color: '#0F172A' }}>Phạm Hữu Sơn (BA)</span>
-                  <span style={{ fontWeight: 700, color: '#2563EB' }}>20% • Hạn 20/10</span>
-                </div>
-                <div style={{ height: '6px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '20%', backgroundColor: '#3B82F6', borderRadius: '999px' }} />
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', textAlign: 'right' }}>
-            <button 
+            <button
               onClick={() => navigate('/internal/onboarding/checklist')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.72rem' }}
             >
               Checklist hội nhập <ChevronRight size={12} />
@@ -1292,7 +1344,7 @@ export const InternalDashboard = () => {
           </div>
         </div>
 
-        {/* Panel 2: Bảng Ma Trận Quy Trình Đang Chạy (Mở vs Trễ) */}
+        {/* Panel 2: Quy trình đang chạy */}
         <div className="dashboard-card" style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '0.85rem',
@@ -1323,34 +1375,30 @@ export const InternalDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ borderBottom: '1px solid #F8FAFC' }}>
-                  <td style={{ padding: '6px 0', color: '#0F172A', fontWeight: 600 }}>Quyết định đang thực hiện</td>
-                  <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#2563EB' }}>{summary.totalDecisions || 12}</td>
-                  <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#64748B' }}>0</td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #F8FAFC' }}>
-                  <td style={{ padding: '6px 0', color: '#0F172A', fontWeight: 600 }}>Đề xuất duyệt lương / bổ nhiệm</td>
-                  <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#2563EB' }}>3</td>
-                  <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#DC2626' }}>1</td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #F8FAFC' }}>
-                  <td style={{ padding: '6px 0', color: '#0F172A', fontWeight: 600 }}>Đơn từ chờ duyệt</td>
-                  <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#2563EB' }}>{pendingLeaves + pendingAdjustments}</td>
-                  <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#64748B' }}>0</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '6px 0', color: '#0F172A', fontWeight: 600 }}>Onboarding tân binh</td>
-                  <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#2563EB' }}>{probationEmps || 2}</td>
-                  <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#64748B' }}>0</td>
-                </tr>
+                {processes.map((proc, idx) => (
+                  <tr
+                    key={proc.label}
+                    onClick={() => navigate(proc.route)}
+                    style={{
+                      borderBottom: idx === processes.length - 1 ? 'none' : '1px solid #F8FAFC',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <td style={{ padding: '6px 0', color: '#0F172A', fontWeight: 600 }}>{proc.label}</td>
+                    <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: '#2563EB' }}>{proc.openCount}</td>
+                    <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: proc.lateCount > 0 ? '#DC2626' : '#64748B' }}>
+                      {proc.lateCount}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', textAlign: 'right' }}>
-            <button 
+            <button
               onClick={() => navigate('/internal/decisions/all')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.72rem' }}
             >
               Xem quyết định <ChevronRight size={12} />
@@ -1383,27 +1431,35 @@ export const InternalDashboard = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px' }}>
                 <span style={{ color: '#64748B' }}>Đã quá hạn</span>
-                <strong style={{ color: '#059669' }}>0 HĐ</strong>
+                <strong style={{ color: contractsSummary.overdueCount > 0 ? '#DC2626' : '#059669' }}>
+                  {contractsSummary.overdueCount} HĐ
+                </strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.6rem', backgroundColor: '#FFF5F5', borderRadius: '6px', border: '1px solid #FEE2E2' }}>
-                <span style={{ color: '#DC2626', fontWeight: 600 }}>Hết hạn ≤ 15 ngày</span>
-                <strong style={{ color: '#DC2626' }}>{expiringContractsCount > 0 ? 1 : 0} HĐ</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.6rem', backgroundColor: contractsSummary.le15Count > 0 ? '#FFF5F5' : '#F8FAFC', borderRadius: '6px', border: contractsSummary.le15Count > 0 ? '1px solid #FEE2E2' : 'none' }}>
+                <span style={{ color: contractsSummary.le15Count > 0 ? '#DC2626' : '#475569', fontWeight: 600 }}>Hết hạn ≤ 15 ngày</span>
+                <strong style={{ color: contractsSummary.le15Count > 0 ? '#DC2626' : '#059669' }}>
+                  {contractsSummary.le15Count} HĐ
+                </strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px' }}>
                 <span style={{ color: '#475569' }}>Hết hạn 16 – 45 ngày</span>
-                <strong style={{ color: '#D97706' }}>{expiringContractsCount > 1 ? expiringContractsCount - 1 : 1} HĐ</strong>
+                <strong style={{ color: contractsSummary.d16to45Count > 0 ? '#D97706' : '#64748B' }}>
+                  {contractsSummary.d16to45Count} HĐ
+                </strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.6rem', backgroundColor: '#F8FAFC', borderRadius: '6px' }}>
                 <span style={{ color: '#475569' }}>Hết hạn 46 – 90 ngày</span>
-                <strong style={{ color: '#2563EB' }}>3 HĐ</strong>
+                <strong style={{ color: contractsSummary.d46to90Count > 0 ? '#2563EB' : '#64748B' }}>
+                  {contractsSummary.d46to90Count} HĐ
+                </strong>
               </div>
             </div>
           </div>
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', textAlign: 'right' }}>
-            <button 
+            <button
               onClick={() => navigate('/internal/contracts')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.72rem' }}
             >
               Quản lý hợp đồng <ChevronRight size={12} />
@@ -1411,7 +1467,7 @@ export const InternalDashboard = () => {
           </div>
         </div>
 
-        {/* Panel 4: Chất lượng hồ sơ & Tuân thủ định danh (Circular Gauge) */}
+        {/* Panel 4: Chất lượng hồ sơ */}
         <div className="dashboard-card" style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '0.85rem',
@@ -1430,12 +1486,12 @@ export const InternalDashboard = () => {
               <span style={{
                 fontSize: '0.7rem',
                 fontWeight: 700,
-                color: dataQualityStats.completenessPercent >= 80 ? '#15803D' : '#B45309',
-                backgroundColor: dataQualityStats.completenessPercent >= 80 ? '#DCFCE7' : '#FEF3C7',
+                color: dataQuality.completenessPercent >= 80 ? '#15803D' : '#B45309',
+                backgroundColor: dataQuality.completenessPercent >= 80 ? '#DCFCE7' : '#FEF3C7',
                 padding: '2px 6px',
                 borderRadius: '4px'
               }}>
-                {dataQualityStats.completenessPercent >= 80 ? 'Chuẩn hóa cao' : 'Cần rà soát'}
+                {dataQuality.completenessPercent >= 80 ? 'Chuẩn hóa cao' : 'Cần rà soát'}
               </span>
             </div>
             <p style={{ margin: '0 0 0.8rem 0', fontSize: '0.74rem', color: '#64748B' }}>
@@ -1443,7 +1499,6 @@ export const InternalDashboard = () => {
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.65rem' }}>
-              {/* Circular Gauge Donut */}
               <div style={{ position: 'relative', width: 66, height: 66, flexShrink: 0 }}>
                 <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
                   <path
@@ -1455,36 +1510,35 @@ export const InternalDashboard = () => {
                   <path
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     fill="none"
-                    stroke="#10B981"
+                    stroke={dataQuality.completenessPercent >= 80 ? '#10B981' : '#F59E0B'}
                     strokeWidth="3.8"
-                    strokeDasharray={`${dataQualityStats.completenessPercent}, 100`}
+                    strokeDasharray={`${dataQuality.completenessPercent}, 100`}
                   />
                 </svg>
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F172A' }}>
-                    {dataQualityStats.completenessPercent}%
+                    {dataQuality.completenessPercent}%
                   </span>
                 </div>
               </div>
 
-              {/* Checklist các điểm còn khuyết */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.73rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
-                  <span>Khóa lương (chưa có STK):</span>
-                  <strong style={{ color: dataQualityStats.missingBank > 0 ? '#DC2626' : '#059669' }}>
-                    {dataQualityStats.missingBank} NV
+                  <span>Chưa có STK ngân hàng:</span>
+                  <strong style={{ color: dataQuality.missingBank > 0 ? '#DC2626' : '#059669' }}>
+                    {dataQuality.missingBank} NV
                   </strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
                   <span>Chưa có CCCD / Định danh:</span>
-                  <strong style={{ color: dataQualityStats.missingCccd > 0 ? '#D97706' : '#059669' }}>
-                    {dataQualityStats.missingCccd} NV
+                  <strong style={{ color: dataQuality.missingCccd > 0 ? '#D97706' : '#059669' }}>
+                    {dataQuality.missingCccd} NV
                   </strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
                   <span>Chưa có MST / Sổ BHXH:</span>
-                  <strong style={{ color: dataQualityStats.missingTaxOrBhxh > 0 ? '#D97706' : '#059669' }}>
-                    {dataQualityStats.missingTaxOrBhxh} NV
+                  <strong style={{ color: dataQuality.missingTaxOrBhxh > 0 ? '#D97706' : '#059669' }}>
+                    {dataQuality.missingTaxOrBhxh} NV
                   </strong>
                 </div>
               </div>
@@ -1493,20 +1547,18 @@ export const InternalDashboard = () => {
 
           <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem' }}>
             <span style={{ color: '#64748B' }}>
-              {dataQualityStats.completeProfiles}/{dataQualityStats.total} hồ sơ chuẩn
+              {dataQuality.completeProfiles}/{dataQuality.total} hồ sơ chuẩn
             </span>
-            <button 
+            <button
               onClick={() => navigate('/internal/employees')}
-              className="btn btn-outline" 
+              className="btn btn-outline"
               style={{ height: 26, padding: '0 0.55rem', fontSize: '0.72rem' }}
             >
               Bổ sung ngay <ChevronRight size={12} />
             </button>
           </div>
         </div>
-
       </div>
-
     </div>
   );
 };

@@ -5,6 +5,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../../utils/excelHelper';
 import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
+import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 // Hàm loại bỏ dấu tiếng Việt
 const removeVietnameseTones = (str) => {
@@ -136,14 +138,13 @@ export const Positions = () => {
   
   const [filterDepartment, setFilterDepartment] = useState('');
   const [filterLevel, setFilterLevel] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
   const [editingId, setEditingId] = useState('');
   const [formData, setFormData] = useState({ code: '', title: '', description: '', level: 'Staff', minSalary: 0, maxSalary: 0, departmentId: '', status: 'ACTIVE' });
   const [deleteId, setDeleteId] = useState(null);
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const [lockTarget, setLockTarget] = useState(null);
 
   // Modal Nhập dữ liệu dùng chung
@@ -213,11 +214,12 @@ export const Positions = () => {
     }
   ];
 
-  // Xuất file Excel danh mục vị trí chức danh
-  const handleExportExcelPositions = () => {
-    if (positions.length === 0) return toast.error('Không có dữ liệu vị trí để xuất.');
+  // Xuất file Excel danh mục vị trí chức danh (hỗ trợ xuất toàn bộ hoặc các dòng đã chọn)
+  const handleExportExcelPositions = (rowsOverride = null) => {
+    const sourceList = Array.isArray(rowsOverride) ? rowsOverride : positions;
+    if (sourceList.length === 0) return toast.error('Không có dữ liệu vị trí để xuất.');
     try {
-      const exportData = positions.map(p => ({
+      const exportData = sourceList.map(p => ({
         code: p.code || '',
         title: p.title,
         departmentName: p.department?.name || 'Chưa gán phòng ban',
@@ -241,11 +243,11 @@ export const Positions = () => {
 
       exportToExcel({
         data: exportData,
-        fileName: 'Danh_Muc_Chuc_Danh_Vi_Tri_Viec_Lam',
+        fileName: Array.isArray(rowsOverride) ? `Vi_Tri_Da_Chon_${sourceList.length}` : 'Danh_Muc_Chuc_Danh_Vi_Tri_Viec_Lam',
         sheetName: 'Danh mục vị trí',
         columns
       });
-      toast.success('Đã xuất file Excel danh mục chức danh thành công!');
+      toast.success(`Đã xuất file Excel (${sourceList.length} vị trí) thành công!`);
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi xuất file Excel vị trí.');
@@ -431,8 +433,42 @@ export const Positions = () => {
     return matchSearch && matchDept && matchLevel;
   });
 
-  const totalPages = Math.ceil(filteredPositions.length / itemsPerPage);
-  const paginatedPositions = filteredPositions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedPositions,
+  } = usePagination(filteredPositions, 10);
+
+  const {
+    selectedIds,
+    selectedSet,
+    selectedCount,
+    toggleOne,
+    toggleMany,
+    getHeaderCheckState,
+    clearSelection,
+    getSelectedItems
+  } = useTableSelection(positions);
+
+  const headerCheckState = getHeaderCheckState(paginatedPositions);
+
+  const handleBatchDeletePositions = () => {
+    runBatchDelete({
+      count: selectedCount,
+      itemLabel: 'vị trí',
+      confirmText: 'Hệ thống sẽ xóa các vị trí đã chọn (những vị trí đang có nhân viên đảm nhiệm sẽ được tự động giữ lại).',
+      executeDeletes: () => selectedIds.map(id => axios.delete(`http://localhost:5000/api/positions/${id}`)),
+      onDone: () => {
+        clearSelection();
+        fetchPositions();
+      },
+      setIsDeleting: setIsBatchDeleting
+    });
+  };
 
   return (
     <div className="flex-col gap-6 animate-fade-in relative">
@@ -444,7 +480,7 @@ export const Positions = () => {
         <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
           {/* Nút 1: Xuất dữ liệu */}
           <button 
-            onClick={handleExportExcelPositions} 
+            onClick={() => handleExportExcelPositions()} 
             className="btn btn-outline"
             style={{ 
               display: 'flex', 
@@ -497,23 +533,23 @@ export const Positions = () => {
       </div>
 
       <div className="card glass flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center w-full max-w-4xl">
-            <div style={{ position: 'relative', width: '40%' }}>
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+        <div className="flex justify-between items-center flex-wrap gap-3">
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', width: '250px', maxWidth: '100%' }}>
+              <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
-                placeholder="Tìm kiếm mã/tên vị trí..."
+                placeholder="Tìm mã, tên vị trí..."
                 className="form-input w-full"
-                style={{ paddingLeft: '2.5rem' }}
+                style={{ paddingLeft: '2.35rem', height: 38, fontSize: '0.85rem' }}
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
             
             <select
-              className="form-input flex-1 bg-white border border-[var(--border)] text-[var(--text-heading)] rounded-lg outline-none"
-              style={{ padding: '0.6rem 1rem' }}
+              className="form-input bg-white border border-[var(--border)] text-[var(--text-heading)] rounded-lg outline-none"
+              style={{ width: '195px', height: 38, fontSize: '0.85rem' }}
               value={filterDepartment}
               onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
             >
@@ -524,8 +560,8 @@ export const Positions = () => {
             </select>
 
             <select
-              className="form-input flex-1 bg-white border border-[var(--border)] text-[var(--text-heading)] rounded-lg outline-none"
-              style={{ padding: '0.6rem 1rem' }}
+              className="form-input bg-white border border-[var(--border)] text-[var(--text-heading)] rounded-lg outline-none"
+              style={{ width: '180px', height: 38, fontSize: '0.85rem' }}
               value={filterLevel}
               onChange={(e) => { setFilterLevel(e.target.value); setCurrentPage(1); }}
             >
@@ -537,10 +573,27 @@ export const Positions = () => {
           </div>
         </div>
 
+        <BulkSelectionBar
+          selectedCount={selectedCount}
+          itemLabel="vị trí"
+          onExportSelected={() => handleExportExcelPositions(getSelectedItems())}
+          onDeleteSelected={handleBatchDeletePositions}
+          onClear={clearSelection}
+          isDeleting={isBatchDeleting}
+        />
+
         <div className="table-container">
           <table>
             <thead>
               <tr>
+                <th style={{ width: '44px', textAlign: 'center' }}>
+                  <TableCheckbox
+                    checked={headerCheckState.checked}
+                    indeterminate={headerCheckState.indeterminate}
+                    onChange={() => toggleMany(paginatedPositions)}
+                    title="Chọn tất cả trang này"
+                  />
+                </th>
                 <th>Mã vị trí</th>
                 <th>Tên vị trí / Chức danh</th>
                 <th>Phòng ban</th>
@@ -553,11 +606,20 @@ export const Positions = () => {
             <tbody>
               {paginatedPositions.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center text-muted py-8">Không tìm thấy vị trí nào</td>
+                  <td colSpan="8" className="text-center text-muted py-8">Không tìm thấy vị trí nào</td>
                 </tr>
               ) : (
-                paginatedPositions.map(pos => (
-                  <tr key={pos.id}>
+                paginatedPositions.map(pos => {
+                  const isChecked = selectedSet.has(pos.id);
+                  return (
+                  <tr key={pos.id} style={isChecked ? { backgroundColor: '#F8FAFF' } : undefined}>
+                    <td style={{ textAlign: 'center' }}>
+                      <TableCheckbox
+                        checked={isChecked}
+                        onChange={() => toggleOne(pos.id)}
+                        title={`Chọn ${pos.title}`}
+                      />
+                    </td>
                     <td>
                       <span style={{ color: 'var(--primary)', fontWeight: 600, fontFamily: 'monospace', letterSpacing: '0.5px' }}>
                         {pos.code}
@@ -646,44 +708,22 @@ export const Positions = () => {
                       </div>
                     </td>
                   </tr>
-                )))}
+                  );
+                }))}
             </tbody>
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-4 px-2">
-            <span className="text-sm text-muted">
-              Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredPositions.length)} trong tổng số {filteredPositions.length} vị trí
-            </span>
-            <div className="flex gap-2">
-              <button 
-                className="btn btn-outline" 
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              >
-                Trước
-              </button>
-              {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ minWidth: '40px', padding: '0.5rem' }}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              ))}
-              <button 
-                className="btn btn-outline"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              >
-                Sau
-              </button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="vị trí"
+          flush={false}
+        />
       </div>
 
       {showModal && createPortal(

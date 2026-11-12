@@ -4,12 +4,13 @@ import { createPortal } from 'react-dom';
 import { 
   Download, Calculator, Lock, Unlock, Banknote, ShieldAlert, 
   FileSignature, Search, Filter, Eye, EyeOff, X, ArrowLeft, Printer, 
-  CheckCircle, User, Briefcase, Calendar, RefreshCw, ChevronLeft,
-  ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, Users, Edit3, Settings
+  CheckCircle, User, Briefcase, Calendar, RefreshCw,
+  FileSpreadsheet, Users, Edit3, Settings
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const PayrollMgmt = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -35,11 +36,9 @@ export const PayrollMgmt = () => {
     satAnchor: '2026-11-07'
   });
   
-  // Bộ lọc tìm kiếm & Phân trang
+  // Bộ lọc tìm kiếm
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
 
   // Modal chi tiết phiếu lương nhân viên & Modal chỉnh sửa dòng lương LLA
   const [selectedPayslip, setSelectedPayslip] = useState(null);
@@ -65,6 +64,9 @@ export const PayrollMgmt = () => {
     const companyPayout = salaryByDays + fixedAllowance - insDed;
     return {
       contractType: 'OFFICIAL_1Y',
+      stageCode: 'OFFICIAL',
+      stageLabel: 'Chính thức 100%',
+      internMonthIndex: null,
       probationPercent: 100,
       baseSalary,
       appliedMonthSalary,
@@ -346,37 +348,16 @@ export const PayrollMgmt = () => {
   }, [payrolls, searchTerm, selectedDept]);
 
   // Phân trang dữ liệu
-  const totalRecords = filteredPayrolls.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalRecords);
-  const currentPayrolls = filteredPayrolls.slice(startIndex, endIndex);
-
-  const getPageNumbers = () => {
-    const pages = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (currentPage <= 4) {
-        for (let i = 1; i <= 5; i++) pages.push(i);
-        pages.push('...');
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 3) {
-        pages.push(1);
-        pages.push('...');
-        for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
-      } else {
-        pages.push(1);
-        pages.push('...');
-        pages.push(currentPage - 1);
-        pages.push(currentPage);
-        pages.push(currentPage + 1);
-        pages.push('...');
-        pages.push(totalPages);
-      }
-    }
-    return pages;
-  };
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems: totalRecords,
+    totalPages,
+    startIndex,
+    paginatedItems: currentPayrolls,
+  } = usePagination(filteredPayrolls, 10);
 
   // Preview tính toán trực tiếp trong Modal Sửa dòng lương LLA
   const livePreviewEdit = useMemo(() => {
@@ -738,7 +719,12 @@ export const PayrollMgmt = () => {
                 currentPayrolls.map((pr, idx) => {
                   const lla = getLla(pr);
                   const stt = startIndex + idx + 1;
-                  const isProbation = lla.probationPercent < 100;
+                  const isSplitPeriod = Boolean(lla.isSplitPeriod && Array.isArray(lla.splitSegments) && lla.splitSegments.length > 1);
+                  const isInternship = !isSplitPeriod && (lla.contractType === 'INTERNSHIP' || String(lla.stageCode || '').startsWith('INTERN_'));
+                  const isProbation = !isSplitPeriod && !isInternship && lla.probationPercent < 100;
+                  const splitTooltip = isSplitPeriod
+                    ? lla.splitSegments.map(s => `${s.fromDate.slice(8, 10)}/${s.fromDate.slice(5, 7)}→${s.toDate.slice(8, 10)}/${s.toDate.slice(5, 7)} (${s.stageLabel}): ${s.workingDays} công`).join(' | ')
+                    : '';
                   return (
                     <tr 
                       key={pr.id || idx} 
@@ -757,8 +743,18 @@ export const PayrollMgmt = () => {
                         <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.92rem' }}>
                           {pr.employee?.fullName}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#64748B', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748B', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                           <span>{pr.employee?.code}</span>
+                          {isSplitPeriod && (
+                            <span title={splitTooltip} style={{ backgroundColor: '#EDE9FE', color: '#6D28D9', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                              {lla.stageLabel || 'Tách chặng'}
+                            </span>
+                          )}
+                          {isInternship && (
+                            <span style={{ backgroundColor: '#E0F2FE', color: '#0369A1', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                              {lla.stageLabel || 'Thực tập'}
+                            </span>
+                          )}
                           {isProbation && (
                             <span style={{ backgroundColor: '#FEF3C7', color: '#B45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
                               Thử việc {lla.probationPercent}%
@@ -778,7 +774,20 @@ export const PayrollMgmt = () => {
                       </td>
 
                       {/* Cột D: Lương T{month} */}
-                      <td style={{ textAlign: 'right', borderRight: '1px solid #CBD5E1', padding: '10px 8px', fontWeight: 600 }} title={isProbation ? `Hưởng ${lla.probationPercent}% lương cơ bản trong thời gian thử việc` : '100% lương cơ bản'}>
+                      <td
+                        style={{ textAlign: 'right', borderRight: '1px solid #CBD5E1', padding: '10px 8px', fontWeight: 600 }}
+                        title={
+                          isSplitPeriod
+                            ? splitTooltip
+                            : isInternship
+                              ? (lla.stageCode === 'INTERN_M1'
+                                ? 'Thực tập Tháng 1: Trợ cấp 800.000đ chia theo ngày công chuẩn (0đ phụ cấp)'
+                                : 'Thực tập Tháng 2-3: Trợ cấp 1.500.000đ chia theo ngày công chuẩn + 500.000đ phụ cấp')
+                              : isProbation
+                                ? `Hưởng ${lla.probationPercent}% lương hợp đồng + phụ cấp cố định trong thời gian thử việc`
+                                : '100% lương hợp đồng chính thức'
+                        }
+                      >
                         {formatLlaNumber(lla.appliedMonthSalary)}
                       </td>
 
@@ -927,81 +936,15 @@ export const PayrollMgmt = () => {
         </div>
 
         {/* 4. Thanh Điều Khiển Phân Trang */}
-        <div className="p-4 flex items-center justify-between gap-4 flex-wrap" style={{ borderTop: '1px solid var(--border)', background: '#F8FAFC' }}>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted">
-              Đang hiển thị <strong>{totalRecords === 0 ? 0 : startIndex + 1}</strong> - <strong>{endIndex}</strong> / <strong>{totalRecords}</strong> nhân sự
-            </span>
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-muted">| Hiển thị:</span>
-              <select 
-                className="form-input" 
-                style={{ width: 'auto', height: 30, padding: '0 0.5rem', fontSize: '0.8rem' }}
-                value={pageSize}
-                onChange={e => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-              >
-                <option value={10}>10 / trang</option>
-                <option value={15}>15 / trang</option>
-                <option value={30}>30 / trang</option>
-                <option value={50}>50 / trang</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button 
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(1)}
-              className="btn btn-outline" 
-              style={{ width: 32, height: 32, padding: 0, opacity: currentPage === 1 ? 0.4 : 1 }}
-            >
-              <ChevronsLeft size={16} />
-            </button>
-            <button 
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              className="btn btn-outline" 
-              style={{ width: 32, height: 32, padding: 0, opacity: currentPage === 1 ? 0.4 : 1 }}
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            {getPageNumbers().map((num, i) => (
-              num === '...' ? (
-                <span key={`dots-${i}`} className="px-2 text-muted text-xs">...</span>
-              ) : (
-                <button
-                  key={`page-${num}`}
-                  onClick={() => setCurrentPage(num)}
-                  className={`btn ${currentPage === num ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ minWidth: 32, height: 32, padding: '0 0.5rem', fontSize: '0.8rem', borderRadius: '6px' }}
-                >
-                  {num}
-                </button>
-              )
-            ))}
-
-            <button 
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              className="btn btn-outline" 
-              style={{ width: 32, height: 32, padding: 0, opacity: currentPage >= totalPages ? 0.4 : 1 }}
-            >
-              <ChevronRight size={16} />
-            </button>
-            <button 
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage(totalPages)}
-              className="btn btn-outline" 
-              style={{ width: 32, height: 32, padding: 0, opacity: currentPage >= totalPages ? 0.4 : 1 }}
-            >
-              <ChevronsRight size={16} />
-            </button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={totalRecords}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="nhân sự"
+        />
       </div>
 
       {/* 5. MODAL CHỈNH SỬA TRỰC TIẾP DÒNG BẢNG LƯƠNG LLA */}
@@ -1284,6 +1227,18 @@ export const PayrollMgmt = () => {
                         <span style={{ color: '#CBD5E1' }}>Tổng lương theo ngày công (Cột F):</span>
                         <strong className="money-text">{formatCurrency(lla.salaryByDays)}</strong>
                       </div>
+                      {lla.isSplitPeriod && Array.isArray(lla.splitSegments) && lla.splitSegments.length > 1 && (
+                        <div className="flex-col gap-1 pl-3 py-1.5 rounded text-xs" style={{ backgroundColor: 'rgba(139, 92, 246, 0.12)', borderLeft: '2px solid #A78BFA' }}>
+                          {lla.splitSegments.map((seg, sIdx) => (
+                            <div key={sIdx} className="flex justify-between" style={{ color: '#DDD6FE' }}>
+                              <span>
+                                {seg.fromDate.slice(8, 10)}/{seg.fromDate.slice(5, 7)}→{seg.toDate.slice(8, 10)}/{seg.toDate.slice(5, 7)} ({seg.stageLabel} • {seg.workingDays} công)
+                              </span>
+                              <strong>{formatCurrency(seg.salaryByDays)}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span style={{ color: '#CBD5E1' }}>CTP + Hoa hồng + trách nhiệm + thưởng (Cột G):</span>
                         <strong className="money-text">{formatCurrency(lla.ctpAndCommission)}</strong>

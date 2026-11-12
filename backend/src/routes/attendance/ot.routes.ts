@@ -10,7 +10,8 @@ const managerOrHr = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'DEPARTMEN
 // 1. Lấy danh sách đăng ký làm thêm giờ (HR / Quản lý xem toàn bộ; Nhân viên chỉ xem đơn của mình)
 router.get('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
-    const month = req.query.month as string; // YYYY-MM
+    const month = req.query.month as string; // YYYY-MM or ALL
+    const yearParam = req.query.year as string;
     let employeeId = req.query.employeeId as string;
     const departmentId = req.query.departmentId as string;
     const status = req.query.status as string;
@@ -80,11 +81,16 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
     }
 
     const where: any = {};
-    if (month) {
+    if (month && month !== 'ALL' && month.includes('-')) {
       const [year, m] = month.split('-').map(Number);
       const startDate = new Date(year, m - 1, 1);
       const endDate = new Date(year, m, 0, 23, 59, 59);
       where.date = { gte: startDate, lte: endDate };
+    } else if (yearParam && yearParam !== 'ALL') {
+      const y = Number(yearParam);
+      if (y) {
+        where.date = { gte: new Date(y, 0, 1), lte: new Date(y, 11, 31, 23, 59, 59, 999) };
+      }
     }
     if (employeeId) {
       where.employeeId = employeeId;

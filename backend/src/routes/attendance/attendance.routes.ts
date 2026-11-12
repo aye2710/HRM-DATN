@@ -226,19 +226,31 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
   }
 });
 
-// 3. Check-in (Ân hạn 15 phút từ 08:30 -> 08:45)
+const SELF_CHECKIN_DISABLED_MSG =
+  'Hệ thống chỉ nhận log từ máy chấm công (Vân tay / Khuôn mặt). Nhân viên không được tự chấm công trực tuyến; nếu thiếu log vui lòng gửi đơn Giải trình công.';
+
+const resolveHrCheckEmployeeId = (req: any, res: Response): string | null => {
+  const userRole = req.user?.role?.toUpperCase();
+  const isHrOrAdmin = ['ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF'].includes(userRole);
+  if (!isHrOrAdmin) {
+    res.status(403).json({ error: SELF_CHECKIN_DISABLED_MSG });
+    return null;
+  }
+
+  const employeeId = req.body.employeeId || req.user?.employeeId;
+  if (!employeeId) {
+    res.status(400).json({ error: 'Thiếu thông tin employeeId' });
+    return null;
+  }
+
+  return employeeId;
+};
+
+// 3. Check-in (Chỉ cho phép HR/Admin thao tác; nhân viên chỉ nhận log từ máy chấm công)
 const handleCheckIn = async (req: any, res: Response): Promise<any> => {
   try {
-    const userRole = req.user?.role?.toUpperCase();
-    const isHrOrAdmin = ['ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF'].includes(userRole);
-    
-    // Nếu là nhân viên, chỉ được check-in cho chính mình
-    let employeeId = req.body.employeeId;
-    if (!isHrOrAdmin || !employeeId) {
-      employeeId = req.user?.employeeId;
-    }
-
-    if (!employeeId) return res.status(400).json({ error: 'Thiếu thông tin employeeId' });
+    const employeeId = resolveHrCheckEmployeeId(req, res);
+    if (!employeeId) return;
 
     // Đặt date là lúc 00:00:00 của ngày hôm nay
     const now = new Date();
@@ -316,18 +328,11 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
 router.post('/check-in', authenticateToken, handleCheckIn);
 router.post('/checkin', authenticateToken, handleCheckIn);
 
-// 4. Check-out (Tự động tính ngày công: >=7.5h -> 1.0, >=3.5h -> 0.5, <3.5h -> 0; phát hiện Về sớm EARLY_LEAVE)
+// 4. Check-out (Chỉ cho phép HR/Admin thao tác; nhân viên chỉ nhận log từ máy chấm công)
 const handleCheckOut = async (req: any, res: Response): Promise<any> => {
   try {
-    const userRole = req.user?.role?.toUpperCase();
-    const isHrOrAdmin = ['ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF'].includes(userRole);
-    
-    let employeeId = req.body.employeeId;
-    if (!isHrOrAdmin || !employeeId) {
-      employeeId = req.user?.employeeId;
-    }
-
-    if (!employeeId) return res.status(400).json({ error: 'Thiếu thông tin employeeId' });
+    const employeeId = resolveHrCheckEmployeeId(req, res);
+    if (!employeeId) return;
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

@@ -7,6 +7,7 @@ import axios from 'axios';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 // Avatar styling helpers
 const getAvatarStyle = (name) => {
@@ -69,19 +70,6 @@ export const PreOnboardingHub = () => {
     fetchPreOnboarding();
   }, []);
 
-  // Stats
-  const stats = useMemo(() => {
-    const total = candidates.length;
-    let submittedCount = 0;
-    candidates.forEach(c => {
-      if (c.preOnboarding && c.preOnboarding.cccd) {
-        submittedCount++;
-      }
-    });
-    const pendingCount = total - submittedCount;
-    return { total, submittedCount, pendingCount };
-  }, [candidates]);
-
   // Filter
   const filteredCandidates = useMemo(() => {
     return candidates.filter(c => {
@@ -99,6 +87,21 @@ export const PreOnboardingHub = () => {
       return matchSearch && matchFilter;
     });
   }, [candidates, searchQuery, filterProfile]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedCandidates,
+    resetPage,
+  } = usePagination(filteredCandidates, 10);
+
+  useEffect(() => {
+    resetPage();
+  }, [searchQuery, filterProfile, resetPage]);
 
   const handleOpenAcceptModal = (candidate) => {
     setAcceptingCandidate(candidate);
@@ -194,29 +197,26 @@ export const PreOnboardingHub = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header Toolbar */}
+      {/* 1. Header Trang Chuẩn Doanh Nghiệp */}
       <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '1rem',
-        padding: '1.25rem 1.75rem',
-        border: '1px solid var(--border)',
-        boxShadow: 'var(--shadow-sm)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: '1rem'
+        gap: '1rem',
+        paddingBottom: '0.75rem',
+        borderBottom: '1px solid var(--border)'
       }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
             <div style={{
-              width: 36, height: 36, borderRadius: '8px',
+              width: 38, height: 38, borderRadius: '10px',
               backgroundColor: '#EEF2FF', color: 'var(--primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
               <UserPlus size={20} />
             </div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0, letterSpacing: '-0.02em' }}>
               Tiếp nhận Ứng viên (Pre-onboarding Hub)
             </h1>
           </div>
@@ -235,49 +235,7 @@ export const PreOnboardingHub = () => {
         </button>
       </div>
 
-      {/* 2. Metric Stat Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-        <div style={{
-          backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid var(--border)',
-          padding: '1.15rem 1.25rem', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '1rem'
-        }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', backgroundColor: '#EEF2FF', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Briefcase size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Ứng viên Đã Accept Offer</div>
-            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-heading)' }}>{stats.total}</div>
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid var(--border)',
-          padding: '1.15rem 1.25rem', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '1rem'
-        }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', backgroundColor: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Đã Nộp Hồ sơ Sơ bộ (Online)</div>
-            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#059669' }}>{stats.submittedCount}</div>
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid var(--border)',
-          padding: '1.15rem 1.25rem', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '1rem'
-        }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', backgroundColor: '#FFFBEB', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Clock size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Chờ Bổ sung Thông tin</div>
-            <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#D97706' }}>{stats.pendingCount}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Filter Bar */}
+      {/* 2. Filter Bar */}
       <div style={{
         backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '0.75rem 1.25rem',
         border: '1px solid var(--border)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem',
@@ -307,16 +265,6 @@ export const PreOnboardingHub = () => {
             <option value="PENDING">Chưa nộp thông tin</option>
           </select>
         </div>
-
-        {(searchQuery || filterProfile !== 'ALL') && (
-          <button
-            onClick={() => { setSearchQuery(''); setFilterProfile('ALL'); }}
-            className="btn btn-outline"
-            style={{ height: 38, fontSize: '0.8rem', padding: '0 0.85rem', whiteSpace: 'nowrap' }}
-          >
-            Xóa bộ lọc
-          </button>
-        )}
       </div>
 
       {/* 4. Candidate List / Table */}
@@ -364,7 +312,7 @@ export const PreOnboardingHub = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredCandidates.map(c => {
+                {paginatedCandidates.map(c => {
                   const po = c.preOnboarding;
                   const isSubmitted = po && po.cccd;
                   const startDateStr = c.offer?.startDate ? new Date(c.offer.startDate).toLocaleDateString('vi-VN') : 'Chưa định ngày';
@@ -497,6 +445,17 @@ export const PreOnboardingHub = () => {
               </tbody>
             </table>
           </div>
+        )}
+        {!loading && (
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="ứng viên"
+          />
         )}
       </div>
 

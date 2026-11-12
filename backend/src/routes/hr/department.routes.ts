@@ -7,6 +7,17 @@ const router = Router();
 
 const hrOrgOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER');
 
+/**
+ * Kiểm tra giá trị định biên riêng của từng phòng ban (độc lập giữa cha và con;
+ * quan hệ cha-con chỉ thể hiện cơ cấu trực thuộc trên cây tổ chức).
+ */
+const validateDepartmentQuota = (newQuota: number): string | null => {
+  if (!Number.isFinite(newQuota) || newQuota < 1) {
+    return 'Định biên nhân sự phải lớn hơn hoặc bằng 1 người.';
+  }
+  return null;
+};
+
 // Áp dụng bảo mật cho toàn bộ phân hệ Cơ cấu tổ chức
 router.use(authenticateToken);
 
@@ -41,14 +52,21 @@ router.post('/', hrOrgOnly, async (req: Request, res: Response): Promise<any> =>
       return res.status(400).json({ error: 'Mã phòng ban đã tồn tại trong hệ thống' });
     }
 
+    const parsedQuota = quota !== undefined && quota !== null && quota !== '' ? parseInt(String(quota), 10) : 15;
+    const normalizedParentId = parentId ? String(parentId) : null;
+    const quotaError = validateDepartmentQuota(parsedQuota);
+    if (quotaError) {
+      return res.status(400).json({ error: quotaError });
+    }
+
     const newDept = await prisma.department.create({
       data: {
         code: String(code).trim().toUpperCase(),
         name: String(name).trim(),
         managerName: managerName ? String(managerName).trim() : null,
-        quota: quota ? parseInt(String(quota)) : 15,
+        quota: parsedQuota,
         status: (status as string) || 'ACTIVE',
-        parentId: parentId ? (parentId as string) : null
+        parentId: normalizedParentId
       }
     });
 
@@ -271,6 +289,14 @@ router.put('/:id', hrOrgOnly, async (req: Request, res: Response): Promise<any> 
           select: { parentId: true }
         });
         currentParentId = parentDept?.parentId || null;
+      }
+    }
+
+    if (quota !== undefined) {
+      const nextQuota = parseInt(String(quota), 10);
+      const quotaError = validateDepartmentQuota(nextQuota);
+      if (quotaError) {
+        return res.status(400).json({ error: quotaError });
       }
     }
 

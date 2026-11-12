@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 
 export const Interviews = () => {
   const [interviews, setInterviews] = useState([]);
@@ -26,10 +27,6 @@ export const Interviews = () => {
   const [filterJob, setFilterJob] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterEvaluation, setFilterEvaluation] = useState('');
-
-  // Pagination state (Chuẩn theo Positions.jsx)
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Form states
   const [scheduleForm, setScheduleForm] = useState({
@@ -263,12 +260,16 @@ export const Interviews = () => {
     });
   }, [interviews, searchTerm, filterJob, filterStatus, filterEvaluation]);
 
-  // --- Phân trang chuẩn như Positions.jsx ---
-  const totalPages = Math.ceil(filteredInterviews.length / itemsPerPage) || 1;
-  const paginatedInterviews = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredInterviews.slice(start, start + itemsPerPage);
-  }, [filteredInterviews, currentPage, itemsPerPage]);
+  // --- Phân trang thống nhất ---
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize: itemsPerPage,
+    setPageSize: setItemsPerPage,
+    totalItems,
+    totalPages,
+    paginatedItems: paginatedInterviews,
+  } = usePagination(filteredInterviews, 10);
 
   // Danh sách các vị trí tuyển dụng độc nhất
   const uniqueJobs = useMemo(() => {
@@ -875,97 +876,16 @@ export const Interviews = () => {
           </table>
         </div>
 
-        {/* Phân Trang (Pagination Controls chuẩn theo Positions.jsx) */}
-        {filteredInterviews.length > 0 && (
-          <div style={{
-            padding: '0.85rem 1.25rem',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            backgroundColor: '#FFFFFF',
-            flexWrap: 'wrap',
-            gap: '0.75rem'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
-                Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredInterviews.length)} trong tổng số {filteredInterviews.length} buổi phỏng vấn
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Hiển thị:</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  style={{
-                    height: 28,
-                    padding: '0 6px',
-                    fontSize: '0.8rem',
-                    borderRadius: '4px',
-                    border: '1px solid #CBD5E1',
-                    backgroundColor: '#F8FAFC',
-                    color: '#334155',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value={5}>5 dòng / trang</option>
-                  <option value={8}>8 dòng / trang</option>
-                  <option value={15}>15 dòng / trang</option>
-                  <option value={25}>25 dòng / trang</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <button 
-                className="btn btn-outline" 
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                style={{
-                  height: 32, padding: '0 12px', fontSize: '0.8rem',
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                  opacity: currentPage === 1 ? 0.5 : 1
-                }}
-              >
-                Trước
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  style={{
-                    height: 32, minWidth: 32, padding: '0 8px',
-                    fontSize: '0.8rem', fontWeight: currentPage === page ? 700 : 500,
-                    backgroundColor: currentPage === page ? '#0F172A' : '#FFFFFF',
-                    borderColor: currentPage === page ? '#0F172A' : '#E2E8F0',
-                    color: currentPage === page ? '#FFFFFF' : '#475569',
-                    border: '1px solid',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              ))}
-
-              <button 
-                className="btn btn-outline"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                style={{
-                  height: 32, padding: '0 12px', fontSize: '0.8rem',
-                  cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
-                  opacity: currentPage >= totalPages ? 0.5 : 1
-                }}
-              >
-                Sau
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Phân Trang */}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={itemsPerPage}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setItemsPerPage}
+          itemLabel="buổi phỏng vấn"
+        />
       </div>
 
       {/* MODAL 1: Lên lịch phỏng vấn */}
