@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const AssetAssignments = () => {
   const [assignments, setAssignments] = useState([]);
@@ -451,34 +454,31 @@ export const AssetAssignments = () => {
   }, [searchTerm, assignmentStatusFilter, resetPage]);
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ paddingBottom: '3rem' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">
-            Bàn Giao & Thu Hồi Thiết Bị
-          </h1>
-          <p className="text-muted text-sm">
-            Quản lý cấp phát trọn bộ thiết bị làm việc cho nhân viên và thu hồi thiết bị về kho
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button 
-            className="btn btn-primary" 
-            style={{ gap: 8, padding: '0.55rem 1.15rem' }}
-            onClick={handleOpenBatchAssignModal}
-          >
-            <Plus size={18} /> Bàn giao thiết bị
-          </button>
-          <button 
-            className="btn btn-outline" 
-            style={{ gap: 8, padding: '0.55rem 1.15rem', color: '#d97706', borderColor: '#fde68a', background: '#fffbeb' }}
-            onClick={() => openBatchReturnModal()}
-          >
-            <RotateCcw size={18} /> Thu hồi thiết bị
-          </button>
-        </div>
-      </div>
+    <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem 3rem 0.5rem' }}>
+      {/* Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Monitor size={20} />}
+        title="Bàn Giao & Thu Hồi Thiết Bị"
+        subtitle="Quản lý cấp phát trọn bộ thiết bị làm việc cho nhân viên và thu hồi thiết bị về kho"
+        actions={
+          <>
+            <button 
+              className="btn btn-primary" 
+              style={{ gap: 8, padding: '0.55rem 1.15rem' }}
+              onClick={handleOpenBatchAssignModal}
+            >
+              <Plus size={18} /> Bàn giao thiết bị
+            </button>
+            <button 
+              className="btn btn-outline" 
+              style={{ gap: 8, padding: '0.55rem 1.15rem', color: '#d97706', borderColor: '#fde68a', background: '#fffbeb' }}
+              onClick={() => openBatchReturnModal()}
+            >
+              <RotateCcw size={18} /> Thu hồi thiết bị
+            </button>
+          </>
+        }
+      />
 
       {/* Control Filter Bar */}
       <div className="card glass flex items-center justify-between gap-4" style={{ padding: '1rem 1.25rem' }}>
@@ -591,7 +591,7 @@ export const AssetAssignments = () => {
                         </div>
                       </td>
                       <td className="text-xs text-muted">
-                        {new Date(assign.assignedDate).toLocaleDateString('vi-VN')}
+                        {formatDate(assign.assignedDate)}
                       </td>
                       <td>
                         {assign.status === 'ACTIVE' ? (
@@ -895,8 +895,7 @@ export const AssetAssignments = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                 <div>
                   <label className="text-xs font-semibold text-muted mb-1 block">Ngày bàn giao</label>
-                  <input
-                    type="date"
+                  <DateInput
                     required
                     className="form-input"
                     value={batchAssignForm.assignedDate}
@@ -1026,8 +1025,7 @@ export const AssetAssignments = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                 <div>
                   <label className="text-xs font-semibold text-muted mb-1 block">Ngày hoàn trả thiết bị *</label>
-                  <input
-                    type="date"
+                  <DateInput
                     required
                     className="form-input"
                     value={batchReturnForm.returnedDate}

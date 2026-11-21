@@ -47,10 +47,10 @@ export const parseAttachedFiles = (raw) => {
     );
 };
 
+import { formatDate } from './dateUtils';
+
 export const formatDateVN = (value, fallback = '—') => {
-  if (!value) return fallback;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('vi-VN');
+  return formatDate(value, fallback);
 };
 
 export const toDateInputValue = (value) => {

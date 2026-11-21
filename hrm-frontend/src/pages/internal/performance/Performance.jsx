@@ -8,6 +8,9 @@ import axios from 'axios';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const Performance = () => {
   const [evaluations, setEvaluations] = useState([]);
@@ -16,20 +19,13 @@ export const Performance = () => {
   const [filterDept, setFilterDept] = useState('ALL');
   const [filterGrade, setFilterGrade] = useState('ALL');
 
-
-
-  // Modal Cycle State
-  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
-  const [cycleForm, setCycleForm] = useState({
-    name: `Đánh giá Quý ${Math.floor(new Date().getMonth() / 3) + 1} - ${new Date().getFullYear()}`,
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().slice(0, 10)
-  });
-
   // Modal Review State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [selectedReview, setSelectedReview] = useState(null);
   const [score, setScore] = useState(80);
+  const [competencyScore, setCompetencyScore] = useState(80);
+  const [kpiWeight, setKpiWeight] = useState(70);
+  const [competencyWeight, setCompetencyWeight] = useState(30);
   const [comments, setComments] = useState('');
   const [empKpis, setEmpKpis] = useState([]);
   const [loadingEmpKpis, setLoadingEmpKpis] = useState(false);
@@ -51,25 +47,15 @@ export const Performance = () => {
     fetchData();
   }, []);
 
-  const handleCreateCycle = async () => {
-    if (!cycleForm.name.trim()) return toast.error("Vui lòng nhập tên kỳ đánh giá");
-    try {
-      await axios.post('http://localhost:5000/api/kpi/cycles', {
-        name: cycleForm.name,
-        startDate: new Date(cycleForm.startDate).toISOString(),
-        endDate: new Date(cycleForm.endDate).toISOString()
-      });
-      toast.success(`Đã mở kỳ đánh giá "${cycleForm.name}" thành công!`);
-      setIsCycleModalOpen(false);
-      fetchData();
-    } catch (err) {
-      toast.error('Lỗi mở kỳ đánh giá');
-    }
-  };
-
   const handleOpenReview = async (review) => {
     setSelectedReview(review);
-    setScore(review.managerScore || review.selfScore || 80);
+    const compVal = review.competencyScore ? Number(review.competencyScore) : 80;
+    const kW = review.kpiWeight ? Number(review.kpiWeight) : 70;
+    const cW = review.competencyWeight ? Number(review.competencyWeight) : 30;
+    setCompetencyScore(compVal);
+    setKpiWeight(kW);
+    setCompetencyWeight(cW);
+    setScore(review.managerScore > 0 ? review.managerScore : 80);
     setComments(review.note || '');
     setEmpKpis([]);
     setEmpWeightedScore(null);
@@ -85,6 +71,10 @@ export const Performance = () => {
         if (res.data?.weightedScore) {
           const w100 = Math.round(Number(res.data.weightedScore) * 10);
           setEmpWeightedScore(w100);
+          if (!review.managerScore || review.managerScore === 0) {
+            const autoFinal = Math.round((w100 * (kW / 100)) + (compVal * (cW / 100)));
+            setScore(autoFinal);
+          }
         }
       } catch (e) {
         console.error('Lỗi nạp chỉ tiêu của nhân viên:', e);
@@ -99,9 +89,12 @@ export const Performance = () => {
     try {
       await axios.put(`http://localhost:5000/api/kpi/reviews/${selectedReview.id}`, {
         score: Number(score),
+        competencyScore: Number(competencyScore),
+        kpiWeight: Number(kpiWeight),
+        competencyWeight: Number(competencyWeight),
         comments
       });
-      toast.success('Chấm điểm và lưu đánh giá thành công!');
+      toast.success('Chấm điểm và nghiệm thu đánh giá thành công!');
       setIsReviewModalOpen(false);
       fetchData();
     } catch (err) {
@@ -189,43 +182,13 @@ export const Performance = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Top Header */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
-        padding: '1.25rem 1.5rem',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '8px',
-              backgroundColor: '#EFF6FF', color: '#2563EB',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <Target size={20} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h1 className="page-title" style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                Đánh giá Hiệu suất & Xếp loại KPI
-              </h1>
-              <span className="badge" style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
-                CHU TRÌNH ĐÁNH GIÁ KPI
-              </span>
-            </div>
-          </div>
-          <p className="text-muted text-xs mt-1" style={{ margin: '4px 0 0 0', color: '#64748B' }}>
-            Đánh giá hiệu suất định kỳ theo chuẩn phân bổ đường cong Bell Curve (Top 20% Xuất sắc - Mid 60% Đạt - Bot 20% Cần cải thiện).
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Target size={20} />}
+        title="Đánh giá Hiệu suất & Xếp loại KPI"
+        badge="ĐÁNH GIÁ HIỆU SUẤT"
+        subtitle="Hệ thống tự động liên kết các chỉ tiêu KPI đã giao để quản lý nghiệm thu, chấm điểm năng lực và xếp loại nhân sự."
+        actions={
           <button 
             onClick={handleExportCSV} 
             className="btn btn-outline" 
@@ -233,15 +196,8 @@ export const Performance = () => {
           >
             <Download size={15} /> Xuất Báo cáo CSV
           </button>
-          <button 
-            onClick={() => setIsCycleModalOpen(true)} 
-            className="btn btn-primary" 
-            style={{ height: '36px', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Plus size={16} /> Mở Kỳ Đánh giá Mới
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Top KPI Metric Cards (Sleek Modern Design) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
@@ -531,21 +487,48 @@ export const Performance = () => {
                       </div>
                     </td>
 
-                    {/* Thao tác: Chỉ icon 32x32px */}
-                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                    {/* Thao tác: Nút bấm Chấm điểm / Xem điểm trực quan */}
+                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <button 
-                          className="btn btn-outline"
-                          style={{
-                            width: '32px', height: '32px', padding: 0,
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#2563EB', borderColor: '#BFDBFE'
-                          }}
-                          onClick={() => handleOpenReview(kpi)}
-                          title="Chấm điểm & Đánh giá hiệu suất"
-                        >
-                          <Award size={16} />
-                        </button>
+                        {(!kpi.managerScore || kpi.managerScore === 0) ? (
+                          <button 
+                            className="btn btn-primary"
+                            style={{
+                              padding: '6px 14px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              borderRadius: '8px',
+                              boxShadow: '0 1px 3px rgba(37, 99, 235, 0.2)'
+                            }}
+                            onClick={() => handleOpenReview(kpi)}
+                            title="Bấm để mở phiếu chấm điểm và nghiệm thu KPI"
+                          >
+                            <Edit3 size={14} /> Chấm điểm
+                          </button>
+                        ) : (
+                          <button 
+                            className="btn btn-outline"
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              borderRadius: '8px',
+                              color: '#059669',
+                              borderColor: '#A7F3D0',
+                              backgroundColor: '#F0FDF4'
+                            }}
+                            onClick={() => handleOpenReview(kpi)}
+                            title="Xem chi tiết hoặc điều chỉnh lại điểm đánh giá"
+                          >
+                            <Award size={14} /> Xem / Sửa ({kpi.managerScore}đ)
+                          </button>
+                        )}
                       </div>
                     </td>
 
@@ -569,82 +552,6 @@ export const Performance = () => {
         />
 
       </div>
-
-      {/* MODAL 1: Mở Kỳ Đánh Giá Mới */}
-      {isCycleModalOpen && createPortal(
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999,
-          backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-        }}>
-          <div style={{
-            backgroundColor: '#FFFFFF', borderRadius: '16px', width: '480px', maxWidth: '95vw',
-            border: '1px solid #E2E8F0', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
-            overflow: 'hidden', display: 'flex', flexDirection: 'column'
-          }}>
-            <div style={{
-              padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                Mở Kỳ Đánh giá KPI Mới
-              </h3>
-              <button onClick={() => setIsCycleModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A', display: 'block', marginBottom: '6px' }}>
-                  Tên kỳ đánh giá <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={cycleForm.name} 
-                  onChange={e => setCycleForm({...cycleForm, name: e.target.value})} 
-                  placeholder="VD: Đánh giá Quý 4 - 2026" 
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A', display: 'block', marginBottom: '6px' }}>
-                    Ngày bắt đầu
-                  </label>
-                  <input 
-                    type="date" 
-                    className="form-input" 
-                    value={cycleForm.startDate} 
-                    onChange={e => setCycleForm({...cycleForm, startDate: e.target.value})} 
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A', display: 'block', marginBottom: '6px' }}>
-                    Ngày kết thúc
-                  </label>
-                  <input 
-                    type="date" 
-                    className="form-input" 
-                    value={cycleForm.endDate} 
-                    onChange={e => setCycleForm({...cycleForm, endDate: e.target.value})} 
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={{
-              padding: '1rem 1.5rem', backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0',
-              display: 'flex', justifyContent: 'flex-end', gap: '0.75rem'
-            }}>
-              <button onClick={() => setIsCycleModalOpen(false)} className="btn btn-outline" style={{ fontSize: '0.85rem' }}>Hủy bỏ</button>
-              <button onClick={handleCreateCycle} className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '6px 20px', fontWeight: 700 }}>Xác nhận Mở Kỳ</button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* MODAL 2: Chấm Điểm & Đánh Giá */}
       {isReviewModalOpen && selectedReview && createPortal(
@@ -684,9 +591,26 @@ export const Performance = () => {
                   {selectedReview.name} <span style={{ fontSize: '0.8rem', color: '#2563EB', fontWeight: 600 }}>({selectedReview.empId})</span>
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
-                  Phòng ban: {selectedReview.department} • Điểm nhân viên tự chấm: <strong>{selectedReview.selfScore}/100</strong>
+                  Phòng ban: {selectedReview.department} • Điểm nhân viên tự chấm: <strong>{selectedReview.selfScore || 0}/100</strong>
                 </div>
               </div>
+
+              {/* Banner Nhân viên Tự đánh giá (Quy trình 2 chiều) */}
+              {selectedReview.selfComments && (
+                <div style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#166534' }}>
+                      💬 Nhân viên đã gửi Tự đánh giá ({selectedReview.selfScore || 0}đ):
+                    </span>
+                    <span className="badge" style={{ backgroundColor: '#DCFCE7', color: '#15803D', fontSize: '0.72rem', fontWeight: 700 }}>
+                      SELF_EVALUATED
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#166534', marginTop: '4px', fontStyle: 'italic', lineHeight: 1.4 }}>
+                    "{selectedReview.selfComments}"
+                  </div>
+                </div>
+              )}
 
               {/* Bảng chi tiết các chỉ số KPI mà nhân viên đã thực hiện */}
               {loadingEmpKpis ? (
@@ -700,15 +624,9 @@ export const Performance = () => {
                       Chi tiết các chỉ tiêu đã giao ({empKpis.length} chỉ tiêu):
                     </span>
                     {empWeightedScore !== null && (
-                      <button
-                        type="button"
-                        onClick={() => setScore(empWeightedScore)}
-                        className="btn btn-outline"
-                        style={{ fontSize: '0.72rem', padding: '2px 8px', color: '#059669', borderColor: '#A7F3D0', fontWeight: 700 }}
-                        title="Tự động áp dụng điểm tính toán theo trọng số các chỉ tiêu"
-                      >
-                        Áp dụng điểm tự tính: {empWeightedScore}đ
-                      </button>
+                      <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 700 }}>
+                        Tổng điểm KPI: {empWeightedScore}đ
+                      </span>
                     )}
                   </div>
                   <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -734,9 +652,42 @@ export const Performance = () => {
                 </div>
               ) : null}
 
+              {/* Cơ cấu 2 cấu phần tính điểm chuẩn Doanh nghiệp */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ backgroundColor: '#F8FAFC', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>1. KPI Định Lượng ({kpiWeight}%)</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1D4ED8', marginTop: '2px' }}>
+                    {empWeightedScore !== null ? `${empWeightedScore}đ` : '80đ'}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#64748B' }}>Tự động tính từ tiến độ thực tế</div>
+                </div>
+
+                <div style={{ backgroundColor: '#F8FAFC', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>2. Năng Lực & Thái Độ ({competencyWeight}%)</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                    <input 
+                      type="number"
+                      min="0"
+                      max="100"
+                      className="form-input"
+                      style={{ width: '80px', height: '32px', fontSize: '1rem', fontWeight: 800, color: '#059669' }}
+                      value={competencyScore}
+                      onChange={e => {
+                        const val = Number(e.target.value);
+                        setCompetencyScore(val);
+                        const autoKpi = empWeightedScore !== null ? empWeightedScore : 80;
+                        setScore(Math.round((autoKpi * (kpiWeight / 100)) + (val * (competencyWeight / 100))));
+                      }}
+                    />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748B' }}>/ 100đ</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#64748B' }}>Quản lý trực tiếp nghiệm thu</div>
+                </div>
+              </div>
+
               <div>
                 <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A', display: 'block', marginBottom: '6px' }}>
-                  Điểm Quản lý đánh giá (Thang điểm 0 - 100) <span style={{ color: '#EF4444' }}>*</span>
+                  Điểm tổng kết cuối cùng (Hệ thống tính: {empWeightedScore !== null ? Math.round((empWeightedScore * (kpiWeight/100)) + (competencyScore * (competencyWeight/100))) : score}đ) <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <input 
@@ -748,7 +699,7 @@ export const Performance = () => {
                     style={{ width: '120px', fontSize: '1.1rem', fontWeight: 700 }}
                   />
                   <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
-                    Dự kiến xếp loại: {score >= 90 ? (
+                    Xếp loại: {score >= 90 ? (
                       <strong style={{ color: '#059669' }}>Hạng A (Xuất sắc ≥ 90đ)</strong>
                     ) : score >= 75 ? (
                       <strong style={{ color: '#2563eb' }}>Hạng B (Đạt yêu cầu ≥ 75đ)</strong>

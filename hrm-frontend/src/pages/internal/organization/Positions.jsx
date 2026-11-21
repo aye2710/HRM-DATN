@@ -7,6 +7,7 @@ import { exportToExcel } from '../../../utils/excelHelper';
 import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
 import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 // Hàm loại bỏ dấu tiếng Việt
 const removeVietnameseTones = (str) => {
@@ -471,66 +472,63 @@ export const Positions = () => {
   };
 
   return (
-    <div className="flex-col gap-6 animate-fade-in relative">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Vị trí / Chức danh</h1>
-          <p className="text-muted text-sm">Quản lý danh mục vị trí, cấp bậc và khung lương theo tiêu chuẩn</p>
-        </div>
-        <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
-          {/* Nút 1: Xuất dữ liệu */}
-          <button 
-            onClick={() => handleExportExcelPositions()} 
-            className="btn btn-outline"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              padding: '0.5rem 0.95rem', 
-              fontSize: '0.84rem', 
-              fontWeight: 600,
-              backgroundColor: '#FFFFFF',
-              borderColor: '#CBD5E1', 
-              color: '#0F172A',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-            }}
-          >
-            <Download size={15} color="#475569" />
-            <span>Xuất dữ liệu</span>
-          </button>
+    <div className="flex-col gap-5 animate-fade-in relative" style={{ padding: '0 0.5rem' }}>
+      <PageHeader
+        icon={<Briefcase size={20} />}
+        title="Vị trí / Chức danh"
+        subtitle="Quản lý danh mục vị trí, cấp bậc và khung lương theo tiêu chuẩn"
+        actions={
+          <>
+            <button 
+              onClick={() => handleExportExcelPositions()} 
+              className="btn btn-outline"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                padding: '0.5rem 0.95rem', 
+                fontSize: '0.84rem', 
+                fontWeight: 600,
+                backgroundColor: '#FFFFFF',
+                borderColor: '#CBD5E1', 
+                color: '#0F172A',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Download size={15} color="#475569" />
+              <span>Xuất dữ liệu</span>
+            </button>
 
-          {/* Nút 2: Nhập dữ liệu */}
-          <button 
-            onClick={() => setShowImportModal(true)} 
-            className="btn btn-outline"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              padding: '0.5rem 0.95rem', 
-              fontSize: '0.84rem', 
-              fontWeight: 600,
-              backgroundColor: '#FFFFFF',
-              borderColor: '#CBD5E1', 
-              color: '#0F172A',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-            }}
-          >
-            <Upload size={15} color="#475569" />
-            <span>Nhập dữ liệu</span>
-          </button>
+            <button 
+              onClick={() => setShowImportModal(true)} 
+              className="btn btn-outline"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                padding: '0.5rem 0.95rem', 
+                fontSize: '0.84rem', 
+                fontWeight: 600,
+                backgroundColor: '#FFFFFF',
+                borderColor: '#CBD5E1', 
+                color: '#0F172A',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Upload size={15} color="#475569" />
+              <span>Nhập dữ liệu</span>
+            </button>
 
-          {/* Nút 3: Thêm Vị trí */}
-          <button onClick={handleOpenAdd} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.5rem 1rem', fontSize: '0.84rem', fontWeight: 700 }}>
-            <Plus size={16} /> Thêm Vị trí
-          </button>
+            <button onClick={handleOpenAdd} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.5rem 1rem', fontSize: '0.84rem', fontWeight: 700 }}>
+              <Plus size={16} /> Thêm Vị trí
+            </button>
 
-          {/* Nút 4: Làm mới */}
-          <button onClick={() => { fetchPositions(); fetchDepartments(); }} className="btn btn-outline" style={{ padding: '0.5rem', borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }} title="Tải lại danh sách">
-            <RefreshCw size={15} color="#475569" />
-          </button>
-        </div>
-      </div>
+            <button onClick={() => { fetchPositions(); fetchDepartments(); }} className="btn btn-outline" style={{ padding: '0.5rem', borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }} title="Tải lại danh sách">
+              <RefreshCw size={15} color="#475569" />
+            </button>
+          </>
+        }
+      />
 
       <div className="card glass flex-col gap-4">
         <div className="flex justify-between items-center flex-wrap gap-3">

@@ -7,6 +7,10 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { SearchableEmployeeSelect } from '../../../components/common/SearchableEmployeeSelect';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 const AUTHORITIES = [
   'Ban Giám Đốc',
@@ -70,18 +74,6 @@ const DECISION_CONFIG = {
     defaultReason: 'Căn cứ vào Đơn xin chấm dứt hợp đồng lao động của người lao động và sự chấp thuận của Ban Giám Đốc.',
     backUrl: '/internal/decisions/termination',
     icon: <XCircle size={16} />
-  },
-  RECRUITMENT: {
-    name: 'Tuyển dụng',
-    pageTitle: 'Soạn Thảo Quyết Định Tiếp Nhận Tuyển Dụng',
-    subDesc: 'Quyết định tiếp nhận nhân sự sau thời gian thử việc lên nhân viên chính thức',
-    badgeColor: '#2563eb',
-    badgeBg: 'rgba(59, 130, 246, 0.1)',
-    badgeBorder: 'rgba(59, 130, 246, 0.25)',
-    defaultTitle: 'Quyết định tiếp nhận nhân sự chính thức',
-    defaultReason: 'Căn cứ vào kết quả đánh giá hoàn thành xuất sắc thời gian thử việc của nhân sự.',
-    backUrl: '/internal/decisions/recruitment',
-    icon: <CheckCircle2 size={16} />
   },
   SALARY_ADJUSTMENT: {
     name: 'Tăng / Giảm lương',
@@ -215,7 +207,7 @@ export const DecisionCreate = () => {
   }, [paramEmpId, paramType]);
 
   const handleEmployeeChange = (e) => {
-    const empId = e.target.value;
+    const empId = typeof e === 'string' ? e : (e?.target ? e.target.value : (e || ''));
     const emp = employees.find(item => item.id === empId);
     if (emp) {
       const activeContract = emp.contracts?.find(c => c.status === 'ACTIVE') || emp.contracts?.[0];
@@ -225,7 +217,8 @@ export const DecisionCreate = () => {
         employeeId: empId,
         oldSalary: currentSalary,
         oldDepartmentId: emp.departmentId || '',
-        oldPositionId: emp.positionId || ''
+        oldPositionId: emp.positionId || '',
+        newPositionId: (prev.type === 'PROMOTION' || prev.type === 'DEMOTION') && prev.newPositionId === emp.positionId ? '' : prev.newPositionId
       }));
     } else {
       setFormData(prev => ({ ...prev, employeeId: empId, oldSalary: 0, oldDepartmentId: '', oldPositionId: '' }));
@@ -240,6 +233,25 @@ export const DecisionCreate = () => {
       type: newType,
       title: cfg ? cfg.defaultTitle : prev.title,
       reason: cfg ? cfg.defaultReason : prev.reason
+    }));
+  };
+
+  const handleDisciplineFormChange = (e) => {
+    const form = e.target.value;
+    let duration = '';
+    if (form === 'Khiển trách') {
+      duration = '03 tháng';
+    } else if (form.includes('Kéo dài')) {
+      duration = '06 tháng';
+    } else {
+      // Cách chức hoặc Sa thải -> không có thời hạn chấp hành
+      duration = '';
+    }
+    setFormData(prev => ({
+      ...prev,
+      disciplineForm: form,
+      disciplineDuration: duration,
+      newPositionId: form === 'Cách chức' ? prev.newPositionId : ''
     }));
   };
 
@@ -267,8 +279,8 @@ export const DecisionCreate = () => {
     if ((formData.type === 'PROMOTION' || formData.type === 'DEMOTION') && !formData.newPositionId) {
       return toast.error('Vui lòng chọn chức vụ / vị trí mới');
     }
-    if (formData.type === 'RECRUITMENT' && !formData.newPositionId) {
-      return toast.error('Vui lòng chọn chức vụ tiếp nhận chính thức');
+    if (formData.type === 'DISCIPLINE' && formData.disciplineForm === 'Cách chức' && !formData.newPositionId) {
+      return toast.error('Vui lòng chọn vị trí chức danh mới sau khi cách chức!');
     }
     if (formData.type === 'TRANSFER' && !formData.newDepartmentId && !formData.newPositionId) {
       return toast.error('Vui lòng chọn Phòng ban tiếp nhận hoặc Vị trí chức danh mới cần điều chuyển!');
@@ -301,19 +313,9 @@ export const DecisionCreate = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header Navigation Bar */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
-        padding: '1rem 1.5rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        leftActions={
           <button
             onClick={() => navigate(currentConfig?.backUrl || '/internal/decisions/all')}
             className="btn btn-outline"
@@ -321,24 +323,20 @@ export const DecisionCreate = () => {
           >
             <ArrowLeft size={16} /> {currentConfig ? currentConfig.name : 'Danh sách'}
           </button>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileSignature size={22} color={activeConfig?.badgeColor || '#2563EB'} />
-                {currentConfig ? currentConfig.pageTitle : 'Soạn Thảo Quyết Định Mới'}
-              </h2>
-              {activeConfig && (
-                <span className="badge" style={{ backgroundColor: activeConfig.badgeBg, color: activeConfig.badgeColor, border: `1px solid ${activeConfig.badgeBorder}`, fontSize: '0.75rem', fontWeight: 700 }}>
-                  {activeConfig.name}
-                </span>
-              )}
-            </div>
-            <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
-              {currentConfig ? currentConfig.subDesc : 'Điền đầy đủ thông tin để khởi tạo văn bản quyết định trình Ban Giám Đốc phê duyệt'}
+        }
+        icon={<FileSignature size={20} />}
+        iconColor={activeConfig?.badgeColor || '#2563EB'}
+        iconBg={activeConfig?.badgeBg || '#EFF6FF'}
+        title={currentConfig ? currentConfig.pageTitle : 'Soạn Thảo Quyết Định Mới'}
+        badge={
+          activeConfig ? (
+            <span className="badge" style={{ backgroundColor: activeConfig.badgeBg, color: activeConfig.badgeColor, border: `1px solid ${activeConfig.badgeBorder}`, fontSize: '0.75rem', fontWeight: 700 }}>
+              {activeConfig.name}
             </span>
-          </div>
-        </div>
-      </div>
+          ) : null
+        }
+        subtitle={currentConfig ? currentConfig.subDesc : 'Điền đầy đủ thông tin để khởi tạo văn bản quyết định trình Ban Giám Đốc phê duyệt'}
+      />
 
       {/* 2. Bố cục 2 Cột (Split-View): Trái Nhập Liệu - Phải Xem Trước Văn Bản Quyết Định Realtime */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(480px, 1.15fr) minmax(420px, 1fr)', gap: '1.25rem', alignItems: 'flex-start' }}>
@@ -400,7 +398,6 @@ export const DecisionCreate = () => {
                   <option value="DEMOTION">Miễn nhiệm chức vụ</option>
                   <option value="TRANSFER">Điều chuyển công tác / Vị trí</option>
                   <option value="TERMINATION">Thôi việc / Chấm dứt HĐ</option>
-                  <option value="RECRUITMENT">Tuyển dụng / Tiếp nhận chính thức</option>
                   <option value="SALARY_ADJUSTMENT">Điều chỉnh mức lương</option>
                   <option value="REWARD">Khen thưởng thành tích</option>
                   <option value="DISCIPLINE">Thi hành kỷ luật</option>
@@ -430,19 +427,13 @@ export const DecisionCreate = () => {
 
           <div>
             <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nhân sự áp dụng quyết định *</label>
-            <select
-              className="form-select"
+            <SearchableEmployeeSelect
+              employees={employees}
               value={formData.employeeId}
               onChange={handleEmployeeChange}
+              placeholder="-- Gõ tên, mã NV, phòng ban hoặc chức vụ để tìm nhanh --"
               required
-            >
-              <option value="">-- Chọn nhân sự áp dụng --</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.fullName} ({emp.code}) - {emp.department?.name || 'Chưa gán PB'} ({emp.position?.title || 'Chưa có vị trí'})
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           {/* Thông tin hồ sơ ban đầu của nhân sự */}
@@ -531,9 +522,14 @@ export const DecisionCreate = () => {
                     required
                   >
                     <option value="">-- Chọn chức vụ bổ nhiệm mới --</option>
-                    {positions.map(p => (
-                      <option key={p.id} value={p.id}>{p.title} ({p.department?.name || 'Toàn công ty'})</option>
-                    ))}
+                    {positions.map(p => {
+                      const isCurrentPos = selectedEmp && p.id === selectedEmp.positionId;
+                      return (
+                        <option key={p.id} value={p.id} disabled={isCurrentPos}>
+                          {p.title} ({p.department?.name || 'Toàn công ty'}){isCurrentPos ? ' — [Vị trí hiện tại]' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -585,9 +581,14 @@ export const DecisionCreate = () => {
                     required
                   >
                     <option value="">-- Chọn vị trí mới sau miễn nhiệm --</option>
-                    {positions.map(p => (
-                      <option key={p.id} value={p.id}>{p.title} ({p.department?.name || 'Toàn công ty'})</option>
-                    ))}
+                    {positions.map(p => {
+                      const isCurrentPos = selectedEmp && p.id === selectedEmp.positionId;
+                      return (
+                        <option key={p.id} value={p.id} disabled={isCurrentPos}>
+                          {p.title} ({p.department?.name || 'Toàn công ty'}){isCurrentPos ? ' — [Vị trí hiện tại]' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -748,46 +749,7 @@ export const DecisionCreate = () => {
               );
             })()}
 
-            {/* 6. TUYỂN DỤNG / TIẾP NHẬN CHÍNH THỨC */}
-            {formData.type === 'RECRUITMENT' && (
-              <div style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px dashed #2563EB', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#2563EB', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle2 size={16} /> Tiếp nhận Nhân sự Chính thức sau Thử việc
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Vị trí chức danh chính thức *</label>
-                    <select
-                      className="form-select"
-                      value={formData.newPositionId}
-                      onChange={(e) => setFormData({ ...formData, newPositionId: e.target.value })}
-                      required
-                    >
-                      <option value="">-- Chọn vị trí chính thức --</option>
-                      {positions.map(p => (
-                        <option key={p.id} value={p.id}>{p.title} ({p.department?.name || 'Toàn công ty'})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Mức lương chính thức (VNĐ/tháng) *</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      placeholder="VD: 12000000"
-                      value={formData.newSalary}
-                      onChange={(e) => setFormData({ ...formData, newSalary: e.target.value })}
-                      style={{ fontWeight: 700, borderColor: '#2563EB' }}
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 7. KHEN THƯỞNG */}
+            {/* 6. KHEN THƯỞNG */}
             {formData.type === 'REWARD' && (
               <div style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#FFFBEB', border: '1px dashed #F59E0B' }}>
                 <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#B45309', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -812,34 +774,98 @@ export const DecisionCreate = () => {
 
             {/* 8. KỶ LUẬT */}
             {formData.type === 'DISCIPLINE' && (
-              <div style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#FEF2F2', border: '1px dashed #DC2626' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#DC2626', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <ShieldAlert size={16} /> Hình thức Kỷ luật theo Bộ luật Lao động
+              <div style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#FEF2F2', border: '1px dashed #DC2626', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#DC2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldAlert size={16} /> Hình thức Kỷ luật theo Bộ luật Lao động 2019
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
+                <div style={{ display: 'grid', gridTemplateColumns: (formData.disciplineForm === 'Cách chức' || formData.disciplineForm?.includes('Kéo dài') || formData.disciplineForm === 'Khiển trách') ? '1fr 1fr' : '1fr', gap: '12px' }}>
                   <div>
                     <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Hình thức kỷ luật *</label>
                     <select
                       className="form-select"
                       value={formData.disciplineForm}
-                      onChange={(e) => setFormData({ ...formData, disciplineForm: e.target.value })}
+                      onChange={handleDisciplineFormChange}
                     >
                       {DISCIPLINE_FORMS.map((form, i) => (
                         <option key={i} value={form}>{form}</option>
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Thời hạn chấp hành kỷ luật</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="VD: 03 tháng, 06 tháng..."
-                      value={formData.disciplineDuration}
-                      onChange={(e) => setFormData({ ...formData, disciplineDuration: e.target.value })}
-                    />
-                  </div>
+
+                  {/* 1. Khiển trách: Cố định 3 tháng theo Điều 126 BLLĐ */}
+                  {formData.disciplineForm === 'Khiển trách' && (
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Thời hiệu xóa kỷ luật (Điều 126 BLLĐ)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        disabled
+                        value="03 tháng (Đương nhiên xóa kỷ luật nếu không tái phạm)"
+                        style={{ backgroundColor: '#F8FAFC', color: '#475569', fontSize: '0.8rem', fontWeight: 600 }}
+                      />
+                    </div>
+                  )}
+
+                  {/* 2. Kéo dài thời hạn nâng lương: Tối đa 6 tháng */}
+                  {formData.disciplineForm?.includes('Kéo dài') && (
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600 }}>Thời hạn hoãn nâng lương (Tối đa 6 tháng) *</label>
+                      <select
+                        className="form-select"
+                        value={formData.disciplineDuration || '06 tháng'}
+                        onChange={(e) => setFormData({ ...formData, disciplineDuration: e.target.value })}
+                        required
+                      >
+                        <option value="03 tháng">03 tháng</option>
+                        <option value="06 tháng">06 tháng (Tối đa theo Điều 124 BLLĐ)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* 3. Cách chức: Chọn vị trí mới */}
+                  {formData.disciplineForm === 'Cách chức' && (
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#DC2626' }}>Vị trí chức danh mới sau khi cách chức *</label>
+                      <select
+                        className="form-select"
+                        value={formData.newPositionId}
+                        onChange={(e) => setFormData({ ...formData, newPositionId: e.target.value })}
+                        style={{ borderColor: '#DC2626' }}
+                        required
+                      >
+                        <option value="">-- Chọn chức danh đảm nhiệm mới --</option>
+                        {positions.map(p => {
+                          const isCurrentPos = p.id === selectedEmp?.positionId;
+                          return (
+                            <option key={p.id} value={p.id} disabled={isCurrentPos}>
+                              {p.title} {isCurrentPos ? '— [Vị trí hiện tại bị cách chức]' : `(${p.department?.name || 'Công ty'})`}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
                 </div>
+
+                {/* Hướng dẫn khi chọn Cách chức */}
+                {formData.disciplineForm === 'Cách chức' && (
+                  <div style={{ backgroundColor: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '6px', padding: '8px 12px', fontSize: '0.78rem', color: '#9F1239', lineHeight: 1.45 }}>
+                    <strong>⚠ Lưu ý nghiệp vụ Cách chức:</strong> Nhân sự sẽ bị tước bỏ quyền quản lý của chức vụ hiện tại ({selectedEmp?.position?.title || 'Quản lý'}), giáng cấp chuyển về chức danh mới và hệ thống sẽ tự động thu hồi các quyền phê duyệt (Manager). <em>Không áp dụng thời hạn kỷ luật tạm thời.</em>
+                  </div>
+                )}
+
+                {/* Thông báo chế tài Sa thải */}
+                {formData.disciplineForm?.includes('Sa thải') && (
+                  <div style={{ backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '6px', padding: '10px 14px', fontSize: '0.8rem', color: '#991B1B', lineHeight: 1.5 }}>
+                    <div style={{ fontWeight: 700, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <XCircle size={16} color="#DC2626" /> Chế tài Sa thải - Chấm dứt Hợp đồng Lao động (Điều 125 BLLĐ 2019)
+                    </div>
+                    <div>
+                      Áp dụng chấm dứt quan hệ lao động kể từ ngày hiệu lực ({formData.effectiveDate ? formatDate(formData.effectiveDate) : 'ngày ký'}). Khi quyết định được Ban Giám Đốc phê duyệt, hệ thống sẽ <strong>tự động chuyển trạng thái nhân sự thôi việc</strong> và kích hoạt <strong>Checklist bàn giao 4 bên BM-02 (13 đầu việc)</strong>. <em>Hình thức sa thải không có thời hạn chấp hành.</em>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -855,8 +881,7 @@ export const DecisionCreate = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
               <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Ngày bắt đầu có hiệu lực *</label>
-              <input
-                type="date"
+              <DateInput
                 className="form-input"
                 value={formData.effectiveDate}
                 onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
@@ -1043,8 +1068,12 @@ export const DecisionCreate = () => {
                 formData.type === 'TRANSFER' ? 'điều chuyển công tác đối với' :
                 formData.type === 'SALARY_ADJUSTMENT' ? 'điều chỉnh mức lương cơ bản đối với' :
                 formData.type === 'TERMINATION' ? 'chấm dứt Hợp đồng lao động và giải quyết thôi việc đối với' :
-                formData.type === 'RECRUITMENT' ? 'tiếp nhận chính thức nhân sự' :
                 formData.type === 'REWARD' ? 'khen thưởng thành tích xuất sắc đối với' :
+                formData.type === 'DISCIPLINE' ? (
+                  formData.disciplineForm === 'Cách chức' ? 'thi hành kỷ luật cách chức đối với' :
+                  formData.disciplineForm?.includes('Sa thải') ? 'thi hành kỷ luật sa thải và chấm dứt HĐLĐ đối với' :
+                  'thi hành kỷ luật lao động đối với'
+                ) :
                 'thi hành kỷ luật lao động đối với'
               } ông/bà:{' '}
               <strong style={{ color: '#1D4ED8' }}>{selectedEmp ? `${selectedEmp.fullName} (Mã NV: ${selectedEmp.code})` : '................................................'}</strong>
@@ -1053,9 +1082,9 @@ export const DecisionCreate = () => {
 
             <div>
               <strong>Điều 2.</strong> Nội dung chi tiết và chế độ áp dụng kể từ ngày{' '}
-              <strong>{formData.effectiveDate ? new Date(formData.effectiveDate).toLocaleDateString('vi-VN') : '.../.../2026'}</strong>:
+              <strong>{formData.effectiveDate ? formatDate(formData.effectiveDate) : '.../.../2026'}</strong>:
               <div style={{ paddingLeft: '0.75rem', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {(formData.type === 'PROMOTION' || formData.type === 'DEMOTION' || formData.type === 'TRANSFER' || formData.type === 'RECRUITMENT') && (
+                {(formData.type === 'PROMOTION' || formData.type === 'DEMOTION' || formData.type === 'TRANSFER') && (
                   <>
                     <div>• Đơn vị công tác mới: <strong>{departments.find(d => d.id === formData.newDepartmentId)?.name || selectedEmp?.department?.name || 'Giữ nguyên đơn vị hiện tại'}</strong></div>
                     <div>• Chức danh đảm nhiệm mới: <strong>{positions.find(p => p.id === formData.newPositionId)?.title || selectedEmp?.position?.title || 'Theo phân công'}</strong></div>
@@ -1071,7 +1100,20 @@ export const DecisionCreate = () => {
                   <div>• Mức tiền thưởng khen thưởng: <strong style={{ color: '#B45309' }}>{Number(formData.rewardAmount || 0).toLocaleString('vi-VN')} VNĐ</strong> (Cộng vào kỳ lương hiện hành).</div>
                 )}
                 {formData.type === 'DISCIPLINE' && (
-                  <div>• Hình thức kỷ luật: <strong style={{ color: '#DC2626' }}>{formData.disciplineForm}</strong> {formData.disciplineDuration ? `(Thời hạn chấp hành: ${formData.disciplineDuration})` : ''}.</div>
+                  <div>
+                    • Hình thức kỷ luật: <strong style={{ color: '#DC2626' }}>{formData.disciplineForm}</strong>
+                    {formData.disciplineForm === 'Khiển trách' && <span> (Thời hiệu xóa kỷ luật: 03 tháng theo Điều 126 BLLĐ 2019)</span>}
+                    {formData.disciplineForm?.includes('Kéo dài') && <span> (Thời hạn hoãn nâng lương: <strong>{formData.disciplineDuration || '06 tháng'}</strong> theo Điều 124 BLLĐ 2019)</span>}
+                    {formData.disciplineForm === 'Cách chức' && (
+                      <span>
+                        . Chức danh đảm nhiệm mới sau khi cách chức: <strong style={{ color: '#1D4ED8' }}>{positions.find(p => p.id === formData.newPositionId)?.title || 'Chuyên viên'}</strong> (Thu hồi chức vụ quản lý {selectedEmp?.position?.title || 'hiện tại'})
+                      </span>
+                    )}
+                    {formData.disciplineForm?.includes('Sa thải') && (
+                      <span style={{ color: '#DC2626' }}> (Chấm dứt HĐLĐ kể từ ngày hiệu lực, yêu cầu hoàn tất bàn giao BM-02 và giải quyết thôi việc theo Điều 125 BLLĐ 2019)</span>
+                    )}
+                    .
+                  </div>
                 )}
                 {formData.type === 'TERMINATION' && (
                   <div>• Trách nhiệm bàn giao: Ông/bà <strong>{selectedEmp?.fullName || '...'}</strong> có trách nhiệm hoàn thành bàn giao công việc, hồ sơ và hoàn trả trang thiết bị công ty (Mẫu BM-02) trước ngày nghỉ chính thức để Phòng Nhân sự – Kế toán thanh toán lương và chốt sổ BHXH theo quy định.</div>

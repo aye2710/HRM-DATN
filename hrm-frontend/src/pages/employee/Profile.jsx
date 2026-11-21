@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { DateInput } from '../../components/common/DateInput';
 import {
   GENDER_OPTIONS,
   MARITAL_STATUS_OPTIONS,
@@ -181,10 +182,17 @@ const FormField = ({
             placeholder={placeholder}
             style={{ ...editStyle, resize: 'vertical' }}
           />
+        ) : type === 'date' ? (
+          <DateInput
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            style={editStyle}
+          />
         ) : (
           <input
             type={type}
-            value={type === 'date' ? toDateInputValue(value) : (value ?? '')}
+            value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             style={editStyle}
@@ -2060,11 +2068,10 @@ export const EmployeeProfile = () => {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Ngày sinh</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={relativeForm.dateOfBirth}
                     onChange={(e) => setRelativeForm({ ...relativeForm, dateOfBirth: e.target.value })}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                    style={{ width: '100%', height: '42px', fontSize: '0.95rem' }}
                   />
                 </div>
                 <div>
@@ -2099,20 +2106,18 @@ export const EmployeeProfile = () => {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Bắt đầu giảm trừ</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={relativeForm.taxDeductionStart}
                     onChange={(e) => setRelativeForm({ ...relativeForm, taxDeductionStart: e.target.value })}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                    style={{ width: '100%', height: '42px', fontSize: '0.95rem' }}
                   />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Kết thúc giảm trừ (nếu có)</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={relativeForm.taxDeductionEnd}
                     onChange={(e) => setRelativeForm({ ...relativeForm, taxDeductionEnd: e.target.value })}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+                    style={{ width: '100%', height: '42px', fontSize: '0.95rem' }}
                   />
                 </div>
               </div>
@@ -2268,11 +2273,11 @@ export const EmployeeProfile = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Ngày cấp</label>
-                  <input type="date" value={certForm.issueDate} onChange={(e) => setCertForm({ ...certForm, issueDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                  <DateInput value={certForm.issueDate} onChange={(e) => setCertForm({ ...certForm, issueDate: e.target.value })} style={{ width: '100%', height: '42px', fontSize: '0.95rem' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Ngày hết hạn (Nếu có)</label>
-                  <input type="date" value={certForm.expiryDate} onChange={(e) => setCertForm({ ...certForm, expiryDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
+                  <DateInput value={certForm.expiryDate} onChange={(e) => setCertForm({ ...certForm, expiryDate: e.target.value })} style={{ width: '100%', height: '42px', fontSize: '0.95rem' }} />
                 </div>
               </div>
 

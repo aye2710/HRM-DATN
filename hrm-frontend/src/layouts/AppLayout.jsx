@@ -40,7 +40,6 @@ const DECISION_TYPE_MAP = {
   DEMOTION: '/internal/decisions/demotion',
   TRANSFER: '/internal/decisions/transfer',
   TERMINATION: '/internal/decisions/termination',
-  RECRUITMENT: '/internal/decisions/recruitment',
   SALARY_ADJUSTMENT: '/internal/decisions/salary',
   REWARD: '/internal/decisions/reward',
   DISCIPLINE: '/internal/decisions/discipline'

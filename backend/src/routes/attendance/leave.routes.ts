@@ -3,6 +3,7 @@ import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
 import { getSettingValue } from '../system/setting.routes';
+import { ensureDefaultLeaveTypes } from './leave-config.routes';
 
 const router = Router();
 
@@ -116,16 +117,69 @@ export const calculateDynamicLeaveQuota = async (
 };
 
 /**
- * Helper tính số ngày làm việc thực tế giữa 2 mốc thời gian:
- * Loại trừ Thứ 7, Chủ Nhật và các ngày nghỉ Lễ/Tết từ bảng Holiday.
+ * Helper kiểm tra xem khoảng ngày nghỉ có chạm vào Kỳ Lương (PayrollPeriod) đã KHÓA hay không:
+ * Nếu kỳ lương của tháng đó đã LOCKED -> Chặn tuyệt đối mọi thao tác thêm/sửa/duyệt/thu hồi đơn
  */
-export const calculateWorkingDays = async (startDate: Date, endDate: Date): Promise<number> => {
+export async function isPayrollPeriodLocked(startDate: Date, endDate: Date): Promise<boolean> {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  const startMonth = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+  const endMonth = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}`;
+  
+  const months = Array.from(new Set([startMonth, endMonth]));
+  const lockedPeriod = await prisma.payrollPeriod.findFirst({
+    where: {
+      monthYear: { in: months },
+      status: 'LOCKED'
+    }
+  });
+  return !!lockedPeriod;
+}
+
+/**
+ * Helper kiểm tra trùng lặp khoảng ngày nghỉ với các đơn PENDING hoặc APPROVED khác của nhân viên
+ */
+export async function checkLeaveOverlap(employeeId: string, startDate: Date, endDate: Date, excludeId?: string): Promise<any> {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  const where: any = {
+    employeeId,
+    status: { in: ['PENDING', 'APPROVED'] },
+    startDate: { lte: end },
+    endDate: { gte: start }
+  };
+  if (excludeId) {
+    where.id = { not: excludeId };
+  }
+
+  return await prisma.leaveRequest.findFirst({
+    where,
+    include: {
+      leaveTypeConfig: { select: { name: true, code: true } }
+    }
+  });
+}
+
+/**
+ * Helper tính số ngày làm việc thực tế giữa 2 mốc thời gian:
+ * - Hỗ trợ nghỉ nửa ngày liên ngày (startSession và endSession)
+ * - Loại trừ Thứ 7, Chủ Nhật và các ngày nghỉ Lễ/Tết từ bảng Holiday
+ */
+export const calculateWorkingDays = async (
+  startDate: Date, 
+  endDate: Date,
+  startSession: string = 'MORNING',
+  endSession: string = 'AFTERNOON'
+): Promise<number> => {
   const start = new Date(startDate);
   start.setHours(0, 0, 0, 0);
   const end = new Date(endDate);
   end.setHours(0, 0, 0, 0);
 
-  // Lấy danh sách ngày lễ trong khoảng
   const holidays = await prisma.holiday.findMany({
     where: {
       date: {
@@ -139,16 +193,33 @@ export const calculateWorkingDays = async (startDate: Date, endDate: Date): Prom
     holidays.map(h => h.date.toISOString().split('T')[0])
   );
 
+  // Nếu cùng 1 ngày
+  if (start.getTime() === end.getTime()) {
+    const dayOfWeek = start.getDay();
+    const dateStr = start.toISOString().split('T')[0];
+    if (dayOfWeek === 0 || dayOfWeek === 6 || holidaySet.has(dateStr)) {
+      return 0;
+    }
+    if (startSession === 'MORNING' && endSession === 'MORNING') return 0.5;
+    if (startSession === 'AFTERNOON' && endSession === 'AFTERNOON') return 0.5;
+    return 1.0;
+  }
+
   let workingDays = 0;
   const current = new Date(start);
 
   while (current <= end) {
-    const dayOfWeek = current.getDay(); // 0: Sunday, 6: Saturday
+    const dayOfWeek = current.getDay();
     const dateStr = current.toISOString().split('T')[0];
 
-    // Chỉ tính ngày trong tuần (T2 - T6) và không trùng ngày Lễ
     if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaySet.has(dateStr)) {
-      workingDays++;
+      if (current.getTime() === start.getTime() && startSession === 'AFTERNOON') {
+        workingDays += 0.5;
+      } else if (current.getTime() === end.getTime() && endSession === 'MORNING') {
+        workingDays += 0.5;
+      } else {
+        workingDays += 1.0;
+      }
     }
     current.setDate(current.getDate() + 1);
   }
@@ -170,13 +241,31 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
       where,
       include: {
         employee: {
-          select: { id: true, fullName: true, code: true, department: { select: { name: true } } }
+          select: { 
+            id: true, 
+            fullName: true, 
+            code: true, 
+            departmentId: true,
+            department: { select: { id: true, name: true } } 
+          }
+        },
+        leaveTypeConfig: {
+          select: { 
+            id: true, 
+            name: true, 
+            code: true, 
+            deductAnnualLeave: true, 
+            paidBy: true, 
+            maxDaysPerOccasion: true,
+            requiresAttachment: true 
+          }
         }
       },
       orderBy: { startDate: 'desc' }
     });
     res.json(leaves);
   } catch (error) {
+    console.error('Error fetching leave requests:', error);
     res.status(500).json({ error: 'Lỗi khi lấy danh sách đơn nghỉ phép' });
   }
 });
@@ -200,6 +289,11 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
       }),
       prisma.leaveRequest.findMany({
         where: { employeeId },
+        include: {
+          leaveTypeConfig: {
+            select: { id: true, name: true, code: true, deductAnnualLeave: true, paidBy: true }
+          }
+        },
         orderBy: { startDate: 'desc' }
       }),
       prisma.leaveBalance.findFirst({
@@ -227,14 +321,27 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
       quotaInfo: quota
     });
   } catch (error) {
+    console.error('Error fetching employee leave:', error);
     return res.status(500).json({ error: 'Lỗi khi lấy thông tin phép cá nhân' });
   }
 });
 
-// 3. Nhân viên nộp đơn xin nghỉ phép (Anti-negative Balance & Soft Locking trong Transaction)
+// 3. Nhân viên nộp đơn xin nghỉ phép (Chống trùng lịch, Khóa kỳ lương, Tách rõ trừ phép năm)
 router.post('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
-    const { employeeId, leaveType, startDate, endDate, reason, session, handoverPerson } = req.body;
+    const { 
+      employeeId, 
+      leaveType, 
+      leaveTypeId, 
+      leaveTypeCode,
+      startDate, 
+      endDate, 
+      reason, 
+      session, 
+      startSession: rawStartSession, 
+      endSession: rawEndSession, 
+      handoverPerson 
+    } = req.body;
     const userRole = req.user?.role?.toUpperCase();
     
     let empId = employeeId;
@@ -242,8 +349,8 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       empId = req.user?.employeeId;
     }
     
-    if (!empId || !leaveType || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Vui lòng cung cấp đầy đủ thông tin loại nghỉ, ngày bắt đầu và kết thúc.' });
+    if (!empId || !startDate || !endDate) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp đầy đủ thông tin nhân viên, ngày bắt đầu và kết thúc.' });
     }
 
     const start = new Date(startDate);
@@ -252,14 +359,62 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
     if (start > end) {
       return res.status(400).json({ error: 'Ngày bắt đầu nghỉ không thể sau ngày kết thúc.' });
     }
-    
-    // Tính toán số ngày làm việc thực tế
-    const isHalfDay = (session === 'MORNING' || session === 'AFTERNOON') && start.toDateString() === end.toDateString();
-    const workingDaysCount = isHalfDay ? 0.5 : await calculateWorkingDays(start, end);
+
+    // 1. Kiểm tra Khóa kỳ lương (Payroll Lock)
+    if (await isPayrollPeriodLocked(start, end)) {
+      return res.status(403).json({
+        error: 'Kỳ công/lương của khoảng thời gian này đã được KHÓA và quyết toán chi trả (Payroll Locked). Không thể nộp đơn xin nghỉ vào khoảng thời gian này!'
+      });
+    }
+
+    // 2. Kiểm tra Trùng lặp khoảng ngày (Overlap Validation)
+    const overlap = await checkLeaveOverlap(empId, start, end);
+    if (overlap) {
+      const typeName = overlap.leaveTypeConfig?.name || (overlap.leaveType === 'PAID' ? 'Nghỉ phép năm' : 'Nghỉ không lương');
+      const sStr = new Date(overlap.startDate).toLocaleDateString('vi-VN');
+      const eStr = new Date(overlap.endDate).toLocaleDateString('vi-VN');
+      return res.status(400).json({
+        error: `Khoảng ngày nghỉ này bị TRÙNG với đơn "${typeName}" (${sStr} - ${eStr}) đang ở trạng thái ${overlap.status === 'APPROVED' ? 'ĐÃ DUYỆT' : 'CHỜ DUYỆT'}!`
+      });
+    }
+
+    // Xác định phiên bắt đầu và phiên kết thúc (Hỗ trợ nghỉ nửa ngày liên ngày)
+    let startSession = rawStartSession || 'MORNING';
+    let endSession = rawEndSession || 'AFTERNOON';
+    if (session === 'MORNING') {
+      startSession = 'MORNING';
+      endSession = 'MORNING';
+    } else if (session === 'AFTERNOON') {
+      startSession = 'AFTERNOON';
+      endSession = 'AFTERNOON';
+    }
+
+    const isSingleHalfDay = start.toDateString() === end.toDateString() && (startSession === endSession);
+    const workingDaysCount = await calculateWorkingDays(start, end, startSession, endSession);
 
     if (workingDaysCount <= 0) {
       return res.status(400).json({ 
-        error: 'Khoảng thời gian bạn chọn chỉ rơi vào Thứ 7, Chủ Nhật hoặc ngày Lễ. Không cần nộp đơn nghỉ phép!' 
+        error: 'Khoảng thời gian bạn chọn chỉ rơi vào Thứ 7, Chủ Nhật hoặc ngày Lễ Tết. Không cần nộp đơn nghỉ phép!' 
+      });
+    }
+
+    // 3. Tìm cấu hình loại phép (LeaveTypeConfig)
+    await ensureDefaultLeaveTypes();
+    let config = null;
+    if (leaveTypeId) {
+      config = await prisma.leaveTypeConfig.findUnique({ where: { id: leaveTypeId } });
+    } else if (leaveTypeCode) {
+      config = await prisma.leaveTypeConfig.findUnique({ where: { code: leaveTypeCode } });
+    }
+    if (!config) {
+      const fallbackCode = leaveType === 'UNPAID' ? 'UNPAID' : 'ANNUAL';
+      config = await prisma.leaveTypeConfig.findUnique({ where: { code: fallbackCode } });
+    }
+
+    // 4. Kiểm tra giới hạn số ngày tối đa cho mỗi lần (Điều 115 BLLĐ: Kết hôn max 3 ngày, Tang max 3 ngày, Con kết hôn max 1 ngày)
+    if (config?.maxDaysPerOccasion && workingDaysCount > config.maxDaysPerOccasion) {
+      return res.status(400).json({
+        error: `Theo quy định công ty & Điều 115 BLLĐ 2019, loại phép "${config.name}" chỉ được nghỉ tối đa ${config.maxDaysPerOccasion} ngày/lần. Đơn của bạn xin nghỉ ${workingDaysCount} ngày công.`
       });
     }
 
@@ -269,12 +424,15 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
     });
     const quota = await calculateDynamicLeaveQuota(empRecord?.joinDate, start.getFullYear(), empRecord?.officialJoinDate);
 
-    // Nếu xin nghỉ CÓ LƯƠNG nhưng chưa đủ thời gian làm việc chính thức tối thiểu
-    if (leaveType === 'PAID' && !quota.isEligible) {
+    // Xác định cờ có trừ phép năm hay không
+    const deductAnnual = config ? config.deductAnnualLeave : (leaveType === 'PAID');
+
+    // Nếu là loại phép TRỪ PHÉP NĂM nhưng chưa đủ điều kiện làm việc chính thức
+    if (deductAnnual && !quota.isEligible) {
       return res.status(400).json({ error: quota.eligibilityMessage });
     }
 
-    // Kiểm tra ngưỡng duyệt phép cấp Giám đốc & Bàn giao công việc (LEAVE_APPROVAL_THRESHOLD)
+    // Kiểm tra ngưỡng duyệt cấp Giám đốc & Bàn giao công việc
     const requiresDirectorApproval = workingDaysCount > quota.approvalThreshold;
     if (requiresDirectorApproval && !handoverPerson?.trim() && (!reason || !String(reason).includes('Bàn giao'))) {
       return res.status(400).json({
@@ -291,8 +449,8 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // Nếu là nghỉ CÓ LƯƠNG (PAID), kiểm tra Quỹ phép năm với cơ chế Soft Lock
-      if (leaveType === 'PAID') {
+      // Chỉ kiểm tra và Soft-lock Quỹ phép năm NẾU loại phép có cờ deductAnnualLeave = true
+      if (deductAnnual) {
         const currentYear = start.getFullYear();
         let balance = await tx.leaveBalance.findFirst({
           where: { employeeId: empId, year: currentYear }
@@ -310,30 +468,35 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
         }
 
         const availableDays = Number(balance.totalDays) - Number(balance.usedDays);
-        
         if (workingDaysCount > availableDays) {
           throw new Error(
-            `Không đủ số dư ngày phép! Quỹ phép năm ${currentYear} (gồm ${quota.baseDays} ngày chuẩn + ${quota.seniorityBonusDays} ngày thâm niên) còn ${availableDays} ngày làm việc, nhưng đơn của bạn yêu cầu ${workingDaysCount} ngày công. Vui lòng chọn loại nghỉ Không lương (UNPAID).`
+            `Không đủ số dư ngày phép năm! Quỹ phép năm ${currentYear} còn ${availableDays} ngày làm việc, nhưng đơn của bạn yêu cầu ${workingDaysCount} ngày công. Vui lòng chọn loại nghỉ Không lương (UNPAID) hoặc điều chỉnh số ngày.`
           );
         }
 
-        // Khóa số dư phép tạm thời (Soft-lock ngay ở trạng thái PENDING)
+        // Soft-lock số ngày phép
         await tx.leaveBalance.update({
           where: { id: balance.id },
           data: { usedDays: Number(balance.usedDays) + workingDaysCount }
         });
       }
 
-      // Tạo đơn ở trạng thái PENDING
+      // Tạo đơn xin nghỉ
       const newRequest = await tx.leaveRequest.create({
         data: {
           employeeId: empId,
-          leaveType,
-          session: isHalfDay ? session : 'ALL_DAY',
+          leaveType: config?.paid ? 'PAID' : 'UNPAID',
+          leaveTypeId: config?.id || null,
+          session: isSingleHalfDay ? (startSession === 'MORNING' ? 'MORNING' : 'AFTERNOON') : 'ALL_DAY',
+          startSession,
+          endSession,
           startDate: start,
           endDate: end,
           reason: formattedReason || null,
           status: 'PENDING'
+        },
+        include: {
+          leaveTypeConfig: true
         }
       });
 
@@ -345,7 +508,7 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
       tableName: 'LeaveRequest',
       recordId: result.id,
       accountId: req.user?.accountId,
-      details: `Đăng ký nghỉ phép (${leaveType}${isHalfDay ? ` - ${session}` : ''}): ${workingDaysCount} ngày công từ ${startDate} đến ${endDate}.`
+      details: `Đăng ký nghỉ phép [${config?.name || leaveType}]: ${workingDaysCount} ngày công từ ${startDate} đến ${endDate}. ${deductAnnual ? '(Trừ phép năm)' : '(Không trừ phép năm)'}`
     });
 
     return res.status(201).json({
@@ -359,7 +522,7 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
   }
 });
 
-// 4. Phê duyệt / Từ chối đơn phép (Chỉ Quản lý / HR, Chống tự duyệt, Hoàn trả phép chuẩn)
+// 4. Phê duyệt / Từ chối đơn phép (Khóa kỳ lương, Đồng bộ đúng bản chất công, Hoàn trả phép chuẩn)
 router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
@@ -370,9 +533,19 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
       return res.status(400).json({ error: 'Trạng thái phê duyệt không hợp lệ.' });
     }
 
-    const leaveReqCheck = await prisma.leaveRequest.findUnique({ where: { id } });
+    const leaveReqCheck = await prisma.leaveRequest.findUnique({ 
+      where: { id },
+      include: { leaveTypeConfig: true }
+    });
     if (!leaveReqCheck) {
       return res.status(404).json({ error: 'Không tìm thấy đơn nghỉ phép.' });
+    }
+
+    // 1. Kiểm tra Khóa kỳ lương (Payroll Lock)
+    if (await isPayrollPeriodLocked(leaveReqCheck.startDate, leaveReqCheck.endDate)) {
+      return res.status(403).json({
+        error: 'Kỳ công/lương của khoảng thời gian này đã được KHÓA và quyết toán chi trả (Payroll Locked). Không thể phê duyệt hoặc thu hồi đơn này!'
+      });
     }
 
     const isRevokeApproved = leaveReqCheck.status === 'APPROVED' && status === 'REJECTED';
@@ -386,14 +559,23 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const leaveReq = await tx.leaveRequest.findUnique({ where: { id } });
+      const leaveReq = await tx.leaveRequest.findUnique({ 
+        where: { id },
+        include: { leaveTypeConfig: true }
+      });
       if (!leaveReq) throw new Error('Không tìm thấy đơn phép');
 
-      const isHalfDay = leaveReq.session === 'MORNING' || leaveReq.session === 'AFTERNOON';
-      const workingDaysCount = isHalfDay ? 0.5 : await calculateWorkingDays(leaveReq.startDate, leaveReq.endDate);
+      const workingDaysCount = await calculateWorkingDays(
+        leaveReq.startDate, 
+        leaveReq.endDate, 
+        leaveReq.startSession || 'MORNING', 
+        leaveReq.endSession || 'AFTERNOON'
+      );
 
-      // Nếu TỪ CHỐI hoặc THU HỒI đơn PAID -> HOÀN LẠI số ngày phép đã trừ tạm thời
-      if (status === 'REJECTED' && leaveReq.leaveType === 'PAID') {
+      const deductAnnual = leaveReq.leaveTypeConfig ? leaveReq.leaveTypeConfig.deductAnnualLeave : (leaveReq.leaveType === 'PAID');
+
+      // Nếu TỪ CHỐI hoặc THU HỒI đơn có trừ phép năm -> HOÀN LẠI số ngày phép đã trừ tạm thời
+      if (status === 'REJECTED' && deductAnnual) {
         const currentYear = leaveReq.startDate.getFullYear();
         const balance = await tx.leaveBalance.findFirst({
           where: { employeeId: leaveReq.employeeId, year: currentYear }
@@ -424,7 +606,8 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
           });
 
           if (existingAtt && existingAtt.status === 'ON_LEAVE') {
-            const workingDayValue = leaveReq.leaveType === 'PAID' ? (isHalfDay ? 0.5 : 1.0) : 0.0;
+            const isFullDay = leaveReq.session === 'ALL_DAY';
+            const workingDayValue = leaveReq.leaveTypeConfig?.paidBy === 'COMPANY' ? (isFullDay ? 1.0 : 0.5) : 0.0;
             if (existingAtt.checkIn || existingAtt.checkOut) {
               await tx.attendance.update({
                 where: { id: existingAtt.id },
@@ -444,10 +627,11 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
       // Cập nhật trạng thái đơn
       const updatedReq = await tx.leaveRequest.update({
         where: { id },
-        data: { status, approverId }
+        data: { status, approverId },
+        include: { leaveTypeConfig: true }
       });
 
-      // Nếu duyệt -> Đồng bộ vào bảng Attendance với trạng thái chuẩn ON_LEAVE
+      // Nếu DUYỆT -> Đồng bộ vào bảng Attendance theo chế độ paidBy
       if (status === 'APPROVED') {
         const holidays = await tx.holiday.findMany({
           where: {
@@ -464,13 +648,24 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
         const end = new Date(leaveReq.endDate);
         end.setHours(0, 0, 0, 0);
 
+        const paidBy = leaveReq.leaveTypeConfig?.paidBy || (leaveReq.leaveType === 'PAID' ? 'COMPANY' : 'NONE');
+
         while (curr <= end) {
           const day = curr.getDay();
           const dateStr = curr.toISOString().split('T')[0];
 
-          // Chỉ tạo/cập nhật bản ghi công cho các ngày làm việc thực tế
           if (day !== 0 && day !== 6 && !holidayDates.has(dateStr)) {
             const attDate = new Date(curr);
+            const isFirstDay = curr.getTime() === leaveReq.startDate.getTime();
+            const isLastDay = curr.getTime() === leaveReq.endDate.getTime();
+
+            let dayFraction = 1.0;
+            if (isFirstDay && leaveReq.startSession === 'AFTERNOON') dayFraction = 0.5;
+            if (isLastDay && leaveReq.endSession === 'MORNING') dayFraction = 0.5;
+            if (leaveReq.session === 'MORNING' || leaveReq.session === 'AFTERNOON') dayFraction = 0.5;
+
+            // Nếu công ty trả -> ngày công tính hưởng lương; nếu BHXH hoặc NONE -> workingDay = 0
+            const workingDayValue = paidBy === 'COMPANY' ? dayFraction : 0.0;
 
             const existingAtt = await tx.attendance.findFirst({
               where: {
@@ -479,12 +674,9 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
               }
             });
 
-            const workingDayValue = leaveReq.leaveType === 'PAID' ? (isHalfDay ? 0.5 : 1.0) : 0.0;
-
             if (existingAtt) {
-              // Nếu nghỉ nửa ngày và đã có công nửa ngày làm việc thực tế, cộng dồn
               let finalWorkingDay = workingDayValue;
-              if (isHalfDay && Number(existingAtt.workingDay) > 0 && Number(existingAtt.workingDay) < 1.0) {
+              if (dayFraction < 1.0 && Number(existingAtt.workingDay) > 0 && Number(existingAtt.workingDay) < 1.0) {
                 finalWorkingDay = Math.min(1.0, Number(existingAtt.workingDay) + workingDayValue);
               }
 
@@ -515,8 +707,8 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
 
     const actionName = isRevokeApproved ? 'REVOKE_LEAVE_REQUEST' : (status === 'APPROVED' ? 'APPROVE_LEAVE_REQUEST' : 'REJECT_LEAVE_REQUEST');
     const actionDetails = isRevokeApproved 
-      ? `Thu hồi đơn nghỉ phép #${id}, hoàn lại ngày phép và rollback chấm công.`
-      : `${status === 'APPROVED' ? 'Phê duyệt' : 'Từ chối'} đơn nghỉ phép #${id}.`;
+      ? `Thu hồi đơn nghỉ phép #${id}, hoàn lại ngày phép và rollback bảng chấm công.`
+      : `${status === 'APPROVED' ? 'Phê duyệt' : 'Từ chối'} đơn nghỉ phép #${id} [${leaveReqCheck.leaveTypeConfig?.name || leaveReqCheck.leaveType}].`;
 
     await createAuditLog({
       action: actionName,
@@ -537,17 +729,27 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
   }
 });
 
-// 5. Hủy đơn xin nghỉ phép (Nếu còn ở trạng thái PENDING)
+// 5. Hủy đơn xin nghỉ phép (Nếu còn ở trạng thái PENDING & kiểm tra Khóa kỳ lương)
 router.delete('/:id', authenticateToken, async (req: any, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
-    const leaveReq = await prisma.leaveRequest.findUnique({ where: { id } });
+    const leaveReq = await prisma.leaveRequest.findUnique({ 
+      where: { id },
+      include: { leaveTypeConfig: true }
+    });
     if (!leaveReq) {
       return res.status(404).json({ error: 'Không tìm thấy đơn nghỉ phép.' });
     }
 
     if (leaveReq.status !== 'PENDING') {
       return res.status(400).json({ error: 'Chỉ có thể hủy đơn nghỉ phép đang ở trạng thái chờ duyệt (PENDING).' });
+    }
+
+    // Kiểm tra Khóa kỳ lương
+    if (await isPayrollPeriodLocked(leaveReq.startDate, leaveReq.endDate)) {
+      return res.status(403).json({
+        error: 'Kỳ công/lương của khoảng thời gian này đã được KHÓA (Payroll Locked). Không thể hủy đơn này!'
+      });
     }
 
     const userRole = req.user?.role?.toUpperCase();
@@ -557,9 +759,14 @@ router.delete('/:id', authenticateToken, async (req: any, res: Response): Promis
     }
 
     await prisma.$transaction(async (tx) => {
-      // Nếu là đơn PAID, hoàn trả lại số ngày phép đã soft-lock
-      if (leaveReq.leaveType === 'PAID') {
-        const workingDaysCount = await calculateWorkingDays(leaveReq.startDate, leaveReq.endDate);
+      const deductAnnual = leaveReq.leaveTypeConfig ? leaveReq.leaveTypeConfig.deductAnnualLeave : (leaveReq.leaveType === 'PAID');
+      if (deductAnnual) {
+        const workingDaysCount = await calculateWorkingDays(
+          leaveReq.startDate, 
+          leaveReq.endDate,
+          leaveReq.startSession || 'MORNING',
+          leaveReq.endSession || 'AFTERNOON'
+        );
         const currentYear = leaveReq.startDate.getFullYear();
         const balance = await tx.leaveBalance.findFirst({
           where: { employeeId: leaveReq.employeeId, year: currentYear }

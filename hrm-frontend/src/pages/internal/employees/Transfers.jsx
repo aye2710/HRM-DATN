@@ -9,6 +9,7 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { formatDate } from '../../../utils/dateUtils';
 
 export const Transfers = () => {
   const navigate = useNavigate();
@@ -572,7 +573,7 @@ export const Transfers = () => {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#475569', fontSize: '0.83rem', fontWeight: 500 }}>
                           <Calendar size={13} style={{ color: '#94a3b8' }} />
-                          {new Date(hist.effectiveDate).toLocaleDateString('vi-VN')}
+                          {formatDate(hist.effectiveDate)}
                         </div>
                       </td>
 

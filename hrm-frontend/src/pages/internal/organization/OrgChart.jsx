@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Building, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, Building, ChevronDown, ChevronUp, Network } from 'lucide-react';
 import axios from 'axios';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 const OrgNode = ({ department, isRoot = false }) => {
   const children = department.children || [];
@@ -134,13 +135,12 @@ export const OrgChart = () => {
   const tree = buildTree(departments);
 
   return (
-    <div className="flex-col gap-6 animate-fade-in h-full">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Sơ đồ Tổ chức</h1>
-          <p className="text-muted text-sm">Cấu trúc phân bổ phòng ban và số lượng nhân sự tự động từ Database</p>
-        </div>
-      </div>
+    <div className="flex-col gap-5 animate-fade-in h-full" style={{ padding: '0 0.5rem' }}>
+      <PageHeader
+        icon={<Network size={20} />}
+        title="Sơ đồ Tổ chức"
+        subtitle="Cấu trúc phân bổ phòng ban và số lượng nhân sự tự động từ Database"
+      />
 
       <div 
         className="card flex-1 overflow-auto p-10" 

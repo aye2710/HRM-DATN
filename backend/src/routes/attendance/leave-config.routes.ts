@@ -10,11 +10,133 @@ router.use(authenticateToken);
 
 const hrOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF');
 
+export const DEFAULT_LEAVE_TYPES = [
+  {
+    code: 'ANNUAL',
+    name: 'Nghỉ phép năm',
+    defaultDays: 12,
+    paid: true,
+    deductAnnualLeave: true,
+    paidBy: 'COMPANY',
+    carryForward: true,
+    maxDaysPerOccasion: null,
+    requiresAttachment: false,
+    status: 'Hoạt động'
+  },
+  {
+    code: 'MARRIAGE',
+    name: 'Nghỉ kết hôn (Điều 115 BLLĐ)',
+    defaultDays: 3,
+    paid: true,
+    deductAnnualLeave: false,
+    paidBy: 'COMPANY',
+    carryForward: false,
+    maxDaysPerOccasion: 3,
+    requiresAttachment: true,
+    status: 'Hoạt động'
+  },
+  {
+    code: 'CHILD_MARRIAGE',
+    name: 'Nghỉ con kết hôn (Điều 115 BLLĐ)',
+    defaultDays: 1,
+    paid: true,
+    deductAnnualLeave: false,
+    paidBy: 'COMPANY',
+    carryForward: false,
+    maxDaysPerOccasion: 1,
+    requiresAttachment: false,
+    status: 'Hoạt động'
+  },
+  {
+    code: 'BEREAVEMENT',
+    name: 'Nghỉ tang chế (Điều 115 BLLĐ)',
+    defaultDays: 3,
+    paid: true,
+    deductAnnualLeave: false,
+    paidBy: 'COMPANY',
+    carryForward: false,
+    maxDaysPerOccasion: 3,
+    requiresAttachment: false,
+    status: 'Hoạt động'
+  },
+  {
+    code: 'SICK',
+    name: 'Nghỉ ốm đau (Chế độ BHXH chi trả)',
+    defaultDays: 30,
+    paid: false,
+    deductAnnualLeave: false,
+    paidBy: 'SOCIAL_INSURANCE',
+    carryForward: false,
+    maxDaysPerOccasion: null,
+    requiresAttachment: true,
+    status: 'Hoạt động'
+  },
+  {
+    code: 'MATERNITY',
+    name: 'Nghỉ thai sản (Chế độ BHXH chi trả 6 tháng)',
+    defaultDays: 180,
+    paid: false,
+    deductAnnualLeave: false,
+    paidBy: 'SOCIAL_INSURANCE',
+    carryForward: false,
+    maxDaysPerOccasion: 180,
+    requiresAttachment: true,
+    status: 'Hoạt động'
+  },
+  {
+    code: 'UNPAID',
+    name: 'Nghỉ không hưởng lương',
+    defaultDays: 0,
+    paid: false,
+    deductAnnualLeave: false,
+    paidBy: 'NONE',
+    carryForward: false,
+    maxDaysPerOccasion: null,
+    requiresAttachment: false,
+    status: 'Hoạt động'
+  },
+  {
+    code: 'COMP_OFF',
+    name: 'Nghỉ bù (Quy đổi từ giờ làm thêm OT)',
+    defaultDays: 0,
+    paid: true,
+    deductAnnualLeave: false,
+    paidBy: 'COMPANY',
+    carryForward: false,
+    maxDaysPerOccasion: null,
+    requiresAttachment: false,
+    status: 'Hoạt động'
+  }
+];
+
+export async function ensureDefaultLeaveTypes() {
+  const count = await prisma.leaveTypeConfig.count();
+  if (count === 0) {
+    for (const item of DEFAULT_LEAVE_TYPES) {
+      await prisma.leaveTypeConfig.create({ data: item });
+    }
+  } else {
+    for (const item of DEFAULT_LEAVE_TYPES) {
+      await prisma.leaveTypeConfig.upsert({
+        where: { code: item.code },
+        update: {
+          deductAnnualLeave: item.deductAnnualLeave,
+          paidBy: item.paidBy,
+          maxDaysPerOccasion: item.maxDaysPerOccasion,
+          requiresAttachment: item.requiresAttachment
+        },
+        create: item
+      });
+    }
+  }
+}
+
 // ==========================================
 // 1. LEAVE TYPES CONFIG (Cấu hình loại phép)
 // ==========================================
 router.get('/types', async (req: Request, res: Response) => {
   try {
+    await ensureDefaultLeaveTypes();
     const types = await prisma.leaveTypeConfig.findMany({
       orderBy: { code: 'asc' }
     });
@@ -46,6 +168,10 @@ router.post('/types', hrOnly, async (req: any, res: Response): Promise<any> => {
         defaultDays: parseInt(String(data.defaultDays)),
         paid: Boolean(data.paid),
         carryForward: Boolean(data.carryForward),
+        deductAnnualLeave: data.deductAnnualLeave !== undefined ? Boolean(data.deductAnnualLeave) : true,
+        paidBy: data.paidBy || (Boolean(data.paid) ? 'COMPANY' : 'NONE'),
+        maxDaysPerOccasion: data.maxDaysPerOccasion ? parseInt(String(data.maxDaysPerOccasion)) : null,
+        requiresAttachment: Boolean(data.requiresAttachment),
         status: data.status || 'Hoạt động'
       }
     });

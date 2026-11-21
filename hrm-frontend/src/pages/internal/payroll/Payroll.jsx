@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { 
   Download, Calculator, Lock, Unlock, Banknote, ShieldAlert, 
-  FileSignature, Search, Filter, Eye, EyeOff, X, ArrowLeft, Printer, 
+  FileSignature, Search, Filter, Eye, EyeOff, X, ArrowLeft, 
   CheckCircle, User, Briefcase, Calendar, RefreshCw,
   FileSpreadsheet, Users, Edit3, Settings
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const PayrollMgmt = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -52,7 +53,10 @@ export const PayrollMgmt = () => {
     if (pr.lla) {
       return {
         ...pr.lla,
-        standardWorkingDays: pr.lla.standardWorkingDays || stdDays
+        standardWorkingDays: pr.lla.standardWorkingDays || stdDays,
+        kpiScore: pr.lla.kpiScore ?? null,
+        kpiGrade: pr.lla.kpiGrade ?? null,
+        kpiBonus: Number(pr.lla.kpiBonus ?? 0)
       };
     }
     const baseSalary = Number(pr.baseSalary || 0);
@@ -74,6 +78,9 @@ export const PayrollMgmt = () => {
       actualWorkingDays,
       salaryByDays,
       ctpAndCommission: 0,
+      kpiScore: null,
+      kpiGrade: null,
+      kpiBonus: 0,
       fixedAllowance,
       otAndBonus: 0,
       insuranceBaseSalary: insDed > 0 ? baseSalary : 0,
@@ -379,41 +386,38 @@ export const PayrollMgmt = () => {
 
   return (
     <div className="animate-fade-in flex-col gap-5" style={{ padding: '0 0.5rem' }}>
-      {/* 1. Header Layout */}
-      <div className="card glass p-5 flex-col gap-4" style={{ borderRadius: '16px' }}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => navigate('/internal/payroll/periods')}
-              className="btn btn-outline" 
-              style={{ width: 38, height: 38, padding: 0, borderRadius: '50%', backgroundColor: '#F8FAFC' }}
-              title="Quay lại danh sách kỳ lương"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div className="flex-col">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="page-title">
-                  BẢNG LƯƠNG THÁNG {String(month).padStart(2, '0')}/{year} — CÔNG TY TNHH LLA
-                </h1>
-                {periodInfo.status === 'LOCKED' ? (
-                  <span className="badge badge-danger flex items-center gap-1 font-bold" style={{ padding: '0.25rem 0.65rem' }}>
-                    <Lock size={12} /> ĐÃ KHÓA SỔ
-                  </span>
-                ) : (
-                  <span className="badge badge-warning flex items-center gap-1 font-bold" style={{ padding: '0.25rem 0.65rem' }}>
-                    <Unlock size={12} /> BẢN NHÁP (MỞ)
-                  </span>
-                )}
-              </div>
-              <p className="text-muted text-xs mt-1" style={{ margin: 0 }}>
-                Công chuẩn động Tháng {String(month).padStart(2, '0')}/{year}: <strong style={{ color: 'var(--primary)' }}>{periodInfo.standardWorkingDays || 26} ngày công</strong> ({periodInfo.weekdayCount || 22} ngày T2–T6 × 1.0 + {periodInfo.workingSaturdays?.length || 2} ngày Thứ 7 đi làm cách tuần × {periodInfo.satMultiplier || 2} công)
-              </p>
-            </div>
-          </div>
-
-          {/* Cụm Thao Tác & Chọn Kỳ Lương Bên Phải */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        leftActions={
+          <button 
+            onClick={() => navigate('/internal/payroll/periods')}
+            className="btn btn-outline" 
+            style={{ width: 38, height: 38, padding: 0, borderRadius: '50%', backgroundColor: '#F8FAFC' }}
+            title="Quay lại danh sách kỳ lương"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        }
+        icon={<Banknote size={20} />}
+        title={`BẢNG LƯƠNG THÁNG ${String(month).padStart(2, '0')}/${year} — CÔNG TY TNHH LLA`}
+        badge={
+          periodInfo.status === 'LOCKED' ? (
+            <span className="badge badge-danger flex items-center gap-1 font-bold" style={{ padding: '0.25rem 0.65rem' }}>
+              <Lock size={12} /> ĐÃ KHÓA SỔ
+            </span>
+          ) : (
+            <span className="badge badge-warning flex items-center gap-1 font-bold" style={{ padding: '0.25rem 0.65rem' }}>
+              <Unlock size={12} /> BẢN NHÁP (MỞ)
+            </span>
+          )
+        }
+        subtitle={
+          <>
+            Công chuẩn động Tháng {String(month).padStart(2, '0')}/{year}: <strong style={{ color: 'var(--primary)' }}>{periodInfo.standardWorkingDays || 26} ngày công</strong> ({periodInfo.weekdayCount || 22} ngày T2–T6 × 1.0 + {periodInfo.workingSaturdays?.length || 2} ngày Thứ 7 đi làm cách tuần × {periodInfo.satMultiplier || 2} công)
+          </>
+        }
+        actions={
+          <>
             <div className="flex items-center p-1 rounded-xl" style={{ border: '1px solid var(--border)', backgroundColor: '#F8FAFC' }}>
               <select 
                 className="form-input" 
@@ -439,7 +443,7 @@ export const PayrollMgmt = () => {
             </div>
 
             <button
-              onClick={() => navigate('/internal/settings/parameters')}
+              onClick={() => navigate('/internal/system/parameters')}
               className="btn btn-outline flex items-center gap-1.5"
               style={{ height: 36 }}
               title="Cấu hình tham số Thứ 7 cách tuần x2 công, Phụ cấp mặc định, Tỷ lệ thử việc..."
@@ -487,9 +491,9 @@ export const PayrollMgmt = () => {
               <FileSpreadsheet size={15} />
               <span>Xuất Excel LLA</span>
             </button>
-          </div>
-        </div>
-
+          </>
+        }
+      >
         {/* Banner giải thích lịch công chuẩn động của tháng & các ngày Thứ 7 đi làm cách tuần x2 công */}
         <div style={{
           backgroundColor: '#EFF6FF',
@@ -519,7 +523,7 @@ export const PayrollMgmt = () => {
             Mốc chu kỳ: Thứ 7 ngày <strong>{periodInfo.satAnchor ? periodInfo.satAnchor.split('-').reverse().join('/') : '07/11/2026'}</strong>
           </span>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Cảnh Báo Khóa chi trả do trễ nộp hồ sơ gốc cứng > 7 ngày */}
       {lockedCount > 0 && (
@@ -696,7 +700,7 @@ export const PayrollMgmt = () => {
                 <th style={{ width: '110px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 6px', fontWeight: 700 }}>Phạt đi muộn + phạt khác</th>
                 <th style={{ width: '95px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 6px', fontWeight: 700 }}>Quỹ Công đoàn</th>
                 <th style={{ width: '120px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 8px', fontWeight: 800, backgroundColor: '#ECFDF5' }}>Thực nhận</th>
-                <th style={{ width: '130px', textAlign: 'center', padding: '10px 6px', fontWeight: 700, fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}>THAO TÁC</th>
+                <th style={{ width: '90px', textAlign: 'center', padding: '10px 6px', fontWeight: 700, fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}>THAO TÁC</th>
               </tr>
             </thead>
             <tbody>
@@ -765,6 +769,20 @@ export const PayrollMgmt = () => {
                               Giữ lương
                             </span>
                           )}
+                          {lla.kpiGrade && (
+                            <span 
+                              title={`KPI: ${lla.kpiScore || 0}đ (Hạng ${lla.kpiGrade}) • Thưởng hiệu suất: ${formatCurrency(lla.kpiBonus)}`} 
+                              style={{ 
+                                backgroundColor: lla.kpiGrade === 'A' ? '#DCFCE7' : lla.kpiGrade === 'B' ? '#DBEAFE' : '#FEF3C7', 
+                                color: lla.kpiGrade === 'A' ? '#15803D' : lla.kpiGrade === 'B' ? '#1D4ED8' : '#B45309', 
+                                padding: '1px 5px', 
+                                borderRadius: '4px', 
+                                fontWeight: 700 
+                              }}
+                            >
+                              🎯 KPI {lla.kpiGrade} {Number(lla.kpiBonus) > 0 ? `(+${(Number(lla.kpiBonus) / 1000).toLocaleString()}k)` : ''}
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -802,7 +820,10 @@ export const PayrollMgmt = () => {
                       </td>
 
                       {/* Cột G: CTP + Hoa hồng + trách nhiệm + thưởng */}
-                      <td style={{ textAlign: 'right', borderRight: '1px solid #CBD5E1', padding: '10px 8px' }}>
+                      <td 
+                        style={{ textAlign: 'right', borderRight: '1px solid #CBD5E1', padding: '10px 8px' }}
+                        title={lla.kpiGrade && Number(lla.kpiBonus) > 0 ? `Bao gồm Thưởng KPI Hạng ${lla.kpiGrade} (${lla.kpiScore || 0}đ): +${formatCurrency(lla.kpiBonus)}` : ''}
+                      >
                         {formatLlaNumber(lla.ctpAndCommission, true)}
                       </td>
 
@@ -853,24 +874,46 @@ export const PayrollMgmt = () => {
 
                       {/* Cột Thao tác */}
                       <td style={{ textAlign: 'center', padding: '6px', fontFamily: 'Inter, sans-serif' }}>
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => openEditModal(pr)}
                             className="btn btn-outline"
-                            style={{ padding: '4px 8px', fontSize: '0.72rem', color: '#0284C7', borderColor: '#BAE6FD' }}
-                            title="Điều chỉnh Công, CTP/Hoa hồng, Phụ cấp, Ứng lương, Phạt đi muộn"
+                            style={{ 
+                              width: 32, 
+                              height: 32, 
+                              padding: 0, 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              borderRadius: '8px', 
+                              color: '#0284C7', 
+                              borderColor: '#BAE6FD',
+                              backgroundColor: '#F0F9FF'
+                            }}
+                            title="Điều chỉnh dòng lương này"
                           >
-                            <Edit3 size={12} /> Sửa
+                            <Edit3 size={15} />
                           </button>
                           <button 
                             type="button"
-                            onClick={() => setSelectedPayslip(pr)}
+                            onClick={() => navigate(`/internal/payroll/payslips/${pr.id}?month=${month}&year=${year}`)}
                             className="btn btn-outline"
-                            style={{ padding: '4px 8px', fontSize: '0.72rem', color: 'var(--primary)', borderColor: 'rgba(105, 108, 255, 0.3)' }}
-                            title="Xem Phiếu lương chi tiết & In"
+                            style={{ 
+                              width: 32, 
+                              height: 32, 
+                              padding: 0, 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              borderRadius: '8px', 
+                              color: 'var(--primary)', 
+                              borderColor: 'rgba(105, 108, 255, 0.3)',
+                              backgroundColor: 'rgba(105, 108, 255, 0.08)'
+                            }}
+                            title="Mở xem chi tiết Phiếu lương & In ấn"
                           >
-                            <Eye size={12} /> Phiếu
+                            <Eye size={15} />
                           </button>
                         </div>
                       </td>
@@ -1015,7 +1058,14 @@ export const PayrollMgmt = () => {
 
             <div className="grid grid-cols-3 gap-3 mb-4">
               <div>
-                <label className="form-label text-xs font-bold">CTP + Hoa hồng + Thưởng (Cột G)</label>
+                <label className="form-label text-xs font-bold flex items-center justify-between">
+                  <span>CTP + Thưởng KPI (Cột G)</span>
+                  {editingPayslip && getLla(editingPayslip).kpiGrade && (
+                    <span className="text-xs" style={{ color: '#8B5CF6', fontWeight: 600 }}>
+                      (KPI: {getLla(editingPayslip).kpiGrade} - {getLla(editingPayslip).kpiScore || 0}đ)
+                    </span>
+                  )}
+                </label>
                 <input
                   type="number"
                   className="form-input"
@@ -1178,13 +1228,6 @@ export const PayrollMgmt = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => window.print()}
-                      className="btn btn-outline flex items-center gap-1.5"
-                      style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', color: '#fff' }}
-                    >
-                      <Printer size={16} /> In Phiếu
-                    </button>
-                    <button 
                       onClick={() => setSelectedPayslip(null)}
                       className="btn btn-outline" 
                       style={{ padding: '0.4rem', border: 'none', borderRadius: '50%' }}
@@ -1222,6 +1265,26 @@ export const PayrollMgmt = () => {
                     <h4 className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: '#38BDF8' }}>
                       I. CHI TIẾT THU NHẬP & CÔNG TY THANH TOÁN (CỘT F → M)
                     </h4>
+                    {lla.kpiGrade && (
+                      <div className="p-3 rounded-xl mb-3 flex items-center justify-between" style={{ backgroundColor: 'rgba(168, 85, 247, 0.12)', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                        <div className="flex items-center gap-2.5">
+                          <span style={{ fontSize: '1.25rem' }}>🎯</span>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#D8B4FE' }}>
+                              Đánh giá hiệu suất KPI: Xếp loại {lla.kpiGrade} ({lla.kpiScore || 0} điểm)
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>
+                              {Number(lla.kpiBonus) > 0 
+                                ? `Tự động cộng thưởng hiệu suất vào Cột G: +${formatCurrency(lla.kpiBonus)}` 
+                                : 'Mức xếp loại hiện tại chưa phát sinh thưởng KPI'}
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`badge ${lla.kpiGrade === 'A' ? 'badge-success' : lla.kpiGrade === 'B' ? 'badge-info' : 'badge-warning'} font-bold`}>
+                          Hạng {lla.kpiGrade}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex-col gap-2 text-sm">
                       <div className="flex justify-between">
                         <span style={{ color: '#CBD5E1' }}>Tổng lương theo ngày công (Cột F):</span>
@@ -1240,7 +1303,14 @@ export const PayrollMgmt = () => {
                         </div>
                       )}
                       <div className="flex justify-between">
-                        <span style={{ color: '#CBD5E1' }}>CTP + Hoa hồng + trách nhiệm + thưởng (Cột G):</span>
+                        <span style={{ color: '#CBD5E1' }}>
+                          CTP + Hoa hồng + trách nhiệm + thưởng (Cột G):
+                          {lla.kpiGrade && Number(lla.kpiBonus) > 0 && (
+                            <span className="text-xs block" style={{ color: '#A78BFA' }}>
+                              (Bao gồm Thưởng KPI Hạng {lla.kpiGrade}: +{formatCurrency(lla.kpiBonus)})
+                            </span>
+                          )}
+                        </span>
                         <strong className="money-text">{formatCurrency(lla.ctpAndCommission)}</strong>
                       </div>
                       <div className="flex justify-between">

@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { 
-  CalendarClock, Search, Plus, Filter, Lock, Unlock, PlayCircle, 
+  CalendarClock, Search, Plus, Filter, Lock, Unlock, PlayCircle, Calculator,
   Trash2, Eye, RefreshCw, Banknote, Users, X, Check, ArrowRight
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const PayrollPeriods = () => {
   const navigate = useNavigate();
@@ -173,14 +174,20 @@ export const PayrollPeriods = () => {
     navigate(`/internal/payroll/payslips?month=${period.month}&year=${period.year}`);
   };
 
-  // Lọc danh sách
+  // Lọc và sắp xếp danh sách chính xác theo tháng/năm giảm dần (Kỳ mới nhất luôn ở trên cùng)
   const filteredPeriods = useMemo(() => {
-    return periods.filter(p => {
-      const q = searchTerm.toLowerCase().trim();
-      const matchSearch = !q || p.name.toLowerCase().includes(q) || p.monthYear.includes(q);
-      const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
-      return matchSearch && matchStatus;
-    });
+    return [...periods]
+      .sort((a, b) => {
+        const timeA = Number(a.year || 0) * 100 + Number(a.month || 0);
+        const timeB = Number(b.year || 0) * 100 + Number(b.month || 0);
+        return timeB - timeA;
+      })
+      .filter(p => {
+        const q = searchTerm.toLowerCase().trim();
+        const matchSearch = !q || p.name.toLowerCase().includes(q) || p.monthYear.includes(q);
+        const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
+        return matchSearch && matchStatus;
+      });
   }, [periods, searchTerm, statusFilter]);
 
   // Phân trang
@@ -201,28 +208,14 @@ export const PayrollPeriods = () => {
   const latestNet = periods.length > 0 ? periods[0].totalNet : 0;
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
-      {/* 1. Header Trang: Kỷ luật, tập trung nghiệp vụ */}
-      <div 
-        style={{ 
-          backgroundColor: '#FFFFFF', 
-          borderRadius: '0.5rem', 
-          border: '1px solid var(--border)', 
-          padding: '1.25rem 1.5rem',
-          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)'
-        }}
-      >
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex-col">
-            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
-              Quản lý Chu kỳ Lương & Khóa sổ
-            </h1>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-              Khởi tạo kỳ tính lương hàng tháng, đối soát chấm công, tính toán bảng lương tự động và chốt số liệu giải ngân.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5">
+    <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem' }}>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<CalendarClock size={20} />}
+        title="Quản lý Chu kỳ Lương & Khóa sổ"
+        subtitle="Khởi tạo kỳ tính lương hàng tháng, đối soát chấm công, tính toán bảng lương tự động và chốt số liệu giải ngân."
+        actions={
+          <>
             <button 
               onClick={fetchPeriods} 
               className="btn btn-outline" 
@@ -240,9 +233,9 @@ export const PayrollPeriods = () => {
               <Plus size={16} />
               <span>Tạo Kỳ Lương Mới</span>
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* 2. Thanh Tóm tắt Tài chính & Trạng thái Chu kỳ (Financial Summary Bar - Chuẩn Enterprise) */}
       <div 
@@ -351,7 +344,7 @@ export const PayrollPeriods = () => {
                 <th>TỔNG QUỸ GROSS</th>
                 <th>THỰC LÃNH (NET)</th>
                 <th>TRẠNG THÁI</th>
-                <th className="text-center" style={{ width: '280px' }}>THAO TÁC XỬ LÝ</th>
+                <th className="text-center" style={{ width: '180px' }}>THAO TÁC</th>
               </tr>
             </thead>
             <tbody>
@@ -420,61 +413,92 @@ export const PayrollPeriods = () => {
                     </td>
 
                     <td className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Xem bảng lương chi tiết */}
+                      <div className="flex items-center justify-center gap-1.5">
+                        {/* 1. Xem bảng lương chi tiết */}
                         <button 
                           onClick={() => handleViewPayslips(period)}
-                          className="btn btn-outline flex items-center gap-1"
-                          style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', color: 'var(--primary)', borderColor: 'rgba(105, 108, 255, 0.3)', height: 32 }}
-                          title="Xem chi tiết danh sách phiếu lương của kỳ này"
+                          className="btn btn-outline"
+                          style={{ 
+                            width: 32, 
+                            height: 32, 
+                            padding: 0, 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            borderRadius: '8px', 
+                            color: 'var(--primary)', 
+                            borderColor: 'rgba(105, 108, 255, 0.3)', 
+                            backgroundColor: 'rgba(105, 108, 255, 0.08)' 
+                          }}
+                          title={`Xem Bảng lương Tháng ${period.month}/${period.year}`}
                         >
-                          <Eye size={14} /> Bảng Lương
+                          <Eye size={15} />
                         </button>
 
-                        {/* Chạy / Tính toán lại lương */}
+                        {/* 2. Chạy / Tính toán lại lương */}
                         <button 
                           onClick={() => handleCalculate(period)}
                           disabled={period.status === 'LOCKED' || calculatingId === period.id}
-                          className="btn btn-outline flex items-center gap-1"
+                          className="btn btn-outline"
                           style={{ 
-                            padding: '0.35rem 0.65rem', 
-                            fontSize: '0.8rem',
-                            height: 32,
-                            color: period.status === 'LOCKED' ? 'var(--text-muted)' : 'var(--warning)',
-                            borderColor: period.status === 'LOCKED' ? 'transparent' : 'rgba(234, 179, 8, 0.4)'
+                            width: 32, 
+                            height: 32, 
+                            padding: 0, 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            borderRadius: '8px', 
+                            color: period.status === 'LOCKED' ? 'var(--text-muted)' : '#D97706',
+                            borderColor: period.status === 'LOCKED' ? '#E2E8F0' : '#FDE68A',
+                            backgroundColor: period.status === 'LOCKED' ? '#F8FAFC' : '#FFFBEB',
+                            cursor: period.status === 'LOCKED' ? 'not-allowed' : 'pointer'
                           }}
-                          title={period.status === 'LOCKED' ? "Kỳ đã khóa sổ" : "Chạy tính toán lại lương toàn bộ nhân sự"}
+                          title={period.status === 'LOCKED' ? "Kỳ đã khóa sổ" : `Tính toán lại lương Tháng ${period.month}/${period.year}`}
                         >
-                          <PlayCircle size={14} className={calculatingId === period.id ? 'animate-spin' : ''} />
-                          <span>{calculatingId === period.id ? 'Đang tính...' : 'Tính Lương'}</span>
+                          <Calculator size={15} className={calculatingId === period.id ? 'animate-spin' : ''} />
                         </button>
 
-                        {/* Khóa / Mở Khóa */}
+                        {/* 3. Khóa / Mở Khóa */}
                         <button 
                           onClick={() => handleToggleLock(period)}
-                          className="btn btn-outline flex items-center gap-1"
+                          className="btn btn-outline"
                           style={{ 
-                            padding: '0.35rem 0.65rem', 
-                            fontSize: '0.8rem',
-                            height: 32,
-                            color: period.status === 'LOCKED' ? 'var(--primary)' : 'var(--error)',
-                            borderColor: period.status === 'LOCKED' ? 'rgba(105, 108, 255, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                            width: 32, 
+                            height: 32, 
+                            padding: 0, 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            borderRadius: '8px', 
+                            color: period.status === 'LOCKED' ? '#0284C7' : '#EF4444',
+                            borderColor: period.status === 'LOCKED' ? '#BAE6FD' : '#FECACA',
+                            backgroundColor: period.status === 'LOCKED' ? '#F0F9FF' : '#FEF2F2'
                           }}
-                          title={period.status === 'LOCKED' ? "Mở khóa sổ" : "Khóa sổ kỳ lương"}
+                          title={period.status === 'LOCKED' ? "Mở khóa sổ kỳ lương này" : "Khóa sổ kỳ lương này"}
                         >
-                          {period.status === 'LOCKED' ? <Unlock size={14} /> : <Lock size={14} />}
-                          <span>{period.status === 'LOCKED' ? 'Mở Khóa' : 'Khóa'}</span>
+                          {period.status === 'LOCKED' ? <Unlock size={15} /> : <Lock size={15} />}
                         </button>
 
-                        {/* Xóa (chỉ xóa khi DRAFT) */}
+                        {/* 4. Xóa (chỉ xóa khi DRAFT) */}
                         {period.status === 'DRAFT' && (
                           <button 
                             onClick={() => handleDeletePeriod(period)}
                             className="btn btn-outline"
-                            style={{ width: 32, height: 32, padding: 0, border: 'none', color: 'var(--error)' }}
-                            title="Xóa kỳ lương này"
+                            style={{ 
+                              width: 32, 
+                              height: 32, 
+                              padding: 0, 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              borderRadius: '8px', 
+                              color: '#DC2626',
+                              borderColor: '#FCA5A5',
+                              backgroundColor: '#FFF1F2'
+                            }}
+                            title="Xóa kỳ lương này (Chỉ xóa được khi là Bản nháp)"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={15} />
                           </button>
                         )}
                       </div>

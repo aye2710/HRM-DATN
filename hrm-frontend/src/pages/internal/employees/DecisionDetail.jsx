@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  ArrowLeft, Printer, CheckCircle2, XCircle, RotateCcw, Trash2, 
+  ArrowLeft, CheckCircle2, XCircle, RotateCcw, Trash2, 
   Paperclip, ExternalLink, Download, AlertCircle, Calendar, User, 
   Building2, Briefcase, DollarSign, Award, ShieldAlert, ArrowRight, 
   FileSignature, ChevronRight, FileText, Check, ShieldCheck, Eye, UploadCloud
@@ -9,6 +9,7 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const DecisionDetail = () => {
   const { id } = useParams();
@@ -44,10 +45,6 @@ export const DecisionDetail = () => {
   useEffect(() => {
     fetchDecisionData();
   }, [id]);
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   // Phê duyệt & Ban hành
   const handleApprove = async () => {
@@ -298,95 +295,86 @@ export const DecisionDetail = () => {
         }
       `}</style>
 
-      {/* Top Breadcrumb & Navigation Bar */}
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button 
-            onClick={() => navigate(-1)}
-            className="btn btn-outline"
-            style={{ padding: '0.5rem 0.85rem', display: 'flex', alignItems: 'center', gap: '6px', height: '38px', borderRadius: '8px' }}
-          >
-            <ArrowLeft size={16} /> Danh sách
-          </button>
-          
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#64748b' }}>
+      {/* Top Breadcrumb & Header chuẩn đồng bộ */}
+      <div className="no-print">
+        <PageHeader
+          leftActions={
+            <button 
+              onClick={() => navigate(-1)}
+              className="btn btn-outline"
+              style={{ padding: '0.5rem 0.85rem', display: 'flex', alignItems: 'center', gap: '6px', height: '38px', borderRadius: '8px' }}
+            >
+              <ArrowLeft size={16} /> Danh sách
+            </button>
+          }
+          icon={<FileSignature size={20} />}
+          breadcrumb={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#64748b' }}>
               <span>Nhân sự</span>
               <ChevronRight size={13} />
               <Link to="/internal/decisions/all" style={{ color: '#64748b', textDecoration: 'none' }}>Quyết định</Link>
               <ChevronRight size={13} />
               <span style={{ fontWeight: 600, color: '#0f172a' }}>{decision.decisionNumber}</span>
             </div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 0 0', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              {decision.title}
-              {renderStatusBadge(decision.status)}
-            </h1>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-          <button 
-            onClick={handlePrint}
-            className="btn btn-outline"
-            style={{ padding: '0.55rem 1rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#334155' }}
-            title="In văn bản A4 ra máy in hoặc lưu PDF"
-          >
-            <Printer size={16} /> In / Xuất PDF
-          </button>
-
-          {decision.fileUrl && (
-            <button 
-              onClick={() => setPreviewScan(true)}
-              className="btn btn-outline"
-              style={{ padding: '0.55rem 1rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#2563eb', borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}
-            >
-              <Paperclip size={16} /> Xem bản scan gốc
-            </button>
-          )}
-
-          {decision.status === 'PENDING' && (
+          }
+          title={decision.title}
+          badge={renderStatusBadge(decision.status)}
+          actions={
             <>
-              <button 
-                onClick={handleReject}
-                className="btn btn-outline"
-                style={{ padding: '0.55rem 1rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#dc2626', borderColor: '#fca5a5' }}
-              >
-                <XCircle size={16} /> Từ chối
-              </button>
+              {decision.fileUrl && (
+                <button 
+                  onClick={() => setPreviewScan(true)}
+                  className="btn btn-outline"
+                  style={{ padding: '0.55rem 1rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#2563eb', borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}
+                >
+                  <Paperclip size={16} /> Xem bản scan gốc
+                </button>
+              )}
 
-              <button 
-                onClick={handleApprove}
-                className="btn btn-primary"
-                style={{ padding: '0.55rem 1.25rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, backgroundColor: '#2563eb' }}
-              >
-                <CheckCircle2 size={16} /> Phê duyệt & Ban hành
-              </button>
+              {decision.status === 'PENDING' && (
+                <>
+                  <button 
+                    onClick={handleReject}
+                    className="btn btn-outline"
+                    style={{ padding: '0.55rem 1rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#dc2626', borderColor: '#fca5a5' }}
+                  >
+                    <XCircle size={16} /> Từ chối
+                  </button>
+
+                  <button 
+                    onClick={handleApprove}
+                    className="btn btn-primary"
+                    style={{ padding: '0.55rem 1.25rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, backgroundColor: '#2563eb' }}
+                  >
+                    <CheckCircle2 size={16} /> Phê duyệt & Ban hành
+                  </button>
+                </>
+              )}
+
+              {decision.status === 'APPROVED' && (
+                <button 
+                  onClick={handleRevoke}
+                  className="btn btn-outline"
+                  style={{ padding: '0.55rem 1rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#dc2626', borderColor: '#fca5a5', backgroundColor: '#fff1f2' }}
+                  title="Thu hồi quyết định và hoàn tác dữ liệu nhân sự"
+                >
+                  <RotateCcw size={16} /> Thu hồi quyết định (Rollback)
+                </button>
+              )}
+
+              {(decision.status === 'DRAFT' || decision.status === 'REJECTED') && (
+                <button 
+                  onClick={handleDelete}
+                  className="btn btn-outline"
+                  style={{ padding: '0.55rem 0.85rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: '#fca5a5' }}
+                  title="Xóa quyết định"
+                >
+                  <Trash2 size={16} /> Xóa
+                </button>
+              )}
             </>
-          )}
-
-          {decision.status === 'APPROVED' && (
-            <button 
-              onClick={handleRevoke}
-              className="btn btn-outline"
-              style={{ padding: '0.55rem 1rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#dc2626', borderColor: '#fca5a5', backgroundColor: '#fff1f2' }}
-              title="Thu hồi quyết định và hoàn tác dữ liệu nhân sự"
-            >
-              <RotateCcw size={16} /> Thu hồi quyết định (Rollback)
-            </button>
-          )}
-
-          {(decision.status === 'DRAFT' || decision.status === 'REJECTED') && (
-            <button 
-              onClick={handleDelete}
-              className="btn btn-outline"
-              style={{ padding: '0.55rem 0.85rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: '#fca5a5' }}
-              title="Xóa quyết định"
-            >
-              <Trash2 size={16} /> Xóa
-            </button>
-          )}
-        </div>
+          }
+        />
       </div>
 
       {/* Banner cảnh báo đặc biệt khi Thu hồi hoặc Từ chối */}
@@ -627,7 +615,10 @@ export const DecisionDetail = () => {
                 {decision.type === 'DISCIPLINE' && (
                   <span>
                     Thi hành kỷ luật lao động bằng hình thức <strong style={{ color: '#dc2626' }}>{decision.disciplineForm || 'Khiển trách'}</strong> đối với Ông/Bà <strong>{decision.employee?.fullName}</strong> (Mã nhân viên: <strong>{decision.employee?.code}</strong>).
-                    {decision.disciplineDuration && <span> Thời hạn chấp hành quyết định là: <strong>{decision.disciplineDuration}</strong> kể từ ngày quyết định có hiệu lực.</span>}
+                    {decision.disciplineForm === 'Khiển trách' && <span> Thời hiệu xóa kỷ luật là: <strong>03 tháng</strong> theo Điều 126 BLLĐ 2019 nếu không tái phạm.</span>}
+                    {decision.disciplineForm?.includes('Kéo dài') && decision.disciplineDuration && <span> Thời hạn hoãn nâng lương là: <strong>{decision.disciplineDuration}</strong> kể từ ngày quyết định có hiệu lực.</span>}
+                    {decision.disciplineForm === 'Cách chức' && decision.newPosition && <span> Bố trí đảm nhiệm chức danh mới: <strong>{decision.newPosition.title}</strong> (Thu hồi chức danh quản lý {decision.oldPosition?.title || decision.employee?.position?.title || 'hiện tại'}).</span>}
+                    {decision.disciplineForm?.includes('Sa thải') && <span style={{ color: '#dc2626' }}> Chấm dứt Hợp đồng lao động, bàn giao tài sản và giải quyết thôi việc theo Điều 125 BLLĐ 2019.</span>}
                   </span>
                 )}
               </div>
@@ -906,9 +897,24 @@ export const DecisionDetail = () => {
                   <div style={{ fontWeight: 800, color: '#dc2626', fontSize: '1rem', marginTop: '2px' }}>
                     {decision.disciplineForm || 'Khiển trách'}
                   </div>
-                  {decision.disciplineDuration && (
+                  {decision.disciplineForm === 'Khiển trách' && (
                     <div style={{ fontSize: '0.8rem', color: '#7f1d1d', marginTop: '4px' }}>
-                      Thời hạn: {decision.disciplineDuration}
+                      Thời hiệu xóa kỷ luật: 03 tháng
+                    </div>
+                  )}
+                  {decision.disciplineForm?.includes('Kéo dài') && decision.disciplineDuration && (
+                    <div style={{ fontSize: '0.8rem', color: '#7f1d1d', marginTop: '4px' }}>
+                      Thời hạn hoãn nâng lương: {decision.disciplineDuration}
+                    </div>
+                  )}
+                  {decision.disciplineForm === 'Cách chức' && decision.newPosition && (
+                    <div style={{ fontSize: '0.8rem', color: '#1e40af', marginTop: '4px', fontWeight: 600 }}>
+                      Vị trí mới: {decision.newPosition.title}
+                    </div>
+                  )}
+                  {decision.disciplineForm?.includes('Sa thải') && (
+                    <div style={{ fontSize: '0.8rem', color: '#b91c1c', marginTop: '4px', fontWeight: 600 }}>
+                      Sa thải (Chấm dứt HĐLĐ)
                     </div>
                   )}
                 </div>

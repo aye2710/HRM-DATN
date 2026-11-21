@@ -5,6 +5,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const LeaveTypes = () => {
   const [types, setTypes] = useState([]);
@@ -66,16 +67,17 @@ export const LeaveTypes = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 className="page-title">Loại Nghỉ phép</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Cấu hình định mức, quy tắc hưởng lương và cộng dồn của từng loại phép</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Tạo Loại phép mới
-        </button>
-      </div>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <PageHeader
+        icon={<CalendarHeart size={20} />}
+        title="Loại Nghỉ phép"
+        subtitle="Cấu hình định mức, quy tắc hưởng lương và cộng dồn của từng loại phép"
+        actions={
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={18} /> Tạo Loại phép mới
+          </button>
+        }
+      />
 
       <div className="card glass" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

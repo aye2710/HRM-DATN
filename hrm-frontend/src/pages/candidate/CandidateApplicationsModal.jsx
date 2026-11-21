@@ -22,6 +22,8 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { PreOnboardingModal } from './PreOnboardingModal';
+import { DateInput } from '../../components/common/DateInput';
+import { formatDate } from '../../utils/dateUtils';
 
 export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) => {
   const [applications, setApplications] = useState([]);
@@ -1153,8 +1155,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
                       <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
                         Ngày đề xuất
                       </label>
-                      <input
-                        type="date"
+                      <DateInput
                         min={new Date().toISOString().split('T')[0]}
                         className="form-input w-full bg-white"
                         style={{ padding: '0.45rem 0.65rem', fontSize: '0.8125rem' }}

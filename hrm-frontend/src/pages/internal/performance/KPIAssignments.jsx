@@ -7,40 +7,50 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
 
 export const KPIAssignments = () => {
   const [kpis, setKpis] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [cycles, setCycles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDept, setFilterDept] = useState('ALL');
-  const [filterPeriod, setFilterPeriod] = useState('ALL');
-
-
-
-  // Modal 1: Giao KPI từ Mẫu chuẩn (Khuyến nghị)
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [selectedEmpId, setSelectedEmpId] = useState('');
+  // Modal Giao KPI (Chọn Mẫu -> Chọn Phòng Ban -> Danh Sách Checkbox Nhân Sự)
+  const [positions, setPositions] = useState([]);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [assignMode, setAssignMode] = useState('TEMPLATE'); // 'TEMPLATE' | 'MANUAL'
+  const [assignTargetScope, setAssignTargetScope] = useState('DEPARTMENT'); // 'DEPARTMENT' | 'INDIVIDUAL'
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [selectedPositionFilter, setSelectedPositionFilter] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [assignPeriod, setAssignPeriod] = useState('Q3-2026');
   const [templateItems, setTemplateItems] = useState([]);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
+  const [empSearchTerm, setEmpSearchTerm] = useState('');
+  const [assignStartDate, setAssignStartDate] = useState('2026-10-01');
+  const [assignEndDate, setAssignEndDate] = useState('2026-12-31');
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
 
-  // Modal 2: Giao KPI đơn lẻ thủ công
-  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  // Form tự tạo chỉ tiêu lẻ
   const [manualForm, setManualForm] = useState({
     employeeId: '',
     description: '',
     target: 100,
     unit: '%',
     weight: 25,
+    direction: 'HIGHER_IS_BETTER',
+    maxScoreCap: 120,
     category: 'OUTPUT',
-    period: 'Q3-2026'
+    evidenceUrl: ''
   });
 
   // Modal 3: Cập nhật tiến độ thực tế (Achieved)
   const [updatingKpi, setUpdatingKpi] = useState(null);
   const [achievedVal, setAchievedVal] = useState(0);
+  const [evidenceUrlVal, setEvidenceUrlVal] = useState('');
 
   // Modal 4: Chỉnh sửa chỉ tiêu KPI (Quản lý)
   const [editingKpi, setEditingKpi] = useState(null);
@@ -50,21 +60,30 @@ export const KPIAssignments = () => {
     achieved: 0,
     unit: '%',
     weight: 25,
+    direction: 'HIGHER_IS_BETTER',
+    maxScoreCap: 120,
     category: 'OUTPUT',
-    period: 'Q3-2026'
+    evidenceUrl: ''
   });
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [kpiRes, empRes, tplRes] = await Promise.all([
+      const [kpiRes, empRes, tplRes, posRes] = await Promise.all([
         axios.get('http://localhost:5000/api/kpi/kpi'),
         axios.get('http://localhost:5000/api/employees'),
-        axios.get('http://localhost:5000/api/kpi/templates')
+        axios.get('http://localhost:5000/api/kpi/templates'),
+        axios.get('http://localhost:5000/api/positions').catch(() => ({ data: [] }))
       ]);
       setKpis(kpiRes.data || []);
-      setEmployees(empRes.data || []);
-      setTemplates(tplRes.data || []);
+      const emps = empRes.data || [];
+      setEmployees(emps);
+      const tpls = tplRes.data || [];
+      setTemplates(tpls);
+      setPositions(posRes.data || []);
+      if (emps.length > 0 && !manualForm.employeeId) {
+        setManualForm(prev => ({ ...prev, employeeId: emps[0].id }));
+      }
     } catch (err) {
       toast.error('Lỗi khi tải dữ liệu KPI');
     } finally {
@@ -76,34 +95,54 @@ export const KPIAssignments = () => {
     fetchData();
   }, []);
 
-  // Khi chọn nhân viên trong Modal Giao từ Mẫu -> Tự động tìm Mẫu KPI phù hợp của phòng ban đó
-  const handleSelectEmployeeForTemplate = (empId) => {
-    setSelectedEmpId(empId);
-    const emp = employees.find(e => e.id === empId);
-    if (!emp) return;
-
-    // Tìm template có department trùng khớp
-    const empDeptName = emp.department?.name || '';
-    const matchedTpl = templates.find(t => 
-      t.department && empDeptName && (
-        t.department.toLowerCase().includes(empDeptName.toLowerCase()) ||
-        empDeptName.toLowerCase().includes(t.department.toLowerCase())
-      )
-    ) || templates[0];
-
-    if (matchedTpl) {
-      setSelectedTemplateId(matchedTpl.id);
-      loadTemplateItems(matchedTpl);
+  // Helper lấy nhân sự chính xác theo phòng ban (tránh lỗi null/undefined gây lọt danh sách)
+  const getEmployeesByDept = (deptName) => {
+    if (!deptName || deptName === 'ALL') return employees;
+    if (deptName === 'Chưa phân phòng ban') {
+      return employees.filter(e => !e.department?.name);
     }
+    return employees.filter(e => e.department?.name === deptName);
   };
 
-  const handleSelectTemplate = (tplId) => {
-    setSelectedTemplateId(tplId);
-    const tpl = templates.find(t => t.id === tplId);
-    if (tpl) {
-      loadTemplateItems(tpl);
+  const departments = useMemo(() => {
+    const list = Array.from(new Set(employees.map(e => e.department?.name).filter(Boolean)));
+    const hasUnassigned = employees.some(e => !e.department?.name);
+    if (hasUnassigned) {
+      list.push('Chưa phân phòng ban');
     }
-  };
+    return list;
+  }, [employees]);
+
+  // Danh sách các chức danh thực tế có trong phòng ban đã chọn
+  const deptPositions = useMemo(() => {
+    const list = getEmployeesByDept(selectedDepartment);
+    return Array.from(new Set(list.map(e => e.position?.title).filter(Boolean)));
+  }, [selectedDepartment, employees]);
+
+  // Danh sách nhân sự thuộc phòng ban được chọn (có lọc theo Chức danh nếu chọn)
+  const deptEmployees = useMemo(() => {
+    let list = getEmployeesByDept(selectedDepartment);
+    if (selectedPositionFilter) {
+      list = list.filter(e => e.position?.title === selectedPositionFilter);
+    }
+    return list;
+  }, [selectedDepartment, employees, selectedPositionFilter]);
+
+  // Danh sách nhân sự khi chọn lẻ (có lọc theo tìm kiếm)
+  const individualEmployees = useMemo(() => {
+    if (!empSearchTerm.trim()) return employees;
+    const q = empSearchTerm.toLowerCase().trim();
+    return employees.filter(e => 
+      e.fullName.toLowerCase().includes(q) || 
+      e.code.toLowerCase().includes(q) ||
+      (e.department?.name && e.department.name.toLowerCase().includes(q))
+    );
+  }, [employees, empSearchTerm]);
+
+  // Mẫu KPI hiện đang được chọn
+  const currentTemplate = useMemo(() => {
+    return templates.find(t => t.id === selectedTemplateId) || templates[0] || null;
+  }, [templates, selectedTemplateId]);
 
   const loadTemplateItems = (tpl) => {
     if (!tpl || !tpl.items) {
@@ -111,12 +150,110 @@ export const KPIAssignments = () => {
       return;
     }
     try {
-      const parsed = JSON.parse(tpl.items);
+      const parsed = typeof tpl.items === 'string' ? JSON.parse(tpl.items) : tpl.items;
       if (Array.isArray(parsed)) {
-        setTemplateItems(parsed.map(item => ({ ...item })));
+        setTemplateItems(parsed.map(item => ({ 
+          ...item,
+          direction: item.direction || 'HIGHER_IS_BETTER',
+          maxScoreCap: item.maxScoreCap !== undefined ? item.maxScoreCap : 120
+        })));
       }
     } catch (e) {
       setTemplateItems([]);
+    }
+  };
+
+  const handleSelectDepartment = (deptName) => {
+    setSelectedDepartment(deptName);
+    setSelectedPositionFilter('');
+    const emps = getEmployeesByDept(deptName);
+    // Tự động tích chọn toàn bộ nhân sự trong phòng ban được chọn
+    setSelectedEmployeeIds(emps.map(e => e.id));
+  };
+
+  const handleSelectPositionFilter = (posTitle) => {
+    setSelectedPositionFilter(posTitle);
+    const baseList = getEmployeesByDept(selectedDepartment);
+    const filtered = posTitle ? baseList.filter(e => e.position?.title === posTitle) : baseList;
+    setSelectedEmployeeIds(filtered.map(e => e.id));
+  };
+
+  const handleSelectTemplate = (tplId) => {
+    setSelectedTemplateId(tplId);
+    const tpl = templates.find(t => t.id === tplId);
+    if (tpl) {
+      loadTemplateItems(tpl);
+
+      // Nếu mẫu có gợi ý phòng ban cụ thể (không phải Toàn công ty) thì tự động chuyển sang phòng ban đó
+      if (tpl.department && !tpl.department.toLowerCase().includes('toàn công ty')) {
+        const matchedDept = departments.find(d => 
+          d.toLowerCase() === tpl.department.toLowerCase()
+        );
+        if (matchedDept) {
+          handleSelectDepartment(matchedDept);
+          return;
+        }
+      }
+
+      // Nếu không, giữ nguyên phòng ban hiện tại hoặc chọn phòng ban đầu tiên
+      if (!selectedDepartment && departments.length > 0) {
+        handleSelectDepartment(departments[0]);
+      }
+    }
+  };
+
+  const handleOpenAssignModal = () => {
+    setAssignMode('TEMPLATE');
+    setAssignTargetScope('DEPARTMENT');
+    setEmpSearchTerm('');
+    setSelectedPositionFilter('');
+    setAssignStartDate('2026-10-01');
+    setAssignEndDate('2026-12-31');
+
+    if (templates.length > 0) {
+      const firstTpl = templates[0];
+      setSelectedTemplateId(firstTpl.id);
+      loadTemplateItems(firstTpl);
+
+      // Gợi ý phòng ban
+      let targetDept = departments[0] || '';
+      if (firstTpl.department && !firstTpl.department.toLowerCase().includes('toàn công ty')) {
+        const found = departments.find(d => 
+          d.toLowerCase() === firstTpl.department.toLowerCase()
+        );
+        if (found) targetDept = found;
+      }
+
+      if (targetDept) {
+        handleSelectDepartment(targetDept);
+      } else {
+        setSelectedEmployeeIds(employees.map(e => e.id));
+      }
+    } else if (departments.length > 0) {
+      handleSelectDepartment(departments[0]);
+    }
+
+    if (employees.length > 0) {
+      setManualForm(prev => ({ ...prev, employeeId: employees[0].id }));
+    }
+    setIsAssignModalOpen(true);
+  };
+
+  const handleToggleEmployee = (empId) => {
+    if (selectedEmployeeIds.includes(empId)) {
+      setSelectedEmployeeIds(selectedEmployeeIds.filter(id => id !== empId));
+    } else {
+      setSelectedEmployeeIds([...selectedEmployeeIds, empId]);
+    }
+  };
+
+  const handleSelectAllInScope = (currentList) => {
+    const currentIds = currentList.map(e => e.id);
+    const allSelected = currentIds.length > 0 && currentIds.every(id => selectedEmployeeIds.includes(id));
+    if (allSelected) {
+      setSelectedEmployeeIds(selectedEmployeeIds.filter(id => !currentIds.includes(id)));
+    } else {
+      setSelectedEmployeeIds(Array.from(new Set([...selectedEmployeeIds, ...currentIds])));
     }
   };
 
@@ -126,53 +263,99 @@ export const KPIAssignments = () => {
     setTemplateItems(updated);
   };
 
-  // Xác nhận Giao KPI từ Mẫu
-  const handleConfirmAssignTemplate = async (e) => {
-    e.preventDefault();
-    if (!selectedEmpId) return toast.error('Vui lòng chọn nhân viên cần giao KPI');
-    if (!templateItems || templateItems.length === 0) return toast.error('Mẫu KPI chưa có danh sách tiêu chuẩn');
-
-    try {
-      await axios.post('http://localhost:5000/api/kpi/assign-template', {
-        employeeId: selectedEmpId,
-        templateId: selectedTemplateId,
-        period: assignPeriod,
-        customItems: templateItems
-      });
-      toast.success(`Đã giao thành công ${templateItems.length} chỉ tiêu KPI chuẩn hóa cho nhân sự!`);
-      setIsTemplateModalOpen(false);
-      fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Lỗi khi giao mẫu KPI');
-    }
+  const handleTemplateItemWeightChange = (idx, newWeight) => {
+    const updated = [...templateItems];
+    updated[idx].weight = Number(newWeight);
+    setTemplateItems(updated);
   };
 
-  // Giao KPI đơn lẻ thủ công
-  const handleCreateManualKpi = async (e) => {
+  const totalTemplateWeight = useMemo(() => {
+    return templateItems.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
+  }, [templateItems]);
+
+  const handleSubmitAssign = async (e) => {
     e.preventDefault();
-    if (!manualForm.employeeId || !manualForm.description.trim()) {
-      return toast.error('Vui lòng điền đầy đủ thông tin nhân viên và mô tả chỉ tiêu');
-    }
+
+    setAssignSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/kpi/kpi', {
-        ...manualForm,
-        target: Number(manualForm.target),
-        weight: Number(manualForm.weight)
-      });
-      toast.success('Giao chỉ tiêu KPI thành công!');
-      setIsManualModalOpen(false);
-      setManualForm({
-        employeeId: '',
-        description: '',
-        target: 100,
-        unit: '%',
-        weight: 25,
-        category: 'OUTPUT',
-        period: 'Q3-2026'
-      });
+      if (assignStartDate && assignEndDate && new Date(assignStartDate) > new Date(assignEndDate)) {
+        setAssignSubmitting(false);
+        return toast.error('Ngày bắt đầu không thể sau ngày kết thúc!');
+      }
+      const computedPeriod = (assignStartDate && assignEndDate) 
+        ? `${formatDate(assignStartDate)} - ${formatDate(assignEndDate)}` 
+        : '01/10/2026 - 31/12/2026';
+
+      if (assignMode === 'TEMPLATE') {
+        if (selectedEmployeeIds.length === 0) {
+          setAssignSubmitting(false);
+          return toast.error('Vui lòng chọn ít nhất 1 nhân sự để giao KPI');
+        }
+        if (!templateItems || templateItems.length === 0) {
+          setAssignSubmitting(false);
+          return toast.error('Mẫu KPI chưa có danh sách tiêu chuẩn');
+        }
+        if (Math.abs(totalTemplateWeight - 100) > 1) {
+          setAssignSubmitting(false);
+          return toast.error(`Tổng trọng số bộ chỉ tiêu phải bằng 100% (Hiện tại là ${totalTemplateWeight}%)`);
+        }
+
+        await axios.post('http://localhost:5000/api/kpi/assign-template', {
+          employeeIds: selectedEmployeeIds,
+          templateId: selectedTemplateId,
+          customItems: templateItems,
+          period: computedPeriod,
+          startDate: assignStartDate,
+          endDate: assignEndDate
+        });
+
+        toast.success(`Đã giao thành công bộ ${templateItems.length} KPI cho ${selectedEmployeeIds.length} nhân sự thuộc phòng ${currentTemplate?.department || ''}!`);
+      } else {
+        if (!manualForm.employeeId) {
+          setAssignSubmitting(false);
+          return toast.error('Vui lòng chọn nhân sự áp dụng');
+        }
+        if (!manualForm.description.trim()) {
+          setAssignSubmitting(false);
+          return toast.error('Vui lòng nhập mô tả chỉ tiêu KPI');
+        }
+
+        await axios.post('http://localhost:5000/api/kpi/kpi', {
+          employeeId: manualForm.employeeId,
+          description: manualForm.description,
+          target: Number(manualForm.target),
+          unit: manualForm.unit,
+          weight: Number(manualForm.weight),
+          direction: manualForm.direction,
+          maxScoreCap: Number(manualForm.maxScoreCap),
+          category: manualForm.category,
+          period: computedPeriod,
+          startDate: assignStartDate,
+          endDate: assignEndDate,
+          evidenceUrl: manualForm.evidenceUrl
+        });
+
+        toast.success(`Đã giao chỉ tiêu "${manualForm.description}" thành công!`);
+        setManualForm({
+          employeeId: employees.length > 0 ? employees[0].id : '',
+          description: '',
+          target: 100,
+          unit: '%',
+          weight: 25,
+          direction: 'HIGHER_IS_BETTER',
+          maxScoreCap: 120,
+          category: 'OUTPUT',
+          evidenceUrl: ''
+        });
+      }
+
+      setIsAssignModalOpen(false);
       fetchData();
     } catch (err) {
-      toast.error('Lỗi khi giao KPI');
+      console.error('Error assigning KPI:', err);
+      toast.error(err.response?.data?.error || 'Lỗi khi giao KPI');
+    } finally {
+      setAssignSubmitting(false);
     }
   };
 
@@ -182,7 +365,8 @@ export const KPIAssignments = () => {
     if (!updatingKpi) return;
     try {
       await axios.put(`http://localhost:5000/api/kpi/kpi/${updatingKpi.id}`, {
-        achieved: Number(achievedVal)
+        achieved: Number(achievedVal),
+        evidenceUrl: evidenceUrlVal
       });
       toast.success('Đã cập nhật tiến độ KPI thành công!');
       setUpdatingKpi(null);
@@ -239,15 +423,29 @@ export const KPIAssignments = () => {
     }
   };
 
-  // Tính tỷ lệ % hoàn thành
-  const computeProgress = (target, achieved, unit) => {
+  // Tính tỷ lệ % hoàn thành chuẩn hóa theo chiều đo & trần điểm
+  const computeProgress = (target, achieved, unit, direction, maxCap = 120, minFloor = 0) => {
     const t = Number(target || 0);
     const a = Number(achieved || 0);
-    if (t <= 0) return 0;
-    if (unit === 'ms' || unit === 'ngày') {
-      return a <= t ? 100 : Math.max(0, Math.round((t / a) * 100));
+    const dir = direction || ((unit === 'ms' || unit === 'ngày' || unit === 'bug' || unit === 'lỗi' || unit === 'lần') ? 'LOWER_IS_BETTER' : 'HIGHER_IS_BETTER');
+    const cap = Number(maxCap || 120);
+    const floor = Number(minFloor || 0);
+
+    if (dir === 'BOOLEAN') {
+      if (t === 0) return a === 0 ? 100 : 0;
+      return a >= t ? 100 : 0;
     }
-    return Math.min(100, Math.round((a / t) * 100));
+    if (dir === 'LOWER_IS_BETTER') {
+      if (t === 0) return a <= 0 ? 100 : Math.max(floor, 100 - a * 25);
+      if (a <= t) {
+        const bonus = t > 0 ? ((t - a) / t) * (cap - 100) : 0;
+        return Math.min(cap, Math.round(100 + bonus));
+      }
+      return Math.max(floor, Math.round((t / a) * 100));
+    }
+    // HIGHER_IS_BETTER
+    if (t === 0) return a > 0 ? cap : 100;
+    return Math.max(floor, Math.min(cap, Math.round((a / t) * 100)));
   };
 
   // Thống kê nhanh
@@ -258,7 +456,7 @@ export const KPIAssignments = () => {
     let needsAttention = 0;
 
     kpis.forEach(k => {
-      const p = computeProgress(k.target, k.achieved, k.unit);
+      const p = computeProgress(k.target, k.achieved, k.unit, k.direction, k.maxScoreCap, k.minScoreFloor);
       if (p >= 90) excellent++;
       else if (p >= 70) onTrack++;
       else needsAttention++;
@@ -267,9 +465,7 @@ export const KPIAssignments = () => {
     return { total, excellent, onTrack, needsAttention };
   }, [kpis]);
 
-  const departments = useMemo(() => {
-    return Array.from(new Set(employees.map(e => e.department?.name).filter(Boolean)));
-  }, [employees]);
+  // Filtered KPIs
 
   const filteredKpis = useMemo(() => {
     return kpis.filter(k => {
@@ -280,11 +476,10 @@ export const KPIAssignments = () => {
         (k.employee?.code && k.employee.code.toLowerCase().includes(q));
 
       const matchDept = filterDept === 'ALL' || k.employee?.department?.name === filterDept;
-      const matchPeriod = filterPeriod === 'ALL' || k.period === filterPeriod;
 
-      return matchSearch && matchDept && matchPeriod;
+      return matchSearch && matchDept;
     });
-  }, [kpis, searchTerm, filterDept, filterPeriod]);
+  }, [kpis, searchTerm, filterDept]);
 
   // Phân trang
   const {
@@ -298,56 +493,23 @@ export const KPIAssignments = () => {
   } = usePagination(filteredKpis, 10);
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
+    <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem' }}>
       
-      {/* 1. Header Toolbar */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
-        padding: '1.25rem 1.5rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Target size={22} color="#2563EB" />
-            <h1 className="page-title" style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>
-              Quản lý Giao Chỉ Tiêu KPI (KPI Assignments)
-            </h1>
-          </div>
-          <p className="text-muted text-xs mt-1" style={{ margin: 0, color: '#64748B' }}>
-            Giao mục tiêu định lượng từ Bộ Mẫu Chuẩn Hóa, theo dõi tiến độ thực tế và kết quả hoàn thành của từng nhân sự.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button 
-            className="btn btn-outline" 
-            onClick={() => setIsManualModalOpen(true)}
-            style={{ padding: '8px 14px', fontSize: '0.85rem', fontWeight: 600 }}
-          >
-            + Giao chỉ tiêu lẻ
-          </button>
-          
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Target size={20} />}
+        title="Quản lý Giao Chỉ Tiêu KPI (KPI Assignments)"
+        subtitle="Giao mục tiêu định lượng từ Bộ Mẫu Chuẩn Hóa, theo dõi tiến độ thực tế và kết quả hoàn thành của từng nhân sự."
+        actions={
           <button 
             className="btn btn-primary" 
-            onClick={() => {
-              if (employees.length > 0) {
-                handleSelectEmployeeForTemplate(employees[0].id);
-              }
-              setIsTemplateModalOpen(true);
-            }}
-            style={{ padding: '8px 18px', fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={handleOpenAssignModal}
+            style={{ padding: '8px 20px', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}
           >
-            <Sparkles size={16} /> Giao từ Mẫu Chuẩn (Khuyến nghị)
+            <Plus size={16} /> Giao chỉ tiêu KPI
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Thống Kê 4 Khối Mini */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -401,17 +563,6 @@ export const KPIAssignments = () => {
                 <option key={i} value={d}>{d}</option>
               ))}
             </select>
-
-            <select
-              className="form-select"
-              value={filterPeriod}
-              onChange={e => { setFilterPeriod(e.target.value); setCurrentPage(1); }}
-              style={{ width: '140px', height: '36px', fontSize: '0.825rem' }}
-            >
-              <option value="ALL">-- Tất cả kỳ --</option>
-              <option value="Q3-2026">Quý 3 / 2026</option>
-              <option value="Q4-2026">Quý 4 / 2026</option>
-            </select>
           </div>
 
           <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 600 }}>
@@ -440,7 +591,7 @@ export const KPIAssignments = () => {
               ) : filteredKpis.length === 0 ? (
                 <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>Chưa có chỉ tiêu KPI nào phù hợp.</td></tr>
               ) : paginatedKpis.map(k => {
-                const progress = computeProgress(k.target, k.achieved, k.unit);
+                const progress = computeProgress(k.target, k.achieved, k.unit, k.direction, k.maxScoreCap, k.minScoreFloor);
                 const isExcellent = progress >= 90;
                 const isOnTrack = progress >= 70 && progress < 90;
                 const unitStr = k.unit || '%';
@@ -473,13 +624,33 @@ export const KPIAssignments = () => {
                       <div style={{ fontWeight: 600, color: '#0F172A', fontSize: '0.85rem' }}>
                         {k.description}
                       </div>
-                      <div style={{ display: 'flex', gap: '6px', marginTop: '3px' }}>
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#F1F5F9', color: '#475569', fontWeight: 600 }}>
                           {k.category || 'OUTPUT'}
                         </span>
-                        <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', fontWeight: 600 }}>
-                          {k.period || 'Q3-2026'}
+                        <span style={{ fontSize: '0.7rem', padding: '2px 7px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Calendar size={11} /> Hạn: {k.period || '31/12/2026'}
                         </span>
+                        {k.direction === 'LOWER_IS_BETTER' && (
+                          <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#B45309', fontWeight: 600 }}>
+                            📉 Càng ít lỗi càng tốt
+                          </span>
+                        )}
+                        {k.direction === 'BOOLEAN' && (
+                          <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#F3E8FF', color: '#7E22CE', fontWeight: 600 }}>
+                            ⚖️ Đạt / Không đạt
+                          </span>
+                        )}
+                        {k.evidenceUrl && (
+                          <a 
+                            href={k.evidenceUrl.startsWith('http') ? k.evidenceUrl : `https://${k.evidenceUrl}`} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#DCFCE7', color: '#15803D', fontWeight: 600, textDecoration: 'none' }}
+                          >
+                            📎 Xem minh chứng
+                          </a>
+                        )}
                       </div>
                     </td>
 
@@ -536,6 +707,7 @@ export const KPIAssignments = () => {
                           onClick={() => {
                             setUpdatingKpi(k);
                             setAchievedVal(Number(k.achieved || 0));
+                            setEvidenceUrlVal(k.evidenceUrl || '');
                           }}
                         >
                           <TrendingUp size={15} />
@@ -579,209 +751,603 @@ export const KPIAssignments = () => {
         />
       </div>
 
-      {/* MODAL 1: GIAO KPI TỪ MẪU CHUẨN (KHÔNG CẦN TỰ NGHĨ TỪ ĐẦU) */}
-      {isTemplateModalOpen && createPortal(
+      {/* MODAL GIAO CHỈ TIÊU KPI (TỰ ĐỘNG QUÉT NHÂN SỰ THEO PHÒNG BAN & CHỨC DANH CỦA MẪU) */}
+      {isAssignModalOpen && createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
-          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '760px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '14px', width: '840px', maxWidth: '95vw', maxHeight: '92vh', overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.85rem' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={20} color="#2563EB" /> Giao KPI Chuẩn Hóa Theo Mẫu Phòng Ban
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Target size={22} color="#2563EB" /> Giao Mục Tiêu Định Lượng (KPI)
                 </h3>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#64748B' }}>
-                  Hệ thống tự động nạp các chỉ tiêu nghiệp vụ chuẩn ngành, Quản lý chỉ cần kiểm tra con số và xác nhận.
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#64748B' }}>
+                  Áp dụng bộ mẫu chuẩn hóa cho phòng ban hoặc tự tùy biến chỉ tiêu riêng lẻ.
                 </p>
               </div>
-              <button onClick={() => setIsTemplateModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
+              <button 
+                type="button"
+                onClick={() => setIsAssignModalOpen(false)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
             </div>
 
-            <form onSubmit={handleConfirmAssignTemplate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleSubmitAssign} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 0.8fr', gap: '12px' }}>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>1. Chọn nhân viên áp dụng *</label>
-                  <select 
-                    className="form-select" 
-                    value={selectedEmpId} 
-                    onChange={e => handleSelectEmployeeForTemplate(e.target.value)}
-                  >
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.fullName} ({emp.code}) - {emp.department?.name || 'Tổ chức'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>2. Mẫu KPI chuẩn được đề xuất *</label>
-                  <select 
-                    className="form-select" 
-                    value={selectedTemplateId} 
-                    onChange={e => handleSelectTemplate(e.target.value)}
-                  >
-                    {templates.map(tpl => (
-                      <option key={tpl.id} value={tpl.id}>
-                        {tpl.name} ({tpl.department})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>3. Kỳ đánh giá *</label>
-                  <select 
-                    className="form-select" 
-                    value={assignPeriod} 
-                    onChange={e => setAssignPeriod(e.target.value)}
-                  >
-                    <option value="Q3-2026">Quý 3 / 2026</option>
-                    <option value="Q4-2026">Quý 4 / 2026</option>
-                    <option value="YEAR-2026">Cả năm 2026</option>
-                  </select>
-                </div>
+              {/* Chọn HÌNH THỨC GIAO (2 Tabs) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', backgroundColor: '#F1F5F9', padding: '5px', borderRadius: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setAssignMode('TEMPLATE')}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all 0.15s ease',
+                    backgroundColor: assignMode === 'TEMPLATE' ? '#FFFFFF' : 'transparent',
+                    color: assignMode === 'TEMPLATE' ? '#2563EB' : '#64748B',
+                    boxShadow: assignMode === 'TEMPLATE' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  <Sparkles size={16} /> Áp dụng từ Mẫu Chuẩn (Khuyến nghị)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignMode('MANUAL')}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all 0.15s ease',
+                    backgroundColor: assignMode === 'MANUAL' ? '#FFFFFF' : 'transparent',
+                    color: assignMode === 'MANUAL' ? '#2563EB' : '#64748B',
+                    boxShadow: assignMode === 'MANUAL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  <Plus size={16} /> Tự tạo chỉ tiêu lẻ (Tùy biến)
+                </button>
               </div>
 
-              {/* Danh sách tiêu chí tự động nạp */}
-              <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0F172A', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Danh sách {templateItems.length} chỉ số sẽ được tự động giao:</span>
-                  <span style={{ fontSize: '0.78rem', color: '#047857' }}>✓ Tổng trọng số: 100%</span>
-                </div>
+              {assignMode === 'TEMPLATE' ? (
+                /* TAB 1: GIAO THEO MẪU CHUẨN */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  
+                  {/* 1. Chọn Mẫu KPI */}
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A' }}>
+                      1. Chọn Bộ Mẫu KPI Tiêu Chuẩn *
+                    </label>
+                    <select 
+                      className="form-select" 
+                      value={selectedTemplateId} 
+                      onChange={e => handleSelectTemplate(e.target.value)}
+                      style={{ fontSize: '0.88rem', fontWeight: 600, height: '40px' }}
+                    >
+                      {templates.map(tpl => (
+                        <option key={tpl.id} value={tpl.id}>
+                          {tpl.name} ({tpl.department ? `Gợi ý: ${tpl.department}` : 'Dùng chung'}) — {tpl.criteria || 4} tiêu chí
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {templateItems.map((item, idx) => (
-                  <div key={idx} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', backgroundColor: '#F8FAFC', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0F172A' }}>
-                        #{idx + 1}. {item.title}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
-                        {item.description || item.category}
-                      </div>
-                    </div>
+                  {/* Thời gian áp dụng: Ngày bắt đầu & Ngày kết thúc */}
+                  <div style={{ backgroundColor: '#F8FAFC', padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Calendar size={15} color="#2563EB" />
+                      <span>Thời gian áp dụng chỉ tiêu KPI:</span>
+                    </span>
 
-                    <div style={{ textAlign: 'center' }}>
-                      <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', fontWeight: 700, fontSize: '0.75rem' }}>
-                        Trọng số: {item.weight}%
-                      </span>
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
-                        Mức chỉ tiêu (`Target`):
-                      </label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <input 
-                          type="number" 
-                          className="form-input" 
-                          value={item.target} 
-                          onChange={e => handleTemplateItemTargetChange(idx, e.target.value)}
-                          style={{ height: '32px', fontSize: '0.85rem', fontWeight: 700, color: '#047857' }}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '3px' }}>
+                          Từ ngày (Ngày bắt đầu) *
+                        </span>
+                        <DateInput
+                          value={assignStartDate}
+                          onChange={val => setAssignStartDate(val)}
+                          required
+                          style={{ height: '38px', fontSize: '0.85rem' }}
                         />
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>{item.unit || '%'}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '3px' }}>
+                          Đến ngày (Hạn chót hoàn thành) *
+                        </span>
+                        <DateInput
+                          value={assignEndDate}
+                          onChange={val => setAssignEndDate(val)}
+                          required
+                          style={{ height: '38px', fontSize: '0.85rem' }}
+                        />
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
-                <button type="button" onClick={() => setIsTemplateModalOpen(false)} className="btn btn-outline" style={{ fontSize: '0.85rem' }}>
-                  Hủy
-                </button>
-                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '8px 22px', fontWeight: 700 }}>
-                  Xác nhận Giao bộ KPI
-                </button>
-              </div>
+                  {/* 2. Chọn Đối Tượng Áp Dụng (Theo Phòng ban CÓ CHECKBOX LỌC NGƯỜI HOẶC Chọn lẻ) */}
+                  <div style={{ backgroundColor: '#F8FAFC', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <UserCheck size={16} color="#2563EB" />
+                        <span>2. Chọn nhân sự áp dụng:</span>
+                      </div>
 
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+                      {/* Nút chuyển chế độ: Giao theo Phòng ban vs Chọn lẻ */}
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssignTargetScope('DEPARTMENT');
+                            if (departments.length > 0 && !selectedDepartment) {
+                              handleSelectDepartment(departments[0]);
+                            } else if (selectedDepartment) {
+                              handleSelectDepartment(selectedDepartment);
+                            }
+                          }}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: assignTargetScope === 'DEPARTMENT' ? '2px solid #2563EB' : '1px solid #CBD5E1',
+                            backgroundColor: assignTargetScope === 'DEPARTMENT' ? '#EFF6FF' : '#FFFFFF',
+                            color: assignTargetScope === 'DEPARTMENT' ? '#1D4ED8' : '#475569',
+                            fontWeight: 700,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}
+                        >
+                          <Layers size={14} /> Giao theo Phòng ban
+                        </button>
 
-      {/* MODAL 2: GIAO KPI THỦ CÔNG ĐƠN LẺ */}
-      {isManualModalOpen && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
-          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '560px', maxWidth: '95vw', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>
-                Giao Thêm Chỉ Tiêu KPI Đơn Lẻ
-              </h3>
-              <button onClick={() => setIsManualModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
-            </div>
+                        <button
+                          type="button"
+                          onClick={() => setAssignTargetScope('INDIVIDUAL')}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: assignTargetScope === 'INDIVIDUAL' ? '2px solid #2563EB' : '1px solid #CBD5E1',
+                            backgroundColor: assignTargetScope === 'INDIVIDUAL' ? '#EFF6FF' : '#FFFFFF',
+                            color: assignTargetScope === 'INDIVIDUAL' ? '#1D4ED8' : '#475569',
+                            fontWeight: 700,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}
+                        >
+                          <UserCheck size={14} /> Chọn nhân sự lẻ
+                        </button>
+                      </div>
+                    </div>
 
-            <form onSubmit={handleCreateManualKpi} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nhân viên áp dụng *</label>
-                <select 
-                  className="form-select" 
-                  required
-                  value={manualForm.employeeId} 
-                  onChange={e => setManualForm({ ...manualForm, employeeId: e.target.value })}
+                    {/* NẾU LÀ GIAO THEO PHÒNG BAN */}
+                    {assignTargetScope === 'DEPARTMENT' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                              Chọn Phòng ban cần giao KPI:
+                            </label>
+                            <select
+                              className="form-select"
+                              value={selectedDepartment}
+                              onChange={e => handleSelectDepartment(e.target.value)}
+                              style={{ height: '38px', fontSize: '0.85rem', fontWeight: 600 }}
+                            >
+                              {departments.map((d, i) => (
+                                <option key={i} value={d}>
+                                  Phòng ban: {d} ({getEmployeesByDept(d).length} nhân sự)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '4px' }}>
+                              Lọc theo Chức danh (Tùy chọn):
+                            </label>
+                            <select
+                              className="form-select"
+                              value={selectedPositionFilter}
+                              onChange={e => handleSelectPositionFilter(e.target.value)}
+                              style={{ height: '38px', fontSize: '0.85rem', fontWeight: 600 }}
+                            >
+                              <option value="">
+                                -- Tất cả chức danh trong phòng ({getEmployeesByDept(selectedDepartment).length} nhân sự) --
+                              </option>
+                              {deptPositions.map((posTitle, i) => (
+                                <option key={i} value={posTitle}>
+                                  {posTitle} ({getEmployeesByDept(selectedDepartment).filter(e => e.position?.title === posTitle).length} nhân sự)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Tiêu đề & Nút Chọn tất cả / Bỏ chọn */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', borderTop: '1px solid #E2E8F0', paddingTop: '8px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1E293B' }}>
+                            Danh sách nhân sự phòng <u>{selectedDepartment}</u> {selectedPositionFilter ? `— Vị trí: "${selectedPositionFilter}"` : ''} (Tích chọn người nhận KPI):
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectAllInScope(deptEmployees)}
+                              style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              {deptEmployees.length > 0 && deptEmployees.every(e => selectedEmployeeIds.includes(e.id)) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                            </button>
+                            <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', fontSize: '0.78rem', fontWeight: 700, border: '1px solid #BFDBFE' }}>
+                              Đã chọn: {selectedEmployeeIds.filter(id => deptEmployees.some(e => e.id === id)).length} / {deptEmployees.length} nhân sự
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Checkbox Grid nhân viên trong phòng */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', maxHeight: '180px', overflowY: 'auto', padding: '4px 2px' }}>
+                          {deptEmployees.length === 0 ? (
+                            <div style={{ color: '#94A3B8', fontSize: '0.8rem', padding: '10px' }}>Không có nhân viên nào phù hợp với điều kiện lọc này.</div>
+                          ) : (
+                            deptEmployees.map(emp => {
+                              const isChecked = selectedEmployeeIds.includes(emp.id);
+                              return (
+                                <label 
+                                  key={emp.id} 
+                                  style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '8px', 
+                                    padding: '8px 12px', 
+                                    borderRadius: '8px', 
+                                    border: isChecked ? '1.5px solid #2563EB' : '1px solid #CBD5E1', 
+                                    backgroundColor: isChecked ? '#EFF6FF' : '#FFFFFF', 
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  <input 
+                                    type="checkbox" 
+                                    checked={isChecked}
+                                    onChange={() => handleToggleEmployee(emp.id)}
+                                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                  />
+                                  <div style={{ overflow: 'hidden' }}>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: isChecked ? '#1E40AF' : '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {emp.fullName}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: '#64748B' }}>
+                                      {emp.code} • {emp.position?.title || (selectedDepartment === 'Chưa phân phòng ban' ? 'Chưa gắn chức danh' : 'Nhân viên')}
+                                    </div>
+                                  </div>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      /* NẾU LÀ CHỌN LẺ TỪNG NHÂN SỰ */
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <input 
+                            type="text" 
+                            placeholder="Tìm nhân sự theo tên, mã NV hoặc phòng ban..." 
+                            className="form-input"
+                            value={empSearchTerm}
+                            onChange={e => setEmpSearchTerm(e.target.value)}
+                            style={{ height: '36px', fontSize: '0.82rem', width: '320px' }}
+                          />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectAllInScope(individualEmployees)}
+                              style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              {selectedEmployeeIds.length === individualEmployees.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                            </button>
+                            <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', fontSize: '0.78rem', fontWeight: 700, border: '1px solid #BFDBFE' }}>
+                              Đã chọn: {selectedEmployeeIds.length} nhân sự
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', maxHeight: '180px', overflowY: 'auto', padding: '4px 2px' }}>
+                          {individualEmployees.map(emp => {
+                            const isChecked = selectedEmployeeIds.includes(emp.id);
+                            return (
+                              <label 
+                                key={emp.id} 
+                                style={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: '8px', 
+                                  padding: '8px 12px', 
+                                  borderRadius: '8px', 
+                                  border: isChecked ? '1.5px solid #2563EB' : '1px solid #CBD5E1', 
+                                  backgroundColor: isChecked ? '#EFF6FF' : '#FFFFFF', 
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <input 
+                                  type="checkbox" 
+                                  checked={isChecked}
+                                  onChange={() => handleToggleEmployee(emp.id)}
+                                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                />
+                                <div style={{ overflow: 'hidden' }}>
+                                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: isChecked ? '#1E40AF' : '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {emp.fullName}
+                                  </div>
+                                  <div style={{ fontSize: '0.7rem', color: '#64748B' }}>
+                                    {emp.code} • {emp.position?.title || 'Chưa gắn chức danh'} • <span style={{ color: '#2563EB', fontWeight: 600 }}>{emp.department?.name || 'Chưa phân phòng'}</span>
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Danh sách các chỉ tiêu trong mẫu */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A' }}>
+                        3. Danh sách {templateItems.length} chỉ số đo lường trong mẫu:
+                      </span>
+                      <span className="badge" style={{
+                        backgroundColor: Math.abs(totalTemplateWeight - 100) <= 0.5 ? '#DCFCE7' : '#FEE2E2',
+                        color: Math.abs(totalTemplateWeight - 100) <= 0.5 ? '#166534' : '#991B1B',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        padding: '4px 10px'
+                      }}>
+                        Tổng trọng số: {totalTemplateWeight}% / 100%
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {templateItems.map((item, idx) => (
+                        <div key={idx} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '10px 14px', backgroundColor: '#FFFFFF', display: 'grid', gridTemplateColumns: '2fr 1fr 1.2fr', gap: '12px', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0F172A' }}>
+                              #{idx + 1}. {item.title}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                              <span className="badge" style={{ backgroundColor: '#F1F5F9', color: '#475569', fontSize: '0.7rem' }}>
+                                {item.category || 'OUTPUT'}
+                              </span>
+                              <span className="badge" style={{
+                                backgroundColor: item.direction === 'LOWER_IS_BETTER' ? '#FEF2F2' : (item.direction === 'BOOLEAN' ? '#F0FDF4' : '#EFF6FF'),
+                                color: item.direction === 'LOWER_IS_BETTER' ? '#991B1B' : (item.direction === 'BOOLEAN' ? '#166534' : '#1D4ED8'),
+                                fontSize: '0.7rem',
+                                fontWeight: 700
+                              }}>
+                                {item.direction === 'LOWER_IS_BETTER' ? 'Càng thấp càng tốt' : (item.direction === 'BOOLEAN' ? 'Nhị phân (Đạt/Không)' : 'Càng cao càng tốt')}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
+                              Trọng số (%):
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <input 
+                                type="number" 
+                                className="form-input" 
+                                value={item.weight} 
+                                onChange={e => handleTemplateItemWeightChange(idx, e.target.value)}
+                                style={{ height: '32px', fontSize: '0.85rem', fontWeight: 700, width: '70px', textAlign: 'center' }}
+                              />
+                              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>%</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
+                              Mức chỉ tiêu (`Target`):
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <input 
+                                type="number" 
+                                className="form-input" 
+                                value={item.target} 
+                                onChange={e => handleTemplateItemTargetChange(idx, e.target.value)}
+                                style={{ height: '32px', fontSize: '0.85rem', fontWeight: 700, color: '#047857' }}
+                              />
+                              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', minWidth: '24px' }}>{item.unit || '%'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+              ) : (
+                /* TAB 2: TỰ TẠO CHỈ TIÊU LẺ */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nhân sự áp dụng *</label>
+                    <select 
+                      className="form-select"
+                      value={manualForm.employeeId}
+                      onChange={e => setManualForm({ ...manualForm, employeeId: e.target.value })}
+                    >
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.fullName} ({emp.code}) — {emp.department?.name || 'Tổ chức'} ({emp.position?.title || 'Chuyên viên'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Mô tả chỉ tiêu cụ thể *</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      required
+                      placeholder="VD: Nghiên cứu tích hợp Cổng thanh toán VNPay, Đạt doanh số tháng..."
+                      value={manualForm.description}
+                      onChange={e => setManualForm({ ...manualForm, description: e.target.value })}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nhóm chỉ số (Category)</label>
+                      <select 
+                        className="form-select"
+                        value={manualForm.category}
+                        onChange={e => setManualForm({ ...manualForm, category: e.target.value })}
+                      >
+                        <option value="OUTPUT">OUTPUT (Kết quả đầu ra)</option>
+                        <option value="QUALITY">QUALITY (Chất lượng / Độ chính xác)</option>
+                        <option value="TIMELINE">TIMELINE (Tiến độ hoàn thành)</option>
+                        <option value="BEHAVIOR">BEHAVIOR (Thái độ / Kỷ luật)</option>
+                        <option value="COMPLIANCE">COMPLIANCE (Tuân thủ quy trình)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Chiều đo lường (Direction)</label>
+                      <select 
+                        className="form-select"
+                        value={manualForm.direction}
+                        onChange={e => setManualForm({ ...manualForm, direction: e.target.value })}
+                      >
+                        <option value="HIGHER_IS_BETTER">Càng cao càng tốt (Doanh thu, % hoàn thành)</option>
+                        <option value="LOWER_IS_BETTER">Càng thấp càng tốt (Tỷ lệ lỗi, ms, khiếu nại)</option>
+                        <option value="BOOLEAN">Nhị phân Đạt / Không đạt (100% hoặc 0%)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Mục tiêu (`Target`) *</label>
+                      <input 
+                        type="number" 
+                        className="form-input" 
+                        required
+                        value={manualForm.target}
+                        onChange={e => setManualForm({ ...manualForm, target: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Đơn vị đo *</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="%, ms, VNĐ, bug..."
+                        value={manualForm.unit}
+                        onChange={e => setManualForm({ ...manualForm, unit: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Trọng số (%) *</label>
+                      <input 
+                        type="number" 
+                        className="form-input" 
+                        required
+                        value={manualForm.weight}
+                        onChange={e => setManualForm({ ...manualForm, weight: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Trần điểm thưởng (Cap %)</label>
+                      <input 
+                        type="number" 
+                        className="form-input" 
+                        value={manualForm.maxScoreCap}
+                        onChange={e => setManualForm({ ...manualForm, maxScoreCap: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Link minh chứng / Báo cáo</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="VD: https://jira.company.com/browse/PROJ-123..."
+                        value={manualForm.evidenceUrl}
+                        onChange={e => setManualForm({ ...manualForm, evidenceUrl: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Thời gian áp dụng cho chỉ tiêu lẻ */}
+                  <div style={{ backgroundColor: '#F8FAFC', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Calendar size={14} color="#2563EB" /> Thời gian áp dụng (Từ ngày — Đến ngày) *
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, display: 'block', marginBottom: '3px' }}>Ngày bắt đầu *</span>
+                        <DateInput value={assignStartDate} onChange={val => setAssignStartDate(val)} required />
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, display: 'block', marginBottom: '3px' }}>Ngày kết thúc (Hạn chót) *</span>
+                        <DateInput value={assignEndDate} onChange={val => setAssignEndDate(val)} required />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Footer */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setIsAssignModalOpen(false)} 
+                  className="btn btn-outline" 
+                  style={{ fontSize: '0.85rem' }}
                 >
-                  <option value="">-- Chọn nhân viên --</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.fullName} ({emp.code}) - {emp.department?.name || 'Tổ chức'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Mô tả chỉ tiêu cụ thể *</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  required
-                  placeholder="VD: Nghiên cứu tích hợp Cổng thanh toán VNPay..."
-                  value={manualForm.description}
-                  onChange={e => setManualForm({ ...manualForm, description: e.target.value })}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Mục tiêu (`Target`) *</label>
-                  <input 
-                    type="number" 
-                    className="form-input" 
-                    required
-                    value={manualForm.target}
-                    onChange={e => setManualForm({ ...manualForm, target: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Đơn vị đo *</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="%, ms, VNĐ..."
-                    value={manualForm.unit}
-                    onChange={e => setManualForm({ ...manualForm, unit: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Trọng số (%) *</label>
-                  <input 
-                    type="number" 
-                    className="form-input" 
-                    required
-                    value={manualForm.weight}
-                    onChange={e => setManualForm({ ...manualForm, weight: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
-                <button type="button" onClick={() => setIsManualModalOpen(false)} className="btn btn-outline" style={{ fontSize: '0.85rem' }}>
-                  Hủy
+                  Hủy bỏ
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '6px 20px', fontWeight: 700 }}>
-                  Lưu Chỉ Tiêu
+                <button 
+                  type="submit" 
+                  disabled={assignSubmitting || (assignMode === 'TEMPLATE' && selectedEmployeeIds.length === 0)}
+                  className="btn btn-primary" 
+                  style={{ fontSize: '0.85rem', padding: '8px 24px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {assignSubmitting ? (
+                    'Đang xử lý...'
+                  ) : assignMode === 'TEMPLATE' ? (
+                    <>
+                      <CheckCircle2 size={16} /> Xác nhận Giao KPI cho {selectedEmployeeIds.length} nhân sự
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} /> Lưu Chỉ Tiêu KPI
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -836,6 +1402,20 @@ export const KPIAssignments = () => {
                     {updatingKpi.unit || '%'}
                   </span>
                 </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0F172A' }}>
+                  Link minh chứng / Báo cáo kết quả
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="VD: https://jira.company.com/browse/PROJ-123 hoặc link Google Drive..." 
+                  value={evidenceUrlVal}
+                  onChange={e => setEvidenceUrlVal(e.target.value)}
+                  style={{ fontSize: '0.82rem', height: '36px' }}
+                />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
@@ -907,7 +1487,7 @@ export const KPIAssignments = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Đơn vị đo</label>
                   <input 
@@ -927,18 +1507,34 @@ export const KPIAssignments = () => {
                     onChange={e => setEditKpiForm({ ...editKpiForm, weight: e.target.value })}
                   />
                 </div>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Kỳ áp dụng</label>
-                  <select 
-                    className="form-select"
-                    value={editKpiForm.period}
-                    onChange={e => setEditKpiForm({ ...editKpiForm, period: e.target.value })}
-                  >
-                    <option value="Q3-2026">Quý 3 - 2026</option>
-                    <option value="Q4-2026">Quý 4 - 2026</option>
-                    <option value="YEAR-2026">Năm 2026</option>
-                  </select>
-                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0F172A' }}>
+                  Link minh chứng / Báo cáo kết quả
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="VD: https://jira.company.com/browse/PROJ-123 hoặc link Google Drive..." 
+                  value={editKpiForm.evidenceUrl || ''}
+                  onChange={e => setEditKpiForm({ ...editKpiForm, evidenceUrl: e.target.value })}
+                  style={{ fontSize: '0.82rem', height: '36px' }}
+                />
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0F172A' }}>
+                  Thời hạn áp dụng (Thời gian)
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="VD: 01/10/2026 - 31/12/2026" 
+                  value={editKpiForm.period || ''}
+                  onChange={e => setEditKpiForm({ ...editKpiForm, period: e.target.value })}
+                  style={{ fontSize: '0.82rem', height: '36px' }}
+                />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>

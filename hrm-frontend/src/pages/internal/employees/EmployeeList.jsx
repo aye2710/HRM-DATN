@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Plus, Trash2, Edit, X, Eye, Users, 
-  FileSpreadsheet, RefreshCw, Download, Upload
+  FileSpreadsheet, RefreshCw, Download, Upload,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
@@ -12,6 +13,10 @@ import { exportToExcel } from '../../../utils/excelHelper';
 import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
 import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { compareVietnameseNames } from '../../../utils/sortUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const EmployeeList = () => {
   const navigate = useNavigate();
@@ -23,7 +28,11 @@ export const EmployeeList = () => {
   const [deptFilter, setDeptFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
-  const [contractFilter, setContractFilter] = useState('');
+  const [hideResigned, setHideResigned] = useState(false);
+
+  // Sorting state (Mặc định: Tên A-Z tiếng Việt)
+  const [sortField, setSortField] = useState('fullName');
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -90,6 +99,16 @@ export const EmployeeList = () => {
     fetchData();
   }, []);
 
+  // Toggle Sort Field & Order
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
   // Filtered List
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
@@ -106,16 +125,38 @@ export const EmployeeList = () => {
       const matchDept = deptFilter ? emp.departmentId === deptFilter : true;
       const matchStatus = statusFilter ? emp.status === statusFilter : true;
       const matchLevel = levelFilter ? emp.position?.level?.toLowerCase() === levelFilter.toLowerCase() : true;
+      const matchHideResigned = hideResigned ? emp.status !== 'RESIGNED' : true;
       
-      let matchContract = true;
-      if (contractFilter) {
-        const activeContract = emp.contracts?.find(c => c.status === 'ACTIVE');
-        matchContract = activeContract ? activeContract.contractType === contractFilter : (contractFilter === 'NONE');
-      }
-
-      return matchSearch && matchDept && matchStatus && matchLevel && matchContract;
+      return matchSearch && matchDept && matchStatus && matchLevel && matchHideResigned;
     });
-  }, [employees, searchTerm, deptFilter, statusFilter, levelFilter, contractFilter]);
+  }, [employees, searchTerm, deptFilter, statusFilter, levelFilter, hideResigned]);
+
+  // Sorted & Filtered List (Phương án 2: Mặc định Tên A-Z, click tiêu đề cột để đảo chiều)
+  const sortedAndFilteredEmployees = useMemo(() => {
+    return [...filteredEmployees].sort((a, b) => {
+      let comparison = 0;
+      if (sortField === 'fullName') {
+        comparison = compareVietnameseNames(a.fullName, b.fullName, 'asc');
+      } else if (sortField === 'code') {
+        comparison = (a.code || '').localeCompare(b.code || '', 'vi', { numeric: true });
+      } else if (sortField === 'email') {
+        comparison = (a.email || '').localeCompare(b.email || '');
+      } else if (sortField === 'phone') {
+        comparison = (a.phone || '').localeCompare(b.phone || '');
+      } else if (sortField === 'position') {
+        comparison = (a.position?.title || '').localeCompare(b.position?.title || '', 'vi');
+      } else if (sortField === 'department') {
+        comparison = (a.department?.name || '').localeCompare(b.department?.name || '', 'vi');
+      } else if (sortField === 'joinDate') {
+        const timeA = a.joinDate ? new Date(a.joinDate).getTime() : 0;
+        const timeB = b.joinDate ? new Date(b.joinDate).getTime() : 0;
+        comparison = timeA - timeB;
+      } else if (sortField === 'status') {
+        comparison = (a.status || '').localeCompare(b.status || '');
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredEmployees, sortField, sortOrder]);
 
   const {
     currentPage,
@@ -126,11 +167,11 @@ export const EmployeeList = () => {
     totalPages,
     paginatedItems: paginatedEmployees,
     resetPage,
-  } = usePagination(filteredEmployees, 10);
+  } = usePagination(sortedAndFilteredEmployees, 10);
 
   useEffect(() => {
     resetPage();
-  }, [searchTerm, deptFilter, statusFilter, levelFilter, contractFilter, resetPage]);
+  }, [searchTerm, deptFilter, statusFilter, levelFilter, hideResigned, sortField, sortOrder, resetPage]);
 
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
@@ -413,7 +454,7 @@ export const EmployeeList = () => {
 
   // Export Excel chuẩn Doanh nghiệp (hỗ trợ xuất theo danh sách lọc hoặc các dòng đã chọn)
   const handleExportExcel = (rowsOverride = null) => {
-    const sourceList = Array.isArray(rowsOverride) ? rowsOverride : filteredEmployees;
+    const sourceList = Array.isArray(rowsOverride) ? rowsOverride : sortedAndFilteredEmployees;
     if (sourceList.length === 0) return toast.error('Không có dữ liệu nhân sự để xuất');
     try {
       const exportData = sourceList.map(emp => ({
@@ -469,111 +510,115 @@ export const EmployeeList = () => {
     }
   };
 
+  const renderSortableTh = (field, label, style = {}) => {
+    const isCurrent = sortField === field;
+    return (
+      <th 
+        key={field}
+        onClick={() => handleSort(field)}
+        style={{ 
+          padding: '0.85rem 1rem', 
+          cursor: 'pointer', 
+          userSelect: 'none', 
+          transition: 'background-color 0.15s',
+          ...style 
+        }}
+        className="hover:bg-slate-100"
+        title={`Sắp xếp theo ${label} (${isCurrent && sortOrder === 'asc' ? 'đang tăng dần, nhấp để giảm dần' : 'nhấp để tăng dần'})`}
+      >
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <span style={{ fontWeight: isCurrent ? 700 : 600, color: isCurrent ? '#1E293B' : '#475569' }}>{label}</span>
+          {isCurrent ? (
+            sortOrder === 'asc' ? (
+              <ArrowUp size={13} style={{ color: '#2563EB', strokeWidth: 2.5, flexShrink: 0 }} />
+            ) : (
+              <ArrowDown size={13} style={{ color: '#2563EB', strokeWidth: 2.5, flexShrink: 0 }} />
+            )
+          ) : (
+            <ArrowUpDown size={12} style={{ color: '#94A3B8', opacity: 0.5, flexShrink: 0 }} />
+          )}
+        </div>
+      </th>
+    );
+  };
+
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header Toolbar */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '0.75rem',
-        padding: '1.25rem 1.5rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: '6px',
-              backgroundColor: '#EFF6FF', color: '#2563EB',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <Users size={18} />
-            </div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              Hồ sơ & Danh bạ Nhân sự Doanh nghiệp
-            </h1>
-          </div>
-          <p style={{ margin: 0, color: '#64748B', fontSize: '0.875rem' }}>
-            Quản trị vòng đời nhân sự, hợp đồng lao động, vị trí chức danh và phòng ban tập trung.
-          </p>
-        </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Users size={20} />}
+        title="Hồ sơ & Danh bạ Nhân sự Doanh nghiệp"
+        subtitle="Quản trị vòng đời nhân sự, hợp đồng lao động, vị trí chức danh và phòng ban tập trung."
+        actions={
+          <>
+            <button 
+              onClick={handleExportExcel} 
+              className="btn btn-outline"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                padding: '0.5rem 0.95rem', 
+                fontSize: '0.84rem', 
+                fontWeight: 600,
+                backgroundColor: '#FFFFFF',
+                borderColor: '#CBD5E1', 
+                color: '#0F172A',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Download size={15} color="#475569" />
+              <span>Xuất dữ liệu</span>
+            </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-          {/* Nút 1: Xuất dữ liệu */}
-          <button 
-            onClick={handleExportExcel} 
-            className="btn btn-outline"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              padding: '0.5rem 0.95rem', 
-              fontSize: '0.84rem', 
-              fontWeight: 600,
-              backgroundColor: '#FFFFFF',
-              borderColor: '#CBD5E1', 
-              color: '#0F172A',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-            }}
-          >
-            <Download size={15} color="#475569" />
-            <span>Xuất dữ liệu</span>
-          </button>
+            <button 
+              onClick={() => setShowImportModal(true)} 
+              className="btn btn-outline"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                padding: '0.5rem 0.95rem', 
+                fontSize: '0.84rem', 
+                fontWeight: 600,
+                backgroundColor: '#FFFFFF',
+                borderColor: '#CBD5E1', 
+                color: '#0F172A',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Upload size={15} color="#475569" />
+              <span>Nhập dữ liệu</span>
+            </button>
 
-          {/* Nút 2: Nhập dữ liệu */}
-          <button 
-            onClick={() => setShowImportModal(true)} 
-            className="btn btn-outline"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              padding: '0.5rem 0.95rem', 
-              fontSize: '0.84rem', 
-              fontWeight: 600,
-              backgroundColor: '#FFFFFF',
-              borderColor: '#CBD5E1', 
-              color: '#0F172A',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-            }}
-          >
-            <Upload size={15} color="#475569" />
-            <span>Nhập dữ liệu</span>
-          </button>
+            <button 
+              onClick={handleOpenAdd} 
+              className="btn btn-primary"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                padding: '0.5rem 1.05rem', 
+                fontSize: '0.84rem',
+                fontWeight: 700
+              }}
+            >
+              <Plus size={16} />
+              <span>Thêm nhân sự</span>
+            </button>
 
-          {/* Nút 3: Tạo mới / Thêm nhân sự */}
-          <button 
-            onClick={handleOpenAdd} 
-            className="btn btn-primary"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              padding: '0.5rem 1.05rem', 
-              fontSize: '0.84rem',
-              fontWeight: 700
-            }}
-          >
-            <Plus size={16} />
-            <span>Thêm nhân sự</span>
-          </button>
-
-          {/* Nút làm mới */}
-          <button 
-            onClick={fetchData} 
-            className="btn btn-outline"
-            style={{ padding: '0.5rem', borderColor: '#CBD5E1', color: '#64748B', backgroundColor: '#FFFFFF' }}
-            title="Tải lại dữ liệu"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
+            <button 
+              onClick={fetchData} 
+              className="btn btn-outline"
+              style={{ padding: '0.5rem', borderColor: '#CBD5E1', color: '#64748B', backgroundColor: '#FFFFFF' }}
+              title="Tải lại dữ liệu"
+            >
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Filter Toolbar */}
       <div style={{
@@ -654,22 +699,32 @@ export const EmployeeList = () => {
           </select>
         </div>
 
-        {/* Contract Filter */}
-        <div style={{ width: 160 }}>
-          <select 
-            className="form-input w-full"
-            value={contractFilter}
-            onChange={e => setContractFilter(e.target.value)}
-            style={{ fontSize: '0.85rem' }}
-          >
-            <option value="">Tất cả hợp đồng</option>
-            <option value="PROBATION">HĐ Thử việc</option>
-            <option value="OFFICIAL_1Y">HĐ 1 Năm</option>
-            <option value="INDEFINITE">HĐ Vô thời hạn</option>
-            <option value="INTERNSHIP">HĐ Thực tập</option>
-            <option value="NONE">Chưa có HĐ</option>
-          </select>
-        </div>
+        {/* Checkbox Ẩn thôi việc */}
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.45rem',
+          cursor: 'pointer',
+          userSelect: 'none',
+          fontSize: '0.85rem',
+          color: hideResigned ? '#2563EB' : '#475569',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          padding: '0.45rem 0.85rem',
+          borderRadius: '0.5rem',
+          backgroundColor: hideResigned ? '#EFF6FF' : '#F8FAFC',
+          border: `1px solid ${hideResigned ? '#BFDBFE' : '#E2E8F0'}`,
+          transition: 'all 0.15s ease',
+          height: '38px'
+        }}>
+          <input
+            type="checkbox"
+            checked={hideResigned}
+            onChange={e => setHideResigned(e.target.checked)}
+            style={{ width: '16px', height: '16px', accentColor: '#2563EB', cursor: 'pointer' }}
+          />
+          Ẩn thôi việc
+        </label>
       </div>
 
       <BulkSelectionBar
@@ -694,7 +749,7 @@ export const EmployeeList = () => {
             <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 0.5rem' }} />
             Đang tải dữ liệu nhân sự...
           </div>
-        ) : filteredEmployees.length === 0 ? (
+        ) : sortedAndFilteredEmployees.length === 0 ? (
           <div style={{ padding: '3.5rem', textAlign: 'center', color: '#94A3B8' }}>
             <Users size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.4 }} />
             Không tìm thấy hồ sơ nhân sự nào phù hợp với bộ lọc.
@@ -713,12 +768,14 @@ export const EmployeeList = () => {
                       title="Chọn tất cả trang này"
                     />
                   </th>
-                  <th style={{ padding: '0.85rem 1rem', width: 110 }}>Mã NV</th>
-                  <th style={{ padding: '0.85rem 1rem', minWidth: 200 }}>Họ và Tên</th>
-                  <th style={{ padding: '0.85rem 1rem', minWidth: 190 }}>Chức danh & Cấp bậc</th>
-                  <th style={{ padding: '0.85rem 1rem', minWidth: 160 }}>Phòng ban</th>
-                  <th style={{ padding: '0.85rem 1rem', width: 140 }}>Ngày vào làm</th>
-                  <th style={{ padding: '0.85rem 1rem', width: 130 }}>Trạng thái</th>
+                  {renderSortableTh('code', 'Mã NV', { width: 110 })}
+                  {renderSortableTh('fullName', 'Họ và Tên', { minWidth: 190 })}
+                  {renderSortableTh('email', 'Email', { minWidth: 180 })}
+                  {renderSortableTh('phone', 'Số điện thoại', { width: 130 })}
+                  {renderSortableTh('position', 'Chức danh & Cấp bậc', { minWidth: 190 })}
+                  {renderSortableTh('department', 'Phòng ban', { minWidth: 160 })}
+                  {renderSortableTh('joinDate', 'Ngày vào làm', { width: 140 })}
+                  {renderSortableTh('status', 'Trạng thái', { width: 130 })}
                   <th style={{ padding: '0.85rem 1rem', width: 100, textAlign: 'center' }}>Thao tác</th>
                 </tr>
               </thead>
@@ -747,27 +804,30 @@ export const EmployeeList = () => {
 
                     {/* 2. Họ và Tên */}
                     <td style={{ padding: '0.85rem 1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                        <div style={{
-                          width: 34, height: 34, borderRadius: '50%',
-                          backgroundColor: '#EFF6FF', color: '#1D4ED8',
-                          fontWeight: 700, fontSize: '0.825rem',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: '1px solid #DBEAFE', flexShrink: 0
-                        }}>
-                          {emp.fullName?.split(' ').pop()?.substring(0, 2).toUpperCase() || 'NV'}
-                        </div>
-                        <span 
-                          onClick={() => navigate(`/internal/employees/profiles/${emp.id}`)}
-                          style={{ fontWeight: 600, color: '#0F172A', cursor: 'pointer' }}
-                          className="hover:text-blue-600"
-                        >
-                          {emp.fullName}
-                        </span>
-                      </div>
+                      <span 
+                        onClick={() => navigate(`/internal/employees/profiles/${emp.id}`)}
+                        style={{ fontWeight: 600, color: '#0F172A', cursor: 'pointer' }}
+                        className="hover:text-blue-600"
+                      >
+                        {emp.fullName}
+                      </span>
                     </td>
 
-                    {/* 3. Chức danh & Chức vụ quản lý tách biệt */}
+                    {/* 3. Email */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      <span style={{ color: '#0F172A', fontWeight: 500, fontSize: '0.825rem', wordBreak: 'break-all' }}>
+                        {emp.email || <span style={{ color: '#94A3B8' }}>---</span>}
+                      </span>
+                    </td>
+
+                    {/* 4. Số điện thoại */}
+                    <td style={{ padding: '0.85rem 1rem' }}>
+                      <span style={{ color: '#334155', fontSize: '0.825rem', whiteSpace: 'nowrap' }}>
+                        {emp.phone || <span style={{ color: '#94A3B8' }}>---</span>}
+                      </span>
+                    </td>
+
+                    {/* 5. Chức danh & Chức vụ quản lý tách biệt */}
                     <td style={{ padding: '0.85rem 1rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
@@ -798,7 +858,7 @@ export const EmployeeList = () => {
                     {/* 5. Ngày vào làm */}
                     <td style={{ padding: '0.85rem 1rem' }}>
                       <div style={{ fontWeight: 500, color: '#0F172A' }}>
-                        {new Date(emp.joinDate).toLocaleDateString('vi-VN')}
+                        {formatDate(emp.joinDate)}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
                         {calculateTenure(emp.joinDate)}
@@ -930,8 +990,7 @@ export const EmployeeList = () => {
                   </div>
                   <div>
                     <label className="form-label">Ngày cấp CCCD</label>
-                    <input 
-                      type="date" 
+                    <DateInput 
                       className="form-input w-full"
                       value={formData.cccdIssueDate}
                       onChange={e => setFormData({ ...formData, cccdIssueDate: e.target.value })}
@@ -949,8 +1008,7 @@ export const EmployeeList = () => {
                   </div>
                   <div>
                     <label className="form-label">Ngày hết hạn CCCD</label>
-                    <input 
-                      type="date" 
+                    <DateInput 
                       className="form-input w-full"
                       value={formData.cccdExpiryDate}
                       onChange={e => setFormData({ ...formData, cccdExpiryDate: e.target.value })}
@@ -971,8 +1029,7 @@ export const EmployeeList = () => {
                   </div>
                   <div>
                     <label className="form-label">Ngày sinh</label>
-                    <input 
-                      type="date" 
+                    <DateInput 
                       className="form-input w-full"
                       value={formData.dateOfBirth}
                       onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
@@ -1068,8 +1125,7 @@ export const EmployeeList = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
                   <div>
                     <label className="form-label">Ngày vào làm <span style={{ color: '#EF4444' }}>*</span></label>
-                    <input 
-                      type="date" 
+                    <DateInput 
                       className="form-input w-full"
                       value={formData.joinDate}
                       onChange={e => setFormData({ ...formData, joinDate: e.target.value })}

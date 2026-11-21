@@ -9,6 +9,9 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 // Danh mục chuẩn các cấp bậc
 const REQUISITION_LEVELS = [
@@ -332,21 +335,18 @@ export const Requisitions = () => {
   } = usePagination(filteredRequisitions, 10);
 
   return (
-    <div className="flex-col gap-6 animate-fade-in relative">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="page-title">Yêu cầu Tuyển dụng</h1>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
-              ĐỊNH BIÊN TUYỂN DỤNG
-            </span>
-          </div>
-          <p className="text-muted text-sm">Quản lý các chiến dịch tuyển dụng và kiểm soát trần định biên nhân sự theo phòng ban</p>
-        </div>
-        <button onClick={handleOpenAdd} className="btn btn-primary">
-          <Plus size={18} /> Lập Phiếu Tuyển dụng
-        </button>
-      </div>
+    <div className="flex-col gap-5 animate-fade-in relative" style={{ padding: '0 0.5rem' }}>
+      <PageHeader
+        icon={<FileText size={20} />}
+        title="Yêu cầu Tuyển dụng"
+        badge="ĐỊNH BIÊN TUYỂN DỤNG"
+        subtitle="Quản lý các chiến dịch tuyển dụng và kiểm soát trần định biên nhân sự theo phòng ban"
+        actions={
+          <button onClick={handleOpenAdd} className="btn btn-primary">
+            <Plus size={18} /> Lập Phiếu Tuyển dụng
+          </button>
+        }
+      />
 
       <div className="card glass flex-col gap-4" style={{ flex: 1 }}>
         <div className="flex justify-between items-center">
@@ -449,13 +449,13 @@ export const Requisitions = () => {
                       <td>
                         <span className="text-xs font-medium text-[var(--text-main)]">
                           {req.publishDate 
-                            ? new Date(req.publishDate).toLocaleDateString('vi-VN') 
-                            : (req.createdAt ? new Date(req.createdAt).toLocaleDateString('vi-VN') : '-')}
+                            ? formatDate(req.publishDate) 
+                            : (req.createdAt ? formatDate(req.createdAt) : '-')}
                         </span>
                       </td>
                       <td>
                         <span className="text-xs font-medium" style={{ color: req.deadline ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                          {req.deadline ? new Date(req.deadline).toLocaleDateString('vi-VN') : '-'}
+                          {req.deadline ? formatDate(req.deadline) : '-'}
                         </span>
                       </td>
                       <td>
@@ -477,8 +477,8 @@ export const Requisitions = () => {
                           if (req.status === 'PUBLISHED') {
                             if (isFuturePublish) {
                               return (
-                                <span className="badge badge-warning" title={`Tự động đăng lên trang tuyển vào ngày ${new Date(req.publishDate).toLocaleDateString('vi-VN')}`}>
-                                  Chờ đăng ({new Date(req.publishDate).toLocaleDateString('vi-VN')})
+                                <span className="badge badge-warning" title={`Tự động đăng lên trang tuyển vào ngày ${formatDate(req.publishDate)}`}>
+                                  Chờ đăng ({formatDate(req.publishDate)})
                                 </span>
                               );
                             }
@@ -820,8 +820,7 @@ export const Requisitions = () => {
                 <label className="text-sm font-medium text-[var(--text-muted)]">
                   Ngày phát hành <span style={{ color: 'var(--error)' }}>*</span>
                 </label>
-                <input 
-                  type="date" 
+                <DateInput 
                   className="form-input w-full font-medium" 
                   style={{ colorScheme: 'dark', ...(lockCoreFields ? lockedInputStyle : {}) }} 
                   value={formData.publishDate} 
@@ -851,8 +850,7 @@ export const Requisitions = () => {
                     ))}
                   </div>
                 </div>
-                <input 
-                  type="date" 
+                <DateInput 
                   className="form-input w-full font-medium" 
                   style={{ colorScheme: 'dark' }} 
                   value={formData.deadline} 

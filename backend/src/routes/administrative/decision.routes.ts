@@ -546,7 +546,15 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
 
       // F. KỶ LUẬT
       if (decision.type === 'DISCIPLINE') {
-        const discText = `Kỷ luật: [${decision.disciplineForm || 'Khiển trách'}] ${decision.title} (${decision.decisionNumber})${decision.disciplineDuration ? ` - Thời hạn: ${decision.disciplineDuration}` : ''}`;
+        let discText = `Kỷ luật: [${decision.disciplineForm || 'Khiển trách'}] ${decision.title} (${decision.decisionNumber})`;
+        if (decision.disciplineDuration) {
+          discText += ` - Thời hạn hoãn nâng lương: ${decision.disciplineDuration}`;
+        }
+        if (decision.disciplineForm && decision.disciplineForm.toLowerCase().includes('cách chức') && decision.newPositionId) {
+          const newPos = await tx.position.findUnique({ where: { id: decision.newPositionId } });
+          discText += ` - Giáng cấp bố trí chức danh mới: ${newPos?.title || 'Chuyên viên'}`;
+        }
+
         await tx.employmentHistory.create({
           data: {
             employeeId: empId,
@@ -554,6 +562,17 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
             effectiveDate: effDate
           }
         });
+
+        // Nếu hình thức kỷ luật là Cách chức: Tự động giáng cấp và cập nhật vị trí chức danh mới cho nhân sự
+        if (decision.disciplineForm && decision.disciplineForm.toLowerCase().includes('cách chức') && decision.newPositionId) {
+          await tx.employee.update({
+            where: { id: empId },
+            data: {
+              positionId: decision.newPositionId,
+              departmentId: decision.newDepartmentId || undefined
+            }
+          });
+        }
 
         // Nếu hình thức kỷ luật là Sa thải (Chấm dứt hợp đồng lao động theo Điều 124, 125 BLLĐ 2019):
         // Tự động kích hoạt quy trình thôi việc & nạp checklist bàn giao 4 bên BM-02

@@ -79,6 +79,9 @@ export const extractLlaPayslipData = (p: any, fallbackStandardDays = 26) => {
     actualWorkingDays,
     salaryByDays,
     ctpAndCommission,
+    kpiScore: parsedMeta?.kpiScore !== undefined ? parsedMeta.kpiScore : null,
+    kpiGrade: parsedMeta?.kpiGrade || null,
+    kpiBonus: Number(parsedMeta?.kpiBonus || 0),
     fixedAllowance,
     otAndBonus,
     insuranceBaseSalary,
@@ -146,6 +149,9 @@ router.get('/periods', authenticateToken, async (req: Request, res: Response): P
         status: p.status
       };
     });
+
+    // Sắp xếp chính xác theo năm & tháng giảm dần (Kỳ mới nhất luôn ở trên cùng)
+    formatted.sort((a, b) => (b.year * 100 + b.month) - (a.year * 100 + a.month));
 
     return res.json(formatted);
   } catch (error) {
@@ -437,6 +443,9 @@ router.put('/payslip/:id/lla-adjust', authenticateToken, hrOrAccountant, async (
       actualWorkingDays,
       salaryByDays,
       ctpAndCommission,
+      kpiScore: currentLla.kpiScore,
+      kpiGrade: currentLla.kpiGrade,
+      kpiBonus: currentLla.kpiBonus,
       fixedAllowance,
       otAndBonus,
       insuranceBaseSalary,
@@ -601,6 +610,15 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
     const otRateNormalPct = Number(await getSettingValue('OT_RATE_NORMAL', 150));
     const otRateWeekendPct = Number(await getSettingValue('OT_RATE_WEEKEND', 200));
     const otRateHolidayPct = Number(await getSettingValue('OT_RATE_HOLIDAY', 300));
+
+    // Đọc tham số thưởng hiệu suất KPI động từ Database (SystemSetting)
+    const kpiBonusA = Number(await getSettingValue('KPI_BONUS_GRADE_A', 1000000));
+    const kpiBonusB = Number(await getSettingValue('KPI_BONUS_GRADE_B', 500000));
+    const kpiBonusC = Number(await getSettingValue('KPI_BONUS_GRADE_C', 0));
+    const kpiBonusD = Number(await getSettingValue('KPI_BONUS_GRADE_D', 0));
+    const gradeAMin = Number(await getSettingValue('KPI_RATING_A_MIN', 90));
+    const gradeBMin = Number(await getSettingValue('KPI_RATING_B_MIN', 75));
+    const gradeCMin = Number(await getSettingValue('KPI_RATING_C_MIN', 60));
 
     if (!period) {
       period = await prisma.payrollPeriod.create({
@@ -781,6 +799,50 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
       });
       const rewardBonus = approvedRewards.reduce((sum, dec) => sum + Number(dec.rewardAmount || 0), 0);
 
+      // 2c. Tìm đánh giá hiệu suất KPI trong kỳ để tự động tính Thưởng KPI theo Xếp loại A/B/C/D
+      const empReview = (await prisma.performanceReview.findFirst({
+        where: {
+          employeeId: emp.id,
+          OR: [
+            {
+              reviewCycle: {
+                startDate: { lte: endDate },
+                endDate: { gte: startDate }
+              }
+            },
+            {
+              createdAt: { gte: startDate, lte: endDate }
+            }
+          ]
+        },
+        include: { reviewCycle: true },
+        orderBy: { id: 'desc' }
+      })) || (await prisma.performanceReview.findFirst({
+        where: {
+          employeeId: emp.id,
+          score: { gt: 0 }
+        },
+        include: { reviewCycle: true },
+        orderBy: { id: 'desc' }
+      }));
+
+      let autoKpiBonus = 0;
+      let kpiGrade = empReview?.finalGrade || null;
+      const reviewScore = Number(empReview?.score || 0);
+
+      if (empReview && (reviewScore > 0 || empReview.status === 'COMPLETED')) {
+        if (!kpiGrade) {
+          if (reviewScore >= gradeAMin) kpiGrade = 'A';
+          else if (reviewScore >= gradeBMin) kpiGrade = 'B';
+          else if (reviewScore >= gradeCMin) kpiGrade = 'C';
+          else kpiGrade = 'D';
+        }
+        if (kpiGrade === 'A') autoKpiBonus = kpiBonusA;
+        else if (kpiGrade === 'B') autoKpiBonus = kpiBonusB;
+        else if (kpiGrade === 'C') autoKpiBonus = kpiBonusC;
+        else if (kpiGrade === 'D') autoKpiBonus = kpiBonusD;
+      }
+
       // 3. Tính tiền làm thêm giờ (Overtime - Điều 98 BLLĐ 2019)
       const approvedOT = await prisma.oTRequest.findMany({
         where: {
@@ -841,7 +903,7 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
           ? (standardDays > 0 ? Math.round((finalAppliedSalary / standardDays) * finalWorkingDays) : 0)
           : computedSalaryByDays;
 
-        const ctpAndCommission = preserveManual ? prevLla!.ctpAndCommission : 0;
+        const ctpAndCommission = preserveManual ? prevLla!.ctpAndCommission : autoKpiBonus;
         const fixedAllowance = preserveManual ? prevLla!.fixedAllowance : fixedAllowanceDefault;
         const otAndBonus = preserveManual ? prevLla!.otAndBonus : Math.round(otPay + rewardBonus);
         const finalInsBase = preserveManual ? prevLla!.insuranceBaseSalary : insuranceBaseSalary;
@@ -878,6 +940,9 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
           actualWorkingDays: finalWorkingDays,
           salaryByDays,
           ctpAndCommission,
+          kpiScore: reviewScore > 0 ? reviewScore : null,
+          kpiGrade: empReview && (reviewScore > 0 || empReview.status === 'COMPLETED') ? kpiGrade : null,
+          kpiBonus: autoKpiBonus,
           fixedAllowance,
           otAndBonus,
           insuranceBaseSalary: finalInsBase,
@@ -945,7 +1010,13 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
                 }
               ]),
           ...(ctpAndCommission > 0
-            ? [{ type: 'EARNING', amount: ctpAndCommission, description: 'CTP + Hoa hồng + Trách nhiệm + Thưởng' }]
+            ? [{
+                type: 'EARNING',
+                amount: ctpAndCommission,
+                description: autoKpiBonus > 0 && autoKpiBonus === ctpAndCommission && kpiGrade
+                  ? `Thưởng hiệu suất KPI (Xếp loại ${kpiGrade} - ${reviewScore} điểm)`
+                  : 'CTP + Hoa hồng + Trách nhiệm + Thưởng'
+              }]
             : []),
           ...(fixedAllowance > 0
             ? [{ type: 'EARNING', amount: fixedAllowance, description: 'Phụ cấp Điện thoại + Xăng xe + Ăn trưa' }]

@@ -172,9 +172,12 @@ router.get('/:employeeId/detail', hrOnly, async (req: Request, res: Response): P
     const noticeCreatedAt = (employee as any).decisions?.[0]?.createdAt ? new Date((employee as any).decisions[0].createdAt) : new Date();
     const actualNoticeDays = Math.max(0, Math.ceil((refResignDate.getTime() - noticeCreatedAt.getTime()) / (1000 * 60 * 60 * 24)));
 
+    const activeAssets = ((employee as any).assetAssignments || []).filter((a: any) => a.status === 'ACTIVE');
+
     return res.json({
       employee,
       activeContract,
+      activeAssets,
       settlement: {
         totalLeaveDays: totalDays,
         usedLeaveDays: usedDays,
@@ -432,6 +435,63 @@ router.post('/finalize', hrOnly, async (req: any, res: Response): Promise<any> =
   } catch (error: any) {
     console.error('Error in POST /api/offboarding/finalize:', error);
     return res.status(400).json({ error: error.message || 'Lỗi khi hoàn tất thôi việc' });
+  }
+});
+
+// 7. POST /api/offboarding/trigger-daily-cutoff: Quét an ninh tự động khóa tài khoản nhân sự đến hạn thôi việc
+router.post('/trigger-daily-cutoff', hrOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const now = new Date();
+    // Tìm các nhân viên đã thôi việc (status = RESIGNED) HOẶC có ngày nghỉ việc <= hiện tại
+    const candidates = await prisma.employee.findMany({
+      where: {
+        OR: [
+          { status: 'RESIGNED' },
+          {
+            resignationDate: {
+              not: null,
+              lte: now
+            }
+          }
+        ]
+      },
+      select: { id: true, code: true, fullName: true }
+    });
+
+    const candidateIds = candidates.map(c => c.id);
+
+    if (candidateIds.length === 0) {
+      return res.json({ message: 'Không có nhân sự nào đến hạn thôi việc cần khóa an ninh', lockedCount: 0 });
+    }
+
+    // Đếm và cập nhật các tài khoản đang ACTIVE thuộc nhóm này
+    const updateResult = await prisma.account.updateMany({
+      where: {
+        employeeId: { in: candidateIds },
+        isActive: true
+      },
+      data: {
+        isActive: false
+      }
+    });
+
+    if (updateResult.count > 0) {
+      await createAuditLog({
+        action: 'TRIGGER_DAILY_SECURITY_CUTOFF',
+        tableName: 'Account',
+        recordId: 'SYSTEM',
+        accountId: req.user?.accountId,
+        details: `Quét an ninh tự động: Đã khóa ${updateResult.count} tài khoản người dùng của nhân sự đã/đến hạn thôi việc.`
+      });
+    }
+
+    return res.json({
+      message: `Đã hoàn tất rà soát an ninh. Tự động khóa ${updateResult.count} tài khoản.`,
+      lockedCount: updateResult.count
+    });
+  } catch (error: any) {
+    console.error('Error in POST /api/offboarding/trigger-daily-cutoff:', error);
+    return res.status(500).json({ error: error.message || 'Lỗi khi kích hoạt quét an ninh thôi việc' });
   }
 });
 

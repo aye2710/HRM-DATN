@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const SystemParameters = () => {
   const [settings, setSettings] = useState([]);
@@ -190,44 +191,40 @@ export const SystemParameters = () => {
   };
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ paddingBottom: '3rem' }}>
+    <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem 3rem 0.5rem' }}>
       
-      {/* 1. Page Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="page-title" style={{ margin: 0 }}>
-            Cấu Hình Tham Số Nghiệp Vụ Động
-          </h1>
-          <p className="text-muted text-sm" style={{ margin: '0.25rem 0 0 0' }}>
-            Quản trị tập trung 28 chỉ số định lượng về Thuế TNCN, BHXH, Chấm công, Hệ số OT, Hợp đồng và Đánh giá KPI
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2.5">
-          <button 
-            type="button" 
-            className="btn btn-outline" 
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            onClick={handleResetDefaults}
-            disabled={saving || resetting}
-            title="Đưa các giá trị về quy định chuẩn của Nhà nước"
-          >
-            <RotateCcw size={16} className={resetting ? 'animate-spin' : ''} />
-            Mặc định pháp luật
-          </button>
-          
-          <button 
-            type="button" 
-            className="btn btn-primary" 
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1.5rem' }}
-            onClick={handleSave}
-            disabled={saving || resetting}
-          >
-            <Save size={16} />
-            {saving ? 'Đang lưu...' : 'Lưu toàn bộ cấu hình'}
-          </button>
-        </div>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Settings size={20} />}
+        title="Cấu Hình Tham Số Nghiệp Vụ Động"
+        subtitle="Quản trị tập trung 28 chỉ số định lượng về Thuế TNCN, BHXH, Chấm công, Hệ số OT, Hợp đồng và Đánh giá KPI"
+        actions={
+          <>
+            <button 
+              type="button" 
+              className="btn btn-outline" 
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={handleResetDefaults}
+              disabled={saving || resetting}
+              title="Đưa các giá trị về quy định chuẩn của Nhà nước"
+            >
+              <RotateCcw size={16} className={resetting ? 'animate-spin' : ''} />
+              Mặc định pháp luật
+            </button>
+            
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1.5rem' }}
+              onClick={handleSave}
+              disabled={saving || resetting}
+            >
+              <Save size={16} />
+              {saving ? 'Đang lưu...' : 'Lưu toàn bộ cấu hình'}
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Real-time Enterprise Banner */}
       <div style={{

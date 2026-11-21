@@ -4,25 +4,27 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const KPITemplates = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [templates, setTemplates] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
-
-
 
   // Modal tạo Mẫu mới
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    department: 'Tổ Phát triển (Dev)',
+    department: 'Toàn công ty',
+    positionId: '',
     status: 'Active',
     items: [
-      { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 40, description: '' },
-      { title: '', category: 'QUALITY', target: 100, unit: '%', weight: 30, description: '' },
-      { title: '', category: 'COMPLIANCE', target: 100, unit: '%', weight: 20, description: '' },
-      { title: '', category: 'GROWTH', target: 100, unit: '%', weight: 10, description: '' }
+      { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 40, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' },
+      { title: '', category: 'QUALITY', target: 100, unit: '%', weight: 30, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' },
+      { title: '', category: 'COMPLIANCE', target: 100, unit: '%', weight: 20, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' },
+      { title: '', category: 'GROWTH', target: 100, unit: '%', weight: 10, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' }
     ]
   });
 
@@ -36,8 +38,14 @@ export const KPITemplates = () => {
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/kpi/templates');
-      setTemplates(res.data);
+      const [res, posRes, deptRes] = await Promise.all([
+        axios.get('http://localhost:5000/api/kpi/templates'),
+        axios.get('http://localhost:5000/api/positions').catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/departments').catch(() => ({ data: [] }))
+      ]);
+      setTemplates(res.data || []);
+      setPositions(posRes.data || []);
+      setDepartments(deptRes.data || []);
     } catch (err) {
       toast.error('Lỗi lấy dữ liệu Mẫu KPI');
     } finally {
@@ -48,6 +56,50 @@ export const KPITemplates = () => {
   useEffect(() => {
     fetchTemplates();
   }, []);
+
+  // Danh sách chức danh phụ thuộc phòng ban (Tạo mới)
+  const availableCreatePositions = useMemo(() => {
+    if (!formData.department || formData.department === 'Toàn công ty') {
+      return positions;
+    }
+    return positions.filter(p => p.department?.name === formData.department);
+  }, [positions, formData.department]);
+
+  const handleCreateDepartmentChange = (newDept) => {
+    setFormData(prev => {
+      const isAll = !newDept || newDept === 'Toàn công ty';
+      const valid = isAll 
+        ? true 
+        : positions.some(p => p.id === prev.positionId && p.department?.name === newDept);
+      return {
+        ...prev,
+        department: newDept,
+        positionId: valid ? prev.positionId : ''
+      };
+    });
+  };
+
+  // Danh sách chức danh phụ thuộc phòng ban (Chỉnh sửa)
+  const availableEditPositions = useMemo(() => {
+    if (!editFormData?.department || editFormData.department === 'Toàn công ty') {
+      return positions;
+    }
+    return positions.filter(p => p.department?.name === editFormData.department);
+  }, [positions, editFormData?.department]);
+
+  const handleEditDepartmentChange = (newDept) => {
+    setEditFormData(prev => {
+      const isAll = !newDept || newDept === 'Toàn công ty';
+      const valid = isAll 
+        ? true 
+        : positions.some(p => p.id === prev.positionId && p.department?.name === newDept);
+      return {
+        ...prev,
+        department: newDept,
+        positionId: valid ? prev.positionId : ''
+      };
+    });
+  };
 
   const totalCreateWeight = useMemo(() => {
     return formData.items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
@@ -117,6 +169,7 @@ export const KPITemplates = () => {
       await axios.post('http://localhost:5000/api/kpi/templates', {
         name: formData.name,
         department: formData.department,
+        positionId: formData.positionId || null,
         criteria: formData.items.length,
         weight: '100%',
         status: formData.status,
@@ -127,12 +180,13 @@ export const KPITemplates = () => {
       setFormData({
         name: '',
         department: 'Tổ Phát triển (Dev)',
+        positionId: '',
         status: 'Active',
         items: [
-          { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 40, description: '' },
-          { title: '', category: 'QUALITY', target: 100, unit: '%', weight: 30, description: '' },
-          { title: '', category: 'COMPLIANCE', target: 100, unit: '%', weight: 20, description: '' },
-          { title: '', category: 'GROWTH', target: 100, unit: '%', weight: 10, description: '' }
+          { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 40, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' },
+          { title: '', category: 'QUALITY', target: 100, unit: '%', weight: 30, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' },
+          { title: '', category: 'COMPLIANCE', target: 100, unit: '%', weight: 20, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' },
+          { title: '', category: 'GROWTH', target: 100, unit: '%', weight: 10, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' }
         ]
       });
       fetchTemplates();
@@ -152,9 +206,10 @@ export const KPITemplates = () => {
       id: tpl.id,
       name: tpl.name,
       department: tpl.department,
+      positionId: tpl.positionId || '',
       status: tpl.status || 'Active',
       items: parsedItems.length > 0 ? parsedItems : [
-        { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 100, description: '' }
+        { title: '', category: 'TIMELINE', target: 100, unit: '%', weight: 100, direction: 'HIGHER_IS_BETTER', maxScoreCap: 120, description: '' }
       ]
     });
     setIsEditModalOpen(true);
@@ -175,8 +230,10 @@ export const KPITemplates = () => {
       await axios.put(`http://localhost:5000/api/kpi/templates/${editFormData.id}`, {
         name: editFormData.name,
         department: editFormData.department,
+        positionId: editFormData.positionId || null,
         criteria: editFormData.items.length,
         status: editFormData.status,
+        weight: '100%',
         items: editFormData.items
       });
       toast.success('Đã cập nhật Mẫu KPI thành công!');
@@ -225,41 +282,23 @@ export const KPITemplates = () => {
   } = usePagination(filteredTemplates, 10);
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
+    <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem' }}>
       
-      {/* 1. Header Toolbar */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
-        padding: '1.25rem 1.5rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileDiff size={22} color="#2563EB" />
-            <h1 className="page-title" style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800 }}>
-              Mẫu Đánh Giá KPI (KPI Templates)
-            </h1>
-          </div>
-          <p className="text-muted text-xs mt-1" style={{ margin: 0, color: '#64748B' }}>
-            Thư viện tiêu chí chuẩn và tỷ lệ trọng số 100% theo từng phòng ban, giúp chuẩn hóa và giao mục tiêu chỉ trong 1 click.
-          </p>
-        </div>
-
-        <button 
-          className="btn btn-primary" 
-          onClick={() => setIsModalOpen(true)}
-          style={{ padding: '8px 18px', fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          <Plus size={16} /> Tạo Mẫu KPI mới
-        </button>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<FileDiff size={20} />}
+        title="Mẫu Đánh Giá KPI (KPI Templates)"
+        subtitle="Thư viện tiêu chí chuẩn và tỷ lệ trọng số 100% theo từng phòng ban, giúp chuẩn hóa và giao mục tiêu chỉ trong 1 click."
+        actions={
+          <button 
+            className="btn btn-primary" 
+            onClick={() => setIsModalOpen(true)}
+            style={{ padding: '8px 18px', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={16} /> Tạo Mẫu KPI mới
+          </button>
+        }
+      />
 
       {/* 2. Banner Hướng Dẫn Quy Chuẩn Sổ Tay Vận Hành DEV (LLA) */}
       <div style={{
@@ -349,7 +388,12 @@ export const KPITemplates = () => {
                       </div>
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-                      {tpl.department}
+                      <div>{tpl.department}</div>
+                      {tpl.position?.title && (
+                        <div style={{ fontSize: '0.75rem', color: '#4F46E5', fontWeight: 600, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Target size={12} /> {tpl.position.title}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                       <span className="badge" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', fontSize: '0.75rem', fontWeight: 700 }}>
@@ -484,33 +528,56 @@ export const KPITemplates = () => {
               <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
             </div>
 
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '12px' }}>
+              <div>
+                <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A' }}>
+                  Tên Mẫu KPI Tiêu Chuẩn *
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  required 
+                  placeholder="VD: Bộ khung KPI Kỹ sư Phần mềm, Mẫu KPI Chuyên viên Kinh doanh, Mẫu Đánh giá Khối Kỹ thuật..." 
+                  value={formData.name} 
+                  onChange={e => setFormData({ ...formData, name: e.target.value })} 
+                  style={{ fontSize: '0.9rem', height: '40px', fontWeight: 600 }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Tên Mẫu KPI *</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    required 
-                    placeholder="VD: Mẫu KPI Khối Lập trình viên Backend..." 
-                    value={formData.name} 
-                    onChange={e => setFormData({ ...formData, name: e.target.value })} 
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Phòng ban áp dụng *</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>
+                    Gợi ý Phòng ban áp dụng (Tùy chọn)
+                  </label>
                   <select 
                     className="form-select" 
                     value={formData.department} 
-                    onChange={e => setFormData({ ...formData, department: e.target.value })}
+                    onChange={e => handleCreateDepartmentChange(e.target.value)}
                   >
-                    <option value="Tổ Phát triển (Dev)">Tổ Phát triển (Dev)</option>
-                    <option value="Tổ Kiểm thử">Tổ Kiểm thử (QA/QC)</option>
-                    <option value="Phòng Nhân sự">Phòng Nhân sự (HR)</option>
-                    <option value="Phòng Kinh doanh">Phòng Kinh doanh (Sales)</option>
-                    <option value="Phòng Tài chính - Kế toán">Phòng Tài chính - Kế toán</option>
-                    <option value="Toàn công ty">Toàn công ty</option>
+                    <option value="Toàn công ty">Toàn công ty (Dùng chung cho mọi phòng ban)</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>
+                    Gợi ý Chức danh áp dụng (Tùy chọn)
+                  </label>
+                  <select 
+                    className="form-select" 
+                    value={formData.positionId || ''} 
+                    onChange={e => setFormData({ ...formData, positionId: e.target.value })}
+                  >
+                    <option value="">
+                      {formData.department === 'Toàn công ty' 
+                        ? '-- Dùng chung cho mọi chức danh --' 
+                        : `-- Dùng chung cho mọi chức danh thuộc ${formData.department} --`}
+                    </option>
+                    {availableCreatePositions.map(p => (
+                      <option key={p.id} value={p.id}>{p.title}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -609,6 +676,35 @@ export const KPITemplates = () => {
                       onChange={e => handleItemChange(index, 'description', e.target.value, false)}
                       style={{ fontSize: '0.78rem', height: '30px', backgroundColor: '#FFFFFF' }}
                     />
+
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '0.75rem', color: '#475569', backgroundColor: '#FFFFFF', padding: '4px 8px', borderRadius: '4px', border: '1px solid #E2E8F0', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: 600 }}>Chiều tính:</span>
+                        <select 
+                          className="form-select" 
+                          style={{ height: '26px', fontSize: '0.75rem', padding: '1px 6px', width: '150px' }}
+                          value={item.direction || 'HIGHER_IS_BETTER'}
+                          onChange={e => handleItemChange(index, 'direction', e.target.value, false)}
+                        >
+                          <option value="HIGHER_IS_BETTER">Càng cao càng tốt</option>
+                          <option value="LOWER_IS_BETTER">Càng ít lỗi/thấp càng tốt</option>
+                          <option value="BOOLEAN">Đạt / Không đạt (Pass/Fail)</option>
+                        </select>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: 600 }}>Trần điểm:</span>
+                        <select 
+                          className="form-select" 
+                          style={{ height: '26px', fontSize: '0.75rem', padding: '1px 6px', width: '80px' }}
+                          value={item.maxScoreCap || 120}
+                          onChange={e => handleItemChange(index, 'maxScoreCap', Number(e.target.value), false)}
+                        >
+                          <option value={100}>100%</option>
+                          <option value={120}>120%</option>
+                          <option value={150}>150%</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -640,32 +736,55 @@ export const KPITemplates = () => {
               <button onClick={() => setIsEditModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
             </div>
 
-            <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '12px' }}>
+              <div>
+                <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A' }}>
+                  Tên Mẫu KPI Tiêu Chuẩn *
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  required 
+                  value={editFormData.name} 
+                  onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} 
+                  style={{ fontSize: '0.9rem', height: '40px', fontWeight: 600 }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Tên Mẫu KPI *</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    required 
-                    value={editFormData.name} 
-                    onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} 
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Phòng ban áp dụng *</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>
+                    Gợi ý Phòng ban áp dụng (Tùy chọn)
+                  </label>
                   <select 
                     className="form-select" 
                     value={editFormData.department} 
-                    onChange={e => setEditFormData({ ...editFormData, department: e.target.value })}
+                    onChange={e => handleEditDepartmentChange(e.target.value)}
                   >
-                    <option value="Tổ Phát triển (Dev)">Tổ Phát triển (Dev)</option>
-                    <option value="Tổ Kiểm thử">Tổ Kiểm thử (QA/QC)</option>
-                    <option value="Phòng Nhân sự">Phòng Nhân sự (HR)</option>
-                    <option value="Phòng Kinh doanh">Phòng Kinh doanh (Sales)</option>
-                    <option value="Phòng Tài chính - Kế toán">Phòng Tài chính - Kế toán</option>
-                    <option value="Toàn công ty">Toàn công ty</option>
+                    <option value="Toàn công ty">Toàn công ty (Dùng chung cho mọi phòng ban)</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>
+                    Gợi ý Chức danh áp dụng (Tùy chọn)
+                  </label>
+                  <select 
+                    className="form-select" 
+                    value={editFormData.positionId || ''} 
+                    onChange={e => setEditFormData({ ...editFormData, positionId: e.target.value })}
+                  >
+                    <option value="">
+                      {editFormData.department === 'Toàn công ty' 
+                        ? '-- Dùng chung cho mọi chức danh --' 
+                        : `-- Dùng chung cho mọi chức danh thuộc ${editFormData.department} --`}
+                    </option>
+                    {availableEditPositions.map(p => (
+                      <option key={p.id} value={p.id}>{p.title}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -764,6 +883,35 @@ export const KPITemplates = () => {
                       onChange={e => handleItemChange(index, 'description', e.target.value, true)}
                       style={{ fontSize: '0.78rem', height: '30px', backgroundColor: '#FFFFFF' }}
                     />
+
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '0.75rem', color: '#475569', backgroundColor: '#FFFFFF', padding: '4px 8px', borderRadius: '4px', border: '1px solid #E2E8F0', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: 600 }}>Chiều tính:</span>
+                        <select 
+                          className="form-select" 
+                          style={{ height: '26px', fontSize: '0.75rem', padding: '1px 6px', width: '150px' }}
+                          value={item.direction || 'HIGHER_IS_BETTER'}
+                          onChange={e => handleItemChange(index, 'direction', e.target.value, true)}
+                        >
+                          <option value="HIGHER_IS_BETTER">Càng cao càng tốt</option>
+                          <option value="LOWER_IS_BETTER">Càng ít lỗi/thấp càng tốt</option>
+                          <option value="BOOLEAN">Đạt / Không đạt (Pass/Fail)</option>
+                        </select>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: 600 }}>Trần điểm:</span>
+                        <select 
+                          className="form-select" 
+                          style={{ height: '26px', fontSize: '0.75rem', padding: '1px 6px', width: '80px' }}
+                          value={item.maxScoreCap || 120}
+                          onChange={e => handleItemChange(index, 'maxScoreCap', Number(e.target.value), true)}
+                        >
+                          <option value={100}>100%</option>
+                          <option value={120}>120%</option>
+                          <option value={150}>150%</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

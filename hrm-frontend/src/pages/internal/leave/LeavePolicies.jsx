@@ -5,6 +5,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const LeavePolicies = () => {
   const [policies, setPolicies] = useState([]);
@@ -66,16 +67,17 @@ export const LeavePolicies = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 className="page-title">Chính sách Nghỉ phép</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Cấu hình điều kiện hưởng, quỹ phép năm và quy định thời hạn báo trước theo SOP-91 & Company-wide Policies</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Thêm Chính sách
-        </button>
-      </div>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <PageHeader
+        icon={<FileBadge size={20} />}
+        title="Chính sách Nghỉ phép"
+        subtitle="Cấu hình điều kiện hưởng, quỹ phép năm và quy định thời hạn báo trước theo SOP-91 & Company-wide Policies"
+        actions={
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={18} /> Thêm Chính sách
+          </button>
+        }
+      />
 
       {/* Banner Tóm tắt Quy chế Nghỉ phép Doanh nghiệp (Theo Company-wide Policies 14/10/2026 & SOP-91) */}
       <div style={{

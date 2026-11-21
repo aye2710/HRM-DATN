@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  FileText, Send, Printer, ArrowLeft, Clock, Plus, CheckCircle2, AlertTriangle
+  FileText, Send, ArrowLeft, Clock, Plus, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../components/common/TablePagination';
+import { DateInput } from '../../components/common/DateInput';
+import { formatDate } from '../../utils/dateUtils';
+import { PageHeader } from '../../components/common/PageHeader';
 import {
   ExplanationA4Preview,
   MonthNavigator,
@@ -233,18 +236,8 @@ export const EmployeeExplanations = () => {
 
     return (
       <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '0.75rem',
-          padding: '0.85rem 1.25rem',
-          border: '1px solid #E2E8F0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '0.75rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <PageHeader
+          leftActions={
             <button
               onClick={() => setViewMode('LIST')}
               className="btn btn-outline"
@@ -252,25 +245,11 @@ export const EmployeeExplanations = () => {
             >
               <ArrowLeft size={15} /> Quay lại danh sách đơn
             </button>
-            <div>
-              <h1 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                {activeCfg.title}
-              </h1>
-              <span style={{ fontSize: '0.76rem', color: '#64748B' }}>
-                Soạn thông tin ở cột trái ➔ Xem trước trực tiếp văn bản chuẩn A4 ở cột phải và in trình Trưởng bộ phận ký
-              </span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="btn btn-outline"
-            style={{ height: 35, padding: '0 0.95rem', fontSize: '0.8rem', fontWeight: 700, borderColor: '#2563EB', color: '#1D4ED8', backgroundColor: '#EFF6FF' }}
-          >
-            <Printer size={15} /> In biên bản A4 (Trình PM ký)
-          </button>
-        </div>
+          }
+          icon={<FileText size={20} />}
+          title={activeCfg.title}
+          subtitle="Soạn thông tin ở cột trái ➔ Xem trước trực tiếp văn bản chuẩn A4 ở cột phải"
+        />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.15rem', alignItems: 'start' }}>
           <div style={{
@@ -332,8 +311,7 @@ export const EmployeeExplanations = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label className="form-label">Ngày áp dụng *</label>
-                  <input
-                    type="date"
+                  <DateInput
                     className="form-input"
                     value={requestForm.date}
                     max={now.toISOString().split('T')[0]}
@@ -412,14 +390,6 @@ export const EmployeeExplanations = () => {
                 <button type="button" onClick={() => setViewMode('LIST')} className="btn btn-secondary">
                   Hủy / Quay lại
                 </button>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="btn btn-outline"
-                  style={{ borderColor: '#2563EB', color: '#1D4ED8' }}
-                >
-                  <Printer size={15} /> In biên bản A4
-                </button>
                 {!requestForm.readOnly && (
                   <button type="submit" className="btn btn-primary" disabled={submitting}>
                     <Send size={15} /> {submitting ? 'Đang gửi...' : 'Lưu & Gửi đơn lên HCNS'}
@@ -447,66 +417,43 @@ export const EmployeeExplanations = () => {
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-      {/* Header */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '0.75rem',
-        padding: '0.9rem 1.25rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: '8px',
-            backgroundColor: '#EFF6FF', color: '#2563EB',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-          }}>
-            <FileText size={19} />
-          </div>
-          <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
-              Giải Trình Công &amp; Đơn Xin Đi Muộn / Về Sớm
-            </h1>
-            <p style={{ margin: 0, color: '#64748B', fontSize: '0.78rem' }}>
-              Quản lý đơn xác nhận quên chấm công, xin phép đi muộn, xin về sớm và in biên bản A4 trình ký (Tháng {selectedMonth}/{selectedYear}).
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <MonthNavigator
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            onSelectMonth={setSelectedMonth}
-            onSelectYear={setSelectedYear}
-          />
-          <button
-            onClick={() => openNewForm('CONFIRM_ATTENDANCE')}
-            className="btn btn-primary"
-            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700 }}
-          >
-            <Plus size={15} /> Xác nhận công
-          </button>
-          <button
-            onClick={() => openNewForm('LATE_PERMISSION')}
-            className="btn btn-outline"
-            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700, borderColor: '#F59E0B', color: '#B45309', backgroundColor: '#FFFBEB' }}
-          >
-            <Clock size={15} /> Xin đi muộn
-          </button>
-          <button
-            onClick={() => openNewForm('EARLY_LEAVE_PERMISSION')}
-            className="btn btn-outline"
-            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700, borderColor: '#EA580C', color: '#C2410C', backgroundColor: '#FFF7ED' }}
-          >
-            <Clock size={15} /> Xin về sớm
-          </button>
-        </div>
-      </div>
+      {/* Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<FileText size={20} />}
+        title="Giải Trình Công & Đơn Xin Đi Muộn / Về Sớm"
+        subtitle={`Quản lý đơn xác nhận quên chấm công, xin phép đi muộn, xin về sớm (Tháng ${selectedMonth}/${selectedYear}).`}
+        actions={
+          <>
+            <MonthNavigator
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onSelectMonth={setSelectedMonth}
+              onSelectYear={setSelectedYear}
+            />
+            <button
+              onClick={() => openNewForm('CONFIRM_ATTENDANCE')}
+              className="btn btn-primary"
+              style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700 }}
+            >
+              <Plus size={15} /> Xác nhận công
+            </button>
+            <button
+              onClick={() => openNewForm('LATE_PERMISSION')}
+              className="btn btn-outline"
+              style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700, borderColor: '#F59E0B', color: '#B45309', backgroundColor: '#FFFBEB' }}
+            >
+              <Clock size={15} /> Xin đi muộn
+            </button>
+            <button
+              onClick={() => openNewForm('EARLY_LEAVE_PERMISSION')}
+              className="btn btn-outline"
+              style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700, borderColor: '#EA580C', color: '#C2410C', backgroundColor: '#FFF7ED' }}
+            >
+              <Clock size={15} /> Xin về sớm
+            </button>
+          </>
+        }
+      />
 
       {/* Thống kê nhanh */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
@@ -598,7 +545,7 @@ export const EmployeeExplanations = () => {
                   return (
                     <tr key={adj.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                       <td style={{ padding: '0.7rem 1.1rem', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                        {new Date(adj.date).toLocaleDateString('vi-VN')}
+                        {formatDate(adj.date)}
                       </td>
                       <td style={{ padding: '0.7rem 0.9rem', whiteSpace: 'nowrap' }}>
                         <span style={{
@@ -637,7 +584,7 @@ export const EmployeeExplanations = () => {
                           className="btn btn-outline"
                           style={{ height: 28, padding: '0 0.65rem', fontSize: '0.73rem', fontWeight: 700, color: '#1D4ED8', borderColor: '#BFDBFE' }}
                         >
-                          <Printer size={13} /> Mở trang Xem &amp; In đơn
+                          <FileText size={13} /> Xem chi tiết đơn
                         </button>
                       </td>
                     </tr>

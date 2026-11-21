@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, TrendingUp, Users, DollarSign, PieChart, Activity, 
-  Download, Printer, RefreshCw, Building, Award, CheckCircle2, 
+  Download, RefreshCw, Building, Award, CheckCircle2, 
   AlertCircle, ShieldCheck, UserCheck, UserMinus, Briefcase, 
   FileSpreadsheet, ArrowUpRight, ArrowDownRight, Layers, Laptop,
   PackageCheck, Wrench, Clock, FileText, ChevronRight, CheckCircle,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const ReportsDashboard = () => {
   const [data, setData] = useState(null);
@@ -573,40 +574,28 @@ export const ReportsDashboard = () => {
   };
 
   return (
-    <div className="flex-col gap-6 animate-fade-in pb-12" style={{ padding: '0 0.5rem' }}>
-      {/* 1. Header Báo Cáo & Thanh Thao Tác */}
-      <div className="card glass p-5 flex-col gap-4" style={{ borderRadius: '16px' }}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="page-title">
-                Báo Cáo Tổng Hợp & Phân Tích (HR Analytics & DSS)
-              </h1>
-              <span className="badge badge-info" style={{ fontWeight: 600 }}>Live Data</span>
-            </div>
-            <p className="text-muted text-xs mt-1" style={{ margin: 0 }}>
-              Hệ thống hỗ trợ ra quyết định (DSS) — Hợp nhất số liệu đa chiều từ Định biên, Quỹ lương, Lao động, Trang thiết bị, Tuyển dụng, Chuyên cần và KPI
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
+    <div className="flex-col gap-5 animate-fade-in pb-12" style={{ padding: '0 0.5rem' }}>
+      {/* 1. Header chuẩn đồng bộ + 7 Tab chuyển đổi góc nhìn */}
+      <PageHeader
+        icon={<BarChart3 size={20} />}
+        title="Báo Cáo Tổng Hợp & Phân Tích (HR Analytics & DSS)"
+        badge="Live Data"
+        subtitle="Hệ thống hỗ trợ ra quyết định (DSS) — Hợp nhất số liệu đa chiều từ Định biên, Quỹ lương, Lao động, Trang thiết bị, Tuyển dụng, Chuyên cần và KPI"
+        actions={
+          <>
             <button onClick={fetchReportData} className="btn btn-outline flex items-center gap-1.5" style={{ height: 36 }}>
               <RefreshCw size={15} />
               <span>Làm mới</span>
-            </button>
-            <button onClick={() => window.print()} className="btn btn-outline flex items-center gap-1.5" style={{ height: 36 }}>
-              <Printer size={15} />
-              <span>In Báo Cáo</span>
             </button>
             <button onClick={handleExportCSV} className="btn btn-primary flex items-center gap-1.5" style={{ height: 36 }}>
               <FileSpreadsheet size={15} />
               <span>Xuất Báo Cáo Excel (.CSV)</span>
             </button>
-          </div>
-        </div>
-
+          </>
+        }
+      >
         {/* 7 Tab Chuyển Đổi Góc Nhìn Quản Trị Toàn Diện */}
-        <div className="flex items-center gap-2 pt-2 overflow-x-auto" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <div className="flex items-center gap-2 pt-2 overflow-x-auto" style={{ borderTop: '1px solid #F1F5F9' }}>
           <button 
             onClick={() => setActiveTab('DEPT_QUOTA')}
             className={`btn ${activeTab === 'DEPT_QUOTA' ? 'btn-primary' : 'btn-outline'}`}
@@ -657,7 +646,7 @@ export const ReportsDashboard = () => {
             <Award size={15} /> 7. Hiệu Suất & Đánh Giá KPI
           </button>
         </div>
-      </div>
+      </PageHeader>
 
       {/* 2. BỘ 4 THẺ KPI ĐIỀU HÀNH THÔNG MINH (TỰ ĐỔI LINH HOẠT THEO TỪNG TAB) */}
       {renderDynamicKpiCards()}

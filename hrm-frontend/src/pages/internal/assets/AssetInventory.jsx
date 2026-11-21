@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { 
   Laptop, Monitor, Smartphone, Key, Box, Plus, Search, Filter, 
   RotateCcw, CheckCircle, AlertTriangle, FileText, ArrowRight, 
-  Check, X, Printer, User, DollarSign, Calendar, Eye, Trash2, Edit3, Send,
+  Check, X, User, DollarSign, Calendar, Eye, Trash2, Edit3, Send,
   ShieldAlert, Layers, Package, Grid, List, Wrench, Shield, ChevronRight, UserCheck,
   Download, Upload
 } from 'lucide-react';
@@ -14,6 +14,9 @@ import { exportToExcel } from '../../../utils/excelHelper';
 import { UniversalImportModal } from '../../../components/common/UniversalImportModal';
 import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const AssetInventory = () => {
   const [assets, setAssets] = useState([]);
@@ -974,91 +977,89 @@ export const AssetInventory = () => {
   };
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ paddingBottom: '3rem' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Kho Thiết Bị & Danh Mục Sản Phẩm</h1>
-          <p className="text-muted text-sm">Quản lý mã sản phẩm, theo dõi số lượng tồn kho theo dòng thiết bị và ma trận phân bổ người giữ</p>
-        </div>
-        <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
-          {/* Nút 1: Xuất dữ liệu */}
-          <button 
-            onClick={handleExportExcelAssets} 
-            className="btn btn-outline"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              padding: '0.5rem 0.95rem', 
-              fontSize: '0.84rem', 
-              fontWeight: 600,
-              backgroundColor: '#FFFFFF',
-              borderColor: '#CBD5E1', 
-              color: '#0F172A',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-            }}
-          >
-            <Download size={15} color="#475569" />
-            <span>Xuất dữ liệu</span>
-          </button>
+    <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem 3rem 0.5rem' }}>
+      {/* Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Laptop size={20} />}
+        title="Kho Thiết Bị & Danh Mục Sản Phẩm"
+        subtitle="Quản lý mã sản phẩm, theo dõi số lượng tồn kho theo dòng thiết bị và ma trận phân bổ người giữ"
+        actions={
+          <>
+            <button 
+              onClick={handleExportExcelAssets} 
+              className="btn btn-outline"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                padding: '0.5rem 0.95rem', 
+                fontSize: '0.84rem', 
+                fontWeight: 600,
+                backgroundColor: '#FFFFFF',
+                borderColor: '#CBD5E1', 
+                color: '#0F172A',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Download size={15} color="#475569" />
+              <span>Xuất dữ liệu</span>
+            </button>
 
-          {/* Nút 2: Nhập dữ liệu */}
-          <button 
-            onClick={() => setShowImportModal(true)} 
-            className="btn btn-outline"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              padding: '0.5rem 0.95rem', 
-              fontSize: '0.84rem', 
-              fontWeight: 600,
-              backgroundColor: '#FFFFFF',
-              borderColor: '#CBD5E1', 
-              color: '#0F172A',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-            }}
-          >
-            <Upload size={15} color="#475569" />
-            <span>Nhập dữ liệu</span>
-          </button>
+            <button 
+              onClick={() => setShowImportModal(true)} 
+              className="btn btn-outline"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                padding: '0.5rem 0.95rem', 
+                fontSize: '0.84rem', 
+                fontWeight: 600,
+                backgroundColor: '#FFFFFF',
+                borderColor: '#CBD5E1', 
+                color: '#0F172A',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Upload size={15} color="#475569" />
+              <span>Nhập dữ liệu</span>
+            </button>
 
-          {/* Nút 3: Tạo mới / Thêm thiết bị */}
-          <button 
-            className="btn btn-primary"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.45rem', 
-              padding: '0.5rem 1rem', 
-              fontSize: '0.84rem',
-              fontWeight: 700
-            }}
-            onClick={() => handleOpenAddModal(null)}
-          >
-            <Plus size={16} />
-            <span>Thêm thiết bị</span>
-          </button>
+            <button 
+              className="btn btn-primary"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.45rem', 
+                padding: '0.5rem 1rem', 
+                fontSize: '0.84rem',
+                fontWeight: 700
+              }}
+              onClick={() => handleOpenAddModal(null)}
+            >
+              <Plus size={16} />
+              <span>Thêm thiết bị</span>
+            </button>
 
-          <button 
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.5rem 0.9rem', fontSize: '0.84rem', borderColor: '#93C5FD', color: '#1D4ED8', background: '#EFF6FF' }}
-            onClick={handleOpenBatchAssignModal}
-          >
-            <Send size={14} /> Bàn giao thiết bị
-          </button>
+            <button 
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.5rem 0.9rem', fontSize: '0.84rem', borderColor: '#93C5FD', color: '#1D4ED8', background: '#EFF6FF' }}
+              onClick={handleOpenBatchAssignModal}
+            >
+              <Send size={14} /> Bàn giao thiết bị
+            </button>
 
-          <button 
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.5rem 0.9rem', fontSize: '0.84rem', borderColor: '#CBD5E1', color: '#059669', background: '#F0FDF4' }}
-            onClick={() => openBatchReturnModal()}
-            title="Thu hồi toàn bộ thiết bị từ nhân viên về kho"
-          >
-            <RotateCcw size={14} /> Thu hồi thiết bị
-          </button>
-        </div>
-      </div>
+            <button 
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.5rem 0.9rem', fontSize: '0.84rem', borderColor: '#CBD5E1', color: '#059669', background: '#F0FDF4' }}
+              onClick={() => openBatchReturnModal()}
+              title="Thu hồi toàn bộ thiết bị từ nhân viên về kho"
+            >
+              <RotateCcw size={14} /> Thu hồi thiết bị
+            </button>
+          </>
+        }
+      />
 
       {/* Search & View Toolbar */}
       <div className="card glass flex items-center justify-between flex-wrap gap-4" style={{ padding: '0.85rem 1.25rem' }}>
@@ -1886,8 +1887,7 @@ export const AssetInventory = () => {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-muted mb-1 block">Ngày mua / Nhập kho</label>
-                  <input
-                    type="date"
+                  <DateInput
                     className="form-input"
                     value={formData.purchaseDate}
                     onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
@@ -2203,8 +2203,7 @@ export const AssetInventory = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                 <div>
                   <label className="text-xs font-semibold text-muted mb-1 block">Ngày bàn giao</label>
-                  <input
-                    type="date"
+                  <DateInput
                     required
                     className="form-input"
                     value={batchAssignForm.assignedDate}
@@ -2334,8 +2333,7 @@ export const AssetInventory = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                 <div>
                   <label className="text-xs font-semibold text-muted mb-1 block">Ngày hoàn trả thiết bị *</label>
-                  <input
-                    type="date"
+                  <DateInput
                     required
                     className="form-input"
                     value={batchReturnForm.returnedDate}

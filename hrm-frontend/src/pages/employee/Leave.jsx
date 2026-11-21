@@ -7,6 +7,9 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../components/common/TablePagination';
+import { DateInput } from '../../components/common/DateInput';
+import { formatDate } from '../../utils/dateUtils';
+import { PageHeader } from '../../components/common/PageHeader';
 
 export const EmployeeLeave = () => {
   const [requests, setRequests] = useState([]);
@@ -18,9 +21,13 @@ export const EmployeeLeave = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [leaveTypes, setLeaveTypes] = useState([]);
   const [formData, setFormData] = useState({
+    leaveTypeId: '',
     leaveType: 'PAID',
     session: 'ALL_DAY',
+    startSession: 'MORNING',
+    endSession: 'AFTERNOON',
     startDate: '',
     endDate: '',
     handoverPerson: '',
@@ -33,13 +40,25 @@ export const EmployeeLeave = () => {
       return;
     }
     try {
-      const res = await axios.get(`http://localhost:5000/api/leaves/employee/${employeeId}`);
+      const [res, typesRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/leaves/employee/${employeeId}`),
+        axios.get('http://localhost:5000/api/leave-config/types').catch(() => ({ data: [] }))
+      ]);
       setRequests(res.data.requests || []);
       if (res.data.balance) {
         setBalance(res.data.balance);
       }
       if (res.data.quotaInfo) {
         setQuotaInfo(res.data.quotaInfo);
+      }
+      const types = typesRes.data || [];
+      setLeaveTypes(types);
+      if (types.length > 0 && !formData.leaveTypeId) {
+        setFormData(prev => ({
+          ...prev,
+          leaveTypeId: types[0].id,
+          leaveType: types[0].paid ? 'PAID' : 'UNPAID'
+        }));
       }
     } catch (error) {
       console.error('Lỗi khi tải dữ liệu nghỉ phép:', error);
@@ -78,12 +97,6 @@ export const EmployeeLeave = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '---';
-    return new Date(dateString).toLocaleDateString('vi-VN', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    });
-  };
 
   const calculateDays = (start, end, session = 'ALL_DAY') => {
     if (!start || !end) return 0;
@@ -134,7 +147,19 @@ export const EmployeeLeave = () => {
     resetPage();
   }, [statusFilter, resetPage]);
 
-  const getLeaveTypeBadge = (type) => {
+  const getLeaveTypeBadge = (req) => {
+    if (req?.leaveTypeConfig?.name) {
+      const isPaid = req.leaveTypeConfig.paid;
+      const isBHXH = req.leaveTypeConfig.paidBy === 'SOCIAL_INSURANCE';
+      return {
+        text: req.leaveTypeConfig.name,
+        deductAnnual: req.leaveTypeConfig.deductAnnualLeave,
+        isBHXH,
+        bg: isPaid ? '#EFF6FF' : (isBHXH ? '#F3E8FF' : '#F1F5F9'),
+        color: isPaid ? '#2563EB' : (isBHXH ? '#7C3AED' : '#475569')
+      };
+    }
+    const type = typeof req === 'string' ? req : req?.leaveType;
     switch (type) {
       case 'PAID':
         return { text: 'Nghỉ phép năm (Có lương)', bg: '#EFF6FF', color: '#2563EB' };
@@ -145,7 +170,7 @@ export const EmployeeLeave = () => {
       case 'PERSONAL':
         return { text: 'Việc cá nhân', bg: '#FEF3C7', color: '#D97706' };
       default:
-        return { text: type, bg: '#F1F5F9', color: '#475569' };
+        return { text: type || 'Phép năm', bg: '#EFF6FF', color: '#2563EB' };
     }
   };
 
@@ -164,55 +189,31 @@ export const EmployeeLeave = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
       
-      {/* 1. Header Bar */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        backgroundColor: '#FFFFFF',
-        padding: '1.5rem 1.75rem',
-        borderRadius: '1rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        border: '1px solid #E2E8F0'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '8px',
-              backgroundColor: '#EFF6FF', color: '#2563EB',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <CalendarRange size={20} />
-            </div>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              Quản lý Nghỉ phép (My Leave)
-            </h1>
-          </div>
-          <p style={{ margin: 0, color: '#64748B', fontSize: '0.875rem' }}>
-            Theo dõi quỹ phép năm, trạng thái phê duyệt đơn nghỉ và nộp đơn trực tuyến.
-          </p>
-        </div>
-
-        <button 
-          className="btn btn-primary" 
-          onClick={() => setShowModal(true)}
-          style={{
-            height: '42px',
-            padding: '0 1.25rem',
-            borderRadius: '0.5rem',
-            fontWeight: 600,
-            fontSize: '0.875rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)'
-          }}
-        >
-          <Plus size={18} /> Tạo đơn xin nghỉ mới
-        </button>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<CalendarRange size={20} />}
+        title="Quản lý Nghỉ phép (My Leave)"
+        subtitle="Theo dõi quỹ phép năm, trạng thái phê duyệt đơn nghỉ và nộp đơn trực tuyến."
+        actions={
+          <button 
+            className="btn btn-primary" 
+            onClick={() => setShowModal(true)}
+            style={{
+              height: '40px',
+              padding: '0 1.2rem',
+              borderRadius: '0.5rem',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.2)'
+            }}
+          >
+            <Plus size={18} /> Tạo đơn xin nghỉ mới
+          </button>
+        }
+      />
 
       {/* 2. Thẻ Thống Kê Quỹ Phép Hiện Đại & Trực Quan */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
@@ -449,7 +450,7 @@ export const EmployeeLeave = () => {
               </thead>
               <tbody>
                 {paginatedRequests.map((req, idx) => {
-                  const typeBadge = getLeaveTypeBadge(req.leaveType);
+                  const typeBadge = getLeaveTypeBadge(req);
                   const statusBadge = getStatusBadge(req.status);
                   const countDays = calculateDays(req.startDate, req.endDate, req.session);
 
@@ -579,24 +580,61 @@ export const EmployeeLeave = () => {
                 </label>
                 <select
                   className="form-input"
-                  value={formData.leaveType}
-                  onChange={e => setFormData({ ...formData, leaveType: e.target.value })}
+                  value={formData.leaveTypeId}
+                  onChange={e => {
+                    const selected = leaveTypes.find(t => t.id === e.target.value);
+                    setFormData({ 
+                      ...formData, 
+                      leaveTypeId: e.target.value,
+                      leaveType: selected?.paid ? 'PAID' : 'UNPAID' 
+                    });
+                  }}
                   style={{ width: '100%', height: '42px', backgroundColor: '#F8FAFC' }}
                 >
-                  <option value="PAID">Nghỉ phép năm (Có hưởng lương) - Còn {availableDays} ngày</option>
-                  <option value="SICK">Nghỉ ốm đau / Đi khám bệnh (Theo chế độ BHXH)</option>
-                  <option value="PERSONAL">Nghỉ việc riêng (Hiếu, hỷ - Có lương)</option>
-                  <option value="UNPAID">Nghỉ việc riêng không hưởng lương</option>
+                  {leaveTypes.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} {t.deductAnnualLeave ? `(Trừ quỹ phép - Còn ${availableDays} ngày)` : '(Hưởng chế độ riêng - Không trừ phép năm)'}
+                    </option>
+                  ))}
                 </select>
               </div>
+
+              {/* Banner hướng dẫn quyền lợi lao động theo loại phép đã chọn */}
+              {(() => {
+                const currentType = leaveTypes.find(t => t.id === formData.leaveTypeId);
+                if (!currentType) return null;
+                return (
+                  <div style={{
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    lineHeight: '1.4',
+                    backgroundColor: currentType.deductAnnualLeave ? '#EFF6FF' : (currentType.paidBy === 'SOCIAL_INSURANCE' ? '#FAF5FF' : '#F0FDF4'),
+                    color: currentType.deductAnnualLeave ? '#1D4ED8' : (currentType.paidBy === 'SOCIAL_INSURANCE' ? '#6B21A8' : '#15803D'),
+                    border: `1px solid ${currentType.deductAnnualLeave ? '#BFDBFE' : (currentType.paidBy === 'SOCIAL_INSURANCE' ? '#E9D5FF' : '#BBF7D0')}`
+                  }}>
+                    {currentType.deductAnnualLeave && (
+                      <div><strong>Phép năm:</strong> Trừ trực tiếp vào Quỹ phép năm của bạn (Khả dụng: <strong>{availableDays} ngày</strong>). Hưởng nguyên lương.</div>
+                    )}
+                    {!currentType.deductAnnualLeave && currentType.paidBy === 'COMPANY' && (
+                      <div><strong>Nghỉ việc riêng hưởng nguyên lương (Điều 115 BLLĐ 2019):</strong> Công ty chi trả 100% lương và <strong>KHÔNG trừ vào 12 ngày phép năm</strong>.{currentType.maxDaysPerOccasion ? ` Tối đa ${currentType.maxDaysPerOccasion} ngày/lần.` : ''}</div>
+                    )}
+                    {currentType.paidBy === 'SOCIAL_INSURANCE' && (
+                      <div><strong>Chế độ Bảo hiểm Xã hội (BHXH) chi trả:</strong> Cơ quan BHXH chi trả tiền trợ cấp, công ty không trả lương và <strong>KHÔNG trừ vào quỹ phép năm</strong>. Vui lòng nộp minh chứng giấy tờ kèm theo.</div>
+                    )}
+                    {currentType.paidBy === 'NONE' && (
+                      <div><strong>Nghỉ không hưởng lương (Khoản 3 Điều 115 BLLĐ):</strong> Nghỉ việc riêng không hưởng lương và không trừ vào quỹ phép năm.</div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
                     Từ ngày <span style={{ color: '#EF4444' }}>*</span>
                   </label>
-                  <input
-                    type="date"
+                  <DateInput
                     required
                     className="form-input"
                     value={formData.startDate}
@@ -608,8 +646,7 @@ export const EmployeeLeave = () => {
                   <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
                     Đến ngày <span style={{ color: '#EF4444' }}>*</span>
                   </label>
-                  <input
-                    type="date"
+                  <DateInput
                     required
                     className="form-input"
                     value={formData.endDate}

@@ -10,6 +10,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 const TYPE_META = {
   RECRUITMENT: {
@@ -458,7 +460,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -488,7 +490,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -511,7 +513,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -538,7 +540,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -559,7 +561,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#dc2626', fontWeight: 600 }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -595,7 +597,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -621,7 +623,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -646,7 +648,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -699,7 +701,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <Calendar size={13} />
-                {new Date(dec.effectiveDate).toLocaleDateString('vi-VN')}
+                {formatDate(dec.effectiveDate)}
               </div>
             </td>
           </>
@@ -710,31 +712,24 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
   return (
     <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem' }}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <h1 className="page-title" style={{ margin: 0 }}>
-              {meta.title}
-            </h1>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
-              {meta.badge}
-            </span>
-          </div>
-          <p className="text-muted" style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem' }}>
-            {meta.desc}
-          </p>
-        </div>
-        <button onClick={handleOpenAdd} className="btn btn-primary" style={{ padding: '0.625rem 1.25rem', height: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Plus size={18} /> Tạo Quyết Định Mới
-        </button>
-      </div>
+      {/* Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<FileSignature size={20} />}
+        title={meta.title}
+        badge={meta.badge}
+        subtitle={meta.desc}
+        actions={
+          <button onClick={handleOpenAdd} className="btn btn-primary" style={{ padding: '0.55rem 1.15rem', height: '38px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Plus size={18} /> Tạo Quyết Định Mới
+          </button>
+        }
+      />
 
       {/* Main Table Card */}
       <div className="card" style={{ padding: '1.25rem', background: '#ffffff', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Filter Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ position: 'relative', width: '350px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ position: 'relative', width: '320px' }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
@@ -746,40 +741,37 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            {!activeFixed && (
-              <select
-                className="form-select"
-                style={{ width: '190px', height: '38px' }}
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-              >
-                <option value="">Tất cả loại quyết định</option>
-                <option value="PROMOTION">Bổ nhiệm</option>
-                <option value="DEMOTION">Miễn nhiệm</option>
-                <option value="TRANSFER">Điều chuyển</option>
-                <option value="TERMINATION">Nghỉ việc</option>
-                <option value="RECRUITMENT">Tuyển dụng</option>
-                <option value="SALARY_ADJUSTMENT">Tăng / Giảm lương chính</option>
-                <option value="REWARD">Khen thưởng</option>
-                <option value="DISCIPLINE">Kỷ luật nhân sự</option>
-              </select>
-            )}
+          <select
+            className="form-select"
+            style={{ width: '170px', height: '38px' }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="PENDING">Chờ phê duyệt</option>
+            <option value="APPROVED">Đã ban hành</option>
+            <option value="DRAFT">Bản nháp</option>
+            <option value="CANCELLED">Đã thu hồi</option>
+            <option value="REJECTED">Từ chối</option>
+          </select>
 
+          {!activeFixed && (
             <select
               className="form-select"
-              style={{ width: '170px', height: '38px' }}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ width: '190px', height: '38px' }}
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
             >
-              <option value="">Tất cả trạng thái</option>
-              <option value="PENDING">Chờ phê duyệt</option>
-              <option value="APPROVED">Đã ban hành</option>
-              <option value="DRAFT">Bản nháp</option>
-              <option value="CANCELLED">Đã thu hồi</option>
-              <option value="REJECTED">Từ chối</option>
+              <option value="">Tất cả loại quyết định</option>
+              <option value="PROMOTION">Bổ nhiệm</option>
+              <option value="DEMOTION">Miễn nhiệm</option>
+              <option value="TRANSFER">Điều chuyển</option>
+              <option value="TERMINATION">Nghỉ việc</option>
+              <option value="SALARY_ADJUSTMENT">Tăng / Giảm lương chính</option>
+              <option value="REWARD">Khen thưởng</option>
+              <option value="DISCIPLINE">Kỷ luật nhân sự</option>
             </select>
-          </div>
+          )}
         </div>
 
         {/* Table Content */}

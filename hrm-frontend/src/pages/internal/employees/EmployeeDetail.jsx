@@ -8,7 +8,7 @@ import {
   X, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Laptop, FileSignature, 
   Award, TrendingUp, ShieldCheck, CheckCircle2, Building2, Briefcase,
   GraduationCap, User, Users, Shield, Calendar, CreditCard, MapPin, Phone, Mail, FileCheck,
-  Paperclip, FolderOpen, History, Lock, Unlock, MoreVertical, UploadCloud, Printer, Check
+  Paperclip, FolderOpen, History, Lock, Unlock, MoreVertical, UploadCloud, Check
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
@@ -18,6 +18,9 @@ import {
   getEmployeeStatusMeta,
   getAssetAssignmentStatusMeta
 } from '../../../utils/employeeProfileHelpers';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 const getContractStatusBadge = (status, endDate) => {
   if (status === 'ACTIVE' && endDate) {
@@ -51,12 +54,7 @@ const FormField = ({ label, value, type = 'text', isEditMode, onChange, options 
       const matched = options.find(o => String(o.value) === String(value));
       displayValue = matched ? matched.label : value;
     } else if (type === 'date' && value) {
-      try {
-        const d = new Date(value);
-        displayValue = !isNaN(d.getTime()) ? d.toLocaleDateString('vi-VN') : value;
-      } catch (e) {
-        displayValue = value;
-      }
+      displayValue = formatDate(value);
     }
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -94,11 +92,19 @@ const FormField = ({ label, value, type = 'text', isEditMode, onChange, options 
           onChange={(e) => onChange(e.target.value)}
           style={{ fontSize: '0.85rem', padding: '6px 10px' }}
         />
+      ) : type === 'date' ? (
+        <DateInput
+          value={value || ''}
+          disabled={disabled}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ fontSize: '0.85rem', height: '36px' }}
+        />
       ) : (
         <input 
           type={type} 
           className="form-input" 
-          value={type === 'date' && value ? String(value).split('T')[0] : (value ?? '')} 
+          value={value ?? ''} 
           disabled={disabled}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
@@ -558,21 +564,9 @@ export const EmployeeDetail = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       
-      {/* 1. Header Cố Định (Top App Bar giống mẫu GHC.Lexora) */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
-        padding: '0.85rem 1.5rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-      }}>
-        {/* Nút quay lại + Tên nhân sự nổi bật */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        leftActions={
           <button
             onClick={() => navigate('/internal/employees')}
             className="btn btn-outline"
@@ -581,12 +575,12 @@ export const EmployeeDetail = () => {
           >
             <ArrowLeft size={16} />
           </button>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
-              {employee.fullName}
-            </h2>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+        }
+        icon={<User size={20} />}
+        title={employee.fullName}
+        badge={
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
               {employee.code}
             </span>
             <span
@@ -602,59 +596,51 @@ export const EmployeeDetail = () => {
               {getEmployeeStatusMeta(employee.status).label}
             </span>
           </div>
-        </div>
-
-        {/* Các nút hành động bên phải: Thao tác & Nút Lưu */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={() => window.print()}
-            style={{ fontSize: '0.825rem', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '5px' }}
-          >
-            <Printer size={14} /> In hồ sơ
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={() => navigate(`/internal/decisions/create?employeeId=${employee.id}`)}
-            style={{ fontSize: '0.825rem', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '5px' }}
-          >
-            <FileSignature size={14} /> Lập quyết định
-          </button>
-          
-          {!isEditMode ? (
+        }
+        subtitle={`${employee.department?.name || 'Chưa xếp phòng ban'} • ${employee.position?.title || 'Chưa xếp chức danh'}`}
+        actions={
+          <>
             <button
               type="button"
-              onClick={() => setIsEditMode(true)}
               className="btn btn-outline"
-              style={{ padding: '6px 16px', fontSize: '0.825rem', borderColor: '#2563EB', color: '#2563EB', fontWeight: 600 }}
+              onClick={() => navigate(`/internal/decisions/create?employeeId=${employee.id}`)}
+              style={{ fontSize: '0.825rem', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '5px' }}
             >
-              <Edit size={14} style={{ display: 'inline', marginRight: '5px' }} />
-              Chỉnh sửa
+              <FileSignature size={14} /> Lập quyết định
             </button>
-          ) : (
+            
+            {!isEditMode ? (
+              <button
+                type="button"
+                onClick={() => setIsEditMode(true)}
+                className="btn btn-outline"
+                style={{ padding: '6px 16px', fontSize: '0.825rem', borderColor: '#2563EB', color: '#2563EB', fontWeight: 600 }}
+              >
+                <Edit size={14} style={{ display: 'inline', marginRight: '5px' }} />
+                Chỉnh sửa
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditMode(false)}
+                className="btn btn-outline"
+                style={{ padding: '6px 14px', fontSize: '0.825rem' }}
+              >
+                Hủy
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => setIsEditMode(false)}
-              className="btn btn-outline"
-              style={{ padding: '6px 14px', fontSize: '0.825rem' }}
+              onClick={handleSave}
+              className="btn btn-primary"
+              style={{ padding: '6px 20px', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              Hủy
+              <Save size={15} /> Lưu
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleSave}
-            className="btn btn-primary"
-            style={{ padding: '6px 20px', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Save size={15} /> Lưu
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* 2. Bố Cục 2 Cột: Cột Trái (Mục Lục Dọc) + Cột Phải (Các Thẻ Accordion) */}
       <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '1.25rem', alignItems: 'flex-start' }}>
@@ -1052,8 +1038,7 @@ export const EmployeeDetail = () => {
                       </div>
                       <div>
                         <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>Ngày bắt đầu</label>
-                        <input
-                          type="date"
+                        <DateInput
                           className="form-input"
                           value={newTrainingForm.startDate}
                           onChange={(e) => setNewTrainingForm({ ...newTrainingForm, startDate: e.target.value })}
@@ -1061,8 +1046,7 @@ export const EmployeeDetail = () => {
                       </div>
                       <div>
                         <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>Ngày kết thúc</label>
-                        <input
-                          type="date"
+                        <DateInput
                           className="form-input"
                           value={newTrainingForm.endDate}
                           onChange={(e) => setNewTrainingForm({ ...newTrainingForm, endDate: e.target.value })}
@@ -1127,23 +1111,15 @@ export const EmployeeDetail = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <div>
                         <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '3px' }}>Ngày bắt đầu</div>
-                        <input 
-                          type="date" 
-                          className="form-input" 
-                          value={t.startDate} 
-                          readOnly 
-                          style={{ backgroundColor: '#F8FAFC' }} 
-                        />
+                        <div style={{ padding: '6px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '0.85rem' }}>
+                          {formatDate(t.startDate)}
+                        </div>
                       </div>
                       <div>
                         <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '3px' }}>Ngày kết thúc</div>
-                        <input 
-                          type="date" 
-                          className="form-input" 
-                          value={t.endDate} 
-                          readOnly 
-                          style={{ backgroundColor: '#F8FAFC' }} 
-                        />
+                        <div style={{ padding: '6px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '0.85rem' }}>
+                          {formatDate(t.endDate)}
+                        </div>
                       </div>
                     </div>
 
@@ -1621,11 +1597,11 @@ export const EmployeeDetail = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label className="form-label" style={{ fontSize: '0.8rem' }}>Ngày bắt đầu *</label>
-                  <input type="date" className="form-input" required value={newContractForm.startDate} onChange={(e) => setNewContractForm({ ...newContractForm, startDate: e.target.value })} />
+                  <DateInput className="form-input" required value={newContractForm.startDate} onChange={(e) => setNewContractForm({ ...newContractForm, startDate: e.target.value })} />
                 </div>
                 <div>
                   <label className="form-label" style={{ fontSize: '0.8rem' }}>Ngày kết thúc</label>
-                  <input type="date" className="form-input" value={newContractForm.endDate} onChange={(e) => setNewContractForm({ ...newContractForm, endDate: e.target.value })} />
+                  <DateInput className="form-input" value={newContractForm.endDate} onChange={(e) => setNewContractForm({ ...newContractForm, endDate: e.target.value })} />
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
@@ -1663,7 +1639,7 @@ export const EmployeeDetail = () => {
                 </div>
                 <div>
                   <label className="form-label" style={{ fontSize: '0.8rem' }}>Ngày sinh</label>
-                  <input type="date" className="form-input" value={relativeForm.dateOfBirth} onChange={(e) => setRelativeForm({ ...relativeForm, dateOfBirth: e.target.value })} />
+                  <DateInput className="form-input" value={relativeForm.dateOfBirth} onChange={(e) => setRelativeForm({ ...relativeForm, dateOfBirth: e.target.value })} />
                 </div>
               </div>
               <div>

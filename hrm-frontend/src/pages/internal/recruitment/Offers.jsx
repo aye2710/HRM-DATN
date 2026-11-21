@@ -34,6 +34,9 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 // Avatar styling helpers (Bảng màu pastel hiện đại & monogram chữ cái)
 const getAvatarStyle = (name) => {
@@ -277,35 +280,12 @@ export const Offers = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header Trang Chuẩn Doanh Nghiệp */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        paddingBottom: '0.5rem',
-        borderBottom: '1px solid var(--border)'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: '10px',
-              backgroundColor: '#EEF2FF', color: 'var(--primary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 2px 4px rgba(99, 102, 241, 0.1)'
-            }}>
-              <Briefcase size={20} />
-            </div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0, letterSpacing: '-0.02em' }}>
-              Quản lý Thỏa thuận Offer
-            </h1>
-          </div>
-          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Theo dõi thỏa thuận tuyển dụng hai chiều, thời hạn phản hồi 24h và bàn giao ứng viên sang phân hệ Hội nhập.
-          </p>
-        </div>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Briefcase size={20} />}
+        title="Quản lý Thỏa thuận Offer"
+        subtitle="Theo dõi thỏa thuận tuyển dụng hai chiều, thời hạn phản hồi 24h và bàn giao ứng viên sang phân hệ Hội nhập."
+      />
 
       {/* 2. Toolbar & Bộ lọc Tìm kiếm (Flex gọn gàng, không bị kéo dãn) */}
       <div style={{
@@ -887,8 +867,7 @@ export const Offers = () => {
 
                   <div>
                     <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Ngày dự kiến nhận việc *</label>
-                    <input
-                      type="date"
+                    <DateInput
                       required
                       className="form-input"
                       value={offerForm.startDate}

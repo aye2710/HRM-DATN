@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Search, Plus, Edit2, Trash2, X, Cpu, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Clock, Search, Plus, Edit2, Trash2, X, Cpu, CheckCircle2, AlertTriangle, Settings } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const Shifts = () => {
+  const navigate = useNavigate();
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [policyConfig, setPolicyConfig] = useState({
+    graceMinutes: 15,
+    maxLateQuota: 3,
+    latePenaltyAmount: 50000,
+    minHoursFullDay: 7.5,
+    minHoursHalfDay: 3.5,
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,6 +30,26 @@ export const Shifts = () => {
     workHours: 8,
     isActive: true
   });
+
+  const fetchSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get('http://localhost:5000/api/settings', { headers });
+      const list = Array.isArray(res.data) ? res.data : [];
+      const map = Object.fromEntries(list.map(item => [item.key, item.value]));
+      setPolicyConfig({
+        graceMinutes: Number(map.LATE_GRACE_PERIOD_MINUTES ?? 15),
+        maxLateQuota: Number(map.MAX_LATE_PERMISSION_PER_MONTH ?? 3),
+        latePenaltyAmount: Number(map.LATE_PENALTY_AMOUNT ?? 50000),
+        minHoursFullDay: Number(map.MIN_HOURS_FULL_DAY ?? 7.5),
+        minHoursHalfDay: Number(map.MIN_HOURS_HALF_DAY ?? 3.5),
+      });
+    } catch (err) {
+      // Giữ giá trị mặc định nếu không đọc được tham số
+      console.warn('Không tải được tham số hệ thống:', err);
+    }
+  };
 
   const fetchShifts = async () => {
     setLoading(true);
@@ -35,6 +65,7 @@ export const Shifts = () => {
 
   useEffect(() => {
     fetchShifts();
+    fetchSettings();
   }, []);
 
   const handleOpenModal = (shift = null) => {
@@ -120,45 +151,37 @@ export const Shifts = () => {
     resetPage();
   }, [searchTerm, resetPage]);
 
+  const primaryShift = shifts.find(s => s.isActive) || shifts[0];
+  const sampleStart = primaryShift?.startTime || '08:00';
+  const sampleGraceEnd = addMinutesToTime(sampleStart, policyConfig.graceMinutes);
+  const formattedPenalty = `${new Intl.NumberFormat('vi-VN').format(policyConfig.latePenaltyAmount)} đ`;
+
   return (
-    <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+    <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       
-      {/* 1. Compact Header */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '0.75rem',
-        padding: '0.9rem 1.25rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: '8px',
-            backgroundColor: '#EFF6FF', color: '#2563EB',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-          }}>
-            <Clock size={18} />
-          </div>
-          <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
-              Cấu hình Ca làm việc & Quy tắc Đối soát Máy chấm công
-            </h1>
-            <p style={{ margin: 0, color: '#64748B', fontSize: '0.78rem' }}>
-              Thiết lập khung giờ chuẩn để hệ thống tự động phân tích log Vân tay / FaceID thành công chuẩn, đi muộn hoặc thiếu giờ ra.
-            </p>
-          </div>
-        </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Clock size={20} />}
+        title="Cấu hình Ca làm việc & Quy tắc Đối soát Máy chấm công"
+        subtitle="Thiết lập khung giờ chuẩn để hệ thống tự động phân tích log Vân tay / FaceID thành công chuẩn, đi muộn hoặc thiếu giờ ra."
+        actions={
+          <>
+            <button
+              className="btn btn-outline"
+              onClick={() => navigate('/internal/system/parameters')}
+              style={{ height: 36, padding: '0 0.85rem', fontSize: '0.82rem' }}
+              title="Điều chỉnh số phút ân hạn, hạn mức đi muộn và mức phạt trong Tham số nghiệp vụ"
+            >
+              <Settings size={15} /> Cấu hình tham số
+            </button>
+            <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ height: 36, padding: '0 0.95rem', fontSize: '0.82rem' }}>
+              <Plus size={15} /> Thêm Ca làm việc
+            </button>
+          </>
+        }
+      />
 
-        <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ height: 34, padding: '0 0.9rem', fontSize: '0.8rem' }}>
-          <Plus size={15} /> Thêm Ca làm việc
-        </button>
-      </div>
-
-      {/* 2. Thanh Quy tắc Đối soát Log Máy chấm công tự động (Chuẩn Công ty LLA) */}
+      {/* 2. Thanh Quy tắc Đối soát Log Máy chấm công tự động (Đồng bộ động từ Tham số hệ thống) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -167,24 +190,30 @@ export const Shifts = () => {
         <div style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '0.65rem', padding: '0.75rem 1rem', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
           <CheckCircle2 size={18} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.78rem', color: '#166534', lineHeight: 1.45 }}>
-            <strong style={{ color: '#14532D', display: 'block', marginBottom: 2 }}>1. Ân hạn đi muộn ≤ 5 phút (08:00 – 08:05)</strong>
-            Quét vân tay vào ca không quá <strong>5 phút</strong> và có quét ra cuối ca ➔ Tự động tính đủ <strong>1.0 công</strong>, không phạt. Báo sau 08:05 vẫn tính là đi muộn.
+            <strong style={{ color: '#14532D', display: 'block', marginBottom: 2 }}>
+              1. Ân hạn đi muộn &le; {policyConfig.graceMinutes} phút ({sampleStart} &ndash; {sampleGraceEnd})
+            </strong>
+            Quét vào ca không quá <strong>{policyConfig.graceMinutes} phút</strong> so với giờ bắt đầu ca và có quét ra cuối ca ➔ Ghi nhận đúng giờ, không tính đi muộn.
           </div>
         </div>
 
         <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '0.65rem', padding: '0.75rem 1rem', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
           <AlertTriangle size={18} color="#B45309" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.78rem', color: '#92400E', lineHeight: 1.45 }}>
-            <strong style={{ color: '#78350F', display: 'block', marginBottom: 2 }}>2. Đi muộn 5 – 30 phút (≤ 1 lần/tuần, 3 lần/tháng)</strong>
-            Nộp đơn cho HCNS trong <strong>3 ngày</strong>. 3 lần đầu tính đủ <strong>1.0 công</strong>. Từ lần 4 phạt quỹ công đoàn: 5–10p (10k), 10–20p (20k), 20–30p (30k).
+            <strong style={{ color: '#78350F', display: 'block', marginBottom: 2 }}>
+              2. Đi muộn sau {sampleGraceEnd} (Miễn phạt {policyConfig.maxLateQuota} lần/tháng)
+            </strong>
+            Quét sau mốc ân hạn tính trạng thái <strong>Đi muộn (LATE)</strong>. Miễn phạt <strong>{policyConfig.maxLateQuota} lần/tháng</strong>; từ lần thứ <strong>{policyConfig.maxLateQuota + 1}</strong> phạt <strong>{formattedPenalty}/lần</strong> trên bảng lương.
           </div>
         </div>
 
         <div style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '0.65rem', padding: '0.75rem 1rem', display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
           <Cpu size={18} color="#DC2626" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ fontSize: '0.78rem', color: '#991B1B', lineHeight: 1.45 }}>
-            <strong style={{ color: '#7F1D1D', display: 'block', marginBottom: 2 }}>3. Đi muộn &gt; 30 phút (Sau 08:30) &amp; Quên vân tay</strong>
-            Đi muộn <strong>&gt; 30 phút không tính công cả ngày (0 công)</strong>. Quên vân tay nộp Đơn xác nhận công có chữ ký Trưởng BP trong <strong>3 ngày</strong>.
+            <strong style={{ color: '#7F1D1D', display: 'block', marginBottom: 2 }}>
+              3. Định mức giờ công ({policyConfig.minHoursFullDay}h / {policyConfig.minHoursHalfDay}h) &amp; Giải trình
+            </strong>
+            Làm thực tế &ge; <strong>{policyConfig.minHoursFullDay} giờ</strong> tính <strong>1.0 công</strong>; từ <strong>{policyConfig.minHoursHalfDay}</strong> đến &lt; <strong>{policyConfig.minHoursFullDay} giờ</strong> tính <strong>0.5 công</strong>. Thiếu giờ vào/ra gửi Đơn giải trình để HR duyệt.
           </div>
         </div>
       </div>
@@ -219,7 +248,7 @@ export const Shifts = () => {
               <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '0.74rem', textTransform: 'uppercase' }}>
                 <th style={{ padding: '0.75rem 1.25rem', textAlign: 'left', fontWeight: 700 }}>Tên Ca làm việc</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 700 }}>Khung giờ chuẩn</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 700 }}>Mốc tính đi muộn (&gt;5p)</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 700 }}>Mốc tính đi muộn (&gt;{policyConfig.graceMinutes}p)</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 700 }}>Nghỉ giữa ca</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 700 }}>Định mức</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 700 }}>Trạng thái</th>
@@ -237,7 +266,7 @@ export const Shifts = () => {
                 </tr>
               ) : (
                 paginatedShifts.map(shift => {
-                  const graceLimit = addMinutesToTime(shift.startTime, 5);
+                  const graceLimit = addMinutesToTime(shift.startTime, policyConfig.graceMinutes);
                   return (
                     <tr key={shift.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                       <td style={{ padding: '0.8rem 1.25rem' }}>

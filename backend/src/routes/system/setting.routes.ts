@@ -177,10 +177,37 @@ const DEFAULT_SETTINGS = [
     category: 'ATTENDANCE',
     key: 'LATE_GRACE_PERIOD_MINUTES',
     name: 'Thời gian ân hạn vào ca (Chưa tính đi muộn)',
-    value: '15',
+    value: '5',
     dataType: 'NUMBER',
     unit: 'Phút',
-    description: 'Số phút nhân viên được phép đến sau giờ bắt đầu ca mà vẫn được tính đúng giờ.'
+    description: 'Số phút nhân viên được phép đến sau giờ bắt đầu ca mà vẫn được tính đúng giờ (Mặc định 5 phút).'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'MORNING_LATE_CUTOFF_TIME',
+    name: 'Mốc giờ giới hạn đi muộn buổi sáng (Quá mốc này hủy công sáng)',
+    value: '09:00',
+    dataType: 'STRING',
+    unit: 'HH:mm',
+    description: 'Cổng chặn kỷ luật: Đến sau mốc này (muộn quá 1 tiếng) bị hủy toàn bộ công buổi sáng (0 công sáng), chỉ bắt đầu tính giờ từ ca chiều.'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'ATTENDANCE_WORK_CALCULATION_MODE',
+    name: 'Chế độ tính công khi về sớm / thiếu giờ (PRO_RATA / STEP_BASED)',
+    value: 'PRO_RATA',
+    dataType: 'STRING',
+    unit: 'PRO_RATA | STEP_BASED',
+    description: 'PRO_RATA: Công tính theo tỷ lệ giờ làm thực tế / 8.0 giờ (ví dụ làm 7h = 0.88 công, 6h = 0.75 công); STEP_BASED: Tính bậc thang (≥7h = 1 công, ≥3.5h = 0.5 công).'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'STANDARD_WORK_HOURS_PER_DAY',
+    name: 'Số giờ làm việc tiêu chuẩn 1 ngày công hoàn chỉnh',
+    value: '8.0',
+    dataType: 'NUMBER',
+    unit: 'Giờ',
+    description: 'Số giờ làm việc chuẩn để chia tỷ lệ tính công trong chế độ PRO_RATA (netHours / standardHours).'
   },
   {
     category: 'ATTENDANCE',
@@ -217,6 +244,15 @@ const DEFAULT_SETTINGS = [
     dataType: 'PERCENT',
     unit: '% quân số',
     description: 'Hệ thống phát cảnh báo khi tỷ lệ nhân sự làm việc tại nhà của một phòng ban vượt ngưỡng này trong ngày.'
+  },
+  {
+    category: 'ATTENDANCE',
+    key: 'STANDARD_SHIFT_END_TIME',
+    name: 'Giờ tan ca làm việc tiêu chuẩn (Mốc bắt đầu tính làm thêm giờ)',
+    value: '17:30',
+    dataType: 'STRING',
+    unit: 'HH:mm',
+    description: 'Mốc thời gian kết thúc ca làm việc chính thức. Thời gian làm thêm (OT) chỉ bắt đầu được ghi nhận sau mốc giờ này căn cứ theo quẹt thẻ ra.'
   },
 
   // ==========================================
@@ -427,6 +463,42 @@ const DEFAULT_SETTINGS = [
     dataType: 'NUMBER',
     unit: 'Điểm / 100',
     description: 'Dưới mức điểm này nhân viên bị xếp loại Không đạt (Hạng D) và cần xây dựng kế hoạch cải thiện hiệu suất (PIP).'
+  },
+  {
+    category: 'PERFORMANCE',
+    key: 'KPI_BONUS_GRADE_A',
+    name: 'Tiền thưởng KPI Xếp loại Xuất sắc (Hạng A)',
+    value: '1000000',
+    dataType: 'NUMBER',
+    unit: 'VNĐ',
+    description: 'Mức tiền thưởng hiệu suất tự động cộng vào bảng lương cho nhân sự đạt KPI Xuất sắc (Hạng A).'
+  },
+  {
+    category: 'PERFORMANCE',
+    key: 'KPI_BONUS_GRADE_B',
+    name: 'Tiền thưởng KPI Xếp loại Tốt (Hạng B)',
+    value: '500000',
+    dataType: 'NUMBER',
+    unit: 'VNĐ',
+    description: 'Mức tiền thưởng hiệu suất tự động cộng vào bảng lương cho nhân sự đạt KPI Tốt (Hạng B).'
+  },
+  {
+    category: 'PERFORMANCE',
+    key: 'KPI_BONUS_GRADE_C',
+    name: 'Tiền thưởng KPI Xếp loại Đạt (Hạng C)',
+    value: '0',
+    dataType: 'NUMBER',
+    unit: 'VNĐ',
+    description: 'Mức tiền thưởng hiệu suất cho nhân sự xếp loại Cần cải thiện (Hạng C).'
+  },
+  {
+    category: 'PERFORMANCE',
+    key: 'KPI_BONUS_GRADE_D',
+    name: 'Tiền thưởng KPI Xếp loại Không đạt (Hạng D)',
+    value: '0',
+    dataType: 'NUMBER',
+    unit: 'VNĐ',
+    description: 'Mức tiền thưởng hiệu suất cho nhân sự xếp loại Không đạt (Hạng D).'
   }
 ];
 

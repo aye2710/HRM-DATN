@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
+import { PageHeader } from '../../components/common/PageHeader';
 
 export const EmployeeKPI = () => {
   const [selectedQuarter, setSelectedQuarter] = useState('Q3-2026');
@@ -13,6 +14,11 @@ export const EmployeeKPI = () => {
   const [loading, setLoading] = useState(false);
   const [updatingKpi, setUpdatingKpi] = useState(null);
   const [newAchieved, setNewAchieved] = useState(0);
+  const [newEvidenceUrl, setNewEvidenceUrl] = useState('');
+  const [reviews, setReviews] = useState([]);
+  const [isSelfReviewOpen, setIsSelfReviewOpen] = useState(false);
+  const [selfScoreInput, setSelfScoreInput] = useState(80);
+  const [selfCommentsInput, setSelfCommentsInput] = useState('');
 
   const [kpis, setKpis] = useState([
     {
@@ -74,8 +80,11 @@ export const EmployeeKPI = () => {
     try {
       setLoading(true);
       const res = await axios.get(`http://localhost:5000/api/kpi/employee/${employeeId}`);
-      if (res.data?.kpis && Array.isArray(res.data.kpis) && res.data.kpis.length > 0) {
+      if (res.data?.kpis && Array.isArray(res.data.kpis)) {
         setKpis(res.data.kpis);
+      }
+      if (res.data?.reviews && Array.isArray(res.data.reviews)) {
+        setReviews(res.data.reviews);
       }
     } catch (err) {
       console.error('Error fetching employee KPIs:', err);
@@ -87,6 +96,10 @@ export const EmployeeKPI = () => {
   useEffect(() => {
     fetchKpis();
   }, [employeeId]);
+
+  const currentReview = useMemo(() => {
+    return reviews.find(r => r.status !== 'COMPLETED') || reviews[0] || null;
+  }, [reviews]);
 
   // Tính điểm trung bình theo trọng số
   const totalScore = useMemo(() => {
@@ -113,7 +126,8 @@ export const EmployeeKPI = () => {
     if (!updatingKpi) return;
     try {
       await axios.put(`http://localhost:5000/api/kpi/kpi/${updatingKpi.id}`, {
-        achieved: Number(newAchieved)
+        achieved: Number(newAchieved),
+        evidenceUrl: newEvidenceUrl
       });
       toast.success('Đã cập nhật số liệu tiến độ của bạn thành công!');
       setUpdatingKpi(null);
@@ -123,54 +137,60 @@ export const EmployeeKPI = () => {
     }
   };
 
+  const handleSaveSelfReview = async (e) => {
+    e.preventDefault();
+    if (!currentReview) return toast.error('Không tìm thấy phiếu đánh giá của kỳ này');
+    try {
+      await axios.put(`http://localhost:5000/api/kpi/reviews/${currentReview.id}/self-review`, {
+        selfScore: Number(selfScoreInput),
+        selfComments: selfCommentsInput
+      });
+      toast.success('Đã gửi tự đánh giá thành công lên Quản lý!');
+      setIsSelfReviewOpen(false);
+      fetchKpis();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi gửi tự đánh giá');
+    }
+  };
+
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
-      {/* 1. Header Toolbar */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '1rem',
-        padding: '1.25rem 1.75rem',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '8px',
-              backgroundColor: '#EFF6FF', color: '#2563EB',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <Target size={20} />
-            </div>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              Mục Tiêu & Hiệu Suất Của Tôi (My KPI)
-            </h1>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Target size={20} />}
+        title="Mục Tiêu & Hiệu Suất Của Tôi (My KPI)"
+        subtitle="Theo dõi tiến độ các chỉ tiêu KPI được giao và cập nhật số liệu thực tế định kỳ."
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {currentReview && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelfScoreInput(currentReview.selfScore > 0 ? Number(currentReview.selfScore) : Math.round(Number(totalScore) * 10));
+                  setSelfCommentsInput(currentReview.selfComments || '');
+                  setIsSelfReviewOpen(true);
+                }}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', padding: '7px 14px', fontWeight: 600 }}
+              >
+                <Award size={15} /> {currentReview.status === 'SELF_EVALUATED' ? 'Đã Tự Đánh Giá (Xem/Sửa)' : 'Gửi Tự Đánh Giá Quý'}
+              </button>
+            )}
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap' }}>Chu kỳ:</span>
+            <select
+              className="form-input"
+              value={selectedQuarter}
+              onChange={e => setSelectedQuarter(e.target.value)}
+              style={{ width: 'auto', height: '38px', backgroundColor: '#F8FAFC', fontWeight: 600, color: '#0F172A' }}
+            >
+              <option value="Q3-2026">Quý 3 / 2026 (Đang diễn ra)</option>
+              <option value="Q2-2026">Quý 2 / 2026 (Đã chốt)</option>
+              <option value="Q1-2026">Quý 1 / 2026 (Đã chốt)</option>
+            </select>
           </div>
-          <p style={{ margin: 0, color: '#64748B', fontSize: '0.875rem' }}>
-            Theo dõi tiến độ các chỉ tiêu KPI được giao và cập nhật số liệu thực tế định kỳ.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap' }}>Chu kỳ:</span>
-          <select
-            className="form-input"
-            value={selectedQuarter}
-            onChange={e => setSelectedQuarter(e.target.value)}
-            style={{ width: 'auto', height: '38px', backgroundColor: '#F8FAFC', fontWeight: 600, color: '#0F172A' }}
-          >
-            <option value="Q3-2026">Quý 3 / 2026 (Đang diễn ra)</option>
-            <option value="Q2-2026">Quý 2 / 2026 (Đã chốt)</option>
-            <option value="Q1-2026">Quý 1 / 2026 (Đã chốt)</option>
-          </select>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Thẻ Tóm Tắt Điểm & Tiến Độ Tổng Thể */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
@@ -264,9 +284,31 @@ export const EmployeeKPI = () => {
                 <strong style={{ fontSize: '1.05rem', color: '#0F172A', display: 'block' }}>
                   {kpi.title}
                 </strong>
-                <span style={{ fontSize: '0.8125rem', color: '#64748B' }}>
-                  Mục tiêu (`Target`): <strong>{kpi.target}</strong>
-                </span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.8125rem', color: '#64748B' }}>
+                    Mục tiêu (`Target`): <strong>{kpi.target}</strong>
+                  </span>
+                  {kpi.direction === 'LOWER_IS_BETTER' && (
+                    <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#B45309', fontWeight: 600 }}>
+                      📉 Càng ít lỗi càng tốt
+                    </span>
+                  )}
+                  {kpi.direction === 'BOOLEAN' && (
+                    <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#F3E8FF', color: '#7E22CE', fontWeight: 600 }}>
+                      ⚖️ Đạt / Không đạt
+                    </span>
+                  )}
+                  {kpi.evidenceUrl && (
+                    <a 
+                      href={kpi.evidenceUrl.startsWith('http') ? kpi.evidenceUrl : `https://${kpi.evidenceUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: '0.72rem', color: '#16A34A', fontWeight: 600, textDecoration: 'none', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: '4px' }}
+                    >
+                      📎 Minh chứng đính kèm
+                    </a>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -280,6 +322,7 @@ export const EmployeeKPI = () => {
                   onClick={() => {
                     setUpdatingKpi(kpi);
                     setNewAchieved(Number(kpi.rawAchieved || 0));
+                    setNewEvidenceUrl(kpi.evidenceUrl || '');
                   }}
                   className="btn btn-outline"
                   style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#2563EB' }}
@@ -356,12 +399,93 @@ export const EmployeeKPI = () => {
                 </div>
               </div>
 
+              <div>
+                <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0F172A' }}>
+                  Link minh chứng / Báo cáo kết quả
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="VD: https://jira.company.com/browse/PROJ-123 hoặc link Google Drive..." 
+                  value={newEvidenceUrl}
+                  onChange={e => setNewEvidenceUrl(e.target.value)}
+                  style={{ fontSize: '0.82rem', height: '36px' }}
+                />
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
                 <button type="button" onClick={() => setUpdatingKpi(null)} className="btn btn-outline" style={{ fontSize: '0.85rem' }}>
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '6px 20px', fontWeight: 700 }}>
                   Xác nhận
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* MODAL TỰ ĐÁNH GIÁ (SELF-REVIEW) */}
+      {isSelfReviewOpen && currentReview && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', padding: '1rem' }}>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '14px', width: '520px', maxWidth: '95vw', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award size={20} color="#2563EB" />
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>
+                  Tự Đánh Giá Hiệu Suất ({selectedQuarter})
+                </h3>
+              </div>
+              <button onClick={() => setIsSelfReviewOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleSaveSelfReview} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ backgroundColor: '#EFF6FF', padding: '10px 14px', borderRadius: '8px', border: '1px solid #BFDBFE' }}>
+                <div style={{ fontSize: '0.78rem', color: '#1E40AF', fontWeight: 600 }}>Điểm tự động tính từ các mục tiêu KPI hiện tại:</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1D4ED8', marginTop: '2px' }}>
+                  {totalScore} / 10 <span style={{ fontSize: '0.85rem', color: '#2563EB', fontWeight: 600 }}>(Quy đổi: {Math.round(Number(totalScore) * 10)} / 100)</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A' }}>
+                  Điểm tự đánh giá của bạn (Thang 0 - 100) *
+                </label>
+                <input 
+                  type="number" 
+                  min="0"
+                  max="100"
+                  className="form-input" 
+                  required
+                  value={selfScoreInput}
+                  onChange={e => setSelfScoreInput(e.target.value)}
+                  style={{ fontSize: '1.1rem', fontWeight: 800, color: '#2563EB', height: '42px', width: '120px' }}
+                />
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F172A' }}>
+                  Ghi chú tự nhận xét / Giải trình thành tích
+                </label>
+                <textarea 
+                  className="form-input" 
+                  style={{ minHeight: '90px', resize: 'vertical' }} 
+                  value={selfCommentsInput}
+                  onChange={e => setSelfCommentsInput(e.target.value)}
+                  placeholder="Tự đánh giá các thành tích nổi bật, khó khăn gặp phải trong kỳ và đề xuất hỗ trợ..."
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
+                <button type="button" onClick={() => setIsSelfReviewOpen(false)} className="btn btn-outline" style={{ fontSize: '0.85rem' }}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '6px 20px', fontWeight: 700 }}>
+                  Gửi Tự Đánh Giá
                 </button>
               </div>
 

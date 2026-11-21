@@ -8,6 +8,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 import { 
   HandoverDrawerModal, 
   Bm02PrintModal 
@@ -86,41 +88,39 @@ export const OffboardingChecklist = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <h1 className="page-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#b91c1c' }}>
-              <CheckSquare size={26} color="#dc2626" /> Tiến độ Bàn giao & Checklist Thôi việc
-            </h1>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
-              QUY TRÌNH BÀN GIAO • BM-02
-            </span>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: 0 }}>
-            Kiểm soát 4 giai đoạn bàn giao: Chuyên môn & Dự án, Thu hồi tài sản BM-02, Hành chính, và Quyết toán phép tồn
-          </p>
-        </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<CheckSquare size={20} />}
+        iconBg="#FEF2F2"
+        iconColor="#DC2626"
+        title="Tiến độ Bàn giao & Checklist Thôi việc"
+        badge={
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
+            QUY TRÌNH BÀN GIAO • BM-02
+          </span>
+        }
+        subtitle="Kiểm soát 4 giai đoạn bàn giao: Chuyên môn & Dự án, Thu hồi tài sản BM-02, Hành chính, và Quyết toán phép tồn"
+        actions={
+          <>
+            <button
+              onClick={handleRunSecurityCheck}
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', borderColor: '#FECACA', color: '#DC2626', backgroundColor: '#FEF2F2' }}
+              title="Rà soát và tự động khóa mọi tài khoản nhân sự đến ngày thôi việc"
+            >
+              <ShieldAlert size={16} /> Quét an ninh khóa tài khoản
+            </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button
-            onClick={handleRunSecurityCheck}
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', borderColor: '#FECACA', color: '#DC2626', backgroundColor: '#FEF2F2' }}
-            title="Rà soát và tự động khóa mọi tài khoản nhân sự đến ngày thôi việc"
-          >
-            <ShieldAlert size={16} /> Quét an ninh khóa tài khoản
-          </button>
-
-          <button
-            onClick={() => navigate('/internal/offboarding/initiate')}
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', backgroundColor: '#dc2626', borderColor: '#dc2626' }}
-          >
-            <UserMinus size={16} /> + Khởi tạo Thôi việc mới
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={() => navigate('/internal/offboarding/initiate')}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', backgroundColor: '#dc2626', borderColor: '#dc2626' }}
+            >
+              <UserMinus size={16} /> + Khởi tạo Thôi việc mới
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Top Metric KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
@@ -232,7 +232,7 @@ export const OffboardingChecklist = () => {
                       <td>{emp.department?.name || '—'}</td>
                       <td>
                         <span style={{ fontWeight: 600, color: '#dc2626', fontSize: '0.85rem' }}>
-                          {emp.resignationDate ? new Date(emp.resignationDate).toLocaleDateString('vi-VN') : 'Chưa chốt'}
+                          {formatDate(emp.resignationDate, 'Chưa chốt')}
                         </span>
                       </td>
                       <td style={{ width: '220px' }}>

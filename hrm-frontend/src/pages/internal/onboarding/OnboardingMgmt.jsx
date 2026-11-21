@@ -8,6 +8,8 @@ import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 const checklistItems = [
   { 
@@ -232,23 +234,13 @@ export const OnboardingMgmt = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-      {/* 1. Header (Chuẩn kiểu OffboardingChecklist) */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <h1 className="page-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#1d4ed8' }}>
-              <CheckSquare size={26} color="#2563eb" /> Tiến độ Hội nhập & Checklist Nhân sự mới
-            </h1>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
-              QUY TRÌNH HỘI NHẬP • BM-01
-            </span>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: 0 }}>
-            Kiểm soát 4 giai đoạn phối hợp liên phòng ban: IT Support & Hạ tầng, Hành chính (BM-01), Nhân sự (HĐLĐ), và Quản lý trực tiếp
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<CheckSquare size={20} />}
+        title="Tiến độ Hội nhập & Checklist Nhân sự mới"
+        badge="QUY TRÌNH HỘI NHẬP • BM-01"
+        subtitle="Kiểm soát 4 giai đoạn phối hợp liên phòng ban: IT Support & Hạ tầng, Hành chính (BM-01), Nhân sự (HĐLĐ), và Quản lý trực tiếp"
+        actions={
           <button
             onClick={() => navigate('/internal/onboarding/pre-onboarding')}
             className="btn btn-primary"
@@ -256,8 +248,8 @@ export const OnboardingMgmt = () => {
           >
             <UserPlus size={16} /> Tiếp nhận Ứng viên
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Bộ lọc tìm kiếm */}
       <div className="card glass" style={{ padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -349,11 +341,11 @@ export const OnboardingMgmt = () => {
                       <td>{emp.department?.name || '—'}</td>
                       <td>
                         <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>
-                          {emp.joinDate ? new Date(emp.joinDate).toLocaleDateString('vi-VN') : 'Chưa chốt'}
+                          {formatDate(emp.joinDate, 'Chưa chốt')}
                         </div>
                         {emp.checklistDeadlineDate && (
                           <div style={{ fontSize: '0.72rem', color: emp.isChecklistOverdue && !isAllDone ? '#dc2626' : '#64748b', marginTop: '2px' }}>
-                            Hạn: {new Date(emp.checklistDeadlineDate).toLocaleDateString('vi-VN')}
+                            Hạn: {formatDate(emp.checklistDeadlineDate)}
                           </div>
                         )}
                       </td>

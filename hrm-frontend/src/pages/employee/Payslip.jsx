@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Download, Printer, Banknote, ShieldCheck, DollarSign, Calendar, 
+  Download, Banknote, ShieldCheck, DollarSign, Calendar, 
   CheckCircle2, Building, User, FileText, ArrowDownRight, ArrowUpRight, HelpCircle
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { PageHeader } from '../../components/common/PageHeader';
 
 export const EmployeePayslip = () => {
   const [payslips, setPayslips] = useState([]);
@@ -82,39 +83,14 @@ export const EmployeePayslip = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
       
-      {/* 1. Header Toolbar */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '1rem',
-        padding: '1.5rem 1.75rem',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '8px',
-              backgroundColor: '#ECFDF5', color: '#059669',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <Banknote size={20} />
-            </div>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              Phiếu Lương Điện Tử (My Payslip)
-            </h1>
-          </div>
-          <p style={{ margin: 0, color: '#64748B', fontSize: '0.875rem' }}>
-            Minh bạch thu nhập, thuế TNCN, bảo hiểm và tiền lương thực lĩnh hàng tháng theo chuẩn Công ty LLA.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* Select Period */}
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Banknote size={20} />}
+        iconBg="#ECFDF5"
+        iconColor="#059669"
+        title="Phiếu Lương Điện Tử (My Payslip)"
+        subtitle="Minh bạch thu nhập, thuế TNCN, bảo hiểm và tiền lương thực lĩnh hàng tháng theo chuẩn Công ty LLA."
+        actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap' }}>Kỳ lương:</span>
             <select
@@ -135,25 +111,8 @@ export const EmployeePayslip = () => {
               )}
             </select>
           </div>
-
-          <button
-            onClick={() => window.print()}
-            className="btn btn-outline"
-            style={{
-              height: '38px',
-              padding: '0 1rem',
-              borderRadius: '0.5rem',
-              fontWeight: 600,
-              fontSize: '0.8125rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem'
-            }}
-          >
-            <Printer size={16} /> In phiếu lương
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Thẻ Tóm Tắt Thu Nhập Nhanh */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>

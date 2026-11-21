@@ -24,13 +24,13 @@ export const UniversalImportModal = ({
   sampleData = [],
   onConfirmImport
 }) => {
-  if (!isOpen) return null;
-
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isParsing, setIsParsing] = useState(false);
   const [previewRows, setPreviewRows] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!isOpen) return null;
 
   // 1. Tải file mẫu Excel
   const handleDownloadTemplate = () => {

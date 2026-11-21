@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import {
   Clock, Plus, Search, Filter, CheckCircle2, XCircle, AlertTriangle,
   FileSpreadsheet, RefreshCw, Calendar, User, Building, Trash2, Check, X,
-  ShieldCheck, HelpCircle
+  ShieldCheck, HelpCircle, Eye
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const OTMgmt = () => {
   const now = new Date();
@@ -26,7 +28,13 @@ export const OTMgmt = () => {
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [actualHoursInput, setActualHoursInput] = useState(0);
+  const [reviewNoteInput, setReviewNoteInput] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Modal Xác nhận Xóa đơn làm thêm giờ (thay thế window.confirm popup mặc định)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedDeleteRequest, setSelectedDeleteRequest] = useState(null);
+  const [submittingDelete, setSubmittingDelete] = useState(false);
 
   // Modal Tạo đơn OT mới cho nhân viên
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -95,16 +103,16 @@ export const OTMgmt = () => {
     resetPage();
   }, [searchTerm, selectedDept, statusFilter, selectedMonth, selectedYear, resetPage]);
 
-  // Thống kê KPI
+  // Thống kê KPI theo danh sách đang hiển thị
   const stats = useMemo(() => {
-    let totalRequests = otRequests.length;
+    let totalRequests = filteredRequests.length;
     let pendingCount = 0;
     let approvedCount = 0;
     let rejectedCount = 0;
     let totalRequestedHours = 0;
     let totalApprovedHours = 0;
 
-    for (const r of otRequests) {
+    for (const r of filteredRequests) {
       totalRequestedHours += Number(r.requestHours || 0);
       if (r.status === 'PENDING') {
         pendingCount++;
@@ -124,23 +132,29 @@ export const OTMgmt = () => {
       totalRequestedHours,
       totalApprovedHours
     };
-  }, [otRequests]);
+  }, [filteredRequests]);
 
-  // Mở modal duyệt (mặc định lấy số giờ đăng ký ban đầu để sếp không phải gõ lại từ 0)
+  // Mở modal duyệt: Tự động đối soát và đề xuất số giờ nghiệm thu theo log quẹt thẻ thực tế
   const handleOpenReview = (request) => {
     setSelectedRequest(request);
-    const defaultHours = Number(request.actualHours) > 0
-      ? Number(request.actualHours)
-      : Number(request.requestHours || 2);
-    setActualHoursInput(defaultHours);
+    let initialHours = 0;
+    if (Number(request.actualHours) > 0) {
+      initialHours = Number(request.actualHours);
+    } else if (request.crossCheck?.suggestedHours !== undefined) {
+      initialHours = Number(request.crossCheck.suggestedHours);
+    } else {
+      initialHours = Number(request.requestHours || 2);
+    }
+    setActualHoursInput(initialHours);
+    setReviewNoteInput('');
     setReviewModalOpen(true);
   };
 
   // Xác nhận Duyệt hoặc Từ chối
   const handleReviewAction = async (status) => {
     if (!selectedRequest) return;
-    if (status === 'APPROVED' && (!Number(actualHoursInput) || Number(actualHoursInput) <= 0)) {
-      return toast.error('Số giờ nghiệm thu thực tế phải lớn hơn 0!');
+    if (status === 'APPROVED' && (!Number(actualHoursInput) || Number(actualHoursInput) < 0)) {
+      return toast.error('Số giờ nghiệm thu thực tế không hợp lệ!');
     }
     setSubmittingReview(true);
     try {
@@ -148,7 +162,8 @@ export const OTMgmt = () => {
         `http://localhost:5000/api/ot/${selectedRequest.id}/status`,
         {
           status,
-          actualHours: status === 'APPROVED' ? Number(actualHoursInput) : 0
+          actualHours: status === 'APPROVED' ? Number(actualHoursInput) : 0,
+          reviewNote: reviewNoteInput
         },
         { headers }
       );
@@ -202,15 +217,26 @@ export const OTMgmt = () => {
     }
   };
 
-  // Xóa đơn OT (nếu PENDING)
-  const handleDeleteOT = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa đơn làm thêm giờ này?')) return;
+  // Mở popup xác nhận xóa đơn OT
+  const handleOpenDeleteConfirm = (request) => {
+    setSelectedDeleteRequest(request);
+    setDeleteModalOpen(true);
+  };
+
+  // Thực hiện xóa đơn OT khi xác nhận trên Modal
+  const confirmDeleteOT = async () => {
+    if (!selectedDeleteRequest) return;
+    setSubmittingDelete(true);
     try {
-      await axios.delete(`http://localhost:5000/api/ot/${id}`, { headers });
-      toast.success('Đã xóa đơn làm thêm giờ');
+      await axios.delete(`http://localhost:5000/api/ot/${selectedDeleteRequest.id}`, { headers });
+      toast.success('Đã xóa đơn làm thêm giờ thành công!');
+      setDeleteModalOpen(false);
+      setSelectedDeleteRequest(null);
       await fetchData();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Không thể xóa đơn OT');
+    } finally {
+      setSubmittingDelete(false);
     }
   };
 
@@ -250,69 +276,41 @@ export const OTMgmt = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
       
-      {/* 1. Header Toolbar */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '0.75rem',
-        padding: '0.85rem 1.25rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: '8px',
-            backgroundColor: '#EFF6FF', color: '#2563EB',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-          }}>
-            <Clock size={20} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                Quản lý Làm thêm giờ (Overtime - OT)
-              </h2>
-              <span style={{ fontSize: '0.72rem', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', padding: '2px 8px', borderRadius: '999px', fontWeight: 700 }}>
-                Điều 107 BLLĐ 2019
-              </span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>
-              Phê duyệt số giờ làm thêm (Ngày thường 150%, Cuối tuần 200%, Lễ 300%) • Tự động liên kết Cột J Bảng lương
-            </div>
-          </div>
-        </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Clock size={20} />}
+        title="Quản lý Làm thêm giờ (Overtime - OT)"
+        badge="Điều 107 BLLĐ 2019"
+        subtitle="Phê duyệt số giờ làm thêm (Ngày thường 150%, Cuối tuần 200%, Lễ 300%) • Tự động liên kết Cột J Bảng lương"
+        actions={
+          <>
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.85rem', fontSize: '0.8rem', height: 34 }}
+            >
+              <Plus size={15} /> Tạo đơn OT mới
+            </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.85rem', fontSize: '0.8rem', height: 34 }}
-          >
-            <Plus size={15} /> Tạo đơn OT mới
-          </button>
+            <button
+              onClick={handleExportCSV}
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem', height: 34, borderColor: '#CBD5E1', color: '#059669' }}
+            >
+              <FileSpreadsheet size={15} /> Xuất Excel
+            </button>
 
-          <button
-            onClick={handleExportCSV}
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem', height: 34, borderColor: '#CBD5E1', color: '#059669' }}
-          >
-            <FileSpreadsheet size={15} /> Xuất Excel
-          </button>
-
-          <button
-            onClick={fetchData}
-            className="btn btn-outline"
-            style={{ padding: '0.4rem 0.55rem', height: 34, borderColor: '#CBD5E1', color: '#64748B' }}
-            title="Tải lại dữ liệu"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={fetchData}
+              className="btn btn-outline"
+              style={{ padding: '0.4rem 0.55rem', height: 34, borderColor: '#CBD5E1', color: '#64748B' }}
+              title="Tải lại dữ liệu"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Bảng Danh sách Đơn Làm thêm giờ */}
       <div style={{
@@ -470,6 +468,7 @@ export const OTMgmt = () => {
                 <th style={{ padding: '0.75rem 0.85rem', textAlign: 'left', fontWeight: 700 }}>Ngày làm OT</th>
                 <th style={{ padding: '0.75rem 0.85rem', textAlign: 'left', fontWeight: 700 }}>Hệ số lương OT</th>
                 <th style={{ padding: '0.75rem 0.85rem', textAlign: 'center', fontWeight: 700 }}>Đăng ký</th>
+                <th style={{ padding: '0.75rem 0.85rem', textAlign: 'left', fontWeight: 700 }}>Quẹt ra thực tế (Đối soát)</th>
                 <th style={{ padding: '0.75rem 0.85rem', textAlign: 'center', fontWeight: 700 }}>Nghiệm thu</th>
                 <th style={{ padding: '0.75rem 0.85rem', textAlign: 'left', fontWeight: 700 }}>Lý do làm thêm</th>
                 <th style={{ padding: '0.75rem 0.85rem', textAlign: 'center', fontWeight: 700 }}>Trạng thái</th>
@@ -479,13 +478,13 @@ export const OTMgmt = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="9" style={{ padding: '2.5rem', textAlign: 'center', color: '#64748B' }}>
+                  <td colSpan="10" style={{ padding: '2.5rem', textAlign: 'center', color: '#64748B' }}>
                     Đang tải dữ liệu làm thêm giờ...
                   </td>
                 </tr>
               ) : filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan="9" style={{ padding: '2.5rem', textAlign: 'center', color: '#64748B' }}>
+                  <td colSpan="10" style={{ padding: '2.5rem', textAlign: 'center', color: '#64748B' }}>
                     Không có đơn làm thêm giờ nào phù hợp với bộ lọc.
                   </td>
                 </tr>
@@ -521,6 +520,49 @@ export const OTMgmt = () => {
                       <td style={{ padding: '0.75rem 0.85rem', textAlign: 'center', fontWeight: 700, color: '#334155' }}>
                         {Number(r.requestHours).toFixed(1)}h
                       </td>
+                      <td style={{ padding: '0.75rem 0.85rem', whiteSpace: 'nowrap' }}>
+                        {r.crossCheck ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, fontSize: '0.8rem', color: '#1E293B' }}>
+                              <Clock size={12} color="#64748B" />
+                              {r.crossCheck.checkOutFormatted ? `${r.crossCheck.checkOutFormatted}` : 'Chưa có'}
+                              {r.crossCheck.stayHours > 0 && (
+                                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>
+                                  ({r.crossCheck.stayHours}h sau ca)
+                                </span>
+                              )}
+                            </div>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 3,
+                              padding: '2px 6px',
+                              borderRadius: 4,
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              width: 'fit-content',
+                              backgroundColor:
+                                r.crossCheck.complianceStatus === 'QUALIFIED' ? '#DCFCE7' :
+                                r.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#FEF3C7' :
+                                r.crossCheck.complianceStatus === 'ZERO_OT' ? '#FEE2E2' :
+                                r.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#FEE2E2' : '#F1F5F9',
+                              color:
+                                r.crossCheck.complianceStatus === 'QUALIFIED' ? '#15803D' :
+                                r.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#B45309' :
+                                r.crossCheck.complianceStatus === 'ZERO_OT' ? '#B91C1C' :
+                                r.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#B91C1C' : '#64748B'
+                            }}>
+                              {r.crossCheck.complianceStatus === 'QUALIFIED' && '✓ Đạt đủ giờ'}
+                              {r.crossCheck.complianceStatus === 'UNDER_HOURS' && `⚠ Thiếu giờ (${r.crossCheck.stayHours}h)`}
+                              {r.crossCheck.complianceStatus === 'ZERO_OT' && '✕ Về đúng ca (0h OT)'}
+                              {r.crossCheck.complianceStatus === 'NO_CHECKOUT' && '⚠ Thiếu log quẹt ra'}
+                              {r.crossCheck.complianceStatus === 'PENDING_TIME' && 'Chưa hết ca'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94A3B8', fontSize: '0.75rem' }}>—</span>
+                        )}
+                      </td>
                       <td style={{ padding: '0.75rem 0.85rem', textAlign: 'center', fontWeight: 800, color: r.status === 'APPROVED' ? '#15803D' : '#64748B' }}>
                         {r.status === 'APPROVED' ? `${Number(r.actualHours || r.requestHours).toFixed(1)}h` : '—'}
                       </td>
@@ -542,47 +584,33 @@ export const OTMgmt = () => {
                         </span>
                       </td>
                       <td style={{ padding: '0.75rem 1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                          {r.status === 'PENDING' ? (
-                            <>
-                              <button
-                                onClick={() => handleOpenReview(r)}
-                                className="btn btn-primary"
-                                style={{ height: 28, padding: '0 0.6rem', fontSize: '0.73rem', backgroundColor: '#15803D', borderColor: '#15803D' }}
-                                title="Phê duyệt số giờ nghiệm thu thực tế"
-                              >
-                                <Check size={13} /> Duyệt
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedRequest(r);
-                                  handleReviewAction('REJECTED');
-                                }}
-                                className="btn btn-outline"
-                                style={{ height: 28, padding: '0 0.6rem', fontSize: '0.73rem', color: '#DC2626', borderColor: '#FECACA' }}
-                                title="Từ chối đơn"
-                              >
-                                <X size={13} /> Từ chối
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => handleOpenReview(r)}
-                              className="btn btn-outline"
-                              style={{ height: 28, padding: '0 0.5rem', fontSize: '0.72rem', color: '#64748B', borderColor: '#E2E8F0' }}
-                              title="Xem chi tiết đơn"
-                            >
-                              Xem lại
-                            </button>
-                          )}
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <button
+                            onClick={() => handleOpenReview(r)}
+                            style={{
+                              width: 32, height: 32, borderRadius: 6,
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              backgroundColor: r.status === 'PENDING' ? '#EFF6FF' : '#F8FAFC',
+                              color: r.status === 'PENDING' ? '#2563EB' : '#475569',
+                              border: `1px solid ${r.status === 'PENDING' ? '#BFDBFE' : '#E2E8F0'}`,
+                              cursor: 'pointer', transition: 'all 0.15s ease'
+                            }}
+                            title={r.status === 'PENDING' ? 'Xem chi tiết & Phê duyệt đơn OT' : 'Xem chi tiết đơn OT'}
+                          >
+                            <Eye size={16} />
+                          </button>
 
                           <button
-                            onClick={() => handleDeleteOT(r.id)}
-                            className="btn btn-outline"
-                            style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', borderColor: '#E2E8F0' }}
-                            title="Xóa đơn"
+                            onClick={() => handleOpenDeleteConfirm(r)}
+                            style={{
+                              width: 32, height: 32, borderRadius: 6,
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              backgroundColor: '#F8FAFC', color: '#94A3B8', border: '1px solid #E2E8F0',
+                              cursor: 'pointer', transition: 'all 0.15s ease'
+                            }}
+                            title="Xóa đơn làm thêm này"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -626,7 +654,21 @@ export const OTMgmt = () => {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <ShieldCheck size={18} color="#2563EB" />
-                <strong style={{ fontSize: '0.95rem', color: '#1E40AF' }}>Phê duyệt &amp; Nghiệm thu giờ OT</strong>
+                <strong style={{ fontSize: '0.95rem', color: '#1E40AF' }}>
+                  {selectedRequest.status === 'PENDING' ? 'Phê duyệt & Nghiệm thu giờ OT' : 'Chi tiết Đơn làm thêm giờ (Đã xử lý)'}
+                </strong>
+                {selectedRequest.status !== 'PENDING' && (
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    backgroundColor: selectedRequest.status === 'APPROVED' ? '#DCFCE7' : '#FEE2E2',
+                    color: selectedRequest.status === 'APPROVED' ? '#15803D' : '#B91C1C'
+                  }}>
+                    {selectedRequest.status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối'}
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -651,45 +693,216 @@ export const OTMgmt = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155', marginBottom: '0.25rem', display: 'block' }}>
-                  Số giờ nghiệm thu thực tế (tính lương) <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  max="4"
-                  className="form-input w-full"
-                  value={actualHoursInput}
-                  onChange={e => setActualHoursInput(e.target.value)}
-                  style={{ fontWeight: 700, color: '#15803D' }}
-                />
-                <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 4 }}>
-                  Số giờ đăng ký ban đầu: <strong>{Number(selectedRequest.requestHours).toFixed(1)}h</strong> (Tối đa 4.0h/ngày theo luật).
-                </div>
-              </div>
+              {/* KHỐI ĐỐI SOÁT CHÉO VỚI DỮ LIỆU MÁY CHẤM CÔNG */}
+              {selectedRequest.crossCheck && (
+                <div style={{
+                  backgroundColor:
+                    selectedRequest.crossCheck.complianceStatus === 'QUALIFIED' ? '#F0FDF4' :
+                    selectedRequest.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#FFFBEB' :
+                    selectedRequest.crossCheck.complianceStatus === 'ZERO_OT' ? '#FEF2F2' :
+                    selectedRequest.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#FEF2F2' : '#F8FAFC',
+                  border: `1px solid ${
+                    selectedRequest.crossCheck.complianceStatus === 'QUALIFIED' ? '#BBF7D0' :
+                    selectedRequest.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#FDE68A' :
+                    selectedRequest.crossCheck.complianceStatus === 'ZERO_OT' ? '#FECACA' :
+                    selectedRequest.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#FECACA' : '#E2E8F0'
+                  }`,
+                  borderRadius: '0.5rem',
+                  padding: '0.75rem 0.85rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={13} color="#2563EB" />
+                      Đối soát dữ liệu chấm công:
+                    </span>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      backgroundColor:
+                        selectedRequest.crossCheck.complianceStatus === 'QUALIFIED' ? '#DCFCE7' :
+                        selectedRequest.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#FEF3C7' :
+                        selectedRequest.crossCheck.complianceStatus === 'ZERO_OT' ? '#FEE2E2' :
+                        selectedRequest.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#FEE2E2' : '#E2E8F0',
+                      color:
+                        selectedRequest.crossCheck.complianceStatus === 'QUALIFIED' ? '#15803D' :
+                        selectedRequest.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#B45309' :
+                        selectedRequest.crossCheck.complianceStatus === 'ZERO_OT' ? '#B91C1C' :
+                        selectedRequest.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#B91C1C' : '#475569'
+                    }}>
+                      {selectedRequest.crossCheck.complianceTitle}
+                    </span>
+                  </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  disabled={submittingReview}
-                  onClick={() => handleReviewAction('REJECTED')}
-                  className="btn btn-outline"
-                  style={{ color: '#DC2626', borderColor: '#FECACA' }}
-                >
-                  Từ chối đơn
-                </button>
-                <button
-                  type="button"
-                  disabled={submittingReview}
-                  onClick={() => handleReviewAction('APPROVED')}
-                  className="btn btn-primary"
-                  style={{ backgroundColor: '#15803D', borderColor: '#15803D' }}
-                >
-                  {submittingReview ? 'Đang duyệt...' : 'Xác nhận Phê duyệt'}
-                </button>
-              </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, fontSize: '0.74rem', color: '#1E293B', backgroundColor: '#FFFFFF', padding: '6px 8px', borderRadius: 4, border: '1px solid #E2E8F0' }}>
+                    <div>
+                      <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Ca chuẩn</div>
+                      <strong>08:00 - {selectedRequest.crossCheck.shiftEndTime || '17:30'}</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Quẹt ra thực tế</div>
+                      <strong style={{ color: selectedRequest.crossCheck.checkOutFormatted ? '#0F172A' : '#EF4444' }}>
+                        {selectedRequest.crossCheck.checkOutFormatted || 'Chưa có log'}
+                      </strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748B', fontSize: '0.68rem' }}>Ở lại sau ca</div>
+                      <strong style={{ color: selectedRequest.crossCheck.stayHours > 0 ? '#15803D' : '#EF4444' }}>
+                        {selectedRequest.crossCheck.stayHours} giờ
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    fontSize: '0.72rem',
+                    color:
+                      selectedRequest.crossCheck.complianceStatus === 'QUALIFIED' ? '#166534' :
+                      selectedRequest.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#92400E' :
+                      selectedRequest.crossCheck.complianceStatus === 'ZERO_OT' ? '#991B1B' :
+                      selectedRequest.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#991B1B' : '#475569',
+                    lineHeight: 1.4
+                  }}>
+                    {selectedRequest.crossCheck.complianceMessage}
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.status !== 'PENDING' ? (
+                /* CHẾ ĐỘ XEM LẠI (ĐÃ XỬ LÝ) */
+                <>
+                  <div style={{
+                    backgroundColor: selectedRequest.status === 'APPROVED' ? '#F0FDF4' : '#FEF2F2',
+                    border: `1px solid ${selectedRequest.status === 'APPROVED' ? '#BBF7D0' : '#FECACA'}`,
+                    borderRadius: '0.5rem',
+                    padding: '0.85rem'
+                  }}>
+                    <div style={{ fontSize: '0.74rem', color: selectedRequest.status === 'APPROVED' ? '#166534' : '#991B1B', fontWeight: 600 }}>
+                      Kết quả xử lý đơn:
+                    </div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: selectedRequest.status === 'APPROVED' ? '#15803D' : '#B91C1C', marginTop: 2 }}>
+                      {selectedRequest.status === 'APPROVED'
+                        ? `${Number(selectedRequest.actualHours || selectedRequest.requestHours).toFixed(1)} giờ (Tính tiền lương)`
+                        : 'Đã từ chối đơn làm thêm (0 giờ OT)'}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 4 }}>
+                      Số giờ đăng ký ban đầu: <strong>{Number(selectedRequest.requestHours).toFixed(1)}h</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setReviewModalOpen(false)}
+                      className="btn btn-outline"
+                      style={{ minWidth: 90, borderColor: '#CBD5E1', color: '#334155' }}
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* CHẾ ĐỘ PHÊ DUYỆT (PENDING) */
+                <>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155', margin: 0 }}>
+                        Số giờ nghiệm thu thực tế (tính lương) <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      {selectedRequest.crossCheck?.suggestedHours !== undefined && (
+                        <button
+                          type="button"
+                          onClick={() => setActualHoursInput(selectedRequest.crossCheck.suggestedHours)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#2563EB',
+                            fontSize: '0.72rem',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          Điền theo máy ({selectedRequest.crossCheck.suggestedHours}h)
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="4"
+                      className="form-input w-full"
+                      value={actualHoursInput}
+                      onChange={e => setActualHoursInput(e.target.value)}
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        color: Number(actualHoursInput) > 0 ? '#15803D' : '#EF4444'
+                      }}
+                    />
+                    <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Số giờ xin trên đơn: <strong>{Number(selectedRequest.requestHours).toFixed(1)}h</strong></span>
+                      <span>Đề xuất từ máy chấm công: <strong>{selectedRequest.crossCheck?.suggestedHours ?? 0}h</strong></span>
+                    </div>
+
+                    {selectedRequest.crossCheck && Number(actualHoursInput) > (selectedRequest.crossCheck.stayHours || 0) && (
+                      <div style={{
+                        marginTop: 6,
+                        padding: '6px 8px',
+                        backgroundColor: '#FFFBEB',
+                        border: '1px solid #FDE68A',
+                        borderRadius: 4,
+                        fontSize: '0.72rem',
+                        color: '#B45309'
+                      }}>
+                        ⚠️ <strong>Lưu ý:</strong> Bạn đang nhập {actualHoursInput}h, lớn hơn số giờ quẹt thẻ ở lại sau ca ({selectedRequest.crossCheck.stayHours || 0}h). Vui lòng ghi rõ lý do đặc cách bên dưới.
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155', marginBottom: '0.25rem', display: 'block' }}>
+                      Ghi chú phê duyệt / Lý do đặc cách (nếu có)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input w-full"
+                      placeholder="VD: Xác nhận nhân viên ở lại làm việc đủ giờ / Đã kiểm tra camera..."
+                      value={reviewNoteInput}
+                      onChange={e => setReviewNoteInput(e.target.value)}
+                      style={{ fontSize: '0.78rem' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      disabled={submittingReview}
+                      onClick={() => handleReviewAction('REJECTED')}
+                      className="btn btn-outline"
+                      style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                    >
+                      Từ chối đơn
+                    </button>
+                    <button
+                      type="button"
+                      disabled={submittingReview}
+                      onClick={() => handleReviewAction('APPROVED')}
+                      className="btn btn-primary"
+                      style={{
+                        backgroundColor: Number(actualHoursInput) > 0 ? '#15803D' : '#64748B',
+                        borderColor: Number(actualHoursInput) > 0 ? '#15803D' : '#64748B'
+                      }}
+                    >
+                      {submittingReview ? 'Đang duyệt...' : 'Xác nhận Phê duyệt'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>,
@@ -758,8 +971,7 @@ export const OTMgmt = () => {
                 <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155', marginBottom: '0.25rem', display: 'block' }}>
                   Ngày làm thêm <span style={{ color: '#EF4444' }}>*</span>
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   className="form-input w-full"
                   value={createForm.date}
                   onChange={e => setCreateForm({ ...createForm, date: e.target.value })}
@@ -810,6 +1022,81 @@ export const OTMgmt = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* MODAL XÁC NHẬN XÓA ĐƠN OT (THAY THẾ CONFIRM POPUP CỦA BROWSER) */}
+      {deleteModalOpen && selectedDeleteRequest && createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF', borderRadius: '0.75rem',
+            width: '100%', maxWidth: 430, overflow: 'hidden',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
+          }}>
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%',
+                  backgroundColor: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#DC2626', flexShrink: 0
+                }}>
+                  <AlertTriangle size={22} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0F172A' }}>
+                    Xác nhận xóa đơn làm thêm giờ
+                  </h4>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: '#64748B', lineHeight: 1.4 }}>
+                    Bạn có chắc chắn muốn xóa đơn làm thêm này không? Dữ liệu sau khi xóa sẽ không thể khôi phục.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{
+                backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.5rem',
+                padding: '0.75rem 0.9rem', fontSize: '0.78rem', color: '#334155', lineHeight: 1.55
+              }}>
+                <div>Nhân viên: <strong>{selectedDeleteRequest.employee?.fullName} ({selectedDeleteRequest.employee?.code})</strong></div>
+                <div>Ngày làm thêm: <strong>{new Date(selectedDeleteRequest.date).toLocaleDateString('vi-VN')}</strong> ({Number(selectedDeleteRequest.requestHours).toFixed(1)} giờ)</div>
+                <div>Lý do: <em>{selectedDeleteRequest.reason || 'Làm thêm dự án'}</em></div>
+                <div style={{ marginTop: 2 }}>
+                  Trạng thái hiện tại: <span style={{
+                    fontWeight: 700,
+                    color: selectedDeleteRequest.status === 'APPROVED' ? '#15803D' : selectedDeleteRequest.status === 'REJECTED' ? '#B91C1C' : '#B45309'
+                  }}>
+                    {selectedDeleteRequest.status === 'APPROVED' ? 'Đã duyệt' : selectedDeleteRequest.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem' }}>
+                <button
+                  type="button"
+                  disabled={submittingDelete}
+                  onClick={() => { setDeleteModalOpen(false); setSelectedDeleteRequest(null); }}
+                  className="btn btn-outline"
+                  style={{ fontSize: '0.8rem', padding: '0.4rem 0.9rem' }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={submittingDelete}
+                  onClick={confirmDeleteOT}
+                  className="btn btn-danger"
+                  style={{ fontSize: '0.8rem', padding: '0.4rem 0.9rem', backgroundColor: '#DC2626', borderColor: '#DC2626', color: '#FFFFFF' }}
+                >
+                  {submittingDelete ? 'Đang xóa...' : 'Xác nhận xóa'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>,
         document.body

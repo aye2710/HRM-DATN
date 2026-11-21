@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { formatDateTime } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const AuditLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -33,6 +35,7 @@ export const AuditLogs = () => {
       if (res.data?.data) {
         const mapped = res.data.data.map(l => ({
           ...l,
+          time: l.createdAt ? formatDateTime(l.createdAt) : (l.time || '—'),
           oldVal: l.oldVal || '-',
           newVal: l.details || l.newVal || '-',
           ip: l.ip || '127.0.0.1 (Local)'
@@ -125,23 +128,15 @@ export const AuditLogs = () => {
   };
 
   return (
-    <div className="flex-col gap-6 animate-fade-in" style={{ padding: '0 0.5rem' }}>
-      {/* 1. Header Layout */}
-      <div className="card glass p-5 flex-col gap-4" style={{ borderRadius: '16px' }}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="page-title">
-                Nhật Ký Kiểm Toán & An Toàn Dữ Liệu (Audit Logs)
-              </h1>
-              <span className="badge badge-info font-bold">Immutable Trail</span>
-            </div>
-            <p className="text-muted text-xs mt-1" style={{ margin: 0 }}>
-              Ghi nhận và lưu vết toàn bộ lịch sử thao tác tác động lên dữ liệu nhạy cảm của hệ thống
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5">
+    <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem' }}>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<ShieldAlert size={20} />}
+        title="Nhật Ký Kiểm Toán & An Toàn Dữ Liệu (Audit Logs)"
+        badge="Immutable Trail"
+        subtitle="Ghi nhận và lưu vết toàn bộ lịch sử thao tác tác động lên dữ liệu nhạy cảm của hệ thống"
+        actions={
+          <>
             <button onClick={() => setShowAddModal(true)} className="btn btn-outline flex items-center gap-1.5" style={{ height: 36 }}>
               <Plus size={15} />
               <span>Ghi Vết Kiểm Toán</span>
@@ -150,9 +145,9 @@ export const AuditLogs = () => {
               <FileSpreadsheet size={15} />
               <span>Xuất File Audit (CSV)</span>
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* 2. Bảng Dữ Liệu Nhật Ký */}
       <div className="card glass flex-col gap-0" style={{ padding: 0, borderRadius: '16px', overflow: 'hidden' }}>

@@ -6,6 +6,8 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../components/common/TablePagination';
+import { DateInput } from '../../components/common/DateInput';
+import { PageHeader } from '../../components/common/PageHeader';
 import {
   MonthNavigator,
   getAuthHeaders,
@@ -126,52 +128,31 @@ export const EmployeeOT = () => {
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-      {/* Header */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '0.75rem',
-        padding: '0.9rem 1.25rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: '8px',
-            backgroundColor: '#F5F3FF', color: '#7C3AED',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-          }}>
-            <Clock size={19} />
-          </div>
-          <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
-              Đăng Ký &amp; Theo Dõi Làm Thêm Giờ (OT)
-            </h1>
-            <p style={{ margin: 0, color: '#64748B', fontSize: '0.78rem' }}>
-              Chính sách Điều 107 BLLĐ 2019: Ngày thường 150%, Cuối tuần 200%, Lễ tết 300% lương.
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <MonthNavigator
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            onSelectMonth={setSelectedMonth}
-            onSelectYear={setSelectedYear}
-          />
-          <button
-            onClick={() => setShowOtModal(true)}
-            className="btn btn-primary"
-            style={{ height: 34, padding: '0 0.9rem', fontSize: '0.8rem', fontWeight: 700, backgroundColor: '#7C3AED', borderColor: '#7C3AED' }}
-          >
-            <Plus size={15} /> Đăng ký OT mới
-          </button>
-        </div>
-      </div>
+      {/* Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Clock size={20} />}
+        iconBg="#F5F3FF"
+        iconColor="#7C3AED"
+        title="Đăng Ký & Theo Dõi Làm Thêm Giờ (OT)"
+        subtitle="Chính sách Điều 107 BLLĐ 2019: Ngày thường 150%, Cuối tuần 200%, Lễ tết 300% lương."
+        actions={
+          <>
+            <MonthNavigator
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onSelectMonth={setSelectedMonth}
+              onSelectYear={setSelectedYear}
+            />
+            <button
+              onClick={() => setShowOtModal(true)}
+              className="btn btn-primary"
+              style={{ height: 34, padding: '0 0.9rem', fontSize: '0.8rem', fontWeight: 700, backgroundColor: '#7C3AED', borderColor: '#7C3AED' }}
+            >
+              <Plus size={15} /> Đăng ký OT mới
+            </button>
+          </>
+        }
+      />
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.75rem' }}>
@@ -248,6 +229,7 @@ export const EmployeeOT = () => {
                 <th style={{ padding: '0.7rem 1.1rem', textAlign: 'left', fontWeight: 700 }}>Ngày làm OT</th>
                 <th style={{ padding: '0.7rem 0.9rem', textAlign: 'left', fontWeight: 700 }}>Phân loại ngày / Hệ số</th>
                 <th style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700 }}>Giờ đăng ký</th>
+                <th style={{ padding: '0.7rem 0.9rem', textAlign: 'left', fontWeight: 700 }}>Quẹt ra thực tế</th>
                 <th style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700 }}>Giờ nghiệm thu</th>
                 <th style={{ padding: '0.7rem 0.9rem', textAlign: 'left', fontWeight: 700 }}>Lý do làm thêm</th>
                 <th style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700 }}>Trạng thái</th>
@@ -257,13 +239,13 @@ export const EmployeeOT = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
+                  <td colSpan="8" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
                     Đang tải lịch sử OT...
                   </td>
                 </tr>
               ) : myOtRequests.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
+                  <td colSpan="8" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
                     Chưa có đăng ký làm thêm giờ (OT) nào trong tháng {selectedMonth}/{selectedYear}.
                   </td>
                 </tr>
@@ -290,6 +272,29 @@ export const EmployeeOT = () => {
                       </td>
                       <td style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700, color: '#334155' }}>
                         {Number(ot.requestHours).toFixed(1)}h
+                      </td>
+                      <td style={{ padding: '0.7rem 0.9rem', whiteSpace: 'nowrap' }}>
+                        {ot.crossCheck ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.78rem', color: '#1E293B' }}>
+                              {ot.crossCheck.checkOutFormatted ? `🚪 ${ot.crossCheck.checkOutFormatted}` : 'Chưa có'}
+                              {ot.crossCheck.stayHours > 0 && ` (${ot.crossCheck.stayHours}h sau ca)`}
+                            </span>
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              color:
+                                ot.crossCheck.complianceStatus === 'QUALIFIED' ? '#15803D' :
+                                ot.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#B45309' :
+                                ot.crossCheck.complianceStatus === 'ZERO_OT' ? '#B91C1C' :
+                                ot.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#B91C1C' : '#64748B'
+                            }}>
+                              {ot.crossCheck.complianceTitle}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94A3B8' }}>—</span>
+                        )}
                       </td>
                       <td style={{ padding: '0.7rem 0.9rem', textAlign: 'center', fontWeight: 700, color: ot.status === 'APPROVED' ? '#15803D' : '#64748B' }}>
                         {ot.status === 'APPROVED' ? `${Number(ot.actualHours || ot.requestHours).toFixed(1)}h` : '—'}
@@ -396,8 +401,7 @@ export const EmployeeOT = () => {
                 <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155', marginBottom: '0.25rem', display: 'block' }}>
                   Ngày làm thêm <span style={{ color: '#EF4444' }}>*</span>
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   className="form-input w-full"
                   value={otForm.date}
                   onChange={e => setOtForm({ ...otForm, date: e.target.value })}

@@ -7,6 +7,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { InitiateOffboardingModal } from './OffboardingModals';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const OffboardingInitiate = () => {
   const navigate = useNavigate();
@@ -69,23 +70,19 @@ export const OffboardingInitiate = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <h1 className="page-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#b91c1c' }}>
-              <UserMinus size={26} color="#dc2626" /> Khởi tạo Thôi việc & Tiếp nhận Đơn xin nghỉ
-            </h1>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
-              TIẾP NHẬN BÁO GIẢM
-            </span>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: 0 }}>
-            Chọn nhân sự nộp đơn xin thôi việc hoặc thỏa thuận chấm dứt hợp đồng để khởi tạo quy trình bàn giao 4 giai đoạn
-          </p>
-        </div>
-
-        <div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<UserMinus size={20} />}
+        iconBg="#FEF2F2"
+        iconColor="#DC2626"
+        title="Khởi tạo Thôi việc & Tiếp nhận Đơn xin nghỉ"
+        badge={
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
+            TIẾP NHẬN BÁO GIẢM
+          </span>
+        }
+        subtitle="Chọn nhân sự nộp đơn xin thôi việc hoặc thỏa thuận chấm dứt hợp đồng để khởi tạo quy trình bàn giao 4 giai đoạn"
+        actions={
           <button
             onClick={() => navigate('/internal/offboarding/checklist')}
             className="btn btn-outline"
@@ -93,8 +90,8 @@ export const OffboardingInitiate = () => {
           >
             Xem Tiến độ Checklist Bàn giao <ArrowRight size={15} />
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Banner Quy trình chuẩn */}
       <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '1rem 1.25rem', display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>

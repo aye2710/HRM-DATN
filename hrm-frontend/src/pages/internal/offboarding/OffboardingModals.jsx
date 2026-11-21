@@ -2,13 +2,14 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, CheckSquare, Laptop, Building, FileSignature, 
-  CheckCircle2, AlertCircle, Printer, RotateCcw, 
+  CheckCircle2, AlertCircle, RotateCcw, 
   ShieldAlert, DollarSign, Users, ExternalLink, FileText
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { DateInput } from '../../../components/common/DateInput';
 
 export const formatCurrency = (val) => {
   if (!val && val !== 0) return '0 đ';
@@ -26,6 +27,8 @@ export const HandoverDrawerModal = ({
   onRefresh, 
   onOpenBm02 
 }) => {
+  const [activeStageTab, setActiveStageTab] = React.useState('work'); // 'work' | 'it' | 'admin' | 'hr'
+
   if (!employee) return null;
 
   // Toggle checklist task
@@ -72,7 +75,7 @@ export const HandoverDrawerModal = ({
 
   // Finalize offboarding
   const handleFinalize = async () => {
-    const activeAssets = handoverDetail?.activeAssets || [];
+    const activeAssets = handoverDetail?.activeAssets || handoverDetail?.employee?.assetAssignments?.filter(a => a.status === 'ACTIVE') || [];
     if (activeAssets.length > 0) {
       Swal.fire({
         title: 'Chưa thể chốt thôi việc!',
@@ -117,8 +120,6 @@ export const HandoverDrawerModal = ({
     }
   };
 
-  const [activeStageTab, setActiveStageTab] = React.useState('work'); // 'work' | 'it' | 'admin' | 'hr'
-
   const workTasks = handoverDetail?.defaultTasks?.filter(t => t.category === 'OFFBOARDING_WORK') || [];
   const itTasks = handoverDetail?.defaultTasks?.filter(t => t.category === 'OFFBOARDING_IT') || [];
   const adminTasks = handoverDetail?.defaultTasks?.filter(t => t.category === 'OFFBOARDING_ADMIN') || [];
@@ -134,7 +135,7 @@ export const HandoverDrawerModal = ({
   const totalTasks = (workTasks.length + itTasks.length + adminTasks.length + hrTasks.length) || 1;
   const totalDone = doneWork + doneIt + doneAdmin + doneHr;
   const progressPercent = Math.round((totalDone / totalTasks) * 100);
-  const activeAssets = handoverDetail?.activeAssets || [];
+  const activeAssets = handoverDetail?.activeAssets || handoverDetail?.employee?.assetAssignments?.filter(a => a.status === 'ACTIVE') || [];
 
   return createPortal(
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1050, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
@@ -376,7 +377,7 @@ export const HandoverDrawerModal = ({
                       className="btn btn-primary"
                       style={{ padding: '5px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
                     >
-                      <Printer size={14} /> In Biên bản BM-02 (Chuẩn A4)
+                      <FileText size={14} /> Xem Biên bản BM-02 (Chuẩn A4)
                     </button>
                   </div>
 
@@ -392,7 +393,7 @@ export const HandoverDrawerModal = ({
                           <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #86efac', fontSize: '0.82rem' }}>
                             <div>
                               <strong style={{ color: '#0f172a' }}>{item.asset?.name}</strong> 
-                              <span style={{ color: '#64748b', marginLeft: '6px' }}>({item.asset?.assetCode} • Serial: {item.asset?.serialNumber || 'N/A'})</span>
+                              <span style={{ color: '#64748b', marginLeft: '6px' }}>({item.asset?.code || item.asset?.assetCode} • Serial: {item.asset?.serialNumber || 'N/A'})</span>
                             </div>
                             <button
                               onClick={() => handleQuickReturnAsset(item.id, item.asset?.name)}
@@ -658,8 +659,7 @@ export const InitiateOffboardingModal = ({ employee, onClose, onSuccess }) => {
 
             <div>
               <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Ngày làm việc cuối cùng *</label>
-              <input 
-                type="date"
+              <DateInput 
                 required
                 className="form-input w-full"
                 value={initiateForm.resignationDate}
@@ -730,9 +730,6 @@ export const Bm02PrintModal = ({ employee, onClose }) => {
             Hệ thống Quản Trị Doanh Nghiệp • Biểu mẫu chuẩn BM-02
           </span>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button onClick={() => window.print()} className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.8rem', backgroundColor: '#0284c7', borderColor: '#0284c7', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Printer size={14} /> In Biên bản BM-02
-            </button>
             <button onClick={onClose} className="btn btn-outline" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
               <X size={14} /> Đóng
             </button>
@@ -785,7 +782,7 @@ export const Bm02PrintModal = ({ employee, onClose }) => {
                   <tr key={as.id}>
                     <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'center' }}>{i + 1}</td>
                     <td style={{ border: '1px solid #cbd5e1', padding: '6px', fontWeight: 600 }}>{as.asset?.name}</td>
-                    <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{as.asset?.assetCode}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{as.asset?.code || as.asset?.assetCode}</td>
                     <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{as.asset?.serialNumber || 'Theo máy'}</td>
                     <td style={{ border: '1px solid #cbd5e1', padding: '6px', color: as.status === 'RETURNED' ? '#16a34a' : '#d97706' }}>
                       {as.status === 'RETURNED' ? 'Đã thu hồi - Hoạt động tốt' : 'Đang bàn giao hoàn trả'}

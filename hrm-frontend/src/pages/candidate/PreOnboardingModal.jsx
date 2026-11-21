@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { DateInput } from '../../components/common/DateInput';
 
 export const PreOnboardingModal = ({ isOpen, onClose, candidate, offer, onSuccess }) => {
   const [step, setStep] = useState(1); // Step 1: Personal info, Step 2: Financial & Emergency
@@ -277,8 +278,7 @@ export const PreOnboardingModal = ({ isOpen, onClose, candidate, offer, onSucces
                   <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
                     Ngày tháng năm sinh <span style={{ color: 'var(--error)' }}>*</span>
                   </label>
-                  <input
-                    type="date"
+                  <DateInput
                     required
                     className="form-input"
                     value={formData.dateOfBirth}

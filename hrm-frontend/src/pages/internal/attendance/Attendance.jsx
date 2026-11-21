@@ -8,6 +8,9 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const AttendanceMgmt = () => {
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'daily' | 'monthly'
@@ -32,11 +35,12 @@ export const AttendanceMgmt = () => {
   const [manualForm, setManualForm] = useState({
     employeeId: '',
     date: new Date().toISOString().split('T')[0],
-    checkInTime: '07:50',
-    checkOutTime: '17:35',
+    checkInTime: '08:00',
+    checkOutTime: '17:30',
     status: 'NORMAL',
     workingDay: 1.0,
-    note: 'Điều chỉnh công theo đề xuất nhân viên'
+    note: '',
+    autoHint: 'Đủ ca chuẩn (8.0h / 8.0h) → 1.0 công'
   });
   const [submittingManual, setSubmittingManual] = useState(false);
   const [monthSchedule, setMonthSchedule] = useState({
@@ -263,7 +267,7 @@ export const AttendanceMgmt = () => {
       return {
         employee: emp,
         standardDays,
-        totalActualDays: totalActualDays.toFixed(1),
+        totalActualDays: Number(totalActualDays.toFixed(2)),
         lateCount,
         earlyLeaveCount,
         onLeaveCount,
@@ -306,7 +310,7 @@ export const AttendanceMgmt = () => {
   const handleDailySweep = async () => {
     const confirmResult = await Swal.fire({
       title: 'Chốt công tự động (Daily Sweep)?',
-      text: `Hệ thống sẽ quét và tự động chốt công cho toàn bộ nhân sự ngày ${new Date(selectedDate).toLocaleDateString('vi-VN')}. Nhân viên không check-in sẽ được ghi nhận Vắng (ABSENT), ngày Lễ tự động hưởng 1.0 công theo BLLĐ 2019 Điều 112.`,
+      text: `Hệ thống sẽ quét và tự động chốt công cho toàn bộ nhân sự ngày ${formatDate(selectedDate)}. Nhân viên không check-in sẽ được ghi nhận Vắng (ABSENT), ngày Lễ tự động hưởng 1.0 công theo BLLĐ 2019 Điều 112.`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Chốt công ngay',
@@ -397,30 +401,219 @@ export const AttendanceMgmt = () => {
     }
   };
 
+  // Tính toán số công & trạng thái tự động dựa trên giờ vào, giờ ra và ngày chấm công
+  const calculateAutoWork = (inTime, outTime, dateStr, currentStatus) => {
+    // Nếu là các loại nghỉ phép/lễ đặc thù:
+    if (currentStatus === 'ON_LEAVE') return { work: 1.0, status: 'ON_LEAVE', hint: 'Nghỉ phép năm hưởng nguyên lương (1.0 công)' };
+    if (currentStatus === 'ON_LEAVE_HALF') return { work: 0.5, status: 'ON_LEAVE_HALF', hint: 'Nửa ngày phép có lương (0.5 công)' };
+    if (currentStatus === 'UNPAID_LEAVE') return { work: 0.0, status: 'UNPAID_LEAVE', hint: 'Nghỉ không hưởng lương (0 công)' };
+    if (currentStatus === 'HOLIDAY') return { work: 1.0, status: 'HOLIDAY', hint: 'Nghỉ lễ tết theo quy định BLLĐ (1.0 công)' };
+    if (currentStatus === 'ABSENT') return { work: 0.0, status: 'ABSENT', hint: 'Vắng không phép (0 công)' };
+    if (currentStatus === 'WFH') return { work: 1.0, status: 'WFH', hint: 'Làm việc từ xa (1.0 công)' };
+
+    if (!inTime || !outTime) {
+      if (inTime && !outTime) {
+        return { work: 0.0, status: 'EARLY_LEAVE', hint: 'Có giờ vào nhưng thiếu giờ ra (0 công - Chờ giải trình)' };
+      }
+      return { work: 0.0, status: 'ABSENT', hint: 'Chưa có giờ vào/ra' };
+    }
+
+    const [inH, inM] = inTime.split(':').map(Number);
+    const [outH, outM] = outTime.split(':').map(Number);
+    if (isNaN(inH) || isNaN(inM) || isNaN(outH) || isNaN(outM)) {
+      return { work: 1.0, status: 'NORMAL', hint: 'Giờ chưa đúng định dạng' };
+    }
+
+    const inMins = inH * 60 + inM;
+    const outMins = outH * 60 + outM;
+
+    if (outMins <= inMins) {
+      return { work: 0.0, status: 'EARLY_LEAVE', hint: 'Giờ ra phải lớn hơn giờ vào' };
+    }
+
+    // Thứ 7 cách tuần x2 công
+    let dayMult = 1.0;
+    if (dateStr) {
+      const parts = dateStr.split('-').map(Number);
+      if (parts.length === 3) {
+        const dObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+        if (dObj.getDay() === 6) {
+          const isWorkingSat = monthSchedule?.workingSaturdays?.includes(dateStr) || (monthSchedule?.satMultiplier > 1);
+          if (isWorkingSat) {
+            dayMult = Number(monthSchedule?.satMultiplier || 2.0);
+          }
+        }
+      }
+    }
+
+    const shiftStart = 8 * 60; // 08:00
+    const shiftEnd = 17 * 60 + 30; // 17:30
+    const breakStart = 12 * 60; // 12:00
+    const breakEnd = 13 * 60 + 30; // 13:30
+    const cutoffMins = 9 * 60; // 09:00 (Cổng chặn kỷ luật)
+    const graceMins = 5; // 08:05 (Ân hạn)
+
+    const morningForfeited = inMins > cutoffMins;
+    const isLate = inMins > (shiftStart + graceMins);
+    const isEarly = outMins < shiftEnd;
+
+    const effStart = morningForfeited ? Math.max(inMins, breakEnd) : Math.max(inMins, shiftStart);
+    const effEnd = Math.min(outMins, shiftEnd);
+
+    if (effEnd <= effStart) {
+      return {
+        work: 0.0,
+        status: morningForfeited ? 'LATE' : 'EARLY_LEAVE',
+        hint: morningForfeited ? 'Đến sau 09:00 (hủy công sáng) & không làm ca chiều → 0 công' : 'Thời gian làm ngoài ca'
+      };
+    }
+
+    let breakDeduction = 0;
+    if (!morningForfeited) {
+      const overlapStart = Math.max(effStart, breakStart);
+      const overlapEnd = Math.min(effEnd, breakEnd);
+      if (overlapEnd > overlapStart) {
+        breakDeduction = overlapEnd - overlapStart;
+      }
+    }
+
+    const netMins = Math.max(0, (effEnd - effStart) - breakDeduction);
+    const netHours = Math.round((netMins / 60) * 100) / 100;
+
+    let autoStatus = 'NORMAL';
+    if (morningForfeited || isLate) {
+      autoStatus = 'LATE';
+    } else if (isEarly) {
+      autoStatus = 'EARLY_LEAVE';
+    }
+
+    if (morningForfeited) {
+      if (netHours < 3.5) {
+        return {
+          work: 0.0,
+          status: 'LATE',
+          hint: `Đến sau 09:00 (hủy công sáng) & Chiều làm ${netHours}h < 3.5h → 0 công`
+        };
+      }
+      const afternoonWork = Number((0.5 * dayMult).toFixed(2));
+      return {
+        work: afternoonWork,
+        status: 'LATE',
+        hint: `Đến sau 09:00 (hủy công sáng) & Chiều làm ${netHours}h → ${afternoonWork} công`
+      };
+    }
+
+    if (!isEarly && netHours >= 7.75) {
+      const fullWork = Number((1.0 * dayMult).toFixed(2));
+      return {
+        work: fullWork,
+        status: autoStatus,
+        hint: `Đủ ca chuẩn (${netHours}h / 8.0h) → ${fullWork} công`
+      };
+    }
+
+    if (netHours < 3.5) {
+      return {
+        work: 0.0,
+        status: autoStatus,
+        hint: `Thời gian làm ${netHours}h < 3.5h (dưới sàn nửa ngày) → 0 công`
+      };
+    }
+
+    // Pro-rata: netHours / 8.0
+    const ratio = Math.min(1.0, Math.round((netHours / 8.0) * 100) / 100);
+    const proRataWork = Number((ratio * dayMult).toFixed(2));
+    return {
+      work: proRataWork,
+      status: autoStatus,
+      hint: `Làm thực tế ${netHours}h / 8.0h (trừ 1.5h trưa) → ${proRataWork} công (${isEarly ? 'Về sớm' : 'Đúng giờ'})`
+    };
+  };
+
+  // Mở modal điều chỉnh công mới từ nút bấm header (reset trắng để HR tự chọn)
+  const handleOpenNewAdjust = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const auto = calculateAutoWork('08:00', '17:30', todayStr, 'NORMAL');
+    setManualForm({
+      employeeId: '',
+      date: todayStr,
+      checkInTime: '08:00',
+      checkOutTime: '17:30',
+      status: auto.status,
+      workingDay: auto.work,
+      note: '',
+      autoHint: auto.hint
+    });
+    setShowManualModal(true);
+  };
+
+  // Tự động dò tìm dữ liệu công thực tế của nhân sự theo ngày được chọn để điền vào form
+  const handleSyncFormWithAttendance = (empId, dateStr) => {
+    if (!empId || !dateStr) return;
+    const att = attendances.find(a => 
+      a.employeeId === empId && a.date && (a.date.startsWith(dateStr) || a.date.split('T')[0] === dateStr)
+    );
+
+    if (att) {
+      const inTime = att.checkIn ? formatTimeShort(att.checkIn) : '08:00';
+      const outTime = att.checkOut ? formatTimeShort(att.checkOut) : '17:30';
+      const auto = calculateAutoWork(inTime, outTime, dateStr, att.status || 'NORMAL');
+      setManualForm(prev => ({
+        ...prev,
+        employeeId: empId,
+        date: dateStr,
+        checkInTime: inTime,
+        checkOutTime: outTime,
+        status: att.status || auto.status,
+        workingDay: att.workingDay !== undefined ? Number(att.workingDay) : auto.work,
+        note: prev.note || 'Hiệu chỉnh công trực tiếp bởi HR',
+        autoHint: auto.hint
+      }));
+    } else {
+      const auto = calculateAutoWork('08:00', '17:30', dateStr, 'NORMAL');
+      setManualForm(prev => ({
+        ...prev,
+        employeeId: empId,
+        date: dateStr,
+        checkInTime: '08:00',
+        checkOutTime: '17:30',
+        status: auto.status,
+        workingDay: auto.work,
+        autoHint: auto.hint
+      }));
+    }
+  };
+
   // Quick Open Manual Adjustment from table row or matrix cell
   const handleOpenEditRow = (att, fallbackEmpId = '', fallbackDateStr = '') => {
     const targetEmpId = att?.employeeId || fallbackEmpId;
     const targetDate = fallbackDateStr || (att?.date ? att.date.split('T')[0] : selectedDate);
 
     if (att) {
+      const inTime = att.checkIn ? formatTimeShort(att.checkIn) : '07:50';
+      const outTime = att.checkOut ? formatTimeShort(att.checkOut) : '17:35';
+      const auto = calculateAutoWork(inTime, outTime, targetDate, att.status || 'NORMAL');
       setManualForm({
         employeeId: targetEmpId,
         date: targetDate,
-        checkInTime: att.checkIn ? formatTimeShort(att.checkIn) : '07:50',
-        checkOutTime: att.checkOut ? formatTimeShort(att.checkOut) : '17:35',
-        status: att.status || 'NORMAL',
-        workingDay: att.workingDay !== undefined ? Number(att.workingDay) : 1.0,
-        note: 'Hiệu chỉnh công trực tiếp bởi HR'
+        checkInTime: inTime,
+        checkOutTime: outTime,
+        status: att.status || auto.status,
+        workingDay: att.workingDay !== undefined ? Number(att.workingDay) : auto.work,
+        note: 'Hiệu chỉnh công trực tiếp bởi HR',
+        autoHint: auto.hint
       });
     } else {
+      const auto = calculateAutoWork('07:50', '17:35', targetDate, 'NORMAL');
       setManualForm({
         employeeId: targetEmpId,
         date: targetDate,
         checkInTime: '07:50',
         checkOutTime: '17:35',
-        status: 'NORMAL',
-        workingDay: 1.0,
-        note: 'Bổ sung công trực tiếp trên bảng ma trận'
+        status: auto.status,
+        workingDay: auto.work,
+        note: 'Bổ sung công trực tiếp trên bảng ma trận',
+        autoHint: auto.hint
       });
     }
     setShowManualModal(true);
@@ -478,85 +671,59 @@ export const AttendanceMgmt = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       
-      {/* 1. Compact Header Toolbar (Đã bỏ 6 thẻ KPI chiếm diện tích theo yêu cầu) */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '0.75rem',
-        padding: '0.85rem 1.25rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: '6px',
-              backgroundColor: '#EFF6FF', color: '#2563EB',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-            }}>
-              <Clock size={17} />
-            </div>
-            <div>
-              <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
-                Bảng Chấm Công Doanh Nghiệp
-              </h1>
-              <p style={{ margin: 0, color: '#64748B', fontSize: '0.775rem' }}>
-                Click trực tiếp vào từng ô ngày trên bảng ma trận để điều chỉnh hoặc bổ sung giờ Vào / Ra.
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Clock size={20} />}
+        title="Bảng Chấm Công Doanh Nghiệp"
+        subtitle="Click trực tiếp vào từng ô ngày trên bảng ma trận để điều chỉnh hoặc bổ sung giờ Vào / Ra."
+        actions={
+          <>
+            <button 
+              onClick={handleSyncMonth} 
+              disabled={syncingMonth}
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem', height: 34, borderColor: '#BFDBFE', backgroundColor: '#EFF6FF', color: '#1D4ED8', fontWeight: 600 }}
+              title="Đồng bộ dữ liệu qua API Gateway (ADMS) từ máy chấm công"
+            >
+              <Zap size={14} /> {syncingMonth ? 'Đang đồng bộ...' : `Đồng bộ máy chấm công T${selectedMonth}`}
+            </button>
 
-        <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button 
-            onClick={handleSyncMonth} 
-            disabled={syncingMonth}
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem', height: 34, borderColor: '#BFDBFE', backgroundColor: '#EFF6FF', color: '#1D4ED8', fontWeight: 600 }}
-            title="Đồng bộ dữ liệu qua API Gateway (ADMS) từ máy chấm công"
-          >
-            <Zap size={14} /> {syncingMonth ? 'Đang đồng bộ...' : `Đồng bộ máy chấm công T${selectedMonth}`}
-          </button>
+            <label
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem', height: 34, borderColor: '#CBD5E1', color: '#334155', fontWeight: 600, cursor: 'pointer', margin: 0 }}
+              title="Import file CSV xuất từ máy chấm công vân tay / FaceID (Mã NV, YYYY-MM-DD, HH:mm, HH:mm)"
+            >
+              <Upload size={14} /> Import file máy
+              <input type="file" accept=".csv" onChange={handleImportMachineCSV} style={{ display: 'none' }} />
+            </label>
 
-          <label
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem', height: 34, borderColor: '#CBD5E1', color: '#334155', fontWeight: 600, cursor: 'pointer', margin: 0 }}
-            title="Import file CSV xuất từ máy chấm công vân tay / FaceID (Mã NV, YYYY-MM-DD, HH:mm, HH:mm)"
-          >
-            <Upload size={14} /> Import file máy
-            <input type="file" accept=".csv" onChange={handleImportMachineCSV} style={{ display: 'none' }} />
-          </label>
+            <button 
+              onClick={handleOpenNewAdjust} 
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem', height: 34 }}
+            >
+              <Plus size={14} /> Điều chỉnh công
+            </button>
 
-          <button 
-            onClick={() => setShowManualModal(true)} 
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem', height: 34 }}
-          >
-            <Plus size={14} /> Điều chỉnh công
-          </button>
+            <button 
+              onClick={handleExportCSV} 
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem', height: 34, borderColor: '#CBD5E1', color: '#059669' }}
+            >
+              <FileSpreadsheet size={14} /> Xuất Excel
+            </button>
 
-          <button 
-            onClick={handleExportCSV} 
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem', height: 34, borderColor: '#CBD5E1', color: '#059669' }}
-          >
-            <FileSpreadsheet size={14} /> Xuất Excel
-          </button>
-
-          <button 
-            onClick={() => fetchData(false)} 
-            className="btn btn-outline"
-            style={{ padding: '0.4rem 0.55rem', height: 34, borderColor: '#CBD5E1', color: '#64748B' }}
-            title="Tải lại dữ liệu"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
+            <button 
+              onClick={() => fetchData(false)} 
+              className="btn btn-outline"
+              style={{ padding: '0.4rem 0.55rem', height: 34, borderColor: '#CBD5E1', color: '#64748B' }}
+              title="Tải lại dữ liệu"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </>
+        }
+      />
 
       {/* WFM Guardrail Alerts */}
       {wfhAlertDepartments.length > 0 && (
@@ -653,12 +820,11 @@ export const AttendanceMgmt = () => {
           {activeTab === 'daily' ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap' }}>Ngày:</span>
-              <input 
-                type="date" 
+              <DateInput 
                 value={selectedDate} 
                 onChange={e => { setSelectedDate(e.target.value); setDailyPage(1); }}
                 className="form-input"
-                style={{ width: 'auto', padding: '0.25rem 0.55rem', fontSize: '0.8rem', height: 32 }}
+                style={{ width: '150px', fontSize: '0.8rem', height: 32 }}
               />
             </div>
           ) : (
@@ -947,11 +1113,20 @@ export const AttendanceMgmt = () => {
                           else if (isLateOrEarly) cellBg = '#FFF8DB'; // Vàng cam nhạt cảnh báo ⚠
                           else if (isNormalFull) cellBg = '#EBFBEE'; // Xanh lá nhạt đủ công
 
+                          const cellTooltip = att ? (
+                            `${emp.fullName} - Ngày ${d.day}/${selectedMonth}/${selectedYear}\n` +
+                            `• Trạng thái: ${att.status === 'NORMAL' ? 'Đúng giờ' : att.status === 'LATE' ? 'Đi muộn ⚠' : att.status === 'EARLY_LEAVE' ? 'Về sớm ⚠' : att.status === 'ON_LEAVE' ? 'Nghỉ phép' : att.status === 'HOLIDAY' ? 'Nghỉ lễ' : att.status === 'ABSENT' ? 'Không phép' : att.status}\n` +
+                            `• Quẹt thẻ: Vào ${checkInStr || '--:--'} | Ra ${checkOutStr || '—'}\n` +
+                            `• Công ghi nhận: ${workDayVal !== null ? workDayVal : 0} công` +
+                            (workDayVal && workDayVal < 1.0 && workDayVal > 0 ? ` (Tỷ lệ giờ làm / 8 tiếng)` : '') +
+                            `\n(Nhấn để xem hoặc điều chỉnh)`
+                          ) : `Chưa có chấm công ngày ${d.day}/${selectedMonth}/${selectedYear} (Nhấn để chấm bù)`;
+
                           return (
                             <td
                               key={d.dateStr}
                               onClick={() => handleOpenEditRow(att, emp.id, d.dateStr)}
-                              title={`Nhấn để điều chỉnh công của ${emp.fullName} ngày ${d.day}/${selectedMonth}/${selectedYear}`}
+                              title={cellTooltip}
                               style={{
                                 backgroundColor: cellBg,
                                 borderRight: '1px solid #E2E8F0',
@@ -1110,7 +1285,7 @@ export const AttendanceMgmt = () => {
                           {att.status === 'ABSENT' && <span className="badge badge-error">Vắng mặt</span>}
                         </td>
                         <td style={{ padding: '0.65rem 1rem', textAlign: 'center', fontWeight: 700 }}>
-                          {Number(att.workingDay).toFixed(1)}
+                          {Number(att.workingDay).toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '0.65rem 1rem', textAlign: 'right' }}>
                           <button
@@ -1174,7 +1349,7 @@ export const AttendanceMgmt = () => {
                       {item.standardDays}
                     </td>
                     <td style={{ padding: '0.65rem 1rem', textAlign: 'center', fontWeight: 800, color: '#15803D' }}>
-                      {item.totalActualDays}
+                      {Number(item.totalActualDays).toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </td>
                     <td style={{ padding: '0.65rem 1rem', textAlign: 'center', color: item.lateCount > 0 ? '#B45309' : '#64748B', fontWeight: 600 }}>
                       {item.lateCount} lần
@@ -1255,7 +1430,11 @@ export const AttendanceMgmt = () => {
                 <select 
                   className="form-input w-full"
                   value={manualForm.employeeId}
-                  onChange={e => setManualForm({ ...manualForm, employeeId: e.target.value })}
+                  onChange={e => {
+                    const newEmpId = e.target.value;
+                    setManualForm(prev => ({ ...prev, employeeId: newEmpId }));
+                    handleSyncFormWithAttendance(newEmpId, manualForm.date);
+                  }}
                   required
                 >
                   <option value="">-- Chọn nhân sự --</option>
@@ -1268,25 +1447,50 @@ export const AttendanceMgmt = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label className="form-label">Ngày chấm công <span style={{ color: '#EF4444' }}>*</span></label>
-                  <input 
-                    type="date"
+                  <DateInput 
                     className="form-input w-full"
                     value={manualForm.date}
-                    onChange={e => setManualForm({ ...manualForm, date: e.target.value })}
+                    max={new Date().toISOString().split('T')[0]}
+                    onChange={e => {
+                      const newDate = e.target.value;
+                      const auto = calculateAutoWork(manualForm.checkInTime, manualForm.checkOutTime, newDate, manualForm.status);
+                      setManualForm(prev => ({ 
+                        ...prev, 
+                        date: newDate,
+                        workingDay: auto.work,
+                        status: auto.status,
+                        autoHint: auto.hint
+                      }));
+                      handleSyncFormWithAttendance(manualForm.employeeId, newDate);
+                    }}
                     required
                   />
                 </div>
                 <div>
-                  <label className="form-label">Số ngày công</label>
+                  <label className="form-label">Trạng thái công & Loại nghỉ</label>
                   <select 
                     className="form-input w-full"
-                    value={manualForm.workingDay}
-                    onChange={e => setManualForm({ ...manualForm, workingDay: Number(e.target.value) })}
+                    value={manualForm.status}
+                    onChange={e => {
+                      const st = e.target.value;
+                      const auto = calculateAutoWork(manualForm.checkInTime, manualForm.checkOutTime, manualForm.date, st);
+                      setManualForm(prev => ({ 
+                        ...prev, 
+                        status: st, 
+                        workingDay: auto.work,
+                        autoHint: auto.hint
+                      }));
+                    }}
                   >
-                    <option value={1.0}>1.0 công (Đủ ngày)</option>
-                    <option value={2.0}>2.0 công (Thứ 7 đi làm cách tuần x2)</option>
-                    <option value={0.5}>0.5 công (Nửa ngày)</option>
-                    <option value={0.0}>0.0 công (Nghỉ không lương / Vắng)</option>
+                    <option value="NORMAL">Đúng giờ / Đủ ca (Xanh lá - 1.0 công)</option>
+                    <option value="EARLY_LEAVE">Thiếu giờ / Về sớm (Vàng ⚠ - Tính tỷ lệ)</option>
+                    <option value="LATE">Đi muộn (Vàng ⚠)</option>
+                    <option value="ON_LEAVE">Nghỉ phép năm có lương (Chữ P - 1.0 công)</option>
+                    <option value="ON_LEAVE_HALF">Nửa ngày phép có lương (Chữ P/2 - 0.5 công)</option>
+                    <option value="UNPAID_LEAVE">Nghỉ không hưởng lương (Chữ KL - 0 công)</option>
+                    <option value="HOLIDAY">Ngày Lễ tết BLLĐ (Chữ Lễ - Hưởng 100% lương)</option>
+                    <option value="WFH">Làm việc từ xa (WFH - 1.0 công)</option>
+                    <option value="ABSENT">Vắng không phép (Chữ KP - 0 công)</option>
                   </select>
                 </div>
               </div>
@@ -1298,7 +1502,17 @@ export const AttendanceMgmt = () => {
                     type="time"
                     className="form-input w-full"
                     value={manualForm.checkInTime}
-                    onChange={e => setManualForm({ ...manualForm, checkInTime: e.target.value })}
+                    onChange={e => {
+                      const newIn = e.target.value;
+                      const auto = calculateAutoWork(newIn, manualForm.checkOutTime, manualForm.date, manualForm.status);
+                      setManualForm(prev => ({ 
+                        ...prev, 
+                        checkInTime: newIn,
+                        workingDay: auto.work,
+                        status: auto.status,
+                        autoHint: auto.hint
+                      }));
+                    }}
                   />
                 </div>
                 <div>
@@ -1307,39 +1521,57 @@ export const AttendanceMgmt = () => {
                     type="time"
                     className="form-input w-full"
                     value={manualForm.checkOutTime}
-                    onChange={e => setManualForm({ ...manualForm, checkOutTime: e.target.value })}
+                    onChange={e => {
+                      const newOut = e.target.value;
+                      const auto = calculateAutoWork(manualForm.checkInTime, newOut, manualForm.date, manualForm.status);
+                      setManualForm(prev => ({ 
+                        ...prev, 
+                        checkOutTime: newOut,
+                        workingDay: auto.work,
+                        status: auto.status,
+                        autoHint: auto.hint
+                      }));
+                    }}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="form-label">Trạng thái công & Loại nghỉ</label>
-                <select 
+                <label className="form-label">Số ngày công (Tự động tính từ giờ vào/ra, có thể sửa tay)</label>
+                <input 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="3"
                   className="form-input w-full"
-                  value={manualForm.status}
+                  value={manualForm.workingDay}
                   onChange={e => {
-                    const st = e.target.value;
-                    let defaultWork = manualForm.workingDay;
-                    if (st === 'NORMAL') defaultWork = 1.0;
-                    else if (st === 'ON_LEAVE') defaultWork = 1.0;
-                    else if (st === 'ON_LEAVE_HALF') defaultWork = 0.5;
-                    else if (st === 'UNPAID_LEAVE') defaultWork = 0.0;
-                    else if (st === 'HOLIDAY') defaultWork = 1.0;
-                    else if (st === 'ABSENT') defaultWork = 0.0;
-                    else if (st === 'EARLY_LEAVE') defaultWork = 0.5;
-                    setManualForm({ ...manualForm, status: st, workingDay: defaultWork });
+                    const val = parseFloat(e.target.value) || 0;
+                    setManualForm(prev => ({ 
+                      ...prev, 
+                      workingDay: val,
+                      autoHint: 'Chỉnh sửa công thủ công (Ghi đè theo quyết định của HR)'
+                    }));
                   }}
-                >
-                  <option value="NORMAL">Đúng giờ / Đủ công (Xanh lá - 1.0 công)</option>
-                  <option value="EARLY_LEAVE">Thiếu giờ ra / Về sớm (Vàng ⚠ - 0.5 công)</option>
-                  <option value="LATE">Đi muộn (Vàng ⚠ - 1.0 công)</option>
-                  <option value="ON_LEAVE">Nghỉ phép năm có lương (Chữ P - 1.0 công)</option>
-                  <option value="ON_LEAVE_HALF">Nửa ngày phép có lương (Chữ P/2 - 0.5 công)</option>
-                  <option value="UNPAID_LEAVE">Nghỉ không hưởng lương (Chữ KL - 0 công)</option>
-                  <option value="HOLIDAY">Ngày Lễ tết BLLĐ (Chữ Lễ - Hưởng 100% lương)</option>
-                  <option value="WFH">Làm việc từ xa (WFH - 1.0 công)</option>
-                  <option value="ABSENT">Vắng không phép (Chữ KP - 0 công)</option>
-                </select>
+                />
+                {manualForm.autoHint && (
+                  <div style={{
+                    marginTop: '0.45rem',
+                    fontSize: '0.78rem',
+                    backgroundColor: '#F0FDF4',
+                    border: '1px solid #BBF7D0',
+                    color: '#15803D',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '0.375rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    fontWeight: 500
+                  }}>
+                    <span>⚡</span>
+                    <span>{manualForm.autoHint}</span>
+                  </div>
+                )}
               </div>
 
               <div>

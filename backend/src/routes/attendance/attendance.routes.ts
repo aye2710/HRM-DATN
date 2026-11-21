@@ -147,25 +147,35 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
             status: 'EARLY_LEAVE',
             workingDay: 0.5 * dayMult
           });
-        } else if (seed < 24) {
-          // Đi muộn từ 5p - 30p (08:06 - 08:30) -> Cần nộp Đơn xin đi muộn cho HCNS trong 3 ngày (≤ 1 lần/tuần, ≤ 3 lần/tháng)
+        } else if (seed < 20) {
+          // Đi muộn trong 1 tiếng (08:06 - 09:00) -> Gắn cờ LATE ⚠, nếu làm đủ ca chiều thì bảo toàn 1.0 công (chờ giải trình)
           toCreate.push({
             employeeId,
             date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, 8, 6 + (seed % 24), 0),
-            checkOut: new Date(targetYear, targetMonth - 1, d, 17, 36 + (seed % 18), 0),
+            checkIn: new Date(targetYear, targetMonth - 1, d, 8, 15 + (seed % 35), 0),
+            checkOut: new Date(targetYear, targetMonth - 1, d, 17, 30 + (seed % 15), 0),
             status: 'LATE',
             workingDay: 1.0 * dayMult
           });
-        } else if (seed < 28) {
-          // Đi muộn > 30 phút (Sau 08:30) -> Theo quy chế Công ty LLA: Không tính công cả ngày hôm đó (0.0 công)
+        } else if (seed < 25) {
+          // Về sớm 1 tiếng (Check-out lúc 16:30) -> Làm thực tế 7h/8h, tính theo tỷ lệ 7/8 = 0.88 công
           toCreate.push({
             employeeId,
             date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, 8, 35 + (seed % 25), 0),
-            checkOut: new Date(targetYear, targetMonth - 1, d, 17, 40, 0),
+            checkIn: new Date(targetYear, targetMonth - 1, d, 7, 55, 0),
+            checkOut: new Date(targetYear, targetMonth - 1, d, 16, 30, 0),
+            status: 'EARLY_LEAVE',
+            workingDay: Number((0.88 * dayMult).toFixed(2))
+          });
+        } else if (seed < 28) {
+          // Đi muộn quá 1 tiếng (Sau 09:00, ví dụ 09:30) -> Cổng chặn: Hủy công sáng, chỉ tính ca chiều (0.5 công)
+          toCreate.push({
+            employeeId,
+            date: recordDate,
+            checkIn: new Date(targetYear, targetMonth - 1, d, 9, 30, 0),
+            checkOut: new Date(targetYear, targetMonth - 1, d, 17, 30, 0),
             status: 'LATE',
-            workingDay: 0.0 * dayMult
+            workingDay: Number((0.5 * dayMult).toFixed(2))
           });
         } else {
           // Đúng giờ (<= 08:05) -> 1.0 * hệ số ngày (Thứ 7 đi làm cách tuần = 2.0 công)
@@ -246,6 +256,244 @@ const resolveHrCheckEmployeeId = (req: any, res: Response): string | null => {
   return employeeId;
 };
 
+/**
+ * Thuật toán tính toán số giờ làm việc thực tế trong ca chuẩn:
+ * 1. Chặn theo khung ca làm việc:
+ *    - Không tính thời gian đến sớm hơn startTime (trừ khi có đơn OT được duyệt riêng).
+ *    - Không tính thời gian về muộn hơn endTime (trừ khi có đơn OT được duyệt riêng).
+ * 2. Cổng chặn kỷ luật đầu giờ (Morning Late Cutoff - Mặc định 09:00):
+ *    - Nếu đến sau mốc 09:00 (muộn > 1 tiếng): HỦY TOÀN BỘ CÔNG BUỔI SÁNG (0 công sáng).
+ *    - Thời gian làm việc chỉ bắt đầu được ghi nhận từ đầu ca chiều (13:30).
+ * 3. Loại trừ chính xác thời gian nghỉ trưa (breakTime: 12:00 - 13:30) nếu làm cả ngày.
+ * 4. Phát hiện về sớm (Check-out trước endTime của ca).
+ */
+export function calculateShiftWorkTime(
+  checkIn: Date,
+  checkOut: Date,
+  shift: { startTime?: string; endTime?: string; breakTime?: string | null } | null,
+  options?: {
+    morningCutoff?: string; // Mặc định "09:00"
+    graceMinutes?: number;  // Mặc định 5 phút
+  }
+) {
+  const d = new Date(checkIn);
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  const date = d.getDate();
+
+  // Mốc ca mặc định: 08:00 - 17:30
+  let [startH, startM] = [8, 0];
+  let [endH, endM] = [17, 30];
+  if (shift?.startTime) {
+    const parts = shift.startTime.split(':').map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      [startH, startM] = parts;
+    }
+  }
+  if (shift?.endTime) {
+    const parts = shift.endTime.split(':').map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      [endH, endM] = parts;
+    }
+  }
+
+  // Mốc nghỉ trưa mặc định: 12:00 - 13:30 (1.5h)
+  let [bStartH, bStartM, bEndH, bEndM] = [12, 0, 13, 30];
+  if (shift?.breakTime && shift.breakTime.includes('-')) {
+    const [bStartStr, bEndStr] = shift.breakTime.split('-').map(s => s.trim());
+    if (bStartStr && bEndStr) {
+      const p1 = bStartStr.split(':').map(Number);
+      const p2 = bEndStr.split(':').map(Number);
+      if (p1.length === 2 && p2.length === 2 && !isNaN(p1[0]) && !isNaN(p2[0])) {
+        [bStartH, bStartM] = p1;
+        [bEndH, bEndM] = p2;
+      }
+    }
+  }
+
+  const shiftStart = new Date(year, month, date, startH, startM, 0);
+  const shiftEnd = new Date(year, month, date, endH, endM, 0);
+  const breakStart = new Date(year, month, date, bStartH, bStartM, 0);
+  const breakEnd = new Date(year, month, date, bEndH, bEndM, 0);
+
+  // Mốc cutoff đi muộn buổi sáng (Hủy công sáng nếu đến muộn quá 1 tiếng / sau cutoff)
+  let [cutH, cutM] = [9, 0];
+  if (options?.morningCutoff && options.morningCutoff.includes(':')) {
+    const [ch, cm] = options.morningCutoff.split(':').map(Number);
+    if (!isNaN(ch) && !isNaN(cm)) {
+      [cutH, cutM] = [ch, cm];
+    }
+  }
+  const cutoffTime = new Date(year, month, date, cutH, cutM, 0);
+
+  // Kiểm tra đi muộn và ân hạn
+  const graceMinutes = options?.graceMinutes ?? 5;
+  const graceTime = new Date(shiftStart.getTime() + graceMinutes * 60 * 1000);
+  const isLate = checkIn.getTime() > graceTime.getTime();
+  const lateMinutes = isLate ? Math.max(0, Math.floor((checkIn.getTime() - shiftStart.getTime()) / (1000 * 60))) : 0;
+
+  // Cổng chặn kỷ luật: Đi muộn quá 1 tiếng (sau cutoffTime) -> HỦY TOÀN BỘ CÔNG BUỔI SÁNG
+  const morningForfeited = checkIn.getTime() > cutoffTime.getTime();
+
+  // 1. Xác định khoảng thời gian làm việc hiệu lực (Effective Window)
+  // Nếu bị hủy công sáng: Bắt đầu tính giờ từ ca chiều (sau giờ nghỉ trưa)
+  const actualStartMs = morningForfeited ? Math.max(checkIn.getTime(), breakEnd.getTime()) : checkIn.getTime();
+  const effectiveStart = new Date(Math.max(actualStartMs, morningForfeited ? breakEnd.getTime() : shiftStart.getTime()));
+  const effectiveEnd = new Date(Math.min(checkOut.getTime(), shiftEnd.getTime()));
+
+  // Kiểm tra về sớm (check-out trước giờ tan ca)
+  const isEarlyLeave = checkOut.getTime() < shiftEnd.getTime();
+  const earlyMinutes = isEarlyLeave ? Math.max(0, Math.floor((shiftEnd.getTime() - checkOut.getTime()) / (1000 * 60))) : 0;
+
+  if (effectiveEnd <= effectiveStart) {
+    return {
+      netHours: 0,
+      breakDeductedHours: 0,
+      grossHours: 0,
+      isLate,
+      lateMinutes,
+      morningForfeited,
+      isEarlyLeave,
+      earlyMinutes
+    };
+  }
+
+  const grossMs = effectiveEnd.getTime() - effectiveStart.getTime();
+
+  // 2. Tính phần giao thoa với giờ nghỉ trưa (chỉ áp dụng nếu làm việc trong khoảng buổi sáng có vắt qua trưa)
+  let breakDeductionMs = 0;
+  if (!morningForfeited) {
+    const overlapBreakStart = Math.max(effectiveStart.getTime(), breakStart.getTime());
+    const overlapBreakEnd = Math.min(effectiveEnd.getTime(), breakEnd.getTime());
+    breakDeductionMs = overlapBreakEnd > overlapBreakStart ? (overlapBreakEnd - overlapBreakStart) : 0;
+  }
+
+  // 3. Số giờ làm thực tế sau khi trừ nghỉ trưa
+  const netMs = Math.max(0, grossMs - breakDeductionMs);
+  const netHours = Number((netMs / (1000 * 60 * 60)).toFixed(2));
+  const breakDeductedHours = Number((breakDeductionMs / (1000 * 60 * 60)).toFixed(2));
+  const grossHours = Number((grossMs / (1000 * 60 * 60)).toFixed(2));
+
+  return {
+    netHours,
+    breakDeductedHours,
+    grossHours,
+    isLate,
+    lateMinutes,
+    morningForfeited,
+    isEarlyLeave,
+    earlyMinutes
+  };
+}
+
+/**
+ * Tính toán số công làm việc (workingDay) dựa trên số giờ làm thực tế & tham số cấu hình:
+ * - Chế độ PRO_RATA: Về sớm tính công theo tỷ lệ (netHours / standardHours, mặc định 8h).
+ * - Chế độ STEP_BASED: Tính bậc thang cố định (≥7h = 1.0 công, ≥3.5h = 0.5 công, <3.5h = 0.0 công).
+ * - Cổng chặn 09:00: Nếu sáng muộn > 1h (morningForfeited) và chiều làm < 3.5h -> 0 công; chiều làm đủ -> tối đa 0.5 công.
+ * - Đơn giải trình đi muộn đã APPROVED -> Bảo toàn 1.0 công.
+ */
+export async function calculateEarnedWorkingDay({
+  netHours,
+  isEarlyLeave,
+  morningForfeited,
+  dayMult = 1.0,
+  hasApprovedAdjustment = false,
+  priorLeaveCredit = 0
+}: {
+  netHours: number;
+  isEarlyLeave: boolean;
+  morningForfeited: boolean;
+  dayMult?: number;
+  hasApprovedAdjustment?: boolean;
+  priorLeaveCredit?: number;
+}): Promise<{ workingDay: number; calcFormula: string }> {
+  const calcMode = String(await getSettingValue('ATTENDANCE_WORK_CALCULATION_MODE', 'PRO_RATA')).toUpperCase().trim();
+  const standardHours = Number(await getSettingValue('STANDARD_WORK_HOURS_PER_DAY', 8.0));
+  const minFull = Number(await getSettingValue('MIN_HOURS_FULL_DAY', 7.0));
+  const minHalf = Number(await getSettingValue('MIN_HOURS_HALF_DAY', 3.5));
+
+  // 1. Nếu có đơn giải trình/đi muộn được duyệt (APPROVED)
+  if (hasApprovedAdjustment) {
+    const work = 1.0 * dayMult;
+    const finalDay = Math.min(1.0 * dayMult, priorLeaveCredit + work);
+    return {
+      workingDay: finalDay,
+      calcFormula: `Đơn giải trình được duyệt -> ${finalDay} công`
+    };
+  }
+
+  // 2. Nếu buổi sáng bị hủy do đi muộn quá 1 tiếng (sau 09:00)
+  if (morningForfeited) {
+    // Chiều làm ít hơn minHalf (3.5h) thì không công nhận nửa ngày công
+    if (netHours < minHalf) {
+      return {
+        workingDay: Math.min(1.0 * dayMult, priorLeaveCredit),
+        calcFormula: `Đi muộn quá 1h (Hủy công sáng) & Chiều làm ${netHours}h < ${minHalf}h -> 0 công`
+      };
+    }
+    // Chiều làm đủ (>= 3.5h), công nhận nửa ngày công (0.5 công) hoặc tỷ lệ ca chiều
+    const afternoonWork = calcMode === 'PRO_RATA'
+      ? Math.min(0.5, Math.round((netHours / standardHours) * 100) / 100) * dayMult
+      : 0.5 * dayMult;
+    const finalDay = Number((Math.min(1.0 * dayMult, priorLeaveCredit + afternoonWork)).toFixed(2));
+    return {
+      workingDay: finalDay,
+      calcFormula: `Đi muộn quá 1h (Hủy công sáng) & Chiều làm ${netHours}h -> ${afternoonWork} công`
+    };
+  }
+
+  // 3. Chế độ PRO_RATA (Chuẩn công ty: netHours / standardHours)
+  if (calcMode === 'PRO_RATA') {
+    // Nếu làm đủ ca (không về sớm hoặc netHours >= standardHours - 0.25)
+    if (!isEarlyLeave && netHours >= standardHours - 0.25) {
+      const work = 1.0 * dayMult;
+      const finalDay = Math.min(1.0 * dayMult, priorLeaveCredit + work);
+      return {
+        workingDay: finalDay,
+        calcFormula: `Đủ ca ${netHours}h / ${standardHours}h -> ${finalDay} công`
+      };
+    }
+
+    // Nếu không có phép và netHours < minHalf (3.5h), không đủ điều kiện công nhận nửa ngày
+    if (!priorLeaveCredit && netHours < minHalf) {
+      return {
+        workingDay: 0,
+        calcFormula: `Số giờ làm ${netHours}h < ngưỡng sàn ${minHalf}h -> 0 công`
+      };
+    }
+
+    // Về sớm: Tính theo tỷ lệ số giờ làm thực tế / số giờ tiêu chuẩn (netHours / 8.0)
+    const ratio = Math.min(1.0, Math.round((netHours / standardHours) * 100) / 100);
+    const work = Number((ratio * dayMult).toFixed(2));
+    const finalDay = Number((Math.min(1.0 * dayMult, priorLeaveCredit + work)).toFixed(2));
+    return {
+      workingDay: finalDay,
+      calcFormula: `Về sớm: ${netHours}h / ${standardHours}h = ${ratio} x hệ số ${dayMult} -> ${work} công`
+    };
+  }
+
+  // 4. Chế độ STEP_BASED (Bậc thang truyền thống: >=7h = 1 công, >=3.5h = 0.5 công)
+  let workEarned = 0;
+  let formula = '';
+  if (netHours >= minFull) {
+    workEarned = 1.0 * dayMult;
+    formula = `Làm ${netHours}h >= ${minFull}h -> 1.0 công`;
+  } else if (netHours >= minHalf) {
+    workEarned = 0.5 * dayMult;
+    formula = `Làm ${netHours}h >= ${minHalf}h -> 0.5 công`;
+  } else {
+    workEarned = 0;
+    formula = `Làm ${netHours}h < ${minHalf}h -> 0 công`;
+  }
+
+  const finalDay = Number((Math.min(1.0 * dayMult, priorLeaveCredit + workEarned)).toFixed(2));
+  return {
+    workingDay: finalDay,
+    calcFormula: formula
+  };
+}
+
 // 3. Check-in (Chỉ cho phép HR/Admin thao tác; nhân viên chỉ nhận log từ máy chấm công)
 const handleCheckIn = async (req: any, res: Response): Promise<any> => {
   try {
@@ -285,6 +533,7 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
       }
     }
 
+    const morningCutoff = String(await getSettingValue('MORNING_LATE_CUTOFF_TIME', '09:00'));
     const graceMin = await getSettingValue('LATE_GRACE_PERIOD_MINUTES', 5);
     const checkInTime = new Date();
     const hours = checkInTime.getHours();
@@ -295,6 +544,16 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
     const totalStartMins = shiftStartH * 60 + shiftStartM + Number(graceMin);
     const totalCheckInMins = hours * 60 + minutes;
     const isLate = totalCheckInMins > totalStartMins;
+
+    let [cutH, cutM] = [9, 0];
+    if (morningCutoff.includes(':')) {
+      const parts = morningCutoff.split(':').map(Number);
+      if (!isNaN(parts[0]) && !isNaN(parts[1])) {
+        [cutH, cutM] = parts;
+      }
+    }
+    const isLateOver1Hour = totalCheckInMins > (cutH * 60 + cutM);
+
     const status = isHalfDayOnLeave ? 'ON_LEAVE' : (isLate ? 'LATE' : 'NORMAL');
 
     let record;
@@ -349,47 +608,61 @@ const handleCheckOut = async (req: any, res: Response): Promise<any> => {
       return res.status(400).json({ error: 'Bạn đã Check-out hôm nay rồi!' });
     }
 
-    // Đọc Ca làm việc đang áp dụng để lấy mốc giờ kết thúc ca (mặc định 17:30)
+    // Đọc Ca làm việc đang áp dụng để lấy mốc ca & giờ nghỉ trưa
     const activeShift = await prisma.shift.findFirst({
       where: { isActive: true },
       orderBy: { startTime: 'asc' }
     });
-    let shiftEndH = 17;
-    let shiftEndM = 30;
-    if (activeShift?.endTime) {
-      const parts = activeShift.endTime.split(':').map(Number);
-      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        shiftEndH = parts[0];
-        shiftEndM = parts[1];
-      }
-    }
 
     const checkOutTime = new Date();
-    const totalCheckOutMins = checkOutTime.getHours() * 60 + checkOutTime.getMinutes();
-    const totalShiftEndMins = shiftEndH * 60 + shiftEndM;
-    const isEarlyLeave = totalCheckOutMins < totalShiftEndMins; // Về sớm trước giờ kết thúc ca làm việc
-    
-    // Tính toán công theo số giờ thực tế căn cứ tham số hệ thống & hệ số ngày Thứ 7 đi làm cách tuần (x2 công)
-    const minFull = await getSettingValue('MIN_HOURS_FULL_DAY', 7.5);
-    const minHalf = await getSettingValue('MIN_HOURS_HALF_DAY', 3.5);
+    const morningCutoff = String(await getSettingValue('MORNING_LATE_CUTOFF_TIME', '09:00'));
+    const graceMin = await getSettingValue('LATE_GRACE_PERIOD_MINUTES', 5);
     const dayMult = Math.max(1.0, await getDayWorkMultiplier(today));
-    const diffHours = (checkOutTime.getTime() - record.checkIn.getTime()) / (1000 * 60 * 60);
     
-    let workEarned = 0;
-    if (diffHours >= Number(minFull)) {
-      workEarned = 1.0 * dayMult;
-    } else if (diffHours >= Number(minHalf)) {
-      workEarned = 0.5 * dayMult;
-    }
+    // Kiểm tra xem nhân viên đã có đơn giải trình/đi muộn được APPROVED trong ngày này chưa
+    const approvedAdj = await prisma.attendanceAdjustment.findFirst({
+      where: {
+        employeeId,
+        date: today,
+        status: 'APPROVED'
+      }
+    });
 
-    // Nếu trước đó đã có công từ nghỉ phép nửa ngày, cộng dồn nhưng không vượt quá công tối đa của ngày (1.0 * dayMult)
+    // Tính toán số giờ làm việc thực tế (Đã chặn khung ca, áp dụng cổng 09:00 & trừ giờ nghỉ trưa)
+    const { netHours, breakDeductedHours, grossHours, isLate, lateMinutes, morningForfeited, isEarlyLeave, earlyMinutes } = calculateShiftWorkTime(
+      record.checkIn,
+      checkOutTime,
+      activeShift,
+      { morningCutoff, graceMinutes: Number(graceMin) }
+    );
+    
+    // Nếu trước đó đã có công từ nghỉ phép nửa ngày có lương (PAID), cộng dồn nhưng không vượt quá công tối đa của ngày
     const priorLeaveDay = record.status === 'ON_LEAVE' ? Number(record.workingDay) : 0;
-    const finalWorkingDay = Math.min(1.0 * dayMult, priorLeaveDay + workEarned);
 
-    // Cập nhật trạng thái: Nếu đi đúng giờ nhưng về sớm -> EARLY_LEAVE
+    // Tính toán công theo số giờ thực tế sau khi trừ nghỉ trưa & áp dụng chế độ cấu hình (PRO_RATA / STEP_BASED)
+    const { workingDay: finalWorkingDay, calcFormula } = await calculateEarnedWorkingDay({
+      netHours,
+      isEarlyLeave,
+      morningForfeited,
+      dayMult,
+      hasApprovedAdjustment: !!approvedAdj,
+      priorLeaveCredit: priorLeaveDay
+    });
+
+    // Cập nhật trạng thái:
+    // 1. Nếu có đơn giải trình được duyệt -> NORMAL
+    // 2. Nếu đi muộn > 1h (morningForfeited) hoặc có vi phạm đi muộn -> LATE
+    // 3. Nếu đi đúng giờ nhưng về sớm -> EARLY_LEAVE
+    // 4. Mặc định giữ NORMAL hoặc ON_LEAVE
     let finalStatus = record.status;
-    if (record.status === 'NORMAL' && isEarlyLeave) {
+    if (approvedAdj) {
+      finalStatus = 'NORMAL';
+    } else if (morningForfeited || record.status === 'LATE' || isLate) {
+      finalStatus = 'LATE';
+    } else if (isEarlyLeave) {
       finalStatus = 'EARLY_LEAVE';
+    } else if (record.status !== 'ON_LEAVE') {
+      finalStatus = 'NORMAL';
     }
 
     const updated = await prisma.attendance.update({
@@ -407,7 +680,12 @@ const handleCheckOut = async (req: any, res: Response): Promise<any> => {
       workingDay: finalWorkingDay, 
       status: finalStatus,
       isEarlyLeave,
-      hoursWorked: Number(diffHours.toFixed(2)) 
+      earlyMinutes,
+      morningForfeited,
+      netHoursWorked: netHours,
+      breakDeductedHours,
+      grossHours,
+      calcFormula
     });
   } catch (error: any) {
     console.error('Check-out error:', error);
@@ -640,8 +918,9 @@ router.get('/adjustments', authenticateToken, async (req: any, res: Response) =>
     }
 
     res.json(records);
-  } catch (error) {
-    res.status(500).json({ error: 'Lỗi lấy yêu cầu điều chỉnh' });
+  } catch (error: any) {
+    console.error('Error in GET /api/attendance/adjustments:', error);
+    res.status(500).json({ error: 'Lỗi lấy yêu cầu điều chỉnh: ' + (error?.message || error) });
   }
 });
 
@@ -661,6 +940,10 @@ router.post('/adjustments', authenticateToken, async (req: any, res: Response): 
     }
 
     const dateStr = String(date).split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dateStr > todayStr) {
+      return res.status(400).json({ error: 'Không thể nộp đơn giải trình hoặc điều chỉnh chấm công cho ngày tương lai!' });
+    }
     const [year, month, day] = dateStr.split('-').map(Number);
     const adjustmentDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
@@ -801,22 +1084,18 @@ router.put('/adjustments/:id/status', authenticateToken, managerOrHr, async (req
         const isOverQuota = String(adjustment.newTime || '').includes('Vượt hạn mức');
 
         if (isLateType) {
-          // Quy định đi muộn LLA:
-          // - Trong 3 lần đầu/tháng, tối đa 1 lần/tuần và đi muộn <= 30 phút -> Được tính đủ công (1.0 * adjDayMult) & đổi sang NORMAL
-          // - Đi muộn > 30 phút (sau 08:30) -> Không tính công cả ngày (0.0 công), trừ trường hợp đặc biệt được TGĐ cho phép
-          // - Nếu từ lần thứ 4 trở đi -> Vẫn giữ trạng thái LATE để tính phạt theo thang 10k/20k/30k nộp quỹ công đoàn
+          // Quy định đi muộn:
+          // - Đi muộn trong hạn mức được duyệt đơn -> Bảo toàn đủ công (1.0 * adjDayMult) & chuyển sang NORMAL
+          // - Nếu vượt quá hạn mức nộp đơn trong tháng -> Vẫn giữ cờ LATE để phạt theo thang quỹ công đoàn, nhưng bảo toàn công
           const targetStatus = isOverQuota ? 'LATE' : 'NORMAL';
           if (att) {
-            const checkInHour = att.checkIn ? new Date(att.checkIn).getHours() : 8;
-            const checkInMin = att.checkIn ? new Date(att.checkIn).getMinutes() : 30;
-            const isOver30Mins = checkInHour > 8 || (checkInHour === 8 && checkInMin > 30);
             await tx.attendance.update({
               where: { id: att.id },
               data: {
                 date: startOfDay,
                 checkOut: att.checkOut || defaultCheckOut,
-                workingDay: (isOver30Mins ? 0.0 : 1.0) * adjDayMult,
-                status: isOver30Mins ? 'LATE' : targetStatus
+                workingDay: 1.0 * adjDayMult,
+                status: targetStatus
               }
             });
           } else {
@@ -887,6 +1166,10 @@ router.post('/manual', authenticateToken, hrOnly, async (req: any, res: Response
     }
 
     const dateStr = String(date).split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dateStr > todayStr) {
+      return res.status(400).json({ error: 'Không thể nộp đơn giải trình hoặc điều chỉnh chấm công cho ngày tương lai!' });
+    }
     const [year, month, day] = dateStr.split('-').map(Number);
     const attDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
     const nextDate = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0));
@@ -1233,6 +1516,13 @@ router.post('/import-logs', authenticateToken, managerOrHr, async (req: any, res
     });
     const codeMap = new Map(employees.map(e => [e.code.trim().toUpperCase(), e.id]));
 
+    const morningCutoff = String(await getSettingValue('MORNING_LATE_CUTOFF_TIME', '09:00'));
+    const graceMin = await getSettingValue('LATE_GRACE_PERIOD_MINUTES', 5);
+    const activeShift = await prisma.shift.findFirst({
+      where: { isActive: true },
+      orderBy: { startTime: 'asc' }
+    });
+
     let importedCount = 0;
     for (const item of logs) {
       const code = String(item.employeeCode || '').trim().toUpperCase();
@@ -1257,11 +1547,36 @@ router.post('/import-logs', authenticateToken, managerOrHr, async (req: any, res
       }
 
       const dayMult = Math.max(1.0, await getDayWorkMultiplier(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)));
-      const isLate = checkInDate && (checkInDate.getHours() > 8 || (checkInDate.getHours() === 8 && checkInDate.getMinutes() > 5));
-      const isLateOver1Hour = checkInDate && (checkInDate.getHours() > 9 || (checkInDate.getHours() === 9 && checkInDate.getMinutes() > 0));
-      const isMissingOut = checkInDate && !checkOutDate;
-      const status = isMissingOut ? 'EARLY_LEAVE' : isLate ? 'LATE' : 'NORMAL';
-      const workingDay = ((isMissingOut || isLateOver1Hour) ? 0.5 : 1.0) * dayMult;
+      let status: any = 'NORMAL';
+      let workingDay = 1.0 * dayMult;
+
+      if (checkInDate && checkOutDate) {
+        const { netHours, isEarlyLeave, morningForfeited } = calculateShiftWorkTime(
+          checkInDate,
+          checkOutDate,
+          activeShift,
+          { morningCutoff, graceMinutes: Number(graceMin) }
+        );
+        const earned = await calculateEarnedWorkingDay({
+          netHours,
+          isEarlyLeave,
+          morningForfeited,
+          dayMult
+        });
+        workingDay = earned.workingDay;
+        if (morningForfeited) {
+          status = 'LATE';
+        } else if (isEarlyLeave) {
+          status = 'EARLY_LEAVE';
+        } else {
+          const isLate = checkInDate.getHours() > 8 || (checkInDate.getHours() === 8 && checkInDate.getMinutes() > Number(graceMin));
+          status = isLate ? 'LATE' : 'NORMAL';
+        }
+      } else if (checkInDate && !checkOutDate) {
+        // Quên chấm công ra -> Chờ giải trình (0 công)
+        status = 'EARLY_LEAVE';
+        workingDay = 0.0;
+      }
 
       const existing = await prisma.attendance.findFirst({
         where: { employeeId: empId, date: { gte: startOfDay, lte: endOfDay } }

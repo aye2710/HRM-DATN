@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCcw, Search, CheckCircle, XCircle, Plus, ArrowRight, FileCheck2, Printer, ArrowLeft, Send, Calendar } from 'lucide-react';
+import { RefreshCcw, Search, CheckCircle, XCircle, Plus, ArrowRight, FileCheck2, ArrowLeft, Send, Calendar } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
 import { ExplanationA4Preview, formatExplanationTypeBadge } from '../../../components/attendance/AttendanceShared';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const Adjustments = () => {
   const navigate = useNavigate();
@@ -56,7 +59,8 @@ export const Adjustments = () => {
         }));
       }
     } catch (err) {
-      toast.error('Lỗi khi tải danh sách giải trình chấm công');
+      console.error('Error fetching adjustments:', err);
+      toast.error(err.response?.data?.error || 'Lỗi khi tải danh sách giải trình chấm công');
     } finally {
       setLoading(false);
     }
@@ -211,18 +215,8 @@ export const Adjustments = () => {
 
     return (
       <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '0.75rem',
-          padding: '0.85rem 1.25rem',
-          border: '1px solid #E2E8F0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '0.75rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <PageHeader
+          leftActions={
             <button
               onClick={() => setViewMode('LIST')}
               className="btn btn-outline"
@@ -230,25 +224,11 @@ export const Adjustments = () => {
             >
               <ArrowLeft size={15} /> Quay lại danh sách đơn
             </button>
-            <div>
-              <h1 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                Biên Bản Xác Nhận Chấm Công &amp; Đơn Xin Đi Muộn (Công ty LLA)
-              </h1>
-              <span style={{ fontSize: '0.76rem', color: '#64748B' }}>
-                Xem trước trực tiếp trên trang A4 &amp; In biên bản trình Trưởng bộ phận ký
-              </span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="btn btn-primary"
-            style={{ height: 35, padding: '0 0.95rem', fontSize: '0.8rem', fontWeight: 700 }}
-          >
-            <Printer size={15} /> In biên bản A4
-          </button>
-        </div>
+          }
+          icon={<FileCheck2 size={20} />}
+          title="Biên Bản Xác Nhận Chấm Công & Đơn Xin Đi Muộn (Công ty LLA)"
+          subtitle="Xem trước trực tiếp trên trang A4 & trình Trưởng bộ phận ký xác nhận"
+        />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.15rem', alignItems: 'start' }}>
           {/* CỘT TRÁI: THÔNG TIN ĐƠN */}
@@ -296,8 +276,7 @@ export const Adjustments = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label className="form-label">Ngày áp dụng *</label>
-                  <input
-                    type="date"
+                  <DateInput
                     className="form-input"
                     value={formData.date}
                     max={now.toISOString().split('T')[0]}
@@ -339,9 +318,6 @@ export const Adjustments = () => {
               <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setViewMode('LIST')}>
                   Quay lại
-                </button>
-                <button type="button" className="btn btn-outline" onClick={() => window.print()}>
-                  <Printer size={14} /> In biên bản A4
                 </button>
                 {!formData.readOnly && (
                   <button type="submit" className="btn btn-primary" disabled={submitting}>
@@ -389,54 +365,30 @@ export const Adjustments = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
       
-      {/* 1. Header tinh gọn, hiện đại */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '0.75rem',
-        padding: '0.85rem 1.25rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: '8px',
-            backgroundColor: '#EFF6FF', color: '#2563EB',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-          }}>
-            <FileCheck2 size={18} />
-          </div>
-          <div>
-            <h1 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
-              Xét Duyệt Đơn Giải Trình &amp; Đi Muộn
-            </h1>
-            <p style={{ margin: 0, color: '#64748B', fontSize: '0.76rem' }}>
-              Duyệt đơn xác nhận chấm công và xin đi muộn để tự động đồng bộ ngày công sang Bảng công.
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-outline"
-            onClick={() => navigate('/internal/attendance/records')}
-            style={{ height: 34, padding: '0 0.8rem', fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}
-          >
-            ← Bảng công Ma trận
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={openNewFormPage}
-            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-          >
-            <Plus size={14} /> Lập đơn mới
-          </button>
-        </div>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<FileCheck2 size={20} />}
+        title="Xét Duyệt Đơn Giải Trình & Đi Muộn"
+        subtitle="Duyệt đơn xác nhận chấm công và xin đi muộn để tự động đồng bộ ngày công sang Bảng công."
+        actions={
+          <>
+            <button
+              className="btn btn-outline"
+              onClick={() => navigate('/internal/attendance/records')}
+              style={{ height: 34, padding: '0 0.8rem', fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}
+            >
+              ← Bảng công Ma trận
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={openNewFormPage}
+              style={{ height: 34, padding: '0 0.85rem', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <Plus size={14} /> Lập đơn mới
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Bộ lọc Tab Trạng thái & Ô Tìm kiếm */}
       <div style={{

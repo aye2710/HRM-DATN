@@ -8,6 +8,7 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const RecruitmentATS = () => {
   const [candidates, setCandidates] = useState([]);
@@ -264,78 +265,53 @@ export const RecruitmentATS = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Executive Top Header */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '1rem',
-        padding: '1.25rem 1.75rem',
-        border: '1px solid var(--border)',
-        boxShadow: 'var(--shadow-sm)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '8px',
-              backgroundColor: '#EEF2FF', color: 'var(--primary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <Briefcase size={20} />
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Briefcase size={20} />}
+        title="Hệ thống Tuyển dụng Doanh nghiệp (ATS)"
+        subtitle="Quản trị quy trình phỏng vấn chuẩn 6 giai đoạn, theo dõi ứng viên và chuyển tiếp tuyển dụng trực quan."
+        actions={
+          <>
+            <div style={{ backgroundColor: '#F1F5F9', padding: '3px', borderRadius: '8px', display: 'flex', border: '1px solid var(--border)' }}>
+              <button 
+                onClick={() => setViewMode('kanban')} 
+                style={{
+                  padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600,
+                  backgroundColor: viewMode === 'kanban' ? '#FFFFFF' : 'transparent',
+                  color: viewMode === 'kanban' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: viewMode === 'kanban' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+                title="Giao diện Kanban kéo thả"
+              >
+                <LayoutGrid size={16} /> Kanban
+              </button>
+              <button 
+                onClick={() => setViewMode('table')} 
+                style={{
+                  padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600,
+                  backgroundColor: viewMode === 'table' ? '#FFFFFF' : 'transparent',
+                  color: viewMode === 'table' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: viewMode === 'table' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+                title="Giao diện Bảng chi tiết"
+              >
+                <List size={16} /> Bảng dữ liệu
+              </button>
             </div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
-              Hệ thống Tuyển dụng Doanh nghiệp (ATS)
-            </h1>
-          </div>
-          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Quản trị quy trình phỏng vấn chuẩn 6 giai đoạn, theo dõi ứng viên và chuyển tiếp tuyển dụng trực quan.
-          </p>
-        </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* View Toggle */}
-          <div style={{ backgroundColor: '#F1F5F9', padding: '3px', borderRadius: '8px', display: 'flex', border: '1px solid var(--border)' }}>
-            <button 
-              onClick={() => setViewMode('kanban')} 
-              style={{
-                padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600,
-                backgroundColor: viewMode === 'kanban' ? '#FFFFFF' : 'transparent',
-                color: viewMode === 'kanban' ? 'var(--primary)' : 'var(--text-muted)',
-                boxShadow: viewMode === 'kanban' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                transition: 'all 0.2s'
-              }}
-              title="Giao diện Kanban kéo thả"
-            >
-              <LayoutGrid size={16} /> Kanban
+            <button onClick={handleExportCSV} className="btn btn-outline" style={{ height: 38, fontSize: '0.85rem' }}>
+              <Download size={16} /> Xuất CSV
             </button>
-            <button 
-              onClick={() => setViewMode('table')} 
-              style={{
-                padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600,
-                backgroundColor: viewMode === 'table' ? '#FFFFFF' : 'transparent',
-                color: viewMode === 'table' ? 'var(--primary)' : 'var(--text-muted)',
-                boxShadow: viewMode === 'table' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                transition: 'all 0.2s'
-              }}
-              title="Giao diện Bảng chi tiết"
-            >
-              <List size={16} /> Bảng dữ liệu
+            <button onClick={() => setShowCandidateModal(true)} className="btn btn-primary" style={{ height: 38, fontSize: '0.85rem' }}>
+              <UserPlus size={16} /> Thêm Ứng viên
             </button>
-          </div>
-
-          <button onClick={handleExportCSV} className="btn btn-outline" style={{ height: 38, fontSize: '0.85rem' }}>
-            <Download size={16} /> Xuất CSV
-          </button>
-          <button onClick={() => setShowCandidateModal(true)} className="btn btn-primary" style={{ height: 38, fontSize: '0.85rem' }}>
-            <UserPlus size={16} /> Thêm Ứng viên
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* 2. Filter Bar: 1 hàng chia 4 ô đều nhau */}
       <div style={{

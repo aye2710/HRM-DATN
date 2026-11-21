@@ -9,6 +9,9 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const LeaveMgmt = () => {
   const [leaves, setLeaves] = useState([]);
@@ -22,14 +25,18 @@ export const LeaveMgmt = () => {
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('ALL');
+  const [leaveTypes, setLeaveTypes] = useState([]);
 
   // State Modal Tạo đơn nhanh cho HR
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createForm, setCreateForm] = useState({
     employeeId: '',
+    leaveTypeId: '',
     leaveType: 'PAID',
     session: 'ALL_DAY',
+    startSession: 'MORNING',
+    endSession: 'AFTERNOON',
     startDate: '2026-11-24',
     endDate: '2026-11-24',
     handoverPerson: '',
@@ -39,14 +46,21 @@ export const LeaveMgmt = () => {
   const fetchLeaves = async () => {
     setLoading(true);
     try {
-      const [leavesRes, empsRes] = await Promise.all([
+      const [leavesRes, empsRes, typesRes] = await Promise.all([
         axios.get('http://localhost:5000/api/leaves'),
-        axios.get('http://localhost:5000/api/employees').catch(() => ({ data: [] }))
+        axios.get('http://localhost:5000/api/employees').catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/leave-config/types').catch(() => ({ data: [] }))
       ]);
       setLeaves(leavesRes.data || []);
       setEmployees(empsRes.data || []);
+      const types = typesRes.data || [];
+      setLeaveTypes(types);
       if (empsRes.data?.length > 0 && !createForm.employeeId) {
-        setCreateForm(prev => ({ ...prev, employeeId: empsRes.data[0].id }));
+        setCreateForm(prev => ({ 
+          ...prev, 
+          employeeId: empsRes.data[0].id,
+          leaveTypeId: types[0]?.id || ''
+        }));
       }
     } catch (err) {
       console.error('Lỗi khi tải dữ liệu nghỉ phép:', err);
@@ -153,7 +167,12 @@ export const LeaveMgmt = () => {
       if (statusFilter !== 'ALL' && lr.status !== statusFilter) return false;
 
       // 2. Lọc theo loại phép
-      if (leaveTypeFilter !== 'ALL' && lr.leaveType !== leaveTypeFilter) return false;
+      if (leaveTypeFilter !== 'ALL') {
+        const matchCode = lr.leaveTypeConfig?.code === leaveTypeFilter;
+        const matchId = lr.leaveTypeId === leaveTypeFilter;
+        const matchEnum = lr.leaveType === leaveTypeFilter;
+        if (!matchCode && !matchId && !matchEnum) return false;
+      }
 
       // 3. Lọc theo tháng / năm (dựa trên ngày bắt đầu nghỉ)
       if (selectedMonth !== 'ALL' || selectedYear !== 'ALL') {
@@ -249,40 +268,32 @@ export const LeaveMgmt = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header & Quick Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
-            <h1 className="page-title" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)', margin: 0 }}>
-              Xét Duyệt &amp; Quản Lý Nghỉ Phép
-            </h1>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
-              Điều 112, 113, 114 BLLĐ 2019
-            </span>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>
-            Phê duyệt ngày nghỉ, tự động trừ số dư Quỹ phép năm và liên thông ngày công hưởng lương sang Bảng chấm công.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button 
-            className="btn btn-outline" 
-            onClick={fetchLeaves} 
-            title="Làm mới dữ liệu"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', height: '2.5rem', fontSize: '0.85rem' }}
-          >
-            <RotateCw size={15} /> Làm mới
-          </button>
-          <button 
-            className="btn btn-primary" 
-            onClick={() => setShowCreateModal(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '2.5rem', fontWeight: 600, fontSize: '0.85rem' }}
-          >
-            <Plus size={18} /> Lập đơn xin nghỉ
-          </button>
-        </div>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<CalendarRange size={20} />}
+        title="Xét Duyệt & Quản Lý Nghỉ Phép"
+        badge="Điều 112, 113, 114 BLLĐ 2019"
+        subtitle="Phê duyệt ngày nghỉ, tự động trừ số dư Quỹ phép năm và liên thông ngày công hưởng lương sang Bảng chấm công."
+        actions={
+          <>
+            <button 
+              className="btn btn-outline" 
+              onClick={fetchLeaves} 
+              title="Làm mới dữ liệu"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', height: '2.4rem', fontSize: '0.85rem' }}
+            >
+              <RotateCw size={15} /> Làm mới
+            </button>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setShowCreateModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '2.4rem', fontWeight: 600, fontSize: '0.85rem' }}
+            >
+              <Plus size={18} /> Lập đơn xin nghỉ
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Status Pill Tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
@@ -422,7 +433,7 @@ export const LeaveMgmt = () => {
         </div>
 
         {/* Lọc theo Loại nghỉ */}
-        <div style={{ minWidth: '150px' }}>
+        <div style={{ minWidth: '180px' }}>
           <select
             className="form-input"
             value={leaveTypeFilter}
@@ -430,8 +441,9 @@ export const LeaveMgmt = () => {
             style={{ width: '100%', height: '2.4rem', fontSize: '0.8125rem' }}
           >
             <option value="ALL">Tất cả loại nghỉ</option>
-            <option value="PAID">Phép năm (Có lương)</option>
-            <option value="UNPAID">Nghỉ không lương</option>
+            {leaveTypes.map(t => (
+              <option key={t.id} value={t.code}>{t.name}</option>
+            ))}
           </select>
         </div>
 
@@ -494,8 +506,8 @@ export const LeaveMgmt = () => {
                   const emp = lr.employee;
                   const { handover, bgd, cleanText } = parseReason(lr.reason);
                   const isPaid = lr.leaveType === 'PAID';
-                  const startDateStr = new Date(lr.startDate).toLocaleDateString('vi-VN');
-                  const endDateStr = new Date(lr.endDate).toLocaleDateString('vi-VN');
+                  const startDateStr = formatDate(lr.startDate);
+                  const endDateStr = formatDate(lr.endDate);
                   const isSameDate = startDateStr === endDateStr;
 
                   return (
@@ -539,12 +551,24 @@ export const LeaveMgmt = () => {
                             borderRadius: '4px',
                             fontSize: '0.75rem',
                             fontWeight: 600,
-                            backgroundColor: isPaid ? '#ECFDF5' : '#FEF3C7',
-                            color: isPaid ? '#059669' : '#D97706',
-                            border: `1px solid ${isPaid ? '#A7F3D0' : '#FDE68A'}`
+                            backgroundColor: isPaid ? '#ECFDF5' : (lr.leaveTypeConfig?.paidBy === 'SOCIAL_INSURANCE' ? '#EFF6FF' : '#FEF3C7'),
+                            color: isPaid ? '#059669' : (lr.leaveTypeConfig?.paidBy === 'SOCIAL_INSURANCE' ? '#2563EB' : '#D97706'),
+                            border: `1px solid ${isPaid ? '#A7F3D0' : (lr.leaveTypeConfig?.paidBy === 'SOCIAL_INSURANCE' ? '#BFDBFE' : '#FDE68A')}`
                           }}>
-                            {isPaid ? 'Phép năm (Có lương)' : 'Không lương'}
+                            {lr.leaveTypeConfig?.name || (isPaid ? 'Nghỉ phép năm' : 'Nghỉ không lương')}
                           </span>
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {lr.leaveTypeConfig && !lr.leaveTypeConfig.deductAnnualLeave && (
+                              <span style={{ fontSize: '0.6875rem', color: '#0284C7', backgroundColor: '#E0F2FE', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
+                                Không trừ phép năm
+                              </span>
+                            )}
+                            {lr.leaveTypeConfig?.paidBy === 'SOCIAL_INSURANCE' && (
+                              <span style={{ fontSize: '0.6875rem', color: '#7C3AED', backgroundColor: '#F3E8FF', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
+                                BHXH chi trả
+                              </span>
+                            )}
+                          </div>
                           <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500 }}>
                             {lr.session === 'ALL_DAY' && 'Cả ngày (1.0 công)'}
                             {lr.session === 'MORNING' && 'Buổi Sáng (0.5 công)'}
@@ -797,11 +821,21 @@ export const LeaveMgmt = () => {
                   <select 
                     className="form-input"
                     style={{ width: '100%' }}
-                    value={createForm.leaveType}
-                    onChange={(e) => setCreateForm({ ...createForm, leaveType: e.target.value })}
+                    value={createForm.leaveTypeId}
+                    onChange={(e) => {
+                      const selected = leaveTypes.find(t => t.id === e.target.value);
+                      setCreateForm({ 
+                        ...createForm, 
+                        leaveTypeId: e.target.value,
+                        leaveType: selected?.paid ? 'PAID' : 'UNPAID'
+                      });
+                    }}
                   >
-                    <option value="PAID">Phép năm (Có lương)</option>
-                    <option value="UNPAID">Nghỉ việc riêng không lương</option>
+                    {leaveTypes.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} {!t.deductAnnualLeave ? '(Không trừ phép năm)' : '(Trừ phép năm)'}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -822,13 +856,30 @@ export const LeaveMgmt = () => {
                 </div>
               </div>
 
+              {(() => {
+                const currentType = leaveTypes.find(t => t.id === createForm.leaveTypeId);
+                if (!currentType) return null;
+                return (
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    padding: '0.4rem 0.65rem', 
+                    borderRadius: '4px', 
+                    backgroundColor: currentType.deductAnnualLeave ? '#EFF6FF' : '#F0FDF4', 
+                    color: currentType.deductAnnualLeave ? '#1D4ED8' : '#15803D', 
+                    border: `1px solid ${currentType.deductAnnualLeave ? '#BFDBFE' : '#BBF7D0'}` 
+                  }}>
+                    {currentType.deductAnnualLeave ? '● Loại phép này sẽ trừ vào Quỹ phép năm (12 ngày).' : '✓ Loại phép này KHÔNG trừ vào quỹ phép năm (Hưởng lương công ty hoặc BHXH).'}
+                    {currentType.maxDaysPerOccasion ? ` Giới hạn: Tối đa ${currentType.maxDaysPerOccasion} ngày/lần.` : ''}
+                  </div>
+                );
+              })()}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>
                     Từ ngày *
                   </label>
-                  <input 
-                    type="date"
+                  <DateInput 
                     className="form-input"
                     style={{ width: '100%' }}
                     value={createForm.startDate}
@@ -841,8 +892,7 @@ export const LeaveMgmt = () => {
                   <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>
                     Đến ngày *
                   </label>
-                  <input 
-                    type="date"
+                  <DateInput 
                     className="form-input"
                     style={{ width: '100%' }}
                     value={createForm.endDate}

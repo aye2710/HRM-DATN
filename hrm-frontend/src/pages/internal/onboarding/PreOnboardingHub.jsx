@@ -8,6 +8,9 @@ import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 // Avatar styling helpers
 const getAvatarStyle = (name) => {
@@ -197,43 +200,22 @@ export const PreOnboardingHub = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header Trang Chuẩn Doanh Nghiệp */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        paddingBottom: '0.75rem',
-        borderBottom: '1px solid var(--border)'
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: '10px',
-              backgroundColor: '#EEF2FF', color: 'var(--primary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <UserPlus size={20} />
-            </div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0, letterSpacing: '-0.02em' }}>
-              Tiếp nhận Ứng viên (Pre-onboarding Hub)
-            </h1>
-          </div>
-          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Theo dõi ứng viên đã chấp nhận Offer, đối soát hồ sơ kê khai sơ bộ và thực hiện thủ tục tiếp nhận chính thức.
-          </p>
-        </div>
-
-        <button 
-          onClick={() => navigate('/internal/onboarding/checklist')}
-          className="btn btn-outline" 
-          style={{ height: 38, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <span>Sang Bảng tiến độ Hội nhập</span>
-          <ArrowRight size={16} />
-        </button>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<UserPlus size={20} />}
+        title="Tiếp nhận Ứng viên (Pre-onboarding Hub)"
+        subtitle="Theo dõi ứng viên đã chấp nhận Offer, đối soát hồ sơ kê khai sơ bộ và thực hiện thủ tục tiếp nhận chính thức."
+        actions={
+          <button 
+            onClick={() => navigate('/internal/onboarding/checklist')}
+            className="btn btn-outline" 
+            style={{ height: 38, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <span>Sang Bảng tiến độ Hội nhập</span>
+            <ArrowRight size={16} />
+          </button>
+        }
+      />
 
       {/* 2. Filter Bar */}
       <div style={{
@@ -315,7 +297,7 @@ export const PreOnboardingHub = () => {
                 {paginatedCandidates.map(c => {
                   const po = c.preOnboarding;
                   const isSubmitted = po && po.cccd;
-                  const startDateStr = c.offer?.startDate ? new Date(c.offer.startDate).toLocaleDateString('vi-VN') : 'Chưa định ngày';
+                  const startDateStr = formatDate(c.offer?.startDate, 'Chưa định ngày');
                   const avatar = getAvatarStyle(c.name);
                   const initials = getInitials(c.name);
 
@@ -502,7 +484,7 @@ export const PreOnboardingHub = () => {
                     <div>
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Ngày sinh:</span>
                       <strong style={{ color: 'var(--text-heading)' }}>
-                        {selectedCandidate.preOnboarding.dateOfBirth ? new Date(selectedCandidate.preOnboarding.dateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cung cấp'}
+                        {formatDate(selectedCandidate.preOnboarding.dateOfBirth, 'Chưa cung cấp')}
                       </strong>
                     </div>
                   </div>
@@ -733,8 +715,7 @@ export const PreOnboardingHub = () => {
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '4px' }}>
                   Ngày chính thức nhận việc (Ngày N) *:
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   className="form-input"
                   style={{ width: '100%', fontSize: '0.85rem', height: 38 }}
                   value={startDate}

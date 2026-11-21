@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { TablePagination, usePagination } from '../../components/common/TablePagination';
+import { PageHeader } from '../../components/common/PageHeader';
 import {
   MonthNavigator,
   fmtTime,
@@ -24,6 +25,15 @@ export const EmployeeAttendance = () => {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [myAdjustments, setMyAdjustments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [policyConfig, setPolicyConfig] = useState({
+    graceMinutes: 15,
+    maxLateQuota: 3,
+    latePenaltyAmount: 50000,
+    minHoursFullDay: 7.5,
+    minHoursHalfDay: 3.5,
+    shiftStart: '08:00',
+    shiftEnd: '17:30',
+  });
 
   const employeeId = localStorage.getItem('employeeId');
   const monthQueryStr = getMonthQueryStr(selectedYear, selectedMonth);
@@ -35,9 +45,38 @@ export const EmployeeAttendance = () => {
     return () => clearInterval(timer);
   }, []);
 
+  const addMinutesToTime = (timeStr, mins) => {
+    if (!timeStr || !timeStr.includes(':')) return timeStr;
+    const [h, m] = timeStr.split(':').map(Number);
+    const total = h * 60 + m + mins;
+    const nh = Math.floor(total / 60) % 24;
+    const nm = total % 60;
+    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+  };
+
   const fetchAttendanceData = async () => {
     setLoading(true);
     const headers = getAuthHeaders();
+
+    try {
+      const [settingsRes, shiftsRes] = await Promise.all([
+        axios.get('http://localhost:5000/api/settings', { headers }).catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/attendance/shifts', { headers }).catch(() => ({ data: [] })),
+      ]);
+      const map = Object.fromEntries((Array.isArray(settingsRes.data) ? settingsRes.data : []).map(i => [i.key, i.value]));
+      const activeShift = (Array.isArray(shiftsRes.data) ? shiftsRes.data : []).find(s => s.isActive) || shiftsRes.data?.[0];
+      setPolicyConfig({
+        graceMinutes: Number(map.LATE_GRACE_PERIOD_MINUTES ?? 15),
+        maxLateQuota: Number(map.MAX_LATE_PERMISSION_PER_MONTH ?? 3),
+        latePenaltyAmount: Number(map.LATE_PENALTY_AMOUNT ?? 50000),
+        minHoursFullDay: Number(map.MIN_HOURS_FULL_DAY ?? 7.5),
+        minHoursHalfDay: Number(map.MIN_HOURS_HALF_DAY ?? 3.5),
+        shiftStart: activeShift?.startTime || '08:00',
+        shiftEnd: activeShift?.endTime || '17:30',
+      });
+    } catch (e) {
+      console.warn('Không tải được tham số chấm công:', e);
+    }
 
     if (employeeId) {
       try {
@@ -106,59 +145,40 @@ export const EmployeeAttendance = () => {
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-      {/* 1. Header & Bộ chọn Tháng / Năm */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '0.75rem',
-        padding: '0.9rem 1.25rem',
-        border: '1px solid #E2E8F0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: '8px',
-            backgroundColor: '#EFF6FF', color: '#2563EB',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-          }}>
-            <Clock size={19} />
-          </div>
-          <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
-              Theo Dõi Bảng Chấm Công Cá Nhân (Công ty LLA)
-            </h1>
-            <p style={{ margin: 0, color: '#64748B', fontSize: '0.78rem' }}>
-              Kỳ công đang xem: <strong>Tháng {selectedMonth}/{selectedYear}</strong> (Tính đến ngày {selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear() ? `${now.getDate()}/${selectedMonth}/${selectedYear}` : `cuối tháng ${selectedMonth}/${selectedYear}`})
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <MonthNavigator
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            onSelectMonth={setSelectedMonth}
-            onSelectYear={setSelectedYear}
-          />
-          <button
-            onClick={() => navigate('/employee/attendance/explanations')}
-            className="btn btn-primary"
-            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700 }}
-          >
-            <FileText size={15} /> Giải trình công
-          </button>
-          <button
-            onClick={() => navigate('/employee/attendance/ot')}
-            className="btn btn-outline"
-            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700, borderColor: '#8B5CF6', color: '#6D28D9', backgroundColor: '#F5F3FF' }}
-          >
-            <Plus size={15} /> Đăng ký OT
-          </button>
-        </div>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<Clock size={20} />}
+        title="Theo Dõi Bảng Chấm Công Cá Nhân (Công ty LLA)"
+        subtitle={
+          <>
+            Kỳ công đang xem: <strong>Tháng {selectedMonth}/{selectedYear}</strong> (Tính đến ngày {selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear() ? `${now.getDate()}/${selectedMonth}/${selectedYear}` : `cuối tháng ${selectedMonth}/${selectedYear}`})
+          </>
+        }
+        actions={
+          <>
+            <MonthNavigator
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onSelectMonth={setSelectedMonth}
+              onSelectYear={setSelectedYear}
+            />
+            <button
+              onClick={() => navigate('/employee/attendance/explanations')}
+              className="btn btn-primary"
+              style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700 }}
+            >
+              <FileText size={15} /> Giải trình công
+            </button>
+            <button
+              onClick={() => navigate('/employee/attendance/ot')}
+              className="btn btn-outline"
+              style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', fontWeight: 700, borderColor: '#8B5CF6', color: '#6D28D9', backgroundColor: '#F5F3FF' }}
+            >
+              <Plus size={15} /> Đăng ký OT
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Khối Trạng thái Máy chấm công hôm nay & Quy định Chấm công */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '0.9rem' }}>
@@ -223,33 +243,33 @@ export const EmployeeAttendance = () => {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong style={{ fontSize: '0.9rem', color: '#0F172A' }}>
-              Quy định Chấm công Công ty LLA (Ca HC 08:00 - 17:30)
+              Quy định Chấm công Công ty LLA (Ca HC {policyConfig.shiftStart} - {policyConfig.shiftEnd})
             </strong>
             <span style={{
               fontSize: '0.72rem',
               fontWeight: 700,
               padding: '3px 10px',
               borderRadius: '999px',
-              backgroundColor: usedLateQuota >= 3 ? '#FEE2E2' : '#FEF3C7',
-              color: usedLateQuota >= 3 ? '#B91C1C' : '#B45309',
-              border: usedLateQuota >= 3 ? '1px solid #FECACA' : '1px solid #FDE68A'
+              backgroundColor: usedLateQuota >= policyConfig.maxLateQuota ? '#FEE2E2' : '#FEF3C7',
+              color: usedLateQuota >= policyConfig.maxLateQuota ? '#B91C1C' : '#B45309',
+              border: usedLateQuota >= policyConfig.maxLateQuota ? '1px solid #FECACA' : '1px solid #FDE68A'
             }}>
-              Đã dùng: {usedLateQuota} / 3 lần miễn phạt
+              Đã dùng: {usedLateQuota} / {policyConfig.maxLateQuota} lần miễn phạt
             </span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.76rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: '#F0FDF4', borderRadius: '0.4rem', color: '#166534' }}>
               <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
-              <span><strong>Đi muộn ≤ 5 phút (08:00 – 08:05):</strong> Trong hạn ân hạn, tính đủ <strong>1.0 công</strong>, không phạt.</span>
+              <span><strong>Đi muộn &le; {policyConfig.graceMinutes} phút ({policyConfig.shiftStart} &ndash; {addMinutesToTime(policyConfig.shiftStart, policyConfig.graceMinutes)}):</strong> Trong hạn ân hạn, ghi nhận đúng giờ, không phạt.</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: '#FFFBEB', borderRadius: '0.4rem', color: '#92400E' }}>
               <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-              <span><strong>Đi muộn / Về sớm / Quên quét công:</strong> Vào mục <strong>Giải trình công</strong> để lập đơn (Đi muộn miễn phạt tối đa <strong>3 lần/tháng</strong>).</span>
+              <span><strong>Đi muộn / Về sớm / Quên quét công:</strong> Vào mục <strong>Giải trình công</strong> để lập đơn (Miễn phạt tối đa <strong>{policyConfig.maxLateQuota} lần/tháng</strong>; vượt hạn mức phạt <strong>{new Intl.NumberFormat('vi-VN').format(policyConfig.latePenaltyAmount)}đ/lần</strong>).</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.6rem', backgroundColor: '#FEF2F2', borderRadius: '0.4rem', color: '#991B1B' }}>
               <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-              <span><strong>Đi muộn &gt; 30 phút không phép hoặc vắng:</strong> Bị mất công buổi hoặc mất công ngày làm việc hôm đó.</span>
+              <span><strong>Định mức giờ công thực tế:</strong> Đủ &ge; <strong>{policyConfig.minHoursFullDay}h</strong> tính <strong>1.0 công</strong>; từ <strong>{policyConfig.minHoursHalfDay}h</strong> đến &lt; <strong>{policyConfig.minHoursFullDay}h</strong> tính <strong>0.5 công</strong>.</span>
             </div>
           </div>
         </div>
@@ -313,9 +333,10 @@ export const EmployeeAttendance = () => {
                   const isWfh = rec.status === 'WFH';
                   const isEarlyLeave = rec.status === 'EARLY_LEAVE';
                   const isMissingOut = Boolean(inStr && !outStr && !isLeave && !isHoliday && !isAbsent);
-                  const isLate5to30 = Boolean(lateMins > 5 && lateMins <= 30 && rec.status !== 'NORMAL' && !isLeave && !isHoliday);
+                  const isLateOverGrace = Boolean(lateMins > policyConfig.graceMinutes && rec.status !== 'NORMAL' && !isLeave && !isHoliday);
                   const isLateOver30 = Boolean(lateMins > 30 && !isLeave && !isHoliday);
                   const dateIso = rec.date ? new Date(rec.date).toISOString().split('T')[0] : '';
+                  const graceClock = addMinutesToTime(policyConfig.shiftStart, policyConfig.graceMinutes);
 
                   let rowBg = '#FFFFFF';
                   if (isPaidLeaveFull) rowBg = '#EEF2FF';
@@ -323,15 +344,15 @@ export const EmployeeAttendance = () => {
                   else if (isUnpaidLeave) rowBg = '#F8FAFC';
                   else if (isHoliday) rowBg = '#FAF5FF';
                   else if (isAbsent || isLateOver30) rowBg = '#FEF2F2';
-                  else if (isMissingOut || isLate5to30 || isEarlyLeave) rowBg = '#FFFBEB';
+                  else if (isMissingOut || isLateOverGrace || isEarlyLeave) rowBg = '#FFFBEB';
 
                   return (
                     <tr key={rec.id || i} style={{ borderBottom: '1px solid #F1F5F9', backgroundColor: rowBg }}>
                       <td style={{ padding: '0.7rem 1.1rem', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap' }}>
                         {rec.date ? new Date(rec.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
                       </td>
-                      <td style={{ padding: '0.7rem 0.9rem', fontFamily: 'monospace', fontWeight: 700, color: lateMins > 5 ? '#B45309' : '#15803D', whiteSpace: 'nowrap' }}>
-                        {isLeave || isHoliday ? '—' : (inStr || '—')} {lateMins > 5 && !isLeave && !isHoliday ? `(Muộn ${lateMins}p)` : lateMins > 0 && !isLeave && !isHoliday ? `(Ân hạn +${lateMins}p)` : ''}
+                      <td style={{ padding: '0.7rem 0.9rem', fontFamily: 'monospace', fontWeight: 700, color: lateMins > policyConfig.graceMinutes ? '#B45309' : '#15803D', whiteSpace: 'nowrap' }}>
+                        {isLeave || isHoliday ? '—' : (inStr || '—')} {lateMins > policyConfig.graceMinutes && !isLeave && !isHoliday ? `(Muộn ${lateMins}p)` : lateMins > 0 && !isLeave && !isHoliday ? `(Ân hạn +${lateMins}p)` : ''}
                       </td>
                       <td style={{ padding: '0.7rem 0.9rem', fontFamily: 'monospace', fontWeight: 700, color: isMissingOut ? '#B45309' : '#1E293B', whiteSpace: 'nowrap' }}>
                         {isLeave || isHoliday ? '—' : (outStr || '⚠ — (Quên Check-out)')}
@@ -371,15 +392,15 @@ export const EmployeeAttendance = () => {
                           </span>
                         ) : isLateOver30 ? (
                           <span style={{ backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            ⛔ Đi muộn &gt; 30 phút ({lateMins}p) ➔ Không tính công cả ngày (0 công)
+                            ⛔ Đi muộn {lateMins}p (&gt; 30p) ➔ Cần giải trình
                           </span>
-                        ) : isLate5to30 ? (
+                        ) : isLateOverGrace ? (
                           <span style={{ backgroundColor: '#FEF3C7', color: '#B45309', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            ⏰ Đi muộn {lateMins}p (5p–30p) ➔ Cần nộp Đơn (≤ 3 lần/tháng)
+                            ⏰ Đi muộn {lateMins}p (&gt; {policyConfig.graceMinutes}p) ➔ Cần nộp Đơn (&le; {policyConfig.maxLateQuota} lần/tháng)
                           </span>
                         ) : (
                           <span style={{ backgroundColor: '#DCFCE7', color: '#15803D', padding: '3px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            ✓ Đúng quy định (≤ 08:05)
+                            ✓ Đúng quy định (&le; {graceClock})
                           </span>
                         )}
                       </td>
@@ -417,7 +438,7 @@ export const EmployeeAttendance = () => {
                           >
                             🏃 Lập Đơn xin về sớm
                           </button>
-                        ) : isLate5to30 ? (
+                        ) : isLateOverGrace ? (
                           <button
                             onClick={() => goToExplanation({
                               category: 'LATE_PERMISSION',
@@ -431,8 +452,6 @@ export const EmployeeAttendance = () => {
                           >
                             ⏰ Lập Đơn xin đi muộn
                           </button>
-                        ) : isLateOver30 ? (
-                          <span style={{ fontSize: '0.73rem', color: '#DC2626', fontWeight: 700 }}>Muộn &gt; 30p (Mất công ngày)</span>
                         ) : (
                           <span style={{ fontSize: '0.73rem', color: '#94A3B8' }}>Đạt chuẩn</span>
                         )}

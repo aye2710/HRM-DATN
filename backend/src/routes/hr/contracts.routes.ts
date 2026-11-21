@@ -64,10 +64,6 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
       startDate, endDate, signBy, signDate, workLocation, appendixNote, evaluationResult, fileUrl 
     } = req.body;
     
-    if (!employeeId || !contractType || !baseSalary || !startDate) {
-      return res.status(400).json({ error: 'Vui lòng điền đầy đủ: Nhân viên, loại hợp đồng, lương cơ bản và ngày bắt đầu.' });
-    }
-
     const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
     if (!emp) {
       return res.status(404).json({ error: 'Không tìm thấy hồ sơ nhân sự để ký hợp đồng.' });
@@ -75,6 +71,37 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
 
     if (emp.status === 'RESIGNED') {
       return res.status(400).json({ error: 'Không thể tạo hợp đồng mới cho nhân viên đã thôi việc (RESIGNED).' });
+    }
+
+    // Nếu Đánh giá KHÔNG ĐẠT thử việc: Chấm dứt thử việc & Chuyển sang thôi việc (Không tạo HĐ mới rác theo chuẩn BLLĐ 2019)
+    if (evaluationResult === 'FAILED') {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const effDate = endDate ? new Date(endDate) : now;
+      const result = await prisma.$transaction(async (tx) => {
+        await tx.contract.updateMany({
+          where: { employeeId, status: 'ACTIVE' },
+          data: { 
+            status: 'TERMINATED', 
+            endDate: effDate, 
+            appendixNote: appendixNote ? String(appendixNote).trim() : 'Không đạt đánh giá thử việc (Điều 27 BLLĐ 2019)' 
+          }
+        });
+        const updatedEmployee = await tx.employee.update({
+          where: { id: employeeId },
+          data: {
+            status: 'RESIGNED',
+            resignationDate: effDate,
+            resignationReason: appendixNote || (contractType === 'INTERNSHIP' ? 'Không đạt đánh giá thực tập' : 'Không đạt đánh giá thử việc')
+          }
+        });
+        return { contract: null, employee: updatedEmployee };
+      });
+      return res.status(200).json(result);
+    }
+
+    if (!contractType || !baseSalary || !startDate) {
+      return res.status(400).json({ error: 'Vui lòng điền đầy đủ: Nhân viên, loại hợp đồng, lương cơ bản và ngày bắt đầu.' });
     }
 
     const start = new Date(startDate);
@@ -163,18 +190,9 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
         }
       });
 
-      // Xử lý Đánh giá & Đồng bộ trạng thái Nhân sự theo giai đoạn (Thực tập 3T -> Thử việc 2T -> Chính thức)
+      // Xử lý Đồng bộ trạng thái Nhân sự theo giai đoạn (Thực tập 3T -> Thử việc 2T -> Chính thức)
       let updatedEmployee = null;
-      if (evaluationResult === 'FAILED') {
-        updatedEmployee = await tx.employee.update({
-          where: { id: employeeId },
-          data: {
-            status: 'RESIGNED',
-            resignationDate: end || now,
-            resignationReason: contractType === 'INTERNSHIP' ? 'Không đạt đánh giá thực tập' : 'Không đạt đánh giá thử việc'
-          }
-        });
-      } else if (contractType === 'INTERNSHIP') {
+      if (contractType === 'INTERNSHIP') {
         updatedEmployee = await tx.employee.update({
           where: { id: employeeId },
           data: { status: 'INTERNSHIP', probationEndDate: null }

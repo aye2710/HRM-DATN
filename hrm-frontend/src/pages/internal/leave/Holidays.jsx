@@ -5,6 +5,9 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { DateInput } from '../../../components/common/DateInput';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
@@ -66,16 +69,17 @@ export const Holidays = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h1 className="page-title">Lịch Nghỉ Lễ</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Cấu hình các ngày nghỉ lễ có lương trong năm của Công ty và Quốc gia</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Thêm Ngày lễ
-        </button>
-      </div>
+    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <PageHeader
+        icon={<CalendarDays size={20} />}
+        title="Lịch Nghỉ Lễ"
+        subtitle="Cấu hình các ngày nghỉ lễ có lương trong năm của Công ty và Quốc gia"
+        actions={
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={18} /> Thêm Ngày lễ
+          </button>
+        }
+      />
 
       <div className="card glass" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -121,7 +125,7 @@ export const Holidays = () => {
                         <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{holiday.name}</span>
                       </div>
                     </td>
-                    <td><span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{new Date(holiday.date).toLocaleDateString('vi-VN')}</span></td>
+                    <td><span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{formatDate(holiday.date)}</span></td>
                     <td>
                       <span className="badge badge-error">Quốc gia</span>
                     </td>
@@ -172,7 +176,7 @@ export const Holidays = () => {
               </div>
               <div>
                 <label className="form-label">Ngày nghỉ</label>
-                <input required type="date" className="form-input" style={{ width: '100%' }} value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                <DateInput required className="form-input" style={{ width: '100%' }} value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
               </div>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                 <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowModal(false)}>Hủy</button>

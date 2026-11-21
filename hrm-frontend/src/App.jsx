@@ -41,6 +41,7 @@ import { LeavePolicies } from './pages/internal/leave/LeavePolicies';
 import { Holidays } from './pages/internal/leave/Holidays';
 
 import { PayrollPeriods } from './pages/internal/payroll/PayrollPeriods';
+import { PayslipDetail } from './pages/internal/payroll/PayslipDetail';
 import { AuditLogs } from './pages/internal/system/AuditLogs';
 import { SystemParameters } from './pages/internal/system/SystemParameters';
 
@@ -100,15 +101,14 @@ const internalLinks = [
   {
     to: '/internal/decisions', label: 'Quyết định', icon: <FileSignature size={20} />,
     children: [
+      { to: '/internal/decisions/all', label: 'Tất cả quyết định' },
       { to: '/internal/decisions/promotion', label: 'Bổ nhiệm' },
       { to: '/internal/decisions/demotion', label: 'Miễn nhiệm' },
       { to: '/internal/decisions/transfer', label: 'Điều chuyển' },
       { to: '/internal/decisions/termination', label: 'Nghỉ việc' },
-      { to: '/internal/decisions/recruitment', label: 'Tuyển dụng' },
       { to: '/internal/decisions/salary', label: 'Tăng / Giảm lương chính' },
       { to: '/internal/decisions/reward', label: 'Khen thưởng' },
       { to: '/internal/decisions/discipline', label: 'Kỷ luật nhân sự' },
-      { to: '/internal/decisions/all', label: 'Tất cả quyết định' },
     ]
   },
   { to: '/internal/employees', label: 'Nhân sự', icon: <Users size={20} /> },
@@ -261,7 +261,7 @@ function App() {
               {/* Module Quyết Định Độc Lập */}
               <Route path="decisions" element={<Navigate to="all" replace />} />
               <Route path="decisions/all" element={<Decisions fixedType="ALL" />} />
-              <Route path="decisions/recruitment" element={<Decisions fixedType="RECRUITMENT" />} />
+              <Route path="decisions/recruitment" element={<Navigate to="/internal/decisions/all" replace />} />
               <Route path="decisions/promotion" element={<Decisions fixedType="PROMOTION" />} />
               <Route path="decisions/demotion" element={<Decisions fixedType="DEMOTION" />} />
               <Route path="decisions/transfer" element={<Decisions fixedType="TRANSFER" />} />
@@ -306,6 +306,7 @@ function App() {
               <Route path="payroll" element={<Navigate to="payroll/periods" replace />} />
               <Route path="payroll/periods" element={<PayrollPeriods />} />
               <Route path="payroll/payslips" element={<PayrollMgmt />} />
+              <Route path="payroll/payslips/:id" element={<PayslipDetail />} />
 
               <Route path="assets" element={<Navigate to="/internal/assets/inventory" replace />} />
               <Route path="assets/inventory" element={<AssetInventory />} />

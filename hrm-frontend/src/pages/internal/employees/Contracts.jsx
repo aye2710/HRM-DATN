@@ -3,11 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Plus, CheckCircle2, FileText, Calendar, Clock, AlertTriangle, AlertCircle, 
-  RefreshCw, FileSpreadsheet
+  RefreshCw, FileSpreadsheet,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { formatDate } from '../../../utils/dateUtils';
+import { compareVietnameseNames } from '../../../utils/sortUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const Contracts = () => {
   const navigate = useNavigate();
@@ -18,11 +22,22 @@ export const Contracts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [filterType, setFilterType] = useState('ALL'); // ALL, ACTIVE, EXPIRING_30, EXPIRED, TERMINATED, NO_CONTRACT
+  const [contractTypeFilter, setContractTypeFilter] = useState('ALL'); // ALL, INTERNSHIP, PROBATION, OFFICIAL_1Y, INDEFINITE, NO_CONTRACT
   const [hideResigned, setHideResigned] = useState(true);
   
-  // Sort
-  const [sortField, setSortField] = useState('PRIORITY'); // PRIORITY, END_DATE, CODE, NAME
+  // Sort (Phương án 2: Mặc định Tên A-Z, click tiêu đề cột để đảo chiều)
+  const [sortField, setSortField] = useState('NAME'); // NAME, CODE, DEPARTMENT, END_DATE, STATUS, PRIORITY
   const [sortOrder, setSortOrder] = useState('asc');
+
+  // Toggle sắp xếp khi click cột
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -124,6 +139,15 @@ export const Contracts = () => {
           return false;
         }
 
+        if (contractTypeFilter !== 'ALL') {
+          const activeC = emp.contracts?.find(c => c.status === 'ACTIVE') || emp.contracts?.[0];
+          if (contractTypeFilter === 'NO_CONTRACT') {
+            if (emp.contracts && emp.contracts.length > 0) return false;
+          } else {
+            if (!activeC || activeC.contractType !== contractTypeFilter) return false;
+          }
+        }
+
         if (searchTerm.trim()) {
           const q = searchTerm.toLowerCase().trim();
           const matchCode = emp.code?.toLowerCase().includes(q);
@@ -139,33 +163,46 @@ export const Contracts = () => {
         return checkEmpStatus(emp, filterType);
       })
       .sort((a, b) => {
+        if (sortField === 'NAME') {
+          return compareVietnameseNames(a.fullName, b.fullName, sortOrder);
+        }
+
+        if (sortField === 'CODE') {
+          const comp = (a.code || '').localeCompare(b.code || '', 'vi', { numeric: true });
+          return sortOrder === 'asc' ? comp : -comp;
+        }
+
+        if (sortField === 'DEPARTMENT') {
+          const comp = (a.department?.name || '').localeCompare(b.department?.name || '', 'vi');
+          return sortOrder === 'asc' ? comp : -comp;
+        }
+
+        if (sortField === 'STATUS') {
+          const comp = (a.status || '').localeCompare(b.status || '');
+          return sortOrder === 'asc' ? comp : -comp;
+        }
+
+        if (sortField === 'END_DATE') {
+          const getEndDateVal = (emp) => {
+            const c = emp.contracts?.find(x => x.status === 'ACTIVE') || emp.contracts?.[0];
+            if (!c) return 9999999999999;
+            if (c.contractType === 'INDEFINITE') return 9999999999990;
+            return c.endDate ? new Date(c.endDate).getTime() : 9999999999999;
+          };
+          const dateA = getEndDateVal(a);
+          const dateB = getEndDateVal(b);
+          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        }
+
         if (sortField === 'PRIORITY') {
           const scoreA = getPriorityScore(a);
           const scoreB = getPriorityScore(b);
           return sortOrder === 'asc' ? scoreA - scoreB : scoreB - scoreA;
         }
 
-        if (sortField === 'CODE') {
-          return sortOrder === 'asc' 
-            ? a.code.localeCompare(b.code, 'vi', { numeric: true }) 
-            : b.code.localeCompare(a.code, 'vi', { numeric: true });
-        }
-
-        if (sortField === 'NAME') {
-          return sortOrder === 'asc'
-            ? a.fullName.localeCompare(b.fullName, 'vi')
-            : b.fullName.localeCompare(a.fullName, 'vi');
-        }
-
-        if (sortField === 'END_DATE') {
-          const dateA = a.contracts?.[0]?.endDate ? new Date(a.contracts[0].endDate).getTime() : 9999999999999;
-          const dateB = b.contracts?.[0]?.endDate ? new Date(b.contracts[0].endDate).getTime() : 9999999999999;
-          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-        }
-
         return 0;
       });
-  }, [employees, searchTerm, deptFilter, filterType, hideResigned, sortField, sortOrder]);
+  }, [employees, searchTerm, deptFilter, filterType, contractTypeFilter, hideResigned, sortField, sortOrder]);
 
   const {
     currentPage,
@@ -180,7 +217,7 @@ export const Contracts = () => {
 
   useEffect(() => {
     resetPage();
-  }, [searchTerm, deptFilter, filterType, hideResigned, sortField, sortOrder, resetPage]);
+  }, [searchTerm, deptFilter, filterType, contractTypeFilter, hideResigned, sortField, sortOrder, resetPage]);
 
   const getDefiniteContractCount = (emp) => {
     if (!emp?.contracts) return 0;
@@ -189,22 +226,22 @@ export const Contracts = () => {
 
   const getContractTypeName = (type) => {
     switch (type) {
-      case 'INTERNSHIP': return 'Thực tập sinh';
-      case 'PROBATION': return 'Thử việc';
-      case 'OFFICIAL_1Y': return 'Có thời hạn (1 năm)';
-      case 'INDEFINITE': return 'Không xác định thời hạn';
+      case 'INTERNSHIP': return 'Hợp đồng Thực tập';
+      case 'PROBATION': return 'Hợp đồng Thử việc';
+      case 'OFFICIAL_1Y': return 'HĐ Chính thức (Có thời hạn 1 năm)';
+      case 'INDEFINITE': return 'HĐ Chính thức (Không thời hạn)';
       default: return type || 'Chưa xác định';
     }
   };
 
   const formatContractPeriod = (contract) => {
     if (!contract) return '—';
-    const start = new Date(contract.startDate).toLocaleDateString('vi-VN');
+    const start = formatDate(contract.startDate);
     if (contract.contractType === 'INDEFINITE') {
       return `${start} — Vô thời hạn`;
     }
     if (contract.endDate) {
-      return `${start} — ${new Date(contract.endDate).toLocaleDateString('vi-VN')}`;
+      return `${start} — ${formatDate(contract.endDate)}`;
     }
     return `${start} — Chưa có ngày hết`;
   };
@@ -330,46 +367,73 @@ export const Contracts = () => {
     );
   };
 
+  const renderSortableTh = (field, label, style = {}) => {
+    const isCurrent = sortField === field;
+    return (
+      <th 
+        key={field}
+        onClick={() => handleSort(field)}
+        style={{ 
+          cursor: 'pointer', 
+          userSelect: 'none', 
+          transition: 'background-color 0.15s',
+          ...style 
+        }}
+        className="hover:bg-slate-100"
+        title={`Sắp xếp theo ${label} (${isCurrent && sortOrder === 'asc' ? 'đang tăng dần, nhấp để giảm dần' : 'nhấp để tăng dần'})`}
+      >
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <span style={{ fontWeight: isCurrent ? 700 : 600, color: isCurrent ? '#1E293B' : '#475569' }}>{label}</span>
+          {isCurrent ? (
+            sortOrder === 'asc' ? (
+              <ArrowUp size={13} style={{ color: '#2563EB', strokeWidth: 2.5, flexShrink: 0 }} />
+            ) : (
+              <ArrowDown size={13} style={{ color: '#2563EB', strokeWidth: 2.5, flexShrink: 0 }} />
+            )
+          ) : (
+            <ArrowUpDown size={12} style={{ color: '#94A3B8', opacity: 0.5, flexShrink: 0 }} />
+          )}
+        </div>
+      </th>
+    );
+  };
+
   return (
     <div className="flex-col gap-5 animate-fade-in" style={{ padding: '0 0.5rem' }}>
       
-      {/* 1. Header chuẩn đồng bộ với Quyết Định / Phòng Ban */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title" style={{ margin: 0 }}>
-            Quản lý Hợp đồng Lao động
-          </h1>
-          <p className="text-muted" style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem' }}>
-            Theo dõi thời hạn hiệu lực, cảnh báo tái ký theo Luật Lao động và hồ sơ lưu trữ nhân sự
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={handleExportCSV} 
-            className="btn btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <FileSpreadsheet size={16} /> Xuất Excel
-          </button>
-          <button 
-            onClick={fetchEmployees} 
-            className="btn btn-outline"
-            title="Tải lại dữ liệu"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<FileText size={20} />}
+        title="Quản lý Hợp đồng Lao động"
+        subtitle="Theo dõi thời hạn hiệu lực, cảnh báo tái ký theo Luật Lao động và hồ sơ lưu trữ nhân sự"
+        actions={
+          <>
+            <button 
+              onClick={handleExportCSV} 
+              className="btn btn-outline"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <FileSpreadsheet size={16} /> Xuất Excel
+            </button>
+            <button 
+              onClick={fetchEmployees} 
+              className="btn btn-outline"
+              title="Tải lại dữ liệu"
+            >
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </>
+        }
+      />
 
       {/* 2. Main Table Card */}
       <div className="card" style={{ padding: '1.25rem', background: '#ffffff', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         
-        {/* Filter Toolbar (1 dòng duy nhất, thẳng hàng, không rớt dòng) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+        {/* Filter Toolbar (Các bộ lọc đặt sát tìm kiếm, bỏ khoảng trống lớn) */}
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.625rem' }}>
           
           {/* Ô tìm kiếm bên trái */}
-          <div style={{ position: 'relative', width: '320px', flexShrink: 0 }}>
+          <div style={{ position: 'relative', width: '280px', flexShrink: 0 }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
@@ -381,87 +445,87 @@ export const Contracts = () => {
             />
           </div>
 
-          {/* Nhóm bộ lọc bên phải */}
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            
-            {/* Lọc phòng ban */}
-            <select
-              className="form-input"
-              style={{ width: '180px', height: '38px', backgroundColor: '#ffffff' }}
-              value={deptFilter}
-              onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="">Tất cả phòng ban</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+          {/* Lọc phòng ban */}
+          <select
+            className="form-input"
+            style={{ width: '175px', height: '38px', backgroundColor: '#ffffff' }}
+            value={deptFilter}
+            onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
+          >
+            <option value="">Tất cả phòng ban</option>
+            {departments.map(d => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
 
-            {/* Lọc trạng thái hợp đồng: Đúng 3 trạng thái chính thức */}
-            <select
-              className="form-input"
-              style={{ width: '170px', height: '38px', backgroundColor: '#ffffff' }}
-              value={filterType}
-              onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang hiệu lực</option>
-              <option value="EXPIRED">Đã hết hạn</option>
-              <option value="TERMINATED">Đã chấm dứt</option>
-            </select>
+          {/* Lọc trạng thái hợp đồng */}
+          <select
+            className="form-input"
+            style={{ width: '165px', height: '38px', backgroundColor: '#ffffff' }}
+            value={filterType}
+            onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Đang hiệu lực</option>
+            <option value="EXPIRING_30">Sắp hết hạn (30 ngày)</option>
+            <option value="EXPIRED">Đã hết hạn</option>
+            <option value="TERMINATED">Đã chấm dứt</option>
+          </select>
 
-            {/* Sắp xếp */}
-            <select
-              className="form-input"
-              style={{ width: '160px', height: '38px', backgroundColor: '#ffffff' }}
-              value={sortField}
-              onChange={(e) => {
-                setSortField(e.target.value);
-                setSortOrder('asc');
-              }}
-            >
-              <option value="PRIORITY">Ưu tiên xử lý</option>
-              <option value="END_DATE">Hạn hợp đồng</option>
-              <option value="CODE">Mã nhân sự</option>
-              <option value="NAME">Tên nhân sự</option>
-            </select>
+          {/* Lọc Loại hợp đồng (Thay thế dropdown Sắp xếp theo yêu cầu) */}
+          <select
+            className="form-input"
+            style={{ width: '200px', height: '38px', backgroundColor: '#ffffff' }}
+            value={contractTypeFilter}
+            onChange={(e) => {
+              setContractTypeFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+          >
+            <option value="ALL">Tất cả loại hợp đồng</option>
+            <option value="INTERNSHIP">Hợp đồng Thực tập</option>
+            <option value="PROBATION">Hợp đồng Thử việc</option>
+            <option value="OFFICIAL_1Y">HĐ Chính thức (Có thời hạn)</option>
+            <option value="INDEFINITE">HĐ Chính thức (Không thời hạn)</option>
+            <option value="NO_CONTRACT">Chưa có hợp đồng</option>
+          </select>
 
-            {/* Checkbox ẩn thôi việc */}
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', color: '#64748b', cursor: 'pointer', userSelect: 'none', marginLeft: '4px' }}>
-              <input
-                type="checkbox"
-                checked={hideResigned}
-                onChange={(e) => setHideResigned(e.target.checked)}
-                style={{ accentColor: '#2563eb', cursor: 'pointer' }}
-              />
-              <span>Ẩn đã thôi việc</span>
-            </label>
-          </div>
+          {/* Checkbox ẩn thôi việc */}
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', color: '#64748b', cursor: 'pointer', userSelect: 'none', marginLeft: '4px' }}>
+            <input
+              type="checkbox"
+              checked={hideResigned}
+              onChange={(e) => setHideResigned(e.target.checked)}
+              style={{ accentColor: '#2563eb', cursor: 'pointer' }}
+            />
+            <span>Ẩn đã thôi việc</span>
+          </label>
         </div>
 
-        {/* Bảng danh sách 6 cột rõ ràng, thoáng mắt */}
+        {/* Bảng danh sách: Tách riêng Hợp đồng và Thời hạn hiện tại thành 2 cột */}
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th style={{ width: '90px' }}>Mã NV</th>
-                <th style={{ minWidth: '180px' }}>Họ và tên</th>
-                <th style={{ minWidth: '170px' }}>Phòng ban & Vị trí</th>
-                <th style={{ minWidth: '240px' }}>Hợp đồng & Thời hạn hiện tại</th>
-                <th style={{ minWidth: '160px' }}>Trạng thái</th>
-                <th style={{ width: '95px', textAlign: 'center' }}>Thao tác</th>
+                {renderSortableTh('CODE', 'Mã NV', { width: '90px' })}
+                {renderSortableTh('NAME', 'Họ và tên', { minWidth: '175px' })}
+                {renderSortableTh('DEPARTMENT', 'Phòng ban & Vị trí', { minWidth: '165px' })}
+                <th style={{ minWidth: '220px' }}>Hợp đồng</th>
+                {renderSortableTh('END_DATE', 'Thời hạn hiện tại', { minWidth: '185px' })}
+                {renderSortableTh('STATUS', 'Trạng thái', { minWidth: '145px' })}
+                <th style={{ width: '85px', textAlign: 'center' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="text-center text-muted py-8">
+                  <td colSpan="7" className="text-center text-muted py-8">
                     Đang tải dữ liệu hồ sơ hợp đồng từ hệ thống...
                   </td>
                 </tr>
               ) : paginatedEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center text-muted py-8">
+                  <td colSpan="7" className="text-center text-muted py-8">
                     Không tìm thấy hồ sơ hợp đồng phù hợp.
                   </td>
                 </tr>
@@ -499,36 +563,19 @@ export const Contracts = () => {
                       {/* Họ và tên */}
                       <td>
                         <div 
-                          className="flex items-center gap-2.5 cursor-pointer group"
+                          className="cursor-pointer group"
                           onClick={() => navigate(`/internal/contracts/${emp.id}`)}
                           title="Nhấp để xem toàn bộ lịch sử hợp đồng của nhân sự này"
                         >
-                          <div style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '50%',
-                            backgroundColor: '#eff6ff',
-                            color: '#2563eb',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 600,
-                            fontSize: '0.75rem',
-                            flexShrink: 0
-                          }}>
-                            {emp.fullName?.trim().split(' ').slice(-1)[0]?.charAt(0) || 'N'}
-                          </div>
-                          <div>
-                            <span 
-                              className="group-hover:text-blue-600 transition-colors"
-                              style={{ fontWeight: 600, color: 'var(--text-main)', display: 'block' }}
-                            >
-                              {emp.fullName}
-                            </span>
-                            {isResigned && (
-                              <span style={{ fontSize: '0.7rem', color: '#dc2626' }}>Đã thôi việc</span>
-                            )}
-                          </div>
+                          <span 
+                            className="group-hover:text-blue-600 transition-colors"
+                            style={{ fontWeight: 600, color: 'var(--text-main)', display: 'block' }}
+                          >
+                            {emp.fullName}
+                          </span>
+                          {isResigned && (
+                            <span style={{ fontSize: '0.7rem', color: '#dc2626' }}>Đã thôi việc</span>
+                          )}
                         </div>
                       </td>
 
@@ -538,7 +585,7 @@ export const Contracts = () => {
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{emp.department?.name || '—'}</div>
                       </td>
 
-                      {/* Hợp đồng & Thời hạn hiện tại */}
+                      {/* Tách riêng cột 1: Hợp đồng (Tên đầy đủ) */}
                       <td>
                         {activeContract ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -552,13 +599,21 @@ export const Contracts = () => {
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Calendar size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                              <span>{formatContractPeriod(activeContract)}</span>
-                            </div>
                           </div>
                         ) : (
-                          <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Chưa có hợp đồng</span>
+                          <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.85rem' }}>Chưa có hợp đồng</span>
+                        )}
+                      </td>
+
+                      {/* Tách riêng cột 2: Thời hạn hiện tại */}
+                      <td>
+                        {activeContract ? (
+                          <div style={{ fontSize: '0.82rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Calendar size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                            <span>{formatContractPeriod(activeContract)}</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
                         )}
                       </td>
 

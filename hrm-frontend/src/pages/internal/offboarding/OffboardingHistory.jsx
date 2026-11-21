@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  FileText, Search, Printer, CheckCircle2, UserMinus, ArrowLeft
+  FileText, Search, CheckCircle2, UserMinus, ArrowLeft
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Bm02PrintModal } from './OffboardingModals';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
+import { formatDate } from '../../../utils/dateUtils';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 export const OffboardingHistory = () => {
   const navigate = useNavigate();
@@ -62,23 +64,19 @@ export const OffboardingHistory = () => {
   return (
     <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       
-      {/* 1. Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <h1 className="page-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#b91c1c' }}>
-              <FileText size={26} color="#dc2626" /> Sổ Lịch sử Thôi việc & Bàn giao
-            </h1>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
-              LƯU TRỮ HỒ SƠ PHÁP LÝ
-            </span>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: 0 }}>
-            Tra cứu toàn bộ nhân sự đã hoàn tất thủ tục thôi việc, xem biên bản thu hồi tài sản BM-02 và quyết định thôi việc
-          </p>
-        </div>
-
-        <div>
+      {/* 1. Header chuẩn đồng bộ */}
+      <PageHeader
+        icon={<FileText size={20} />}
+        iconBg="#FEF2F2"
+        iconColor="#DC2626"
+        title="Sổ Lịch sử Thôi việc & Bàn giao"
+        badge={
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', backgroundColor: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' }}>
+            LƯU TRỮ HỒ SƠ PHÁP LÝ
+          </span>
+        }
+        subtitle="Tra cứu toàn bộ nhân sự đã hoàn tất thủ tục thôi việc, xem biên bản thu hồi tài sản BM-02 và quyết định thôi việc"
+        actions={
           <button
             onClick={() => navigate('/internal/offboarding/checklist')}
             className="btn btn-outline"
@@ -86,8 +84,8 @@ export const OffboardingHistory = () => {
           >
             <ArrowLeft size={15} /> Về Tiến độ Bàn giao
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Bảng Danh sách Sổ Lịch sử */}
       <div className="card glass" style={{ display: 'flex', flexDirection: 'column', padding: 0 }}>
@@ -140,7 +138,7 @@ export const OffboardingHistory = () => {
                     <td>{emp.department?.name || '—'}</td>
                     <td>{emp.position?.title || '—'}</td>
                     <td style={{ fontSize: '0.82rem', color: '#475569' }}>
-                      {emp.resignationDate ? new Date(emp.resignationDate).toLocaleDateString('vi-VN') : '—'}
+                      {formatDate(emp.resignationDate)}
                     </td>
                     <td style={{ fontSize: '0.8rem', color: '#475569', fontStyle: 'italic', maxWidth: '220px' }}>
                       {emp.resignationReason || 'Nghỉ việc theo quy định'}
@@ -151,9 +149,9 @@ export const OffboardingHistory = () => {
                           onClick={() => setShowBm02Modal(emp)}
                           className="btn btn-outline"
                           style={{ height: 28, width: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', borderColor: '#38bdf8' }}
-                          title="In Biên bản thu hồi tài sản BM-02"
+                          title="Xem Biên bản thu hồi tài sản BM-02"
                         >
-                          <Printer size={14} />
+                          <FileText size={14} />
                         </button>
 
                         {emp.decisions && emp.decisions.length > 0 && (

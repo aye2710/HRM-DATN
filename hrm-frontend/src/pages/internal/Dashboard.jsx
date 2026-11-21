@@ -455,11 +455,23 @@ export const InternalDashboard = () => {
             onClick={handleManualRefresh}
             disabled={isRefreshing}
             className="btn btn-outline"
-            style={{ height: 34, padding: '0 0.85rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#FFFFFF' }}
+            style={{
+              height: 34,
+              width: 34,
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '8px',
+              border: '1px solid #E2E8F0',
+              color: '#475569',
+              cursor: isRefreshing ? 'not-allowed' : 'pointer'
+            }}
             title="Tải lại số liệu mới nhất"
+            aria-label="Làm mới"
           >
-            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
-            <span>Làm mới</span>
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
