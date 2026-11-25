@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
 router.post('/', hrOrgOnly, async (req, res): Promise<any> => {
   try {
     const { code, title, description, level, minSalary, maxSalary, departmentId, status } = req.body;
-    
+
     // Check code existence
     const existingCode = await prisma.position.findUnique({ where: { code } });
     if (existingCode) {
@@ -195,8 +195,8 @@ router.post('/bulk-import', hrOrgOnly, async (req, res): Promise<any> => {
       }
 
       // Kiểm tra trùng lặp chức danh trong cùng 1 phòng ban
-      const isDuplicateTitle = currentPositions.some(p => 
-        p.title.trim().toLowerCase() === title.toLowerCase() && 
+      const isDuplicateTitle = currentPositions.some(p =>
+        p.title.trim().toLowerCase() === title.toLowerCase() &&
         p.departmentId === deptId
       );
       if (isDuplicateTitle) {
@@ -283,12 +283,12 @@ router.put('/:id', hrOrgOnly, async (req, res): Promise<any> => {
 
     // Check code if changed
     if (code) {
-        const existingCode = await prisma.position.findFirst({
-            where: { code, id: { not: id } }
-        });
-        if (existingCode) {
-            return res.status(400).json({ error: 'Mã vị trí đã tồn tại' });
-        }
+      const existingCode = await prisma.position.findFirst({
+        where: { code, id: { not: id } }
+      });
+      if (existingCode) {
+        return res.status(400).json({ error: 'Mã vị trí đã tồn tại' });
+      }
     }
 
     const updatedPosition = await prisma.position.update({
@@ -300,7 +300,7 @@ router.put('/:id', hrOrgOnly, async (req, res): Promise<any> => {
         level,
         minSalary,
         maxSalary,
-        departmentId: departmentId || null,
+        ...(departmentId !== undefined ? { departmentId: departmentId || null } : {}),
         status
       }
     });
@@ -347,16 +347,16 @@ router.delete('/:id', hrOrgOnly, async (req, res): Promise<any> => {
     const { id } = req.params;
     // Check if position has employees
     const pos = await prisma.position.findUnique({
-        where: { id },
-        include: { _count: { select: { employees: true } } }
+      where: { id },
+      include: { _count: { select: { employees: true } } }
     });
-    
+
     if (!pos) {
       return res.status(404).json({ error: 'Không tìm thấy vị trí' });
     }
 
     if (pos._count.employees > 0) {
-        return res.status(400).json({ error: 'Không thể xóa vị trí đang có nhân viên' });
+      return res.status(400).json({ error: 'Không thể xóa vị trí đang có nhân viên' });
     }
 
     await prisma.position.delete({ where: { id } });

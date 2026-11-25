@@ -13,32 +13,6 @@ const itOrHrOnly = requireRole('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER', 'HR_STAFF',
 
 // Helper to seed standard LLA Enterprise warehouse (20 PC, 40 Monitor, 20 Arm, 20 Keyboard/Mouse)
 const seedDemoAssets = async () => {
-  // 0. Xóa sạch mọi tài sản demo/khác không thuộc 4 dòng sản phẩm chuẩn của công ty LLA
-  try {
-    const nonStandard = await prisma.asset.findMany({
-      where: {
-        NOT: {
-          OR: [
-            { code: { startsWith: 'TS-PC-' } },
-            { code: { startsWith: 'TS-MON-' } },
-            { code: { startsWith: 'TS-ARM-' } },
-            { code: { startsWith: 'TS-KB-' } }
-          ]
-        }
-      },
-      select: { id: true }
-    });
-
-    if (nonStandard.length > 0) {
-      const ids = nonStandard.map(a => a.id);
-      await prisma.assetAssignment.deleteMany({ where: { assetId: { in: ids } } });
-      await prisma.asset.deleteMany({ where: { id: { in: ids } } });
-      console.log(`[ASSET CLEANUP] Đã xóa ${nonStandard.length} tài sản cũ ngoài danh mục chuẩn LLA.`);
-    }
-  } catch (err) {
-    console.error('[ASSET CLEANUP ERROR]', err);
-  }
-
   const pcCount = await prisma.asset.count({ where: { code: { startsWith: 'TS-PC-' } } });
   if (pcCount >= 20) return;
 
@@ -124,15 +98,9 @@ const seedDemoAssets = async () => {
   }
 };
 
-// Tự động làm sạch & nạp kho chuẩn LLA khi khởi động
-seedDemoAssets()
-  .then(() => console.log('[ASSET SEED] Kho tài sản LLA đã làm sạch, chỉ giữ đúng 4 dòng thiết bị chuẩn.'))
-  .catch((err) => console.error('[ASSET SEED ERROR]', err));
-
 // 1. GET /api/assets/stats - Thống kê tài sản kho
 router.get('/stats', async (req: Request, res: Response) => {
   try {
-    await seedDemoAssets();
 
     const [total, available, assigned, maintenance, disposed, lost, assets] = await Promise.all([
       prisma.asset.count({ where: { isDeleted: false } }),
@@ -164,7 +132,6 @@ router.get('/stats', async (req: Request, res: Response) => {
 // 1.5 GET /api/assets/products - Danh mục sản phẩm tổng hợp (mỗi sản phẩm 1 mã + cột theo dõi số lượng + danh sách 20 mã bên trong và ma trận người giữ)
 router.get('/products', async (req: Request, res: Response): Promise<any> => {
   try {
-    await seedDemoAssets();
 
     const assets = await prisma.asset.findMany({
       where: { isDeleted: false },
@@ -313,7 +280,6 @@ router.get('/products', async (req: Request, res: Response): Promise<any> => {
 // 2. GET /api/assets - Danh sách danh mục tài sản (kèm tìm kiếm và lọc)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    await seedDemoAssets();
 
     const { search, category, status } = req.query;
 

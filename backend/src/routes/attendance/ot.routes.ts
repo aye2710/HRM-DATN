@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
 import { createAuditLog } from '../../utils/audit';
+import { isPayrollPeriodLocked } from './leave.routes';
 
 const router = Router();
 
@@ -583,16 +584,7 @@ export async function resetOTSampleData() {
   }
 }
 
-// Endpoint reset bộ dữ liệu OT mẫu
-router.post('/reset-sample-data', authenticateToken, managerOrHr, async (req: any, res: Response): Promise<any> => {
-  try {
-    await resetOTSampleData();
-    res.json({ message: 'Đã cài đặt lại bộ dữ liệu OT mẫu chuẩn hóa thành công!' });
-  } catch (error: any) {
-    console.error('Error resetting OT sample data:', error);
-    res.status(500).json({ error: 'Lỗi khi cài đặt lại dữ liệu mẫu' });
-  }
-});
+// Đã gỡ bỏ endpoint /reset-sample-data để tránh ghi đè hoặc xóa nhầm dữ liệu OT thực tế
 
 // 1. Lấy danh sách đăng ký làm thêm giờ (HR / Quản lý xem toàn bộ; Nhân viên chỉ xem đơn của mình)
 router.get('/', authenticateToken, async (req: any, res: Response): Promise<any> => {
@@ -607,23 +599,6 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
     // Chặn IDOR: Nhân viên thông thường chỉ được xem danh sách của chính mình
     if (userRole === 'EMPLOYEE') {
       employeeId = req.user.employeeId;
-    }
-
-    // Tự động khởi tạo dữ liệu mẫu nếu chưa có bản ghi OT hoặc chưa có đơn thuộc Phòng Nhân sự
-    const totalCount = await prisma.oTRequest.count();
-    const hrRecordCount = await prisma.oTRequest.count({
-      where: {
-        employee: {
-          department: { name: { contains: 'Nhân sự', mode: 'insensitive' } }
-        }
-      }
-    });
-    if (totalCount <= 2 || hrRecordCount === 0) {
-      await resetOTSampleData();
-    }
-
-    if (req.query.reset === 'true') {
-      await resetOTSampleData();
     }
 
     const where: any = {};
@@ -786,6 +761,28 @@ router.post('/', authenticateToken, async (req: any, res: Response): Promise<any
     const otDate = new Date(date);
     otDate.setHours(0, 0, 0, 0);
 
+    const empRecord = await prisma.employee.findUnique({ where: { id: empId }, select: { status: true } });
+    if (!empRecord || empRecord.status === 'RESIGNED') {
+      return res.status(400).json({ error: 'Nhân viên đã nghỉ việc, không thể đăng ký làm thêm giờ.' });
+    }
+
+    const overlappingLeave = await prisma.leaveRequest.findFirst({
+      where: {
+        employeeId: empId,
+        status: { in: ['APPROVED', 'PENDING'] },
+        startDate: { lte: otDate },
+        endDate: { gte: otDate }
+      }
+    });
+    if (overlappingLeave) {
+      return res.status(400).json({ error: 'Bạn đang có đơn nghỉ phép (đã duyệt hoặc chờ duyệt) trong ngày này, không thể đăng ký OT.' });
+    }
+
+    // Kiểm tra kỳ lương đã khóa sổ (LOCKED)
+    if (await isPayrollPeriodLocked(otDate, otDate)) {
+      return res.status(400).json({ error: 'Kỳ lương của tháng này đã khóa sổ (LOCKED). Không thể tạo mới đơn làm thêm giờ!' });
+    }
+
     // 1. Kiểm tra trần ngày (Điều 107 Khoản 2 Điểm b BLLĐ 2019: Tối đa 4 giờ/ngày)
     const existingDayOT = await prisma.oTRequest.findMany({
       where: {
@@ -910,6 +907,11 @@ router.put('/:id/status', authenticateToken, managerOrHr, async (req: any, res: 
       return res.status(400).json({ error: 'Đơn làm thêm giờ này đã được xử lý trước đó.' });
     }
 
+    // Kiểm tra kỳ lương đã khóa sổ (LOCKED)
+    if (await isPayrollPeriodLocked(request.date, request.date)) {
+      return res.status(400).json({ error: 'Kỳ lương của tháng này đã khóa sổ (LOCKED). Không thể duyệt hay từ chối đơn làm thêm giờ!' });
+    }
+
     // Chống tự phê duyệt (Self-approval Protection)
     if (req.user?.employeeId && request.employeeId === req.user.employeeId) {
       return res.status(403).json({ error: 'Người đăng ký không thể tự phê duyệt đơn làm thêm giờ của chính mình.' });
@@ -985,6 +987,11 @@ router.delete('/:id', authenticateToken, async (req: any, res: Response): Promis
 
     if (request.status !== 'PENDING') {
       return res.status(400).json({ error: 'Chỉ có thể hủy đơn đang chờ duyệt (PENDING).' });
+    }
+
+    // Kiểm tra kỳ lương đã khóa sổ (LOCKED)
+    if (await isPayrollPeriodLocked(request.date, request.date)) {
+      return res.status(400).json({ error: 'Kỳ lương của tháng này đã khóa sổ (LOCKED). Không thể hủy đơn làm thêm giờ!' });
     }
 
     const userRole = req.user?.role?.toUpperCase();

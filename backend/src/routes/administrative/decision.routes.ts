@@ -222,6 +222,24 @@ router.post('/', hrManagerOnly, async (req: any, res: Response): Promise<any> =>
   }
 });
 
+// 3.5. PUT: Cập nhật thông tin quyết định (Bản scan / File đính kèm)
+router.put('/:id', hrManagerOnly, async (req: any, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const { fileUrl, reason } = req.body;
+    const updated = await prisma.decision.update({
+      where: { id },
+      data: {
+        ...(fileUrl !== undefined && { fileUrl }),
+        ...(reason !== undefined && { reason })
+      }
+    });
+    return res.json(updated);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Lỗi khi cập nhật quyết định' });
+  }
+});
+
 // 4. PUT: Phê duyệt & Ban hành Quyết định (HR Manager / Admin Only)
 // Tự động kiểm tra thu hồi tài sản khi thôi việc, đồng bộ Hồ sơ, Hợp đồng & Lịch sử
 router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promise<any> => {
@@ -301,7 +319,6 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
         const empUpdate: any = {};
         if (decision.newPositionId) empUpdate.positionId = decision.newPositionId;
         if (decision.newDepartmentId) empUpdate.departmentId = decision.newDepartmentId;
-        if (decision.newSalary) empUpdate.salary = decision.newSalary;
 
         await tx.employee.update({
           where: { id: empId },
@@ -371,7 +388,6 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
         const empUpdate: any = {};
         if (decision.newDepartmentId) empUpdate.departmentId = decision.newDepartmentId;
         if (decision.newPositionId) empUpdate.positionId = decision.newPositionId;
-        if (decision.newSalary) empUpdate.salary = decision.newSalary;
 
         await tx.employee.update({
           where: { id: empId },
@@ -525,7 +541,6 @@ router.put('/:id/approve', hrManagerOnly, async (req: any, res: Response): Promi
         const empUpdate: any = { status: 'ACTIVE' };
         if (decision.newPositionId) empUpdate.positionId = decision.newPositionId;
         if (decision.newDepartmentId) empUpdate.departmentId = decision.newDepartmentId;
-        if (decision.newSalary) empUpdate.salary = decision.newSalary;
 
         await tx.employee.update({
           where: { id: empId },
@@ -708,7 +723,7 @@ router.delete('/:id', hrManagerOnly, async (req: any, res: Response): Promise<an
 router.put('/:id/revoke', hrManagerOnly, async (req: any, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
-    const { revokeReason } = req.body;
+    const revokeReason = req.body.revokeReason || req.body.reason;
 
     if (!revokeReason?.trim()) {
       return res.status(400).json({ error: 'Vui lòng cung cấp lý do thu hồi / hủy bỏ quyết định!' });
@@ -759,7 +774,6 @@ router.put('/:id/revoke', hrManagerOnly, async (req: any, res: Response): Promis
         const empRollback: any = {};
         if (decision.oldPositionId) empRollback.positionId = decision.oldPositionId;
         if (decision.oldDepartmentId) empRollback.departmentId = decision.oldDepartmentId;
-        if (decision.oldSalary) empRollback.salary = decision.oldSalary;
 
         if (Object.keys(empRollback).length > 0) {
           await tx.employee.update({
@@ -801,7 +815,6 @@ router.put('/:id/revoke', hrManagerOnly, async (req: any, res: Response): Promis
         const empRollback: any = {};
         if (decision.oldDepartmentId) empRollback.departmentId = decision.oldDepartmentId;
         if (decision.oldPositionId) empRollback.positionId = decision.oldPositionId;
-        if (decision.oldSalary) empRollback.salary = decision.oldSalary;
 
         if (Object.keys(empRollback).length > 0) {
           await tx.employee.update({

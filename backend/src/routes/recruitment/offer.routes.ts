@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
-import { sendWelcomeAccountEmail } from '../../utils/mailer';
+import { sendWelcomeAccountEmail, sendJobOfferEmail } from '../../utils/mailer';
 import { getSettingValue } from '../system/setting.routes';
 import { assertJobHasOpenSlots, autoCloseJobIfFilled, RecruitmentLimitError } from '../../utils/recruitment.helper';
 
@@ -97,7 +98,10 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
     }
 
     const candidate = await prisma.candidate.findUnique({
-      where: { id: candidateId }
+      where: { id: candidateId },
+      include: {
+        jobPosting: true
+      }
     });
 
     if (!candidate) {
@@ -152,6 +156,42 @@ router.post('/send-offer', async (req: Request, res: Response): Promise<any> => 
 
       return offer;
     });
+
+    // Tự động tạo Magic Link (24h/offerExpiryDays) và gửi email Job Offer tới Ứng viên
+    if (candidate.email) {
+      try {
+        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_hrm_2026';
+        const magicToken = jwt.sign(
+          {
+            purpose: 'MAGIC_RESPONSE',
+            type: 'OFFER',
+            targetId: result.id,
+            candidateId: candidate.id,
+            email: candidate.email
+          },
+          JWT_SECRET,
+          { expiresIn: `${offerExpiryDays}d` }
+        );
+
+        const portalBaseUrl = (process.env.FRONTEND_URL || (process.env.PORTAL_URL ? process.env.PORTAL_URL.replace(/\/+$/, '').replace(/\/employee\/login$/, '') : 'http://localhost:5173')).replace(/\/+$/, '');
+        const magicLink = `${portalBaseUrl}/candidate/respond?token=${magicToken}`;
+
+        sendJobOfferEmail({
+          to: candidate.email,
+          name: candidate.name,
+          jobTitle: candidate.jobPosting?.title || 'Vị trí công việc',
+          baseSalary: Number(baseSalary),
+          probationRate: Number(probationRate) || minProbationRate,
+          startDate: new Date(startDate),
+          contractType: contractType || 'PROBATION',
+          notes: notes || undefined,
+          magicLink,
+          expiresAt: expiresAt
+        }).catch((err) => console.error('Lỗi gửi email Job Offer:', err));
+      } catch (tokenErr) {
+        console.error('Lỗi tạo token Offer:', tokenErr);
+      }
+    }
 
     return res.status(201).json({ message: `Đã gửi Thư mời nhận việc (Offer) tới Ứng viên (Hạn phản hồi ${offerExpiryDays} ngày)!`, offer: result });
   } catch (error: any) {

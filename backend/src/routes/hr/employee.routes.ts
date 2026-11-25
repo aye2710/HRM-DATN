@@ -74,7 +74,11 @@ router.get('/', async (req: Request, res: Response) => {
       }
     });
 
+    const userRole = (req as any).user?.role?.toUpperCase();
+    const userEmpId = (req as any).user?.employeeId;
+
     const employees = await prisma.employee.findMany({
+      where: userRole === 'EMPLOYEE' && userEmpId ? { id: userEmpId } : undefined,
       include: {
         department: true,
         position: true,
@@ -121,6 +125,7 @@ router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
       probationStartDate, probationEndDate, officialJoinDate, resignationDate, resignationReason,
       joinDate, departmentId, positionId 
     } = req.body;
+    const effectiveSocialInsurance = socialInsurance !== undefined ? socialInsurance : req.body.socialInsuranceNo;
     
     if (!code?.trim() || !fullName?.trim() || !joinDate) {
       return res.status(400).json({ error: 'Mã nhân viên, Họ và tên và Ngày vào làm không được để trống.' });
@@ -199,7 +204,7 @@ router.post('/', hrOnly, async (req: Request, res: Response): Promise<any> => {
           bankBranch: bankBranch ? String(bankBranch).trim() : null,
           bankAccount: bankAccount ? String(bankAccount).trim() : null,
           bankAccountHolder: bankAccountHolder ? String(bankAccountHolder).trim() : null,
-          socialInsurance: socialInsurance ? String(socialInsurance).trim() : null,
+          socialInsurance: (socialInsurance || req.body.socialInsuranceNo) ? String(socialInsurance || req.body.socialInsuranceNo).trim() : null,
           healthInsurance: healthInsurance ? String(healthInsurance).trim() : null,
           emergencyContactName: emergencyContactName ? String(emergencyContactName).trim() : null,
           emergencyContactPhone: emergencyContactPhone ? String(emergencyContactPhone).trim() : null,
@@ -610,6 +615,7 @@ router.put('/:id', async (req: any, res: Response): Promise<any> => {
       probationStartDate, probationEndDate, officialJoinDate, resignationDate, resignationReason,
       joinDate, departmentId, positionId 
     } = req.body;
+    const effectiveSocialInsurance = socialInsurance !== undefined ? socialInsurance : req.body.socialInsuranceNo;
     
     const cleanCode = code ? String(code).trim().toUpperCase() : undefined;
     const cleanCccd = cccd ? String(cccd).trim() : null;
@@ -777,7 +783,7 @@ router.put('/:id', async (req: any, res: Response): Promise<any> => {
         bankBranch: bankBranch ? String(bankBranch).trim() : null,
         bankAccount: bankAccount ? String(bankAccount).trim() : null,
         bankAccountHolder: bankAccountHolder ? String(bankAccountHolder).trim() : null,
-        socialInsurance: socialInsurance ? String(socialInsurance).trim() : null,
+        socialInsurance: (socialInsurance || req.body.socialInsuranceNo) ? String(socialInsurance || req.body.socialInsuranceNo).trim() : null,
         healthInsurance: healthInsurance ? String(healthInsurance).trim() : null,
         emergencyContactName: emergencyContactName ? String(emergencyContactName).trim() : null,
         emergencyContactPhone: emergencyContactPhone ? String(emergencyContactPhone).trim() : null,

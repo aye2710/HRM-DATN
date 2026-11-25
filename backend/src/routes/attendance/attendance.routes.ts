@@ -36,10 +36,6 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
 
     const now = new Date();
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    // Xóa các bản ghi tương lai (> ngày hôm nay) nếu có
-    await prisma.attendance.deleteMany({
-      where: { date: { gt: endOfToday } }
-    });
 
     if (month) {
       const [year, m] = month.split('-').map(Number);
@@ -84,9 +80,6 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
 
     const now = new Date();
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    await prisma.attendance.deleteMany({
-      where: { employeeId, date: { gt: endOfToday } }
-    });
 
     let targetYear = now.getFullYear();
     let targetMonth = now.getMonth() + 1;
@@ -109,98 +102,6 @@ router.get('/employee/:employeeId', authenticateToken, async (req: any, res: Res
       },
       orderBy: { date: 'desc' }
     });
-
-    // Nếu tháng được chọn <= tháng hiện tại mà chưa có dữ liệu log máy chấm công, tự động đồng bộ log cho nhân viên này
-    const isFutureMonth =
-      targetYear > now.getFullYear() ||
-      (targetYear === now.getFullYear() && targetMonth > now.getMonth() + 1);
-
-    if (records.length === 0 && !isFutureMonth) {
-      const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-      const maxDay =
-        targetYear === now.getFullYear() && targetMonth === now.getMonth() + 1
-          ? Math.min(daysInMonth, now.getDate())
-          : daysInMonth;
-
-      const empSeed = employeeId.split('').reduce((acc: number, ch: string) => acc + ch.charCodeAt(0), 0);
-      const toCreate: any[] = [];
-
-      for (let d = 1; d <= maxDay; d++) {
-        const cellDate = new Date(targetYear, targetMonth - 1, d, 12, 0, 0);
-        const dayMult = await getDayWorkMultiplier(cellDate);
-        if (dayMult <= 0) continue; // Chủ nhật & Thứ 7 nghỉ cách tuần -> Bỏ qua
-
-        const dateKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const recordDate = new Date(`${dateKey}T00:00:00.000Z`);
-        const seed = (empSeed * 13 + d * 17 + targetMonth * 7) % 100;
-
-        if (seed < 14) {
-          // Quên chấm công ra (Có giờ vào nhưng thiếu giờ ra -> nửa công * hệ số ngày)
-          const inMin = 48 + (seed % 14);
-          const inH = inMin >= 60 ? 8 : 7;
-          const inM = inMin >= 60 ? inMin - 60 : inMin;
-          toCreate.push({
-            employeeId,
-            date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, inH, inM, 0),
-            checkOut: null,
-            status: 'EARLY_LEAVE',
-            workingDay: 0.5 * dayMult
-          });
-        } else if (seed < 20) {
-          // Đi muộn trong 1 tiếng (08:06 - 09:00) -> Gắn cờ LATE ⚠, nếu làm đủ ca chiều thì bảo toàn 1.0 công (chờ giải trình)
-          toCreate.push({
-            employeeId,
-            date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, 8, 15 + (seed % 35), 0),
-            checkOut: new Date(targetYear, targetMonth - 1, d, 17, 30 + (seed % 15), 0),
-            status: 'LATE',
-            workingDay: 1.0 * dayMult
-          });
-        } else if (seed < 25) {
-          // Về sớm 1 tiếng (Check-out lúc 16:30) -> Làm thực tế 7h/8h, tính theo tỷ lệ 7/8 = 0.88 công
-          toCreate.push({
-            employeeId,
-            date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, 7, 55, 0),
-            checkOut: new Date(targetYear, targetMonth - 1, d, 16, 30, 0),
-            status: 'EARLY_LEAVE',
-            workingDay: Number((0.88 * dayMult).toFixed(2))
-          });
-        } else if (seed < 28) {
-          // Đi muộn quá 1 tiếng (Sau 09:00, ví dụ 09:30) -> Cổng chặn: Hủy công sáng, chỉ tính ca chiều (0.5 công)
-          toCreate.push({
-            employeeId,
-            date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, 9, 30, 0),
-            checkOut: new Date(targetYear, targetMonth - 1, d, 17, 30, 0),
-            status: 'LATE',
-            workingDay: Number((0.5 * dayMult).toFixed(2))
-          });
-        } else {
-          // Đúng giờ (<= 08:05) -> 1.0 * hệ số ngày (Thứ 7 đi làm cách tuần = 2.0 công)
-          const inTotal = 46 + ((empSeed + d * 3) % 18); // 07:46..08:03
-          const inH = inTotal >= 60 ? 8 : 7;
-          const inM = inTotal >= 60 ? inTotal - 60 : inTotal;
-          toCreate.push({
-            employeeId,
-            date: recordDate,
-            checkIn: new Date(targetYear, targetMonth - 1, d, inH, inM, 0),
-            checkOut: new Date(targetYear, targetMonth - 1, d, 17, 32 + ((empSeed + d * 5) % 24), 0),
-            status: 'NORMAL',
-            workingDay: 1.0 * dayMult
-          });
-        }
-      }
-
-      if (toCreate.length > 0) {
-        await prisma.attendance.createMany({ data: toCreate });
-        records = await prisma.attendance.findMany({
-          where: { employeeId, date: { gte: startDate, lte: endDate } },
-          orderBy: { date: 'desc' }
-        });
-      }
-    }
 
     // Thống kê nhanh trong tháng
     let totalWorkingDays = 0;
@@ -504,13 +405,19 @@ const handleCheckIn = async (req: any, res: Response): Promise<any> => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+    // Chặn nhân viên đã nghỉ việc check-in
+    const empCheck = await prisma.employee.findUnique({ where: { id: employeeId }, select: { status: true } });
+    if (!empCheck || empCheck.status === 'RESIGNED') {
+      return res.status(400).json({ error: 'Nhân viên đã nghỉ việc, không thể thực hiện Check-in.' });
+    }
+
     // Kiểm tra đã check-in hay chưa
     const existing = await prisma.attendance.findFirst({
       where: { employeeId, date: today }
     });
 
     if (existing) {
-      if (existing.status === 'ABSENT' || (existing.status === 'ON_LEAVE' && Number(existing.workingDay) >= 1.0)) {
+      if (existing.status === 'ABSENT' || (existing.status === 'ON_LEAVE' && (Number(existing.workingDay) >= 1.0 || Number(existing.workingDay) === 0))) {
         return res.status(400).json({ error: 'Bạn đã đăng ký nghỉ phép cả ngày hôm nay!' });
       }
       if (existing.checkIn) {
@@ -854,68 +761,6 @@ router.get('/adjustments', authenticateToken, async (req: any, res: Response) =>
       },
       orderBy: { createdAt: 'desc' }
     });
-
-    // Tự động khởi tạo các đơn mẫu theo chuẩn Công ty LLA nếu chưa có đơn chờ duyệt
-    if (!records.some(r => r.status === 'PENDING') && records.length <= 2 && userRole !== 'EMPLOYEE') {
-      const missingOutRecords = await prisma.attendance.findMany({
-        where: {
-          OR: [{ status: 'EARLY_LEAVE' }, { status: 'LATE' }]
-        },
-        take: 6,
-        orderBy: { date: 'desc' }
-      });
-
-      if (missingOutRecords.length > 0) {
-        const sampleReasons = [
-          'Xin chấm công do lúc về quên quét dấu vân tay tại máy chấm công sảnh',
-          'Xin phép đến muộn 45 phút do có lịch học trên trường ca sáng từ 6h30 đến 8h30',
-          'Xin chấm công do mới làm lại dấu vân tay, máy chưa nhận diện lúc vào ca',
-          'Xin phép đi muộn 30 phút do xe hỏng trên đường đến công ty',
-          'Xin xác nhận chấm công do đi gặp khách hàng cùng PM không về lại văn phòng check-out',
-          'Xin phép đi muộn 25 phút do đưa con đi khám bệnh đầu giờ sáng'
-        ];
-
-        for (let i = 0; i < missingOutRecords.length; i++) {
-          const att = missingOutRecords[i];
-          const inTimeStr = att.checkIn
-            ? `${String(new Date(att.checkIn).getHours()).padStart(2, '0')}:${String(new Date(att.checkIn).getMinutes()).padStart(2, '0')}`
-            : '07:54';
-          const isMissingOut = !att.checkOut;
-
-          await prisma.attendanceAdjustment.create({
-            data: {
-              employeeId: att.employeeId,
-              date: att.date,
-              type: isMissingOut
-                ? 'Đơn xác nhận chấm công (Quên Check-out)'
-                : 'Đơn xin phép đi muộn (5p - 60p)',
-              oldTime: isMissingOut ? `${inTimeStr} / — (Thiếu giờ ra)` : `${inTimeStr} (Đi muộn > 5p)`,
-              newTime: isMissingOut
-                ? 'Bổ sung giờ ra (08:00 - 17:30) & Tính đủ công'
-                : 'Xin miễn phạt tiền đi muộn (Lần 1/3)',
-              reason: sampleReasons[i % sampleReasons.length],
-              status: 'PENDING'
-            }
-          });
-        }
-
-        records = await prisma.attendanceAdjustment.findMany({
-          where,
-          include: {
-            employee: {
-              select: {
-                id: true,
-                fullName: true,
-                code: true,
-                department: { select: { name: true } },
-                position: { select: { title: true } }
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        });
-      }
-    }
 
     res.json(records);
   } catch (error: any) {

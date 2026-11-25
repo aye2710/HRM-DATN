@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../../db';
 import { authenticateToken, requireRole } from '../../middlewares/auth.middleware';
+import { sendInterviewInvitationEmail } from '../../utils/mailer';
 
 const router = Router();
 router.use(authenticateToken);
@@ -113,6 +115,40 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
         where: { id: candidateId },
         data: { status: 'INTERVIEWING' }
       });
+    }
+
+    // Tự động tạo Magic Link (24h) và gửi email mời phỏng vấn tới Ứng viên
+    if (candidate.email) {
+      try {
+        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_hrm_2026';
+        const magicToken = jwt.sign(
+          {
+            purpose: 'MAGIC_RESPONSE',
+            type: 'INTERVIEW',
+            targetId: newInterview.id,
+            candidateId: candidate.id,
+            email: candidate.email
+          },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+
+        const portalBaseUrl = (process.env.FRONTEND_URL || (process.env.PORTAL_URL ? process.env.PORTAL_URL.replace(/\/+$/, '').replace(/\/employee\/login$/, '') : 'http://localhost:5173')).replace(/\/+$/, '');
+        const magicLink = `${portalBaseUrl}/candidate/respond?token=${magicToken}`;
+
+        sendInterviewInvitationEmail({
+          to: candidate.email,
+          name: candidate.name,
+          jobTitle: newInterview.candidate?.jobPosting?.title || 'Vị trí ứng tuyển',
+          roundName: newInterview.roundName,
+          scheduledAt: newInterview.scheduledAt,
+          location: newInterview.location || 'Trực tuyến (Google Meet / Zoom)',
+          magicLink,
+          expiresAt: expiresAt
+        }).catch((err) => console.error('Lỗi gửi email phỏng vấn:', err));
+      } catch (tokenErr) {
+        console.error('Lỗi tạo token mời phỏng vấn:', tokenErr);
+      }
     }
 
     return res.status(201).json(newInterview);
@@ -230,8 +266,46 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
         expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
         candidateResponse: null,
         respondedAt: null
+      },
+      include: {
+        candidate: {
+          include: { jobPosting: true }
+        }
       }
     });
+
+    if (updated.candidate?.email) {
+      try {
+        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_hrm_2026';
+        const magicToken = jwt.sign(
+          {
+            purpose: 'MAGIC_RESPONSE',
+            type: 'INTERVIEW',
+            targetId: updated.id,
+            candidateId: updated.candidate.id,
+            email: updated.candidate.email
+          },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+        const portalBaseUrl = (process.env.FRONTEND_URL || (process.env.PORTAL_URL ? process.env.PORTAL_URL.replace(/\/+$/, '').replace(/\/employee\/login$/, '') : 'http://localhost:5173')).replace(/\/+$/, '');
+        const magicLink = `${portalBaseUrl}/candidate/respond?token=${magicToken}`;
+
+        sendInterviewInvitationEmail({
+          to: updated.candidate.email,
+          name: updated.candidate.name,
+          jobTitle: updated.candidate.jobPosting?.title || 'Vị trí ứng tuyển',
+          roundName: updated.roundName,
+          scheduledAt: updated.scheduledAt,
+          location: updated.location || 'Trực tuyến (Google Meet / Zoom)',
+          magicLink,
+          expiresAt: updated.expiresAt!
+        }).catch((err) => console.error('Lỗi gửi email cập nhật phỏng vấn:', err));
+      } catch (err) {
+        console.error('Lỗi tạo token cập nhật phỏng vấn:', err);
+      }
+    }
+
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Lỗi khi cập nhật lịch phỏng vấn' });

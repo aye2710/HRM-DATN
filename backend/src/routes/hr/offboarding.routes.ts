@@ -376,14 +376,15 @@ router.post('/finalize', hrOnly, async (req: any, res: Response): Promise<any> =
     const result = await prisma.$transaction(async (tx) => {
       const currentEmp = await tx.employee.findUnique({ where: { id: employeeId } });
       if (!currentEmp) throw new Error('Không tìm thấy nhân viên');
+      if (currentEmp.status === 'RESIGNED') {
+        throw new Error('Nhân viên này đã hoàn tất thủ tục nghỉ việc (RESIGNED) trước đó.');
+      }
 
-      // Đổi status sang RESIGNED
+      // Đổi status sang RESIGNED (giữ nguyên departmentId/positionId để không mất lịch sử báo cáo)
       const updatedEmp = await tx.employee.update({
         where: { id: employeeId },
         data: {
           status: 'RESIGNED',
-          departmentId: null,
-          positionId: null,
           resignationDate: effDate,
           resignationReason: terminationReason || currentEmp.resignationReason || 'Nghỉ việc theo quy trình thôi việc & bàn giao'
         }

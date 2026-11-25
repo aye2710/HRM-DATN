@@ -14,10 +14,60 @@ import { CandidateAuthModal } from './CandidateAuthModal';
 import { CandidateApplicationsModal } from './CandidateApplicationsModal';
 import { JobDetailModal } from './JobDetailModal';
 
+const RevealOnScroll = ({ children, delay = 0 }) => {
+  const [visible, setVisible] = React.useState(false);
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.12 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(32px)',
+        transition: `opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 0.65s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
 export const CandidateLandingPage = () => {
   const navigate = useNavigate();
   const [jobPostings, setJobPostings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrollY(window.scrollY || 0);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Candidate Auth State
   const [candidateUser, setCandidateUser] = useState(() => {
@@ -473,28 +523,72 @@ export const CandidateLandingPage = () => {
         </div>
       </nav>
 
-      {/* 2. Hero Section */}
+      {/* 2. Hero Section (Parallax Background + Glassmorphism) */}
       <div style={{ 
-        padding: '7.5rem 2rem 3.5rem 2rem', 
+        padding: '8.5rem 2rem 4.5rem 2rem', 
         textAlign: 'center', 
         position: 'relative', 
-        background: 'linear-gradient(180deg, rgba(37, 99, 235, 0.07) 0%, rgba(248, 250, 252, 1) 100%)'
+        overflow: 'hidden',
+        backgroundColor: '#0F172A'
       }}>
-        <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Ảnh nền Parallax chuyển động theo cuộn */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: '-15% 0 -15% 0',
+            backgroundImage: 'url("https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1920&q=80")',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            transform: `translate3d(0, ${Math.min(scrollY * 0.38, 220)}px, 0) scale(1.15)`,
+            willChange: 'transform',
+            zIndex: 0
+          }}
+        />
+        {/* Lớp phủ Gradient vừa phải để ảnh nền vẫn hiện rõ mà chữ vẫn nổi bật */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.62) 0%, rgba(30, 58, 138, 0.48) 55%, rgba(15, 23, 42, 0.68) 100%)',
+            zIndex: 1
+          }}
+        />
+        {/* Khối ánh sáng trôi nhẹ tạo chiều sâu */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: '-80px',
+            left: '10%',
+            width: '320px',
+            height: '320px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.35) 0%, transparent 70%)',
+            filter: 'blur(60px)',
+            transform: `translate3d(0, ${scrollY * 0.15}px, 0)`,
+            zIndex: 1,
+            pointerEvents: 'none'
+          }}
+        />
+
+        <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 2 }}>
           
           <div style={{ 
             display: 'inline-flex', alignItems: 'center', gap: '0.5rem', 
-            padding: '0.35rem 0.95rem', borderRadius: '9999px', 
-            backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE',
-            color: '#1D4ED8', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '1.25rem' 
+            padding: '0.4rem 1rem', borderRadius: '9999px', 
+            backgroundColor: 'rgba(255, 255, 255, 0.12)', border: '1px solid rgba(255, 255, 255, 0.25)',
+            backdropFilter: 'blur(10px)',
+            color: '#93C5FD', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '1.25rem' 
           }}>
             <Award size={16} /> Top 10 Môi Trường Công Nghệ Tốt Nhất Việt Nam 2026 (Anphabe & VCCI)
           </div>
 
-          <h1 style={{ fontSize: '3.25rem', color: '#0F172A', marginBottom: '1.25rem', lineHeight: 1.18, fontWeight: 800, letterSpacing: '-0.025em' }}>
+          <h1 style={{ fontSize: '3.25rem', color: '#FFFFFF', marginBottom: '1.25rem', lineHeight: 1.18, fontWeight: 800, letterSpacing: '-0.025em', textShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
             Kiến tạo tương lai số cùng <br/>
             <span style={{ 
-              background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', 
+              background: 'linear-gradient(135deg, #60A5FA 0%, #38BDF8 100%)', 
               WebkitBackgroundClip: 'text', 
               WebkitTextFillColor: 'transparent' 
             }}>
@@ -502,9 +596,8 @@ export const CandidateLandingPage = () => {
             </span>
           </h1>
 
-          <p style={{ fontSize: '1.125rem', color: '#475569', marginBottom: '2rem', maxWidth: '680px', lineHeight: 1.65 }}>
-            Gia nhập đội ngũ hơn 500 kỹ sư tinh hoa. Chúng tôi xây dựng những giải pháp công nghệ biểu tượng, 
-            minh bạch chế độ đãi ngộ và trao quyền tối đa để bạn bứt phá giới hạn nghề nghiệp.
+          <p style={{ fontSize: '1.125rem', color: '#E2E8F0', marginBottom: '2rem', maxWidth: '600px', lineHeight: 1.6 }}>
+            Gia nhập đội ngũ 500+ kỹ sư tinh hoa — môi trường minh bạch, đãi ngộ xứng tầm và cơ hội bứt phá mỗi ngày.
           </p>
 
           <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '2.5rem' }}>
@@ -514,7 +607,7 @@ export const CandidateLandingPage = () => {
               style={{ 
                 padding: '0.75rem 2rem', fontSize: '0.95rem', height: '46px', 
                 borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                textDecoration: 'none', fontWeight: 600, boxShadow: '0 8px 20px rgba(37, 99, 235, 0.25)' 
+                textDecoration: 'none', fontWeight: 600, boxShadow: '0 8px 25px rgba(37, 99, 235, 0.45)' 
               }}
             >
               <Search size={18} /> Khám phá {jobPostings.length} vị trí đang tuyển
@@ -525,41 +618,43 @@ export const CandidateLandingPage = () => {
               style={{ 
                 padding: '0.75rem 1.75rem', fontSize: '0.95rem', height: '46px', 
                 borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
-                backgroundColor: '#FFFFFF', borderColor: '#CBD5E1', color: '#1E293B', fontWeight: 600
+                backgroundColor: 'rgba(255, 255, 255, 0.12)', backdropFilter: 'blur(10px)',
+                borderColor: 'rgba(255, 255, 255, 0.3)', color: '#FFFFFF', fontWeight: 600
               }}
             >
               Tra cứu hồ sơ ứng tuyển
             </button>
           </div>
 
-          {/* Key Stats Counter Bar (Con số ấn tượng) */}
+          {/* Key Stats Counter Bar (Glassmorphism - 4 cột thẳng hàng) */}
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-            gap: '1.5rem', 
+            gridTemplateColumns: 'repeat(4, 1fr)', 
+            gap: '1.25rem', 
             width: '100%', 
-            maxWidth: '820px',
-            backgroundColor: '#FFFFFF',
+            maxWidth: '920px',
+            backgroundColor: 'rgba(255, 255, 255, 0.14)',
+            backdropFilter: 'blur(16px)',
             padding: '1.5rem 2rem',
             borderRadius: '1rem',
-            border: '1px solid #E2E8F0',
-            boxShadow: '0 4px 16px -2px rgba(0, 0, 0, 0.05)'
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.25)'
           }}>
             <div>
-              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#2563EB' }}>500+</div>
-              <div style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 500 }}>Kỹ sư & Chuyên gia</div>
+              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#60A5FA' }}>500+</div>
+              <div style={{ fontSize: '0.8125rem', color: '#E2E8F0', fontWeight: 500 }}>Kỹ sư & Chuyên gia</div>
             </div>
             <div>
-              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#10B981' }}>98%</div>
-              <div style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 500 }}>Tỷ lệ nhân sự hài lòng</div>
+              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#34D399' }}>98%</div>
+              <div style={{ fontSize: '0.8125rem', color: '#E2E8F0', fontWeight: 500 }}>Tỷ lệ nhân sự hài lòng</div>
             </div>
             <div>
-              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#F59E0B' }}>12+</div>
-              <div style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 500 }}>Năm kiến tạo giải pháp</div>
+              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#FBBF24' }}>12+</div>
+              <div style={{ fontSize: '0.8125rem', color: '#E2E8F0', fontWeight: 500 }}>Năm kiến tạo giải pháp</div>
             </div>
             <div>
-              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#6366F1' }}>100%</div>
-              <div style={{ fontSize: '0.8125rem', color: '#64748B', fontWeight: 500 }}>Đóng Full BHXH Gross</div>
+              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#818CF8' }}>100%</div>
+              <div style={{ fontSize: '0.8125rem', color: '#E2E8F0', fontWeight: 500 }}>Đóng Full BHXH Gross</div>
             </div>
           </div>
 
@@ -567,6 +662,7 @@ export const CandidateLandingPage = () => {
       </div>
 
       {/* 3. VỊ TRÍ ĐANG TUYỂN DỤNG (ĐÃ ĐƯA LÊN CAO NGAY SAU HERO) */}
+      <RevealOnScroll>
       <div id="jobs" style={{ padding: '4rem 2rem 5rem 2rem', maxWidth: '1120px', margin: '0 auto' }}>
         
         {/* Section Header */}
@@ -591,10 +687,10 @@ export const CandidateLandingPage = () => {
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
           marginBottom: '2rem'
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '0.85rem', alignItems: 'center' }}>
             
             {/* Keyword Search */}
-            <div style={{ position: 'relative', gridColumn: 'span 2' }}>
+            <div style={{ position: 'relative' }}>
               <Search size={18} color="#94A3B8" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input 
                 type="text"
@@ -775,40 +871,13 @@ export const CandidateLandingPage = () => {
           )}
 
           {/* Talent Pool Banner */}
-          <div style={{ 
-            backgroundColor: '#EFF6FF', 
-            borderRadius: '0.875rem', 
-            border: '1px solid #BFDBFE', 
-            padding: '2rem', 
-            marginTop: '1.5rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '1.5rem',
-            flexWrap: 'wrap'
-          }}>
-            <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#1E3A8A', margin: '0 0 0.35rem 0' }}>
-                Chưa tìm thấy vị trí phù hợp với năng lực của bạn?
-              </h3>
-              <p style={{ margin: 0, color: '#3B82F6', fontSize: '0.875rem' }}>
-                Gia nhập Mạng lưới Tài năng LLA (Talent Pool) - Đón đầu cơ hội nghề nghiệp tương lai ngay khi có dự án mới.
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowTalentPoolModal(true)}
-              className="btn btn-primary"
-              style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}
-            >
-              Gửi CV vào Talent Pool ➔
-            </button>
-          </div>
-
         </div>
 
       </div>
 
       {/* 4. VĂN HÓA & GIÁ TRỊ CỐT LÕI (Core Values) */}
+      </RevealOnScroll>
+      <RevealOnScroll>
       <div id="culture" style={{ backgroundColor: '#FFFFFF', padding: '5rem 2rem', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
         <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
@@ -936,6 +1005,8 @@ export const CandidateLandingPage = () => {
       </div>
 
       {/* 6. CƠ HỘI PHÁT TRIỂN NGHỀ NGHIỆP (Growth) */}
+      </RevealOnScroll>
+      <RevealOnScroll>
       <div id="growth" style={{ backgroundColor: '#FFFFFF', padding: '5rem 2rem', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
         <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
@@ -1027,6 +1098,8 @@ export const CandidateLandingPage = () => {
       </div>
 
       {/* 8. QUY TRÌNH TUYỂN DỤNG TINH GỌN & CAM KẾT SLA (Process) */}
+      </RevealOnScroll>
+      <RevealOnScroll>
       <div id="process" style={{ backgroundColor: '#FFFFFF', padding: '5rem 2rem', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
@@ -1218,6 +1291,8 @@ export const CandidateLandingPage = () => {
       </div>
 
       {/* 10. CÂU HỎI THƯỜNG GẶP (FAQ Accordion) */}
+      </RevealOnScroll>
+      <RevealOnScroll>
       <div id="faq" style={{ backgroundColor: '#FFFFFF', padding: '5rem 2rem', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
         <div style={{ maxWidth: '820px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
@@ -1277,6 +1352,7 @@ export const CandidateLandingPage = () => {
         </div>
       </div>
 
+      </RevealOnScroll>
       {/* 11. FOOTER TOÀN DIỆN & PHÁP LÝ BẢO MẬT (Chuyển nút Quản trị xuống đây kín đáo) */}
       <footer style={{ backgroundColor: '#0F172A', color: '#94A3B8', padding: '4.5rem 2rem 2.5rem 2rem' }}>
         <div style={{ maxWidth: '1120px', margin: '0 auto' }}>

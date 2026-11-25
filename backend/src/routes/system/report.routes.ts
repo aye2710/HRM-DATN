@@ -155,19 +155,25 @@ router.get('/overview', managementOnly, async (req: Request, res: Response): Pro
     const latestDeductionSum = Math.max(0, latestGrossSum - latestNetSum);
 
     // 8. Tuyển dụng theo phễu (Recruitment Funnel)
-    const [totalJobPostings, openJobPostings, totalCandidates, hiredCandidates] = await Promise.all([
+    const [totalJobPostings, openJobPostings, totalCandidates, hiredCandidates, candidatesByStatus] = await Promise.all([
       prisma.jobPosting.count(),
       prisma.jobPosting.count({ where: { status: 'PUBLISHED' } }),
       prisma.candidate.count(),
-      prisma.candidate.count({ where: { status: 'HIRED' } })
+      prisma.candidate.count({ where: { status: 'HIRED' } }),
+      prisma.candidate.groupBy({ by: ['status'], _count: { _all: true } })
     ]);
 
-    // Phân rã phễu tuyển dụng 5 giai đoạn
+    const statusCountMap = new Map(candidatesByStatus.map((c) => [c.status, c._count._all]));
+    const screeningCount = (statusCountMap.get('SCREENING') || 0) + (statusCountMap.get('INTERVIEWING') || 0) + (statusCountMap.get('OFFERING') || 0) + hiredCandidates;
+    const interviewCount = (statusCountMap.get('INTERVIEWING') || 0) + (statusCountMap.get('OFFERING') || 0) + hiredCandidates;
+    const offeredCount = (statusCountMap.get('OFFERING') || 0) + hiredCandidates;
+
+    // Phân rã phễu tuyển dụng 5 giai đoạn từ dữ liệu thực tế DB
     const funnelStats = {
       applied: totalCandidates,
-      screening: Math.round(totalCandidates * 0.75),
-      interview: Math.round(totalCandidates * 0.45),
-      offered: Math.round(totalCandidates * 0.25),
+      screening: screeningCount,
+      interview: interviewCount,
+      offered: offeredCount,
       hired: hiredCandidates
     };
 

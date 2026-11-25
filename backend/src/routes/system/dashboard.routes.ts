@@ -31,6 +31,7 @@ function buildContractBuckets(
     contractNumber: string | null;
     status: string;
     endDate: Date | null;
+    employeeId: string;
     employee: { fullName: string; status: string; department: { name: string } | null } | null;
   }>,
   warnDays: number,
@@ -69,7 +70,7 @@ function buildContractBuckets(
         badgeText: `Quá ${Math.abs(daysLeft)} ngày`,
         severity: 'CRITICAL',
         ageDays: Math.abs(daysLeft),
-        route: `/internal/contracts/${c.id}`
+        route: `/internal/contracts/${c.employeeId}`
       });
       continue;
     }
@@ -84,7 +85,7 @@ function buildContractBuckets(
         badgeText: daysLeft === 0 ? 'Hết hạn hôm nay' : `Còn ${daysLeft} ngày`,
         severity: 'CRITICAL',
         ageDays: Math.max(0, 15 - daysLeft),
-        route: `/internal/contracts/${c.id}`
+        route: `/internal/contracts/${c.employeeId}`
       });
     } else if (daysLeft <= 45) {
       d16to45Count++;
@@ -96,7 +97,7 @@ function buildContractBuckets(
           badgeText: `Còn ${daysLeft} ngày`,
           severity: 'WARNING',
           ageDays: Math.max(0, warnDays - daysLeft),
-          route: `/internal/contracts/${c.id}`
+          route: `/internal/contracts/${c.employeeId}`
         });
       }
     } else if (daysLeft <= 90) {
@@ -302,6 +303,7 @@ router.get('/overview', async (req: any, res: Response): Promise<any> => {
       prisma.contract.findMany({
         select: {
           id: true,
+          employeeId: true,
           contractNumber: true,
           status: true,
           baseSalary: true,

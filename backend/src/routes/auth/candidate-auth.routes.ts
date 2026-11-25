@@ -558,4 +558,409 @@ router.post('/interviews/:id/decline', authenticateCandidateToken, async (req: a
   }
 });
 
+// =========================================================================
+// 9. PUBLIC MAGIC LINK ENDPOINTS (KHÔNG CẦN ĐĂNG KÝ / ĐĂNG NHẬP TÀI KHOẢN)
+// =========================================================================
+
+// GET /magic-respond/:token: Lấy thông tin phỏng vấn hoặc Offer từ Magic Token
+router.get('/magic-respond/:token', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const token = req.params.token as string;
+    if (!token) {
+      return res.status(400).json({ error: 'Thiếu mã xác thực phản hồi (Token).' });
+    }
+
+    let payload: any;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err: any) {
+      return res.status(400).json({
+        expired: true,
+        error: 'Liên kết phản hồi đã hết hạn hoặc không hợp lệ (Vượt quá thời hạn 24 giờ). Vui lòng liên hệ Bộ phận Tuyển dụng.'
+      });
+    }
+
+    const { purpose, type, targetId, candidateId } = payload;
+    if (purpose !== 'MAGIC_RESPONSE') {
+      return res.status(400).json({ error: 'Token không đúng mục đích sử dụng.' });
+    }
+
+    const now = new Date();
+
+    if (type === 'INTERVIEW') {
+      const interview = await prisma.interviewRound.findUnique({
+        where: { id: targetId },
+        include: {
+          candidate: {
+            include: {
+              jobPosting: {
+                include: { department: true, position: true }
+              }
+            }
+          }
+        }
+      });
+
+      if (!interview) {
+        return res.status(404).json({ error: 'Không tìm thấy thông tin lịch phỏng vấn.' });
+      }
+
+      // Kiểm tra xem đã quá 24h chưa
+      let isExpired = false;
+      if (interview.expiresAt && now > new Date(interview.expiresAt)) {
+        isExpired = true;
+        if (interview.status === 'PENDING_CONFIRMATION') {
+          await prisma.interviewRound.update({
+            where: { id: interview.id },
+            data: {
+              status: 'CANCELLED',
+              candidateResponse: 'Hệ thống tự động hủy: Ứng viên không xác nhận tham gia trong vòng 24 giờ.'
+            }
+          });
+          await prisma.candidate.update({
+            where: { id: interview.candidateId },
+            data: { status: 'REJECTED' }
+          });
+          interview.status = 'CANCELLED';
+        }
+      }
+
+      return res.json({
+        type: 'INTERVIEW',
+        expired: isExpired,
+        interview: {
+          id: interview.id,
+          roundName: interview.roundName,
+          scheduledAt: interview.scheduledAt,
+          location: interview.location,
+          status: interview.status,
+          expiresAt: interview.expiresAt,
+          candidateResponse: interview.candidateResponse,
+          respondedAt: interview.respondedAt
+        },
+        candidate: {
+          id: interview.candidate.id,
+          name: interview.candidate.name,
+          email: interview.candidate.email,
+          phone: interview.candidate.phone,
+          jobTitle: interview.candidate.jobPosting?.title || 'Vị trí ứng tuyển',
+          department: interview.candidate.jobPosting?.department?.name || 'Công ty TNHH LLA'
+        }
+      });
+    }
+
+    if (type === 'OFFER') {
+      const offer = await prisma.jobOffer.findUnique({
+        where: { id: targetId },
+        include: {
+          candidate: {
+            include: {
+              jobPosting: {
+                include: { department: true, position: true }
+              },
+              preOnboarding: true
+            }
+          }
+        }
+      });
+
+      if (!offer) {
+        return res.status(404).json({ error: 'Không tìm thấy thông tin Thư mời nhận việc (Offer).' });
+      }
+
+      let isExpired = false;
+      if (offer.expiresAt && now > new Date(offer.expiresAt)) {
+        isExpired = true;
+        if (offer.status === 'PENDING') {
+          await prisma.jobOffer.update({
+            where: { id: offer.id },
+            data: {
+              status: 'REJECTED',
+              declineReason: 'Hệ thống tự động hủy: Quá thời hạn 24 giờ phản hồi Thư mời nhận việc (Offer).'
+            }
+          });
+          await prisma.candidate.update({
+            where: { id: offer.candidateId },
+            data: { status: 'REJECTED' }
+          });
+          offer.status = 'REJECTED';
+        }
+      }
+
+      return res.json({
+        type: 'OFFER',
+        expired: isExpired,
+        offer: {
+          id: offer.id,
+          baseSalary: offer.baseSalary,
+          probationRate: offer.probationRate,
+          startDate: offer.startDate,
+          contractType: offer.contractType,
+          notes: offer.notes,
+          status: offer.status,
+          expiresAt: offer.expiresAt,
+          declineReason: offer.declineReason,
+          respondedAt: offer.respondedAt
+        },
+        preOnboarding: offer.candidate.preOnboarding,
+        candidate: {
+          id: offer.candidate.id,
+          name: offer.candidate.name,
+          email: offer.candidate.email,
+          phone: offer.candidate.phone,
+          jobTitle: offer.candidate.jobPosting?.title || 'Vị trí công việc',
+          department: offer.candidate.jobPosting?.department?.name || 'Công ty TNHH LLA'
+        }
+      });
+    }
+
+    return res.status(400).json({ error: 'Loại phản hồi không hỗ trợ.' });
+  } catch (error: any) {
+    console.error('Magic respond GET error:', error);
+    return res.status(500).json({ error: 'Lỗi máy chủ khi lấy dữ liệu phản hồi.' });
+  }
+});
+
+// POST /magic-respond/:token: Thực hiện phản hồi (Xác nhận/Đổi lịch phỏng vấn HOẶC Đồng ý/Từ chối Offer)
+router.post('/magic-respond/:token', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const token = req.params.token as string;
+    if (!token) {
+      return res.status(400).json({ error: 'Thiếu mã xác thực phản hồi (Token).' });
+    }
+
+    let payload: any;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err: any) {
+      return res.status(400).json({
+        error: 'Liên kết phản hồi đã hết hạn hoặc không hợp lệ (Vượt quá thời hạn 24 giờ). Vui lòng liên hệ Bộ phận Tuyển dụng.'
+      });
+    }
+
+    const { purpose, type, targetId, candidateId } = payload;
+    if (purpose !== 'MAGIC_RESPONSE') {
+      return res.status(400).json({ error: 'Token không đúng mục đích sử dụng.' });
+    }
+
+    const now = new Date();
+
+    // 1. XỬ LÝ PHẢN HỒI LỊCH PHỎNG VẤN (CONFIRM / RESCHEDULE / DECLINE)
+    if (type === 'INTERVIEW') {
+      const { action, candidateNotes, reason, proposedDate, proposedTimeSlot } = req.body;
+
+      const interview = await prisma.interviewRound.findUnique({
+        where: { id: targetId },
+        include: { candidate: true }
+      });
+
+      if (!interview || interview.candidateId !== candidateId) {
+        return res.status(404).json({ error: 'Không tìm thấy lịch phỏng vấn tương ứng.' });
+      }
+
+      if (interview.status === 'CONFIRMED') {
+        return res.status(400).json({ error: 'Bạn đã xác nhận tham gia buổi phỏng vấn này trước đó rồi.' });
+      }
+
+      if (interview.status === 'CANCELLED' || (interview.expiresAt && now > new Date(interview.expiresAt))) {
+        return res.status(400).json({ error: 'Lịch hẹn phỏng vấn này đã quá thời hạn 24 giờ phản hồi và đã tự động hủy.' });
+      }
+
+      if (action === 'CONFIRM') {
+        const updated = await prisma.interviewRound.update({
+          where: { id: targetId },
+          data: {
+            status: 'CONFIRMED',
+            respondedAt: now,
+            candidateResponse: candidateNotes || 'Ứng viên xác nhận tham gia đúng giờ (phản hồi qua email)'
+          }
+        });
+        return res.json({
+          message: 'Chúc mừng bạn đã xác nhận tham gia buổi phỏng vấn thành công! Hãy chuẩn bị tốt và có mặt đúng giờ nhé.',
+          data: updated
+        });
+      }
+
+      if (action === 'RESCHEDULE' || action === 'DECLINE') {
+        let finalReason = '';
+        if (action === 'RESCHEDULE') {
+          const timeSlotMap: Record<string, string> = {
+            MORNING: 'Buổi sáng (09:00 - 11:30)',
+            AFTERNOON: 'Buổi chiều (14:00 - 17:30)',
+            AFTER_HOURS: 'Sau giờ hành chính (Sau 17:30)',
+            ANY: 'Linh hoạt theo lịch sắp xếp của HR'
+          };
+          const slotText = timeSlotMap[proposedTimeSlot] || proposedTimeSlot || 'Linh hoạt';
+          const dateText = proposedDate ? ` ngày ${new Date(proposedDate).toLocaleDateString('vi-VN')}` : '';
+          finalReason = `[XIN ĐỔI LỊCH] Lý do: ${reason || 'Trùng lịch bận'}. Đề xuất: ${dateText} - ${slotText}. Lời nhắn: ${candidateNotes || ''}`.trim();
+        } else {
+          finalReason = `[TỪ CHỐI PHỎNG VẤN] Lý do: ${reason || 'Lý do cá nhân'}. Lời nhắn: ${candidateNotes || ''}`.trim();
+        }
+
+        const updated = await prisma.interviewRound.update({
+          where: { id: targetId },
+          data: {
+            status: 'DECLINED',
+            respondedAt: now,
+            candidateResponse: finalReason
+          }
+        });
+
+        return res.json({
+          message: action === 'RESCHEDULE' ? 'Đã gửi đề xuất dời lịch phỏng vấn đến Bộ phận Tuyển dụng thành công!' : 'Đã ghi nhận phản hồi từ chối lịch phỏng vấn của bạn.',
+          data: updated
+        });
+      }
+
+      return res.status(400).json({ error: 'Hành động không hợp lệ.' });
+    }
+
+    // 2. XỬ LÝ PHẢN HỒI THƯ MỜI NHẬN VIỆC (ACCEPT / REJECT)
+    if (type === 'OFFER') {
+      const {
+        action,
+        declineReason,
+        cccd,
+        gender,
+        dateOfBirth,
+        address,
+        nationality,
+        maritalStatus,
+        taxCode,
+        bankName,
+        bankAccount,
+        socialInsurance,
+        healthInsurance,
+        emergencyContactName,
+        emergencyContactPhone,
+        emergencyContactRelation
+      } = req.body;
+
+      const offer = await prisma.jobOffer.findUnique({
+        where: { id: targetId },
+        include: { candidate: true }
+      });
+
+      if (!offer || offer.candidateId !== candidateId) {
+        return res.status(404).json({ error: 'Không tìm thấy thông tin Offer tương ứng.' });
+      }
+
+      if (offer.status === 'ACCEPTED') {
+        return res.status(400).json({ error: 'Bạn đã xác nhận đồng ý Offer này trước đó rồi.' });
+      }
+
+      if (offer.status === 'REJECTED' || (offer.expiresAt && now > new Date(offer.expiresAt))) {
+        return res.status(400).json({ error: 'Thư mời nhận việc (Offer) đã quá thời hạn phản hồi.' });
+      }
+
+      if (action === 'REJECT') {
+        await prisma.$transaction(async (tx) => {
+          await tx.jobOffer.update({
+            where: { id: targetId },
+            data: {
+              status: 'REJECTED',
+              declineReason: declineReason || 'Ứng viên từ chối Offer (qua email link)',
+              respondedAt: now
+            }
+          });
+
+          await tx.candidate.update({
+            where: { id: candidateId },
+            data: { status: 'REJECTED' }
+          });
+        });
+
+        return res.json({ message: 'Đã ghi nhận phản hồi từ chối Offer của bạn.' });
+      }
+
+      if (action === 'ACCEPT') {
+        // Validate CCCD 12 số
+        const cleanCccd = String(cccd || '').trim();
+        if (!/^\d{12}$/.test(cleanCccd)) {
+          return res.status(400).json({ error: 'Số CCCD gắn chip không hợp lệ. Vui lòng nhập chính xác 12 chữ số.' });
+        }
+
+        if (!dateOfBirth || isNaN(Date.parse(dateOfBirth))) {
+          return res.status(400).json({ error: 'Vui lòng cung cấp ngày sinh hợp lệ.' });
+        }
+
+        if (!address?.trim()) {
+          return res.status(400).json({ error: 'Vui lòng cung cấp địa chỉ thường trú hoặc nơi ở hiện tại.' });
+        }
+
+        if (!bankName?.trim() || !bankAccount?.trim()) {
+          return res.status(400).json({ error: 'Vui lòng điền đầy đủ Tên ngân hàng và Số tài khoản chính chủ để nhận lương.' });
+        }
+
+        if (!emergencyContactName?.trim() || !emergencyContactPhone?.trim() || !emergencyContactRelation?.trim()) {
+          return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin Người liên hệ khẩn cấp (Họ tên, SĐT, Mối quan hệ).' });
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+          const updatedOffer = await tx.jobOffer.update({
+            where: { id: targetId },
+            data: {
+              status: 'ACCEPTED',
+              respondedAt: now
+            }
+          });
+
+          const preOnboarding = await tx.preOnboardingProfile.upsert({
+            where: { candidateId },
+            create: {
+              candidateId,
+              cccd: cleanCccd,
+              gender: gender || 'MALE',
+              dateOfBirth: new Date(dateOfBirth),
+              address: address.trim(),
+              nationality: nationality || 'Việt Nam',
+              maritalStatus: maritalStatus || 'SINGLE',
+              taxCode: taxCode ? String(taxCode).trim() : null,
+              bankName: bankName.trim(),
+              bankAccount: bankAccount.trim(),
+              socialInsurance: socialInsurance ? String(socialInsurance).trim() : null,
+              healthInsurance: healthInsurance ? String(healthInsurance).trim() : null,
+              emergencyContactName: emergencyContactName.trim(),
+              emergencyContactPhone: emergencyContactPhone.trim(),
+              emergencyContactRelation: emergencyContactRelation.trim(),
+              submittedAt: now
+            },
+            update: {
+              cccd: cleanCccd,
+              gender: gender || 'MALE',
+              dateOfBirth: new Date(dateOfBirth),
+              address: address.trim(),
+              nationality: nationality || 'Việt Nam',
+              maritalStatus: maritalStatus || 'SINGLE',
+              taxCode: taxCode ? String(taxCode).trim() : null,
+              bankName: bankName.trim(),
+              bankAccount: bankAccount.trim(),
+              socialInsurance: socialInsurance ? String(socialInsurance).trim() : null,
+              healthInsurance: healthInsurance ? String(healthInsurance).trim() : null,
+              emergencyContactName: emergencyContactName.trim(),
+              emergencyContactPhone: emergencyContactPhone.trim(),
+              emergencyContactRelation: emergencyContactRelation.trim(),
+              submittedAt: now
+            }
+          });
+
+          return { updatedOffer, preOnboarding };
+        });
+
+        return res.json({
+          message: 'Chúc mừng bạn đã đồng ý Offer và hoàn tất khai báo hồ sơ tiếp nhận! Bộ phận Nhân sự sẽ liên hệ và đón tiếp bạn vào ngày nhận việc.',
+          data: result
+        });
+      }
+
+      return res.status(400).json({ error: 'Hành động không hợp lệ.' });
+    }
+
+    return res.status(400).json({ error: 'Loại phản hồi không hợp lệ.' });
+  } catch (error: any) {
+    console.error('Magic respond POST error:', error);
+    return res.status(500).json({ error: error.message || 'Lỗi hệ thống khi xử lý phản hồi.' });
+  }
+});
+
 export default router;

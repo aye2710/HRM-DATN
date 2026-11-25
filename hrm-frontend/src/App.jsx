@@ -29,8 +29,6 @@ import { DecisionCreate } from './pages/internal/employees/DecisionCreate';
 import { DecisionDetail } from './pages/internal/employees/DecisionDetail';
 import { Contracts } from './pages/internal/employees/Contracts';
 import { ContractDetail } from './pages/internal/employees/ContractDetail';
-import { Transfers } from './pages/internal/employees/Transfers';
-import { TransferDetail } from './pages/internal/employees/TransferDetail';
 
 import { Shifts } from './pages/internal/attendance/Shifts';
 import { Adjustments } from './pages/internal/attendance/Adjustments';
@@ -69,6 +67,7 @@ import { EmployeeLogin } from './pages/employee/EmployeeLogin';
 // Candidate Portal (Standalone)
 import { CandidateLandingPage } from './pages/candidate/LandingPage';
 import { CandidateAuthPage } from './pages/candidate/CandidateAuthPage';
+import { CandidateMagicResponse } from './pages/candidate/CandidateMagicResponse';
 
 import { LayoutDashboard, Users, Clock, CalendarRange, FileText, ShieldCheck, Target, Building, UserPlus, CheckSquare, DollarSign, BarChart2, Laptop, User, UserMinus, FileSignature } from 'lucide-react';
 
@@ -127,7 +126,6 @@ const internalLinks = [
     children: [
       { to: '/internal/leave/requests', label: 'Đơn xin nghỉ' },
       { to: '/internal/leave/types', label: 'Loại nghỉ' },
-      { to: '/internal/leave/policies', label: 'Chính sách' },
       { to: '/internal/leave/holidays', label: 'Lịch nghỉ lễ' },
     ]
   },
@@ -219,6 +217,7 @@ function App() {
           <Route path="/candidate" element={<Navigate to="/" replace />} />
           <Route path="/candidate/login" element={<CandidateAuthPage defaultTab="login" />} />
           <Route path="/candidate/register" element={<CandidateAuthPage defaultTab="register" />} />
+          <Route path="/candidate/respond" element={<CandidateMagicResponse />} />
           
           {/* 2. Cổng Quản Trị Doanh Nghiệp (Admin Portal) */}
           <Route path="/admin" element={<PortalSelection />} />
@@ -296,7 +295,7 @@ function App() {
 
               <Route path="leave/requests" element={<LeaveMgmt />} />
               <Route path="leave/types" element={<LeaveTypes />} />
-              <Route path="leave/policies" element={<LeavePolicies />} />
+              <Route path="leave/policies" element={<Navigate to="/internal/leave/types" replace />} />
               <Route path="leave/holidays" element={<Holidays />} />
 
               <Route path="performance/templates" element={<KPITemplates />} />

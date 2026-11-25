@@ -33,11 +33,16 @@ services:
       - key: SMTP_SECURE
         value: "true"
       - key: SMTP_USER
-        value: xongtruc2004@gmail.com
+        sync: false
       - key: SMTP_PASS
-        value: "vsgi bvaf jdwb ippg"
+        sync: false
       - key: EMAIL_FROM
-        value: "Công ty TNHH LLA - Phòng Nhân Sự <xongtruc2004@gmail.com>"
+        value: "Công ty TNHH LLA - Phòng Nhân Sự <no-reply@lla.vn>"
+      - key: PORTAL_URL
+        fromService:
+          type: web
+          name: hrm-frontend
+          property: host
 
   # =========================================================================
   # 2. DỊCH VỤ FRONTEND WEB (React Vite SPA - Tự động định tuyến CDN)

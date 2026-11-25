@@ -1,13 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Settings, Menu, ChevronDown, ChevronRight, Shield, LogOut
+  Menu, ChevronDown, ChevronRight, Shield, LogOut, User, X
 } from 'lucide-react';
 
 const TopHeader = ({ portalName, onToggleSidebar }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isEmployeePortal = location.pathname.startsWith('/employee');
   const fullName = localStorage.getItem('fullName') || 'Quản trị viên';
+  const username = localStorage.getItem('username') || (isEmployeePortal ? 'employee' : 'admin');
   const role = localStorage.getItem('role') || 'ADMIN';
   const initial = fullName.charAt(0).toUpperCase();
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = (e) => {
+    e.preventDefault();
+    const currentRole = localStorage.getItem('role');
+    localStorage.clear();
+    if (currentRole === 'EMPLOYEE') {
+      navigate('/employee/login');
+    } else {
+      navigate('/admin');
+    }
+  };
 
   return (
     <div className="top-header" style={{ padding: '0 2rem' }}>
@@ -22,15 +51,198 @@ const TopHeader = ({ portalName, onToggleSidebar }) => {
         </button>
         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{portalName}</h2>
       </div>
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center gap-6" ref={menuRef} style={{ position: 'relative' }}>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((prev) => !prev)}
+          className="flex items-center gap-3"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.25rem 0.5rem', borderRadius: '0.5rem' }}
+        >
           <div className="avatar" style={{ width: 32, height: 32, fontSize: '0.9rem' }}>{initial}</div>
-          <div className="flex-col">
+          <div className="flex-col" style={{ textAlign: 'left' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main)' }}>{fullName}</span>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{role}</span>
           </div>
-        </div>
+          <ChevronDown size={16} color="var(--text-muted)" />
+        </button>
+
+        {menuOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 8px)',
+              right: 0,
+              width: 240,
+              backgroundColor: '#ffffff',
+              borderRadius: '0.75rem',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.12), 0 4px 10px -2px rgba(0,0,0,0.06)',
+              border: '1px solid #e2e8f0',
+              zIndex: 50,
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ padding: '0.85rem 1rem', borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a' }}>{fullName}</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>Vai trò: {role}</div>
+            </div>
+            <div style={{ padding: '0.4rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setAccountModalOpen(true);
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  padding: '0.55rem 0.75rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  color: '#334155',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                <User size={16} /> Thông tin tài khoản
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  padding: '0.55rem 0.75rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  color: '#dc2626',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                <LogOut size={16} /> Đăng xuất
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {accountModalOpen && (
+        <div
+          onClick={() => setAccountModalOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.5)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '1rem'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              backgroundColor: '#ffffff',
+              borderRadius: '1rem',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Thông tin tài khoản</h3>
+              <button
+                type="button"
+                onClick={() => setAccountModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b', padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1.5rem 1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div className="avatar" style={{ width: 52, height: 52, fontSize: '1.35rem', fontWeight: 700 }}>{initial}</div>
+                <div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>{fullName}</div>
+                  <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
+                    {role}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: '#f8fafc', borderRadius: '0.75rem', padding: '0.9rem 1rem', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.65rem', fontSize: '0.875rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Tên đăng nhập:</span>
+                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{username}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Vai trò hệ thống:</span>
+                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{role}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Cổng truy cập:</span>
+                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{isEmployeePortal ? 'Employee Self-Service' : 'Enterprise Admin Portal'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', padding: '0.9rem 1.25rem', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+              {isEmployeePortal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountModalOpen(false);
+                    navigate('/employee/profile');
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    color: '#334155',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Xem hồ sơ nhân sự
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setAccountModalOpen(false)}
+                style={{
+                  padding: '0.5rem 1.15rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  backgroundColor: 'var(--primary)',
+                  color: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -112,23 +324,7 @@ const NavItem = ({ item }) => {
 };
 
 const Sidebar = ({ links, collapsed }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isEmployeePortal = location.pathname.startsWith('/employee');
-  const settingsPath = isEmployeePortal ? '/employee/profile' : '/internal/system/parameters';
-
   if (collapsed) return null;
-
-  const handleLogout = (e) => {
-    e.preventDefault();
-    const role = localStorage.getItem('role');
-    localStorage.clear();
-    if (role === 'EMPLOYEE') {
-      navigate('/employee/login');
-    } else {
-      navigate('/admin');
-    }
-  };
 
   return (
     <div className="sidebar">
@@ -149,18 +345,6 @@ const Sidebar = ({ links, collapsed }) => {
           <NavItem key={index} item={link} />
         ))}
       </nav>
-      
-      <div style={{ padding: '0.9rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <NavLink
-          to={settingsPath}
-          style={{ color: '#a1b0cb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', marginBottom: '0.65rem' }}
-        >
-          <Settings size={16} /> {isEmployeePortal ? 'Thông tin tài khoản' : 'Cấu hình tham số'}
-        </NavLink>
-        <button onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: '#a1b0cb', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', cursor: 'pointer', padding: 0 }}>
-          <LogOut size={16} /> Đăng xuất
-        </button>
-      </div>
     </div>
   );
 };

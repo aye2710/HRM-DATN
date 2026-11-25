@@ -137,7 +137,8 @@ export const PayslipDetail = () => {
       insuranceDeduction: lla.insuranceDeduction || 0,
       advanceAmount: lla.advanceAmount || 0,
       latePenaltyAmount: lla.latePenaltyAmount || 0,
-      unionFee: lla.unionFee || 0
+      unionFee: lla.unionFee || 0,
+      taxDeduction: lla.taxDeduction || payslip.taxDeduction || 0
     });
     setIsEditing(true);
   };
@@ -597,13 +598,26 @@ export const PayslipDetail = () => {
                 </td>
               </tr>
 
+              {/* Cột Thuế TNCN */}
+              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                <td style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700 }}>
+                  4. Thuế thu nhập cá nhân (TNCN)
+                </td>
+                <td style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', color: '#475569', fontSize: '0.88rem' }}>
+                  Thuế TNCN tính theo biểu lũy tiến từng phần (sau giảm trừ bản thân 11tr & NPT)
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: Number(lla.taxDeduction || payslip.taxDeduction) > 0 ? '#DC2626' : 'inherit' }}>
+                  {Number(lla.taxDeduction || payslip.taxDeduction) > 0 ? `-${formatCurrency(lla.taxDeduction || payslip.taxDeduction)}` : '0 ₫'}
+                </td>
+              </tr>
+
               {/* DÒNG TỔNG CÁC KHOẢN GIẢM TRỪ */}
               <tr style={{ backgroundColor: '#FEF2F2', borderTop: '2px solid #DC2626' }}>
                 <td colSpan={2} style={{ padding: '12px 14px', borderRight: '1px solid #CBD5E1', fontWeight: 800, fontSize: '1rem', color: '#991B1B' }}>
-                  TỔNG CÁC KHOẢN GIẢM TRỪ ([1] + [2] + [3])
+                  TỔNG CÁC KHOẢN GIẢM TRỪ ([1] + [2] + [3] + [4])
                 </td>
                 <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 900, fontSize: '1.15rem', color: '#DC2626' }}>
-                  -{formatCurrency(Number(lla.advanceAmount || 0) + Number(lla.latePenaltyAmount || 0) + Number(lla.unionFee || 0))}
+                  -{formatCurrency(Number(lla.advanceAmount || 0) + Number(lla.latePenaltyAmount || 0) + Number(lla.unionFee || 0) + Number(lla.taxDeduction || payslip.taxDeduction || 0))}
                 </td>
               </tr>
             </tbody>
@@ -784,7 +798,7 @@ export const PayslipDetail = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="grid grid-cols-4 gap-3 mb-5">
                 <div>
                   <label className="form-label text-xs font-bold">Tạm ứng (Cột N)</label>
                   <input
@@ -810,6 +824,15 @@ export const PayslipDetail = () => {
                     className="form-input"
                     value={editForm.unionFee}
                     onChange={e => setEditForm({ ...editForm, unionFee: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="form-label text-xs font-bold">Thuế TNCN</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={editForm.taxDeduction}
+                    onChange={e => setEditForm({ ...editForm, taxDeduction: Number(e.target.value) })}
                   />
                 </div>
               </div>

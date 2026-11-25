@@ -184,7 +184,10 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
 
     if (revokeReason) {
       try {
-        const res = await axios.put(`http://localhost:5000/api/decisions/${dec.id}/revoke`, { reason: revokeReason });
+        const res = await axios.put(`http://localhost:5000/api/decisions/${dec.id}/revoke`, {
+          revokeReason,
+          reason: revokeReason
+        });
         Swal.fire({
           title: 'Đã thu hồi thành công!',
           text: res.data.message,

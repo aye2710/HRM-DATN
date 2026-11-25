@@ -20,7 +20,7 @@ const removeVietnameseTones = (str) => {
 };
 
 // Hàm sinh mã vị trí thông minh theo chuẩn doanh nghiệp [PB]-[VỊ_TRÍ]
-const generatePositionCode = (title, deptCode = '') => {
+const generatePositionCode = (title, deptCode = '', existingPositions = [], currentId = null) => {
   if (!title || !title.trim()) return '';
 
   const cleanTitle = removeVietnameseTones(title.trim().toLowerCase());

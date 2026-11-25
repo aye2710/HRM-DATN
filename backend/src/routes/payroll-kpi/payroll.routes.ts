@@ -61,8 +61,9 @@ export const extractLlaPayslipData = (p: any, fallbackStandardDays = 26) => {
   const advanceAmount = Number(parsedMeta?.advanceAmount ?? 0);
   const latePenaltyAmount = Number(parsedMeta?.latePenaltyAmount ?? 0);
   const unionFee = Number(parsedMeta?.unionFee ?? 0);
+  const taxDeduction = Number(parsedMeta?.taxDeduction ?? p.taxDeduction ?? 0);
   const netSalary = Number(
-    parsedMeta?.netSalary ?? (companyPayout - advanceAmount - latePenaltyAmount - unionFee)
+    parsedMeta?.netSalary ?? Math.max(0, companyPayout - advanceAmount - latePenaltyAmount - unionFee - taxDeduction)
   );
 
   return {
@@ -90,6 +91,7 @@ export const extractLlaPayslipData = (p: any, fallbackStandardDays = 26) => {
     advanceAmount,
     latePenaltyAmount,
     unionFee,
+    taxDeduction,
     netSalary,
     isManualAdjusted: Boolean(parsedMeta?.isManualAdjusted)
   };
@@ -316,11 +318,8 @@ router.get('/', authenticateToken, async (req: any, res: Response): Promise<any>
       };
     });
 
-    // Ưu tiên đưa nhân sự Lê Hữu Trúc lên đầu danh sách (STT 1 khớp bảng lương mẫu LLA) nếu có
+    // Sắp xếp theo mã nhân viên
     formattedRecords.sort((a: any, b: any) => {
-      const isTrucA = a.employee?.fullName?.toLowerCase().includes('lê hữu trúc') ? 0 : 1;
-      const isTrucB = b.employee?.fullName?.toLowerCase().includes('lê hữu trúc') ? 0 : 1;
-      if (isTrucA !== isTrucB) return isTrucA - isTrucB;
       return String(a.employee?.code || '').localeCompare(String(b.employee?.code || ''));
     });
 
@@ -338,11 +337,14 @@ router.post('/payslip/:id/toggle-payment-hold', authenticateToken, hrOrAccountan
 
     const payslip = await prisma.payslip.findUnique({
       where: { id },
-      include: { employee: true, details: true }
+      include: { employee: true, details: true, payrollPeriod: true }
     });
 
     if (!payslip) {
       return res.status(404).json({ error: 'Không tìm thấy phiếu lương' });
+    }
+    if (payslip.payrollPeriod?.status === 'LOCKED') {
+      return res.status(400).json({ error: 'Kỳ lương đã KHÓA SỔ (LOCKED), không thể thay đổi trạng thái giữ chi trả!' });
     }
 
     await prisma.$transaction(async (tx) => {
@@ -419,7 +421,9 @@ router.put('/payslip/:id/lla-adjust', authenticateToken, hrOrAccountant, async (
     const ctpAndCommission = Number(req.body.ctpAndCommission ?? currentLla.ctpAndCommission);
     const fixedAllowance = Number(req.body.fixedAllowance ?? currentLla.fixedAllowance);
     const otAndBonus = Number(req.body.otAndBonus ?? currentLla.otAndBonus);
-    const insuranceBaseSalary = Number(req.body.insuranceBaseSalary ?? currentLla.insuranceBaseSalary);
+    const rawInsuranceBaseSalary = Number(req.body.insuranceBaseSalary ?? currentLla.insuranceBaseSalary);
+    const maxInsuranceSalary = Number(await getSettingValue('MAX_INSURANCE_SALARY', 46800000));
+    const insuranceBaseSalary = Math.min(Math.max(0, rawInsuranceBaseSalary), maxInsuranceSalary);
     const insuranceRatePercent = Number(await getSettingValue('INSURANCE_RATE', 10.5));
     const insuranceDeduction =
       req.body.insuranceDeduction !== undefined
@@ -432,8 +436,21 @@ router.put('/payslip/:id/lla-adjust', authenticateToken, hrOrAccountant, async (
     const advanceAmount = Number(req.body.advanceAmount ?? currentLla.advanceAmount);
     const latePenaltyAmount = Number(req.body.latePenaltyAmount ?? currentLla.latePenaltyAmount);
     const unionFee = Number(req.body.unionFee ?? currentLla.unionFee);
-    const netSalary = companyPayout - advanceAmount - latePenaltyAmount - unionFee;
     const grossSalary = salaryByDays + ctpAndCommission + fixedAllowance + otAndBonus;
+
+    let taxDeduction: number;
+    if (req.body.taxDeduction !== undefined) {
+      taxDeduction = Number(req.body.taxDeduction);
+    } else {
+      const personalDeduction = Number(await getSettingValue('PERSONAL_DEDUCTION', 11000000));
+      const dependentDeductionRate = Number(await getSettingValue('DEPENDENT_DEDUCTION', 4400000));
+      const dependentsCount = await prisma.relative.count({ where: { employeeId: payslip.employeeId, isDependent: true } });
+      const totalRelief = personalDeduction + dependentsCount * dependentDeductionRate;
+      const lunchExempt = Math.min(fixedAllowance, 730000);
+      const taxableIncome = Math.max(0, grossSalary - lunchExempt - insuranceDeduction - totalRelief);
+      taxDeduction = Math.round(calculatePIT(taxableIncome));
+    }
+    const netSalary = Math.max(0, companyPayout - advanceAmount - latePenaltyAmount - unionFee - taxDeduction);
 
     const newMeta = {
       ...currentLla,
@@ -454,6 +471,7 @@ router.put('/payslip/:id/lla-adjust', authenticateToken, hrOrAccountant, async (
       advanceAmount,
       latePenaltyAmount,
       unionFee,
+      taxDeduction,
       netSalary,
       isManualAdjusted: true
     };
@@ -479,6 +497,7 @@ router.put('/payslip/:id/lla-adjust', authenticateToken, hrOrAccountant, async (
           actualWorkingDays,
           grossSalary,
           insuranceDeduction,
+          taxDeduction,
           netSalary
         },
         include: {
@@ -637,55 +656,6 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
 
     const standardDays = dynamicStandardDays;
 
-    // Đảm bảo hồ sơ mẫu thực tế của Công ty TNHH LLA (Lê Hữu Trúc - Lương CB 7,000,000, Thử việc 85% = 5,950,000, Phụ cấp 500,000) luôn sẵn sàng
-    let trucEmp: any = await prisma.employee.findFirst({
-      where: { fullName: { contains: 'Lê Hữu Trúc', mode: 'insensitive' } },
-      include: { contracts: true }
-    });
-    if (!trucEmp) {
-      const firstDept = await prisma.department.findFirst();
-      const firstPos = await prisma.position.findFirst();
-      trucEmp = await prisma.employee.create({
-        data: {
-          code: 'LLA-001',
-          fullName: 'Lê Hữu Trúc',
-          email: 'truclh@lla.vn',
-          phone: '0988123456',
-          status: 'PROBATION',
-          joinDate: new Date(2026, 8, 1),
-          departmentId: firstDept?.id || null,
-          positionId: firstPos?.id || null,
-          contracts: {
-            create: {
-              contractNumber: 'HĐTV-2026/LLA-001',
-              contractType: 'PROBATION',
-              startDate: new Date(2026, 8, 1),
-              endDate: new Date(2026, 9, 30),
-              baseSalary: 7000000,
-              allowance: 500000,
-              insuranceSalary: 0,
-              status: 'ACTIVE'
-            }
-          }
-        },
-        include: { contracts: true }
-      });
-    } else if (trucEmp.contracts.length === 0) {
-      await prisma.contract.create({
-        data: {
-          employeeId: trucEmp.id,
-          contractNumber: 'HĐTV-2026/LLA-001',
-          contractType: 'PROBATION',
-          startDate: new Date(2026, 8, 1),
-          endDate: new Date(2026, 9, 30),
-          baseSalary: 7000000,
-          allowance: 500000,
-          insuranceSalary: 0,
-          status: 'ACTIVE'
-        }
-      });
-    }
-
     const startDate = new Date(numYear, numMonth - 1, 1);
     const endDate = new Date(numYear, numMonth, 0, 23, 59, 59);
 
@@ -726,8 +696,6 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
       if (!emp.contracts || emp.contracts.length === 0) continue;
       const latestOverlapContract = emp.contracts[emp.contracts.length - 1];
 
-      const isTruc = emp.fullName.toLowerCase().includes('lê hữu trúc');
-
       // 1. Chấm công thực tế trong tháng (từ Module Chấm công - đã bao gồm Thứ 7 đi làm cách tuần x2 công)
       const attendances = await prisma.attendance.findMany({
         where: {
@@ -753,7 +721,7 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
         fallbackSalary: Number((emp as any).salary || 0),
         joinDate: emp.joinDate,
         attendances: attendances.map(a => ({ date: a.date, workingDay: Number(a.workingDay || 0) })),
-        overrideTotalWorkingDays: isTruc && numMonth === 9 && numYear === 2026 ? 18.5 : null,
+        overrideTotalWorkingDays: null,
         standardDays,
         payrollYear: numYear,
         payrollMonth: numMonth,
@@ -786,7 +754,7 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
       // Đọc số lần đi muộn vượt hạn mức (MAX_LATE_PERMISSION_PER_MONTH) để tính cột Phạt đi muộn
       const lateCount = attendances.filter(a => a.status === 'LATE').length;
       const overQuotaLateCount = Math.max(0, lateCount - maxLateQuota);
-      const autoLatePenalty = isTruc && numMonth === 9 && numYear === 2026 ? 0 : overQuotaLateCount * latePenaltyPerTime;
+      const autoLatePenalty = overQuotaLateCount * latePenaltyPerTime;
 
       // 2b. Tiền thưởng Khen thưởng đã duyệt trong tháng (từ Quyết định REWARD)
       const approvedRewards = await prisma.decision.findMany({
@@ -799,10 +767,12 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
       });
       const rewardBonus = approvedRewards.reduce((sum, dec) => sum + Number(dec.rewardAmount || 0), 0);
 
-      // 2c. Tìm đánh giá hiệu suất KPI trong kỳ để tự động tính Thưởng KPI theo Xếp loại A/B/C/D
-      const empReview = (await prisma.performanceReview.findFirst({
+      // 2c. Tìm đánh giá hiệu suất KPI trong kỳ để tự động tính Thưởng KPI theo Xếp loại A/B/C/D (không lặp lại phiếu kỳ cũ)
+      const empReview = await prisma.performanceReview.findFirst({
         where: {
           employeeId: emp.id,
+          status: 'COMPLETED',
+          score: { gt: 0 },
           OR: [
             {
               reviewCycle: {
@@ -817,20 +787,13 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
         },
         include: { reviewCycle: true },
         orderBy: { id: 'desc' }
-      })) || (await prisma.performanceReview.findFirst({
-        where: {
-          employeeId: emp.id,
-          score: { gt: 0 }
-        },
-        include: { reviewCycle: true },
-        orderBy: { id: 'desc' }
-      }));
+      });
 
       let autoKpiBonus = 0;
       let kpiGrade = empReview?.finalGrade || null;
       const reviewScore = Number(empReview?.score || 0);
 
-      if (empReview && (reviewScore > 0 || empReview.status === 'COMPLETED')) {
+      if (empReview && reviewScore > 0 && empReview.status === 'COMPLETED') {
         if (!kpiGrade) {
           if (reviewScore >= gradeAMin) kpiGrade = 'A';
           else if (reviewScore >= gradeBMin) kpiGrade = 'B';
@@ -878,10 +841,11 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
         taxExemptOT += hours * hourlyRate * (multiplier - 1.0);
       }
 
-      // 4. Trích đóng BHXH, BHYT, BHTN (chỉ trích với Hợp đồng chính thức)
+      // 4. Trích đóng BHXH, BHYT, BHTN (chỉ trích với Hợp đồng chính thức & nghỉ không lương < 14 ngày)
       let insuranceDeduction = 0;
       let insuranceBaseSalary = 0;
-      if (isOfficialContract && contractInsuranceSalary > 0) {
+      const unpaidAbsentDays = Math.max(0, standardDays - totalWorkingDays);
+      if (isOfficialContract && contractInsuranceSalary > 0 && unpaidAbsentDays < 14) {
         insuranceBaseSalary = Math.min(contractInsuranceSalary, maxInsuranceSalary || 46800000);
         insuranceDeduction = Math.round(insuranceBaseSalary * ((insuranceRatePercent || 10.5) / 100));
       }
@@ -904,7 +868,7 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
           : computedSalaryByDays;
 
         const ctpAndCommission = preserveManual ? prevLla!.ctpAndCommission : autoKpiBonus;
-        const fixedAllowance = preserveManual ? prevLla!.fixedAllowance : fixedAllowanceDefault;
+        const fixedAllowance = preserveManual ? prevLla!.fixedAllowance : (totalWorkingDays > 0 ? fixedAllowanceDefault : 0);
         const otAndBonus = preserveManual ? prevLla!.otAndBonus : Math.round(otPay + rewardBonus);
         const finalInsBase = preserveManual ? prevLla!.insuranceBaseSalary : insuranceBaseSalary;
         const finalInsDed = preserveManual ? prevLla!.insuranceDeduction : insuranceDeduction;
@@ -916,15 +880,16 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
         const latePenaltyAmount = preserveManual ? prevLla!.latePenaltyAmount : autoLatePenalty;
         const unionFee = preserveManual ? prevLla!.unionFee : defaultUnionFee;
 
-        // Thuế TNCN (nếu thu nhập vượt mức giảm trừ gia cảnh 11tr + NPT)
+        // Thuế TNCN (nếu thu nhập vượt mức giảm trừ gia cảnh 11tr + NPT, miễn thuế ăn trưa tối đa 730k)
         const grossSalary = salaryByDays + ctpAndCommission + fixedAllowance + otAndBonus;
         const numDependents = emp.relatives.length;
         const totalRelief = personalDeduction + numDependents * dependentDeductionRate;
-        const taxableIncome = Math.max(0, (grossSalary - taxExemptOT) - finalInsDed - totalRelief);
+        const lunchExempt = Math.min(fixedAllowance, 730000);
+        const taxableIncome = Math.max(0, (grossSalary - taxExemptOT - lunchExempt) - finalInsDed - totalRelief);
         const taxDeduction = Math.round(calculatePIT(taxableIncome));
 
-        // Cột Q: Thực nhận = Công ty thanh toán (M) - Ứng lương (N) - Phạt đi muộn (O) - Quỹ Công đoàn (P)
-        const netSalary = companyPayout - advanceAmount - latePenaltyAmount - unionFee;
+        // Cột Q: Thực nhận = Công ty thanh toán (M) - Ứng lương (N) - Phạt đi muộn (O) - Quỹ Công đoàn (P) - Thuế TNCN
+        const netSalary = Math.max(0, companyPayout - advanceAmount - latePenaltyAmount - unionFee - taxDeduction);
 
         const llaMeta = {
           contractType: effectiveContractType || latestOverlapContract.contractType,
@@ -951,6 +916,7 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
           advanceAmount,
           latePenaltyAmount,
           unionFee,
+          taxDeduction,
           netSalary,
           isManualAdjusted: preserveManual
         };
@@ -1035,6 +1001,9 @@ router.post('/generate', authenticateToken, hrOrAccountant, async (req: any, res
             : []),
           ...(unionFee > 0
             ? [{ type: 'DEDUCTION', amount: unionFee, description: 'Đóng Quỹ Công đoàn' }]
+            : []),
+          ...(taxDeduction > 0
+            ? [{ type: 'DEDUCTION', amount: taxDeduction, description: 'Thuế thu nhập cá nhân (TNCN)' }]
             : [])
         ];
 

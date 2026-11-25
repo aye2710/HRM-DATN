@@ -124,13 +124,23 @@ export async function isPayrollPeriodLocked(startDate: Date, endDate: Date): Pro
   const start = new Date(startDate);
   const end = new Date(endDate);
   
-  const startMonth = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
-  const endMonth = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}`;
+  const monthKeys = new Set<string>();
+  let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  const stop = new Date(end.getFullYear(), end.getMonth(), 1);
   
-  const months = Array.from(new Set([startMonth, endMonth]));
+  while (cur <= stop) {
+    const m = cur.getMonth() + 1;
+    const y = cur.getFullYear();
+    monthKeys.add(`${m}-${y}`);
+    monthKeys.add(`${String(m).padStart(2, '0')}-${y}`);
+    monthKeys.add(`${y}-${String(m).padStart(2, '0')}`);
+    monthKeys.add(`${y}-${m}`);
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  
   const lockedPeriod = await prisma.payrollPeriod.findFirst({
     where: {
-      monthYear: { in: months },
+      monthYear: { in: Array.from(monthKeys) },
       status: 'LOCKED'
     }
   });
@@ -169,6 +179,13 @@ export async function checkLeaveOverlap(employeeId: string, startDate: Date, end
  * - Hỗ trợ nghỉ nửa ngày liên ngày (startSession và endSession)
  * - Loại trừ Thứ 7, Chủ Nhật và các ngày nghỉ Lễ/Tết từ bảng Holiday
  */
+const toLocalDateStr = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export const calculateWorkingDays = async (
   startDate: Date, 
   endDate: Date,
@@ -190,13 +207,13 @@ export const calculateWorkingDays = async (
   });
 
   const holidaySet = new Set(
-    holidays.map(h => h.date.toISOString().split('T')[0])
+    holidays.map(h => toLocalDateStr(new Date(h.date)))
   );
 
   // Nếu cùng 1 ngày
   if (start.getTime() === end.getTime()) {
     const dayOfWeek = start.getDay();
-    const dateStr = start.toISOString().split('T')[0];
+    const dateStr = toLocalDateStr(start);
     if (dayOfWeek === 0 || dayOfWeek === 6 || holidaySet.has(dateStr)) {
       return 0;
     }
@@ -210,7 +227,7 @@ export const calculateWorkingDays = async (
 
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    const dateStr = current.toISOString().split('T')[0];
+    const dateStr = toLocalDateStr(current);
 
     if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidaySet.has(dateStr)) {
       if (current.getTime() === start.getTime() && startSession === 'AFTERNOON') {

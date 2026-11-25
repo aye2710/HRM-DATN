@@ -220,7 +220,7 @@ export const OffboardingChecklist = () => {
                   const doneTasks = tasks.filter(t => t.isCompleted).length;
                   const totalTasks = tasks.length || 8;
                   const percent = Math.round((doneTasks / totalTasks) * 100);
-                  const activeAssets = emp.assetAssignments?.filter(a => a.status === 'ASSIGNED') || [];
+                  const activeAssets = emp.assetAssignments?.filter(a => a.status === 'ACTIVE') || [];
 
                   return (
                     <tr key={emp.id}>

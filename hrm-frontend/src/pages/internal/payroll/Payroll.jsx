@@ -65,6 +65,7 @@ export const PayrollMgmt = () => {
     const salaryByDays = stdDays > 0 ? Math.round((appliedMonthSalary / stdDays) * actualWorkingDays) : 0;
     const fixedAllowance = 500000;
     const insDed = Number(pr.insuranceDeduction || 0);
+    const taxDed = Number(pr.taxDeduction || 0);
     const companyPayout = salaryByDays + fixedAllowance - insDed;
     return {
       contractType: 'OFFICIAL_1Y',
@@ -89,7 +90,8 @@ export const PayrollMgmt = () => {
       advanceAmount: 0,
       latePenaltyAmount: 0,
       unionFee: 0,
-      netSalary: Number(pr.netSalary || companyPayout)
+      taxDeduction: taxDed,
+      netSalary: Number(pr.netSalary ?? Math.max(0, companyPayout - taxDed))
     };
   };
 
@@ -225,7 +227,8 @@ export const PayrollMgmt = () => {
       insuranceDeduction: lla.insuranceDeduction,
       advanceAmount: lla.advanceAmount,
       latePenaltyAmount: lla.latePenaltyAmount,
-      unionFee: lla.unionFee
+      unionFee: lla.unionFee,
+      taxDeduction: lla.taxDeduction || 0
     });
   };
 
@@ -271,6 +274,7 @@ export const PayrollMgmt = () => {
       "Ứng Lương",
       "Phạt đi muộn + phạt khác",
       "Quỹ Công đoàn",
+      "Thuế TNCN",
       "Thực nhận"
     ];
 
@@ -292,6 +296,7 @@ export const PayrollMgmt = () => {
         lla.advanceAmount || '',
         lla.latePenaltyAmount || '',
         lla.unionFee || '',
+        lla.taxDeduction || '',
         lla.netSalary || 0
       ];
     });
@@ -380,7 +385,8 @@ export const PayrollMgmt = () => {
     const adv = Number(editForm.advanceAmount || 0);
     const pen = Number(editForm.latePenaltyAmount || 0);
     const union = Number(editForm.unionFee || 0);
-    const netSalary = companyPayout - adv - pen - union;
+    const tax = Number(editForm.taxDeduction || 0);
+    const netSalary = Math.max(0, companyPayout - adv - pen - union - tax);
     return { salaryByDays, companyPayout, netSalary };
   }, [editForm, periodInfo]);
 
@@ -681,7 +687,7 @@ export const PayrollMgmt = () => {
                 <th style={{ textAlign: 'center', fontWeight: 800, fontSize: '1.05rem', color: '#0F172A', padding: '4px 8px', borderRight: '1px solid #CBD5E1', backgroundColor: '#FEF9C3' }}>
                   {periodInfo.standardWorkingDays || 26}
                 </th>
-                <th colSpan={11} style={{ padding: '4px 8px' }}></th>
+                <th colSpan={12} style={{ padding: '4px 8px' }}></th>
               </tr>
               <tr style={{ backgroundColor: '#F1F5F9', color: '#0F172A', borderBottom: '2px solid #334155' }}>
                 <th style={{ width: '48px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 6px', fontWeight: 700 }}>STT</th>
@@ -699,6 +705,7 @@ export const PayrollMgmt = () => {
                 <th style={{ width: '95px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 6px', fontWeight: 700 }}>Ứng Lương</th>
                 <th style={{ width: '110px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 6px', fontWeight: 700 }}>Phạt đi muộn + phạt khác</th>
                 <th style={{ width: '95px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 6px', fontWeight: 700 }}>Quỹ Công đoàn</th>
+                <th style={{ width: '95px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 6px', fontWeight: 700 }}>Thuế TNCN</th>
                 <th style={{ width: '120px', textAlign: 'center', borderRight: '1px solid #94A3B8', padding: '10px 8px', fontWeight: 800, backgroundColor: '#ECFDF5' }}>Thực nhận</th>
                 <th style={{ width: '90px', textAlign: 'center', padding: '10px 6px', fontWeight: 700, fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}>THAO TÁC</th>
               </tr>
@@ -706,14 +713,14 @@ export const PayrollMgmt = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="17" className="text-center p-12 text-muted">
+                  <td colSpan="18" className="text-center p-12 text-muted">
                     <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
                     Đang tải dữ liệu Bảng lương Công ty TNHH LLA...
                   </td>
                 </tr>
               ) : currentPayrolls.length === 0 ? (
                 <tr>
-                  <td colSpan="17" className="text-center p-12 text-muted">
+                  <td colSpan="18" className="text-center p-12 text-muted">
                     {payrolls.length === 0 
                       ? 'Chưa có dữ liệu lương tháng này. Hãy bấm "Tính Lại Bảng Lương" phía trên!' 
                       : 'Không tìm thấy nhân sự phù hợp với từ khóa.'}
@@ -867,6 +874,11 @@ export const PayrollMgmt = () => {
                         {formatLlaNumber(lla.unionFee, true)}
                       </td>
 
+                      {/* Cột Thuế TNCN */}
+                      <td style={{ textAlign: 'right', borderRight: '1px solid #CBD5E1', padding: '10px 8px', color: '#DC2626' }}>
+                        {formatLlaNumber(lla.taxDeduction, true)}
+                      </td>
+
                       {/* Cột Q: Thực nhận */}
                       <td style={{ textAlign: 'right', borderRight: '1px solid #CBD5E1', padding: '10px 8px', fontWeight: 800, fontSize: '0.95rem', backgroundColor: '#ECFDF5', color: '#047857' }}>
                         {formatLlaNumber(lla.netSalary)}
@@ -967,6 +979,9 @@ export const PayrollMgmt = () => {
                   </td>
                   <td style={{ textAlign: 'right', padding: '10px 8px', borderRight: '1px solid #94A3B8', color: '#DC2626' }}>
                     {formatLlaNumber(filteredPayrolls.reduce((s, p) => s + Number(getLla(p).unionFee || 0), 0), true)}
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '10px 8px', borderRight: '1px solid #94A3B8', color: '#DC2626' }}>
+                    {formatLlaNumber(filteredPayrolls.reduce((s, p) => s + Number(getLla(p).taxDeduction || 0), 0), true)}
                   </td>
                   <td style={{ textAlign: 'right', padding: '10px 8px', borderRight: '1px solid #94A3B8', backgroundColor: '#FDE047', color: '#047857', fontSize: '1rem' }}>
                     {formatLlaNumber(filteredPayrolls.reduce((s, p) => s + Number(getLla(p).netSalary || 0), 0))}
@@ -1121,7 +1136,7 @@ export const PayrollMgmt = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-4 gap-3 mb-4">
               <div>
                 <label className="form-label text-xs font-bold">Ứng Lương (Cột N)</label>
                 <input
@@ -1132,7 +1147,7 @@ export const PayrollMgmt = () => {
                 />
               </div>
               <div>
-                <label className="form-label text-xs font-bold">Phạt đi muộn + phạt khác (Cột O)</label>
+                <label className="form-label text-xs font-bold">Phạt muộn (Cột O)</label>
                 <input
                   type="number"
                   className="form-input"
@@ -1141,12 +1156,21 @@ export const PayrollMgmt = () => {
                 />
               </div>
               <div>
-                <label className="form-label text-xs font-bold">Quỹ Công đoàn (Cột P)</label>
+                <label className="form-label text-xs font-bold">Quỹ CĐ (Cột P)</label>
                 <input
                   type="number"
                   className="form-input"
                   value={editForm.unionFee}
                   onChange={e => setEditForm({ ...editForm, unionFee: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="form-label text-xs font-bold">Thuế TNCN</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={editForm.taxDeduction}
+                  onChange={e => setEditForm({ ...editForm, taxDeduction: Number(e.target.value) })}
                 />
               </div>
             </div>

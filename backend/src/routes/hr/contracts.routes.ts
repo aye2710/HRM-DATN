@@ -28,7 +28,11 @@ router.get('/', async (req: Request, res: Response) => {
     const warnDays = Number(await getSettingValue('CONTRACT_EXPIRY_WARN_DAYS', 30)) || 30;
     const nowMs = Date.now();
 
+    const userRole = (req as any).user?.role?.toUpperCase();
+    const userEmpId = (req as any).user?.employeeId;
+
     const contracts = await prisma.contract.findMany({
+      where: userRole === 'EMPLOYEE' && userEmpId ? { employeeId: userEmpId } : undefined,
       include: {
         employee: {
           select: { fullName: true, code: true, highestEducation: true, department: { select: { name: true } }, position: { select: { title: true, level: true } } }
@@ -95,6 +99,10 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
             resignationReason: appendixNote || (contractType === 'INTERNSHIP' ? 'Không đạt đánh giá thực tập' : 'Không đạt đánh giá thử việc')
           }
         });
+        await tx.account.updateMany({
+          where: { employeeId },
+          data: { isActive: false }
+        });
         return { contract: null, employee: updatedEmployee };
       });
       return res.status(200).json(result);
@@ -121,7 +129,7 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
         where: {
           employeeId,
           contractType: 'OFFICIAL_1Y',
-          status: { in: ['ACTIVE', 'EXPIRED'] }
+          status: { in: ['ACTIVE', 'EXPIRED', 'TERMINATED'] }
         }
       });
       if (definiteCount >= maxDefinite) {
@@ -131,21 +139,34 @@ router.post('/', cbOnly, async (req: Request, res: Response): Promise<any> => {
       }
     }
 
-    // Tuân thủ Điều 25 Bộ luật Lao động 2019: Thời hạn thử việc theo trình độ chuyên môn (PROBATION_DAYS_UNIVERSITY / PROBATION_DAYS_COLLEGE)
+    // Tuân thủ Điều 25 Bộ luật Lao động 2019 & Quy chế công ty:
+    // Thử việc tối đa 60 ngày (2 tháng) đối với chuyên môn/đại học, 30 ngày đối với trung cấp/công nhân kỹ thuật.
+    // Thực tập tối đa 3 tháng (93 ngày).
     if (contractType === 'PROBATION') {
       if (!end) {
         return res.status(400).json({ error: 'Hợp đồng thử việc bắt buộc phải có ngày kết thúc (Điều 25 BLLĐ 2019).' });
       }
-      const probUniDays = Number(await getSettingValue('PROBATION_DAYS_UNIVERSITY', 60)) || 60;
-      const probColDays = Number(await getSettingValue('PROBATION_DAYS_COLLEGE', 30)) || 30;
+      const probUniDays = Number(await getSettingValue('PROBATION_PERIOD_DAYS', 60)) || 60;
+      const probColDays = Number(await getSettingValue('PROBATION_PERIOD_COLLEGE', 30)) || 30;
       const edu = (emp.highestEducation || '').toLowerCase();
       const isCollegeOrVocational = edu.includes('cao đẳng') || edu.includes('trung cấp') || edu.includes('sơ cấp');
-      const maxProbationDays = isCollegeOrVocational ? probColDays : Math.max(probUniDays, 180);
+      const maxProbationDays = isCollegeOrVocational ? probColDays : probUniDays;
 
       const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays > maxProbationDays) {
         return res.status(400).json({ 
-          error: `Thời gian thử việc vượt quá giới hạn tối đa theo Điều 25 Bộ luật Lao động 2019 (Tối đa ${maxProbationDays} ngày, hiện tại: ${diffDays} ngày).` 
+          error: `Thời gian thử việc vượt quá giới hạn tối đa theo quy định (Tối đa ${maxProbationDays} ngày / 2 tháng, hiện tại: ${diffDays} ngày).` 
+        });
+      }
+    } else if (contractType === 'INTERNSHIP') {
+      if (!end) {
+        return res.status(400).json({ error: 'Hợp đồng thực tập bắt buộc phải có ngày kết thúc.' });
+      }
+      const maxInternDays = Number(await getSettingValue('MAX_INTERNSHIP_DAYS', 93)) || 93; // Mặc định 3 tháng
+      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays > maxInternDays) {
+        return res.status(400).json({
+          error: `Thời gian thực tập vượt quá giới hạn tối đa theo quy định của công ty (Tối đa ${maxInternDays} ngày, hiện tại: ${diffDays} ngày).`
         });
       }
     }

@@ -289,6 +289,10 @@ router.put('/reviews/:id', authenticateToken, managerOrHr, async (req: any, res:
       return res.status(404).json({ error: 'Không tìm thấy phiếu đánh giá' });
     }
 
+    if (review.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Phiếu đánh giá này đã hoàn tất (COMPLETED), không thể chấm điểm đè!' });
+    }
+
     // Chống tự chấm điểm phiếu đánh giá của chính mình
     if (req.user?.employeeId && review.employeeId === req.user.employeeId) {
       return res.status(403).json({ error: 'Quản lý không thể tự chấm điểm đánh giá hiệu suất của chính mình.' });
@@ -333,6 +337,9 @@ router.put('/reviews/:id', authenticateToken, managerOrHr, async (req: any, res:
 
     const kW = Number(kpiWeight ?? review.kpiWeight ?? 70);
     const cW = Number(competencyWeight ?? review.competencyWeight ?? 30);
+    if (kW + cW !== 100) {
+      return res.status(400).json({ error: `Tổng trọng số KPI (${kW}%) và Năng lực (${cW}%) phải bằng 100%.` });
+    }
     const compScoreNum = competencyScore !== undefined ? Number(competencyScore) : (review.competencyScore ? Number(review.competencyScore) : 80);
 
     // Tính điểm tổng hợp: (KPI * 70%) + (Năng lực/Thái độ * 30%)
@@ -933,6 +940,14 @@ router.put('/kpi/:id', authenticateToken, async (req: any, res: Response): Promi
       if (description !== undefined || target !== undefined || weight !== undefined || direction !== undefined) {
         return res.status(403).json({ error: 'Chỉ Quản lý hoặc HR mới có quyền điều chỉnh mô tả hoặc chỉ tiêu KPI.' });
       }
+      if (existingKpi.reviewCycleId) {
+        const lockedReview = await prisma.performanceReview.findFirst({
+          where: { employeeId: existingKpi.employeeId, reviewCycleId: existingKpi.reviewCycleId, status: 'COMPLETED' }
+        });
+        if (lockedReview) {
+          return res.status(400).json({ error: 'Phiếu đánh giá kỳ này đã chốt (COMPLETED), không thể tự sửa tiến độ KPI.' });
+        }
+      }
     }
 
     const updatedKpi = await prisma.kPI.update({
@@ -1115,10 +1130,7 @@ export async function seedSampleReviewData() {
   }
 }
 
-// Chạy tự động sau khi máy chủ khởi động
-setTimeout(seedSampleReviewData, 1500);
-
-router.post('/seed-sample-reviews', async (req: Request, res: Response) => {
+router.post('/seed-sample-reviews', authenticateToken, hrOnly, async (req: Request, res: Response) => {
   try {
     await seedSampleReviewData();
     res.json({ message: 'Đã khởi tạo dữ liệu mẫu đánh giá KPI thành công!' });

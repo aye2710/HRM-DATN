@@ -133,6 +133,9 @@ router.post('/complete', authenticateToken, async (req: any, res: Response): Pro
       });
 
       if (!employee) throw new Error('Không tìm thấy nhân viên');
+      if (employee.status === 'RESIGNED') {
+        throw new Error('Nhân viên đã nghỉ việc (RESIGNED), không thể hoàn tất hội nhập.');
+      }
 
       let nextStatus: any = 'PROBATION';
       if (employee.position?.level?.toLowerCase() === 'intern') {

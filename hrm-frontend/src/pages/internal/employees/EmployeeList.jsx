@@ -68,6 +68,7 @@ export const EmployeeList = () => {
     probationStartDate: '',
     officialStartDate: '',
     taxCode: '',
+    socialInsurance: '',
     socialInsuranceNo: '',
     bankAccount: '',
     bankName: '',
@@ -292,6 +293,7 @@ export const EmployeeList = () => {
       probationStartDate: '',
       officialStartDate: '',
       taxCode: '',
+      socialInsurance: '',
       socialInsuranceNo: '',
       bankAccount: '',
       bankName: 'Vietcombank',
@@ -334,7 +336,8 @@ export const EmployeeList = () => {
       probationStartDate: emp.probationStartDate ? emp.probationStartDate.split('T')[0] : '',
       officialStartDate: emp.officialStartDate ? emp.officialStartDate.split('T')[0] : '',
       taxCode: emp.taxCode || '',
-      socialInsuranceNo: emp.socialInsuranceNo || '',
+      socialInsurance: emp.socialInsurance || emp.socialInsuranceNo || '',
+      socialInsuranceNo: emp.socialInsurance || emp.socialInsuranceNo || '',
       bankAccount: emp.bankAccount || '',
       bankName: emp.bankName || '',
       bankBranch: emp.bankBranch || '',
@@ -1256,8 +1259,8 @@ export const EmployeeList = () => {
                     <input 
                       type="text" 
                       className="form-input w-full"
-                      value={formData.socialInsuranceNo}
-                      onChange={e => setFormData({ ...formData, socialInsuranceNo: e.target.value })}
+                      value={formData.socialInsurance || formData.socialInsuranceNo || ''}
+                      onChange={e => setFormData({ ...formData, socialInsurance: e.target.value, socialInsuranceNo: e.target.value })}
                       placeholder="VD: 7912345678"
                     />
                   </div>

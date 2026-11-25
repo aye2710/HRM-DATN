@@ -408,7 +408,7 @@ export const DecisionDetail = () => {
               QUYẾT ĐỊNH ĐÃ BỊ TỪ CHỐI BAN HÀNH
             </div>
             <div style={{ fontSize: '0.85rem', color: '#7f1d1d', marginTop: '4px' }}>
-              Lý do từ chối: <em>"{decision.rejectionReason || 'Văn bản chưa đủ điều kiện ban hành'}"</em>
+              Lý do từ chối: <em>"{decision.reason || decision.rejectionReason || 'Văn bản chưa đủ điều kiện ban hành'}"</em>
             </div>
           </div>
         </div>
