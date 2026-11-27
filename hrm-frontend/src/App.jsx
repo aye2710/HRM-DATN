@@ -198,6 +198,11 @@ const ProtectedRoute = ({ allowedRole }) => {
     return <Navigate to="/admin" replace />;
   }
 
+  // Nếu tài khoản Admin cố vào trang Cổng Nhân viên, đưa về trang đăng nhập Nhân viên
+  if (allowedRole === 'EMPLOYEE' && role !== 'EMPLOYEE') {
+    return <Navigate to="/employee/login" replace />;
+  }
+
   return <Outlet />;
 };
 

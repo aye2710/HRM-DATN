@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   User, Briefcase, FileText, CreditCard, Award, Clock, Edit3, X, Save, AlertCircle,
   Users, Laptop, Plus, Trash2, Eye, EyeOff, UploadCloud, ExternalLink,
-  Paperclip, FolderOpen, Building2, GraduationCap, FileSignature
+  Paperclip, FolderOpen, Building2, GraduationCap, FileSignature, Shield, KeyRound, CheckCircle2
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -260,6 +260,45 @@ export const EmployeeProfile = () => {
   const [viewingDecision, setViewingDecision] = useState(null);
   const [previewImage, setPreviewImage] = useState(null); // { title: '', url: '' }
 
+  // Đổi mật khẩu cá nhân
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    next: false,
+    confirm: false
+  });
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      return toast.error('Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới');
+    }
+    if (passwordForm.newPassword.length < 6) {
+      return toast.error('Mật khẩu mới phải có tối thiểu 6 ký tự');
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      return toast.error('Xác nhận mật khẩu mới không khớp');
+    }
+    setChangingPassword(true);
+    try {
+      await axios.post('/api/auth/change-password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      toast.success('Đổi mật khẩu thành công!');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Không thể đổi mật khẩu');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const handleFileUpload = (e, callback) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -284,7 +323,7 @@ export const EmployeeProfile = () => {
       return;
     }
     try {
-      const res = await axios.get(`http://localhost:5000/api/employees/${activeEmployeeId}`);
+      const res = await axios.get(`/api/employees/${activeEmployeeId}`);
       setEmployee(res.data);
     } catch (error) {
       console.error('Lỗi tải thông tin nhân viên:', error);
@@ -371,7 +410,7 @@ export const EmployeeProfile = () => {
         ...editFormData,
         temporaryAddress: editFormData.currentAddress
       };
-      const res = await axios.put(`http://localhost:5000/api/employees/${targetId}`, payload);
+      const res = await axios.put(`/api/employees/${targetId}`, payload);
       if (res.data?.hasPendingApproval) {
         toast.success(res.data.message || 'Các thông tin nhạy cảm đã gửi tới Ban Nhân sự chờ phê duyệt!', { duration: 6000 });
       } else {
@@ -395,7 +434,7 @@ export const EmployeeProfile = () => {
       return toast.error('Vui lòng điền Họ tên và Mối quan hệ');
     }
     try {
-      await axios.post(`http://localhost:5000/api/employees/${targetId}/relatives`, relativeForm);
+      await axios.post(`/api/employees/${targetId}/relatives`, relativeForm);
       toast.success('Đã thêm người thân / người phụ thuộc thành công!');
       setShowAddRelativeModal(false);
       setRelativeForm({
@@ -420,7 +459,7 @@ export const EmployeeProfile = () => {
     if (!targetId) return;
     if (!window.confirm('Xác nhận xóa thông tin người thân này?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/employees/${targetId}/relatives/${relId}`);
+      await axios.delete(`/api/employees/${targetId}/relatives/${relId}`);
       toast.success('Đã xóa thông tin người thân thành công!');
       fetchEmployee();
     } catch (err) {
@@ -437,7 +476,7 @@ export const EmployeeProfile = () => {
       return toast.error('Vui lòng điền Tên bằng cấp, Chuyên ngành và Trường đào tạo');
     }
     try {
-      await axios.post(`http://localhost:5000/api/employees/${targetId}/degrees`, degreeForm);
+      await axios.post(`/api/employees/${targetId}/degrees`, degreeForm);
       toast.success('Đã thêm bằng cấp thành công!');
       setShowAddDegreeModal(false);
       setDegreeForm({
@@ -459,7 +498,7 @@ export const EmployeeProfile = () => {
     if (!targetId) return;
     if (!window.confirm('Xác nhận xóa bằng cấp này?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/employees/${targetId}/degrees/${degId}`);
+      await axios.delete(`/api/employees/${targetId}/degrees/${degId}`);
       toast.success('Đã xóa bằng cấp thành công!');
       fetchEmployee();
     } catch (err) {
@@ -476,7 +515,7 @@ export const EmployeeProfile = () => {
       return toast.error('Vui lòng điền Tên chứng chỉ và Đơn vị cấp');
     }
     try {
-      await axios.post(`http://localhost:5000/api/employees/${targetId}/certificates`, certForm);
+      await axios.post(`/api/employees/${targetId}/certificates`, certForm);
       toast.success('Đã thêm chứng chỉ thành công!');
       setShowAddCertModal(false);
       setCertForm({
@@ -497,7 +536,7 @@ export const EmployeeProfile = () => {
     if (!targetId) return;
     if (!window.confirm('Xác nhận xóa chứng chỉ này?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/employees/${targetId}/certificates/${certId}`);
+      await axios.delete(`/api/employees/${targetId}/certificates/${certId}`);
       toast.success('Đã xóa chứng chỉ thành công!');
       fetchEmployee();
     } catch (err) {
@@ -534,7 +573,7 @@ export const EmployeeProfile = () => {
             uploadedBy: 'Nhân viên'
           }
         ];
-        await axios.put(`http://localhost:5000/api/employees/${targetId}`, {
+        await axios.put(`/api/employees/${targetId}`, {
           attachedFiles: JSON.stringify(nextFiles)
         });
         toast.success('Đã tải lên tài liệu đính kèm thành công!');
@@ -555,7 +594,7 @@ export const EmployeeProfile = () => {
     if (!window.confirm('Xác nhận xóa tài liệu đính kèm này?')) return;
     try {
       const nextFiles = attachedFilesList.filter((f) => f.id !== attId);
-      await axios.put(`http://localhost:5000/api/employees/${targetId}`, {
+      await axios.put(`/api/employees/${targetId}`, {
         attachedFiles: nextFiles.length > 0 ? JSON.stringify(nextFiles) : null
       });
       toast.success('Đã xóa tài liệu đính kèm!');
@@ -573,282 +612,387 @@ export const EmployeeProfile = () => {
     );
   }
 
+  const profileTabs = [
+    { key: 'general', label: 'Lý lịch & Liên hệ', icon: <User size={16} /> },
+    { key: 'job', label: 'Công việc & Tổ chức', icon: <Briefcase size={16} /> },
+    { key: 'contract', label: 'Hợp đồng & Lương', icon: <FileText size={16} /> },
+    { key: 'finance', label: 'Ngân hàng, Thuế & BHXH', icon: <CreditCard size={16} /> },
+    { key: 'relatives', label: 'Người thân & Phụ thuộc', icon: <Users size={16} /> },
+    { key: 'education', label: 'Học vấn & Kinh nghiệm', icon: <Award size={16} /> },
+    { key: 'assets', label: 'Tài sản & Thiết bị', icon: <Laptop size={16} /> },
+    { key: 'decisions', label: 'Quyết định & Lịch sử', icon: <FileSignature size={16} /> },
+    { key: 'attachments', label: 'Hồ sơ đính kèm', icon: <Paperclip size={16} /> },
+    { key: 'security', label: 'Tài khoản & Bảo mật', icon: <Shield size={16} /> }
+  ];
+
+  const activeTabMeta = profileTabs.find((t) => t.key === activeTab) || profileTabs[0];
+
+  const completionChecks = [
+    { label: 'Họ tên', ok: Boolean(data.fullName) },
+    { label: 'Ngày sinh', ok: Boolean(data.dateOfBirth || data.birthday) },
+    { label: 'CCCD', ok: Boolean(data.cccd || data.idCard) },
+    { label: 'SĐT', ok: Boolean(data.phone) },
+    { label: 'Email cá nhân', ok: Boolean(data.personalEmail) },
+    { label: 'Địa chỉ', ok: Boolean(data.permanentAddress || data.temporaryAddress || data.currentAddress || data.address) },
+    { label: 'Số tài khoản', ok: Boolean(data.bankAccount || data.bankAccountNumber) },
+    { label: 'Mã số thuế', ok: Boolean(data.taxCode) }
+  ];
+  const completionDoneCount = completionChecks.filter((c) => c.ok).length;
+  const completionPercent = Math.round((completionDoneCount / completionChecks.length) * 100);
+  const missingFieldsHint = completionChecks.filter((c) => !c.ok).slice(0, 3).map((c) => c.label);
+
   return (
-    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-
-      {/* 1. Header Card với Avatar và Thẻ Nhân Viên + Nút Sửa / Lưu hồ sơ */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '1rem',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        padding: '2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
+    <div
+      className="animate-fade-in"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '290px minmax(0, 1fr)',
         gap: '1.5rem',
-        position: 'relative',
-        overflow: 'hidden'
+        alignItems: 'start'
+      }}
+    >
+      {/* CỘT TRÁI (STICKY): Tóm tắt hồ sơ + % hoàn thiện + Menu 10 Tab dọc */}
+      <aside style={{
+        position: 'sticky',
+        top: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem'
       }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '6px', background: 'linear-gradient(90deg, #2563EB, #7C3AED)' }} />
+        {/* Thẻ Tóm tắt nhân sự */}
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '1rem',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          padding: '1.35rem 1.25rem',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', background: 'linear-gradient(90deg, #2563EB, #7C3AED)' }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{
-            width: 72,
-            height: 72,
-            borderRadius: '1rem',
-            background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-            color: '#FFFFFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.85rem',
-            fontWeight: 800,
-            boxShadow: '0 4px 14px rgba(37,99,235,0.35)'
-          }}>
-            {data.fullName?.charAt(0)?.toUpperCase() || 'N'}
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
-              <h1 style={{ margin: 0, fontSize: '1.65rem', fontWeight: 800, color: '#0F172A' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', marginBottom: '1rem' }}>
+            <div style={{
+              width: 56,
+              height: 56,
+              borderRadius: '0.85rem',
+              background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.45rem',
+              fontWeight: 800,
+              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(37,99,235,0.28)'
+            }}>
+              {data.fullName?.charAt(0)?.toUpperCase() || 'N'}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.12rem', fontWeight: 800, color: '#0F172A', lineHeight: 1.25 }}>
                 {data.fullName}
               </h1>
-              <span style={{
-                backgroundColor: statusMeta.bg,
-                color: statusMeta.color,
-                border: `1px solid ${statusMeta.border}`,
-                padding: '2px 10px',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 700
-              }}>
-                {statusMeta.label}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#2563EB' }}>{data.code || '—'}</span>
+                <span style={{
+                  backgroundColor: statusMeta.bg,
+                  color: statusMeta.color,
+                  border: `1px solid ${statusMeta.border}`,
+                  padding: '1px 8px',
+                  borderRadius: '9999px',
+                  fontSize: '0.7rem',
+                  fontWeight: 700
+                }}>
+                  {statusMeta.label}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '0.8rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '0.35rem', paddingBottom: '0.9rem', borderBottom: '1px solid #F1F5F9' }}>
+            <div><strong>Chức danh:</strong> {data.position?.title || 'Chưa phân công'}</div>
+            <div><strong>Phòng ban:</strong> {data.department?.name || 'Chưa phân công'}</div>
+            <div><strong>Email công vụ:</strong> {data.workEmail || data.companyEmail || 'Chưa cấp'}</div>
+            <div><strong>Số điện thoại:</strong> {data.phone || 'Chưa cập nhật'}</div>
+          </div>
+
+          {/* Thanh % hoàn thiện hồ sơ */}
+          <div style={{ marginTop: '0.9rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', marginBottom: '0.35rem' }}>
+              <span style={{ fontWeight: 700, color: '#334155' }}>Hoàn thiện hồ sơ</span>
+              <span style={{ fontWeight: 800, color: completionPercent >= 80 ? '#059669' : '#D97706' }}>
+                {completionPercent}%
               </span>
             </div>
-            <p style={{ margin: 0, color: '#64748B', fontSize: '0.875rem' }}>
-              Mã nhân sự: <strong style={{ color: '#2563EB' }}>{data.code || '—'}</strong>
-              {data.position?.title ? ` • ${data.position.title}` : ''}
-              {data.department?.name ? ` • ${data.department.name}` : ''}
-            </p>
+            <div style={{ width: '100%', height: 7, backgroundColor: '#E2E8F0', borderRadius: '999px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${completionPercent}%`,
+                height: '100%',
+                backgroundColor: completionPercent >= 80 ? '#10B981' : completionPercent >= 50 ? '#2563EB' : '#F59E0B',
+                borderRadius: '999px',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+            {missingFieldsHint.length > 0 && (
+              <div style={{ marginTop: '0.4rem', fontSize: '0.73rem', color: '#64748B' }}>
+                Còn thiếu: {missingFieldsHint.join(', ')}
+                {completionChecks.length - completionDoneCount > 3 ? '...' : ''}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Nút Sửa hồ sơ / Lưu thay đổi */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {!isEditMode ? (
-            <button
-              onClick={handleStartEdit}
-              style={{
-                height: '40px',
-                padding: '0 20px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#2563EB',
-                color: '#FFFFFF',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 4px rgba(37,99,235,0.25)',
-                transition: 'all 0.2s'
-              }}
-            >
-              <Edit3 size={16} /> Sửa hồ sơ
-            </button>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Menu 10 Tab dọc */}
+        <nav style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '1rem',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          padding: '0.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.2rem'
+        }}>
+          {profileTabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
               <button
-                onClick={handleCancelEdit}
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
                 style={{
-                  height: '40px',
-                  padding: '0 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #CBD5E1',
-                  backgroundColor: '#FFFFFF',
-                  color: '#475569',
-                  fontWeight: 600,
-                  fontSize: '0.875rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <X size={16} /> Hủy bỏ
-              </button>
-              <button
-                onClick={handleSaveProfile}
-                disabled={isSaving}
-                style={{
-                  height: '40px',
-                  padding: '0 22px',
-                  borderRadius: '8px',
+                  width: '100%',
+                  padding: '0.62rem 0.85rem',
+                  borderRadius: '0.6rem',
                   border: 'none',
-                  backgroundColor: '#10B981',
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: '0.875rem',
-                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  borderLeft: isActive ? '3px solid #2563EB' : '3px solid transparent',
+                  backgroundColor: isActive ? '#EFF6FF' : 'transparent',
+                  color: isActive ? '#1D4ED8' : '#475569',
+                  fontWeight: isActive ? 700 : 600,
+                  fontSize: '0.84rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 2px 4px rgba(16,185,129,0.3)',
-                  transition: 'all 0.2s'
+                  gap: '0.6rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s'
                 }}
               >
-                <Save size={16} /> {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                {tab.icon}
+                <span>{tab.label}</span>
               </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* CỘT PHẢI: Thanh tiêu đề tab + Nút Sửa/Lưu + Nội dung chi tiết */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem', minWidth: 0 }}>
+        {/* Action Header Bar */}
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '1rem',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          padding: '1rem 1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div style={{
+              width: 36,
+              height: 36,
+              borderRadius: '0.6rem',
+              backgroundColor: '#EFF6FF',
+              color: '#2563EB',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {activeTabMeta.icon}
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>
+                {activeTabMeta.label}
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>
+                Hồ sơ cá nhân tự phục vụ • Employee Self-Service
+              </p>
+            </div>
+          </div>
+
+          {activeTab !== 'security' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {!isEditMode ? (
+                <button
+                  onClick={handleStartEdit}
+                  style={{
+                    height: '38px',
+                    padding: '0 18px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#2563EB',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    boxShadow: '0 2px 4px rgba(37,99,235,0.25)'
+                  }}
+                >
+                  <Edit3 size={15} /> Sửa hồ sơ
+                </button>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    onClick={handleCancelEdit}
+                    style={{
+                      height: '38px',
+                      padding: '0 15px',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      backgroundColor: '#FFFFFF',
+                      color: '#475569',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <X size={15} /> Hủy bỏ
+                  </button>
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
+                    style={{
+                      height: '38px',
+                      padding: '0 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: '#10B981',
+                      color: '#FFFFFF',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      cursor: isSaving ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      boxShadow: '0 2px 4px rgba(16,185,129,0.3)'
+                    }}
+                  >
+                    <Save size={15} /> {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Thanh thông báo khi đang ở Chế độ Chỉnh sửa Inline */}
-      {isEditMode && (
-        <div style={{
-          backgroundColor: '#EFF6FF',
-          border: '1px solid #BFDBFE',
-          borderRadius: '12px',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          boxShadow: '0 2px 8px rgba(37,99,235,0.08)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1E40AF', fontSize: '0.875rem', fontWeight: 700 }}>
-              <span>✏️</span> Bạn đang ở chế độ chỉnh sửa hồ sơ:
+        {/* Thanh thông báo khi đang ở Chế độ Chỉnh sửa Inline */}
+        {isEditMode && (
+          <div style={{
+            backgroundColor: '#EFF6FF',
+            border: '1px solid #BFDBFE',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            boxShadow: '0 2px 8px rgba(37,99,235,0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1E40AF', fontSize: '0.875rem', fontWeight: 700 }}>
+                <span>✏️</span> Bạn đang ở chế độ chỉnh sửa hồ sơ:
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.8rem', flexWrap: 'wrap' }}>
+                <span style={{ color: '#15803D', fontWeight: 600 }}>🟢 Tự lưu ngay: <span style={{ fontWeight: 400, color: '#334155' }}>SĐT, Email cá nhân, Địa chỉ tạm trú/hiện tại, Liên hệ khẩn cấp, Kinh nghiệm</span></span>
+                <span style={{ color: '#B45309', fontWeight: 600 }}>🟡 Cần HR duyệt: <span style={{ fontWeight: 400, color: '#334155' }}>CCCD, Tôn giáo, Hôn nhân, Ngân hàng, MST, Sổ BHXH...</span></span>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.8rem', flexWrap: 'wrap' }}>
-              <span style={{ color: '#15803D', fontWeight: 600 }}>🟢 Tự lưu ngay: <span style={{ fontWeight: 400, color: '#334155' }}>SĐT, Email cá nhân, Địa chỉ tạm trú/hiện tại, Liên hệ khẩn cấp, Kinh nghiệm</span></span>
-              <span style={{ color: '#B45309', fontWeight: 600 }}>🟡 Cần HR duyệt: <span style={{ fontWeight: 400, color: '#334155' }}>CCCD, Tôn giáo, Hôn nhân, Ngân hàng, MST, Sổ BHXH...</span></span>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                Ghi chú / Lý do thay đổi gửi Ban Nhân sự (Tùy chọn):
+              </label>
+              <input
+                type="text"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '0.85rem',
+                  backgroundColor: '#FFFFFF',
+                  outline: 'none'
+                }}
+                placeholder="Ví dụ: Em vừa làm lại CCCD gắn chip mới / Mới đổi số tài khoản ngân hàng nhận lương..."
+                value={editFormData.requestNote || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, requestNote: e.target.value })}
+              />
             </div>
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
-              Ghi chú / Lý do thay đổi gửi Ban Nhân sự (Tùy chọn):
-            </label>
-            <input
-              type="text"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.85rem',
-                backgroundColor: '#FFFFFF',
-                outline: 'none'
-              }}
-              placeholder="Ví dụ: Em vừa làm lại CCCD gắn chip mới / Mới đổi số tài khoản ngân hàng nhận lương..."
-              value={editFormData.requestNote || ''}
-              onChange={(e) => setEditFormData({ ...editFormData, requestNote: e.target.value })}
-            />
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Thông báo trạng thái yêu cầu cập nhật hồ sơ */}
-      {pendingRequest && (
-        <div style={{
-          backgroundColor: '#FFFBEB',
-          border: '1px solid #FDE68A',
-          borderRadius: '0.75rem',
-          padding: '1rem 1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          color: '#92400E',
-          boxShadow: '0 2px 4px rgba(245, 158, 11, 0.08)'
-        }}>
-          <Clock size={20} color="#D97706" />
-          <div style={{ flex: 1, fontSize: '0.875rem' }}>
-            <strong style={{ display: 'block' }}>Yêu cầu cập nhật hồ sơ đang chờ Ban Nhân sự phê duyệt</strong>
-            <span style={{ fontSize: '0.8rem', color: '#B45309' }}>
-              Gửi lúc: {new Date(pendingRequest.createdAt).toLocaleString('vi-VN')} {pendingRequest.note ? `• Ghi chú: ${pendingRequest.note}` : ''}
+        {/* Thông báo trạng thái yêu cầu cập nhật hồ sơ */}
+        {pendingRequest && (
+          <div style={{
+            backgroundColor: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            borderRadius: '0.75rem',
+            padding: '1rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            color: '#92400E',
+            boxShadow: '0 2px 4px rgba(245, 158, 11, 0.08)'
+          }}>
+            <Clock size={20} color="#D97706" />
+            <div style={{ flex: 1, fontSize: '0.875rem' }}>
+              <strong style={{ display: 'block' }}>Yêu cầu cập nhật hồ sơ đang chờ Ban Nhân sự phê duyệt</strong>
+              <span style={{ fontSize: '0.8rem', color: '#B45309' }}>
+                Gửi lúc: {new Date(pendingRequest.createdAt).toLocaleString('vi-VN')} {pendingRequest.note ? `• Ghi chú: ${pendingRequest.note}` : ''}
+              </span>
+            </div>
+            <span style={{ backgroundColor: '#FEF3C7', padding: '4px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, color: '#B45309' }}>
+              ⏳ Chờ duyệt
             </span>
           </div>
-          <span style={{ backgroundColor: '#FEF3C7', padding: '4px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, color: '#B45309' }}>
-            ⏳ Chờ duyệt
-          </span>
-        </div>
-      )}
+        )}
 
-      {!pendingRequest && lastRejectedRequest && (
-        <div style={{
-          backgroundColor: '#FEF2F2',
-          border: '1px solid #FECACA',
-          borderRadius: '0.75rem',
-          padding: '1rem 1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          color: '#991B1B'
-        }}>
-          <AlertCircle size={20} color="#DC2626" />
-          <div style={{ flex: 1, fontSize: '0.875rem' }}>
-            <strong style={{ display: 'block' }}>Yêu cầu cập nhật hồ sơ gần nhất bị từ chối</strong>
-            <span style={{ fontSize: '0.8rem', color: '#B91C1C' }}>
-              Lý do: {lastRejectedRequest.rejectReason || 'Thông tin chưa hợp lệ'}. Bạn có thể chỉnh sửa lại và gửi yêu cầu mới.
-            </span>
+        {!pendingRequest && lastRejectedRequest && (
+          <div style={{
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            borderRadius: '0.75rem',
+            padding: '1rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            color: '#991B1B'
+          }}>
+            <AlertCircle size={20} color="#DC2626" />
+            <div style={{ flex: 1, fontSize: '0.875rem' }}>
+              <strong style={{ display: 'block' }}>Yêu cầu cập nhật hồ sơ gần nhất bị từ chối</strong>
+              <span style={{ fontSize: '0.8rem', color: '#B91C1C' }}>
+                Lý do: {lastRejectedRequest.rejectReason || 'Thông tin chưa hợp lệ'}. Bạn có thể chỉnh sửa lại và gửi yêu cầu mới.
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 2. Navigation Tabs (9 Tabs đồng bộ đủ trường bên HR) */}
-      <div style={{
-        display: 'flex',
-        gap: '0.35rem',
-        borderBottom: '1px solid #E2E8F0',
-        paddingBottom: '0.25rem',
-        overflowX: 'auto'
-      }}>
-        {[
-          { key: 'general', label: 'Lý lịch & Liên hệ', icon: <User size={15} /> },
-          { key: 'job', label: 'Công việc & Tổ chức', icon: <Briefcase size={15} /> },
-          { key: 'contract', label: 'Hợp đồng & Lương', icon: <FileText size={15} /> },
-          { key: 'finance', label: 'Ngân hàng, Thuế & BHXH', icon: <CreditCard size={15} /> },
-          { key: 'relatives', label: 'Người thân & Phụ thuộc', icon: <Users size={15} /> },
-          { key: 'education', label: 'Học vấn & Kinh nghiệm', icon: <Award size={15} /> },
-          { key: 'assets', label: 'Tài sản & Thiết bị', icon: <Laptop size={15} /> },
-          { key: 'decisions', label: 'Quyết định & Lịch sử', icon: <FileSignature size={15} /> },
-          { key: 'attachments', label: 'Hồ sơ đính kèm', icon: <Paperclip size={15} /> }
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            style={{
-              padding: '0.65rem 0.95rem',
-              borderRadius: '0.5rem 0.5rem 0 0',
-              border: 'none',
-              background: activeTab === tab.key ? '#FFFFFF' : 'transparent',
-              color: activeTab === tab.key ? '#2563EB' : '#64748B',
-              fontWeight: 700,
-              fontSize: '0.825rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              cursor: 'pointer',
-              borderBottom: activeTab === tab.key ? '2px solid #2563EB' : '2px solid transparent',
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* 3. Tab Contents */}
-      <div style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '1rem',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        padding: '2rem'
-      }}>
+        {/* 3. Tab Contents */}
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '1rem',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          padding: '1.75rem'
+        }}>
 
         {/* TAB 1: Tổng quan & Nhân thân + Liên hệ + Cư trú & Hộ khẩu */}
         {activeTab === 'general' && (
@@ -2023,6 +2167,165 @@ export const EmployeeProfile = () => {
           </div>
         )}
 
+        {/* TAB 10: Tài khoản ESS & Bảo mật */}
+        {activeTab === 'security' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+            {/* Thông tin tài khoản ESS */}
+            <div style={{
+              backgroundColor: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: '0.9rem',
+              padding: '1.35rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', paddingBottom: '0.75rem', borderBottom: '1px solid #E2E8F0' }}>
+                <Shield size={18} color="#2563EB" />
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>
+                  Thông tin tài khoản Cổng Nhân viên
+                </h3>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748B' }}>Tên đăng nhập</span>
+                  <strong style={{ color: '#0F172A', fontFamily: 'monospace', fontSize: '0.92rem' }}>
+                    {data.account?.username || localStorage.getItem('username') || data.code || '—'}
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748B' }}>Phân quyền cổng</span>
+                  <span style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 10px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                    Nhân viên ({typeof data.account?.role === 'object' ? (data.account?.role?.name || 'EMPLOYEE') : (data.account?.role || 'EMPLOYEE')})
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#64748B' }}>Trạng thái tài khoản</span>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    backgroundColor: data.account?.isActive === false ? '#FEF2F2' : '#ECFDF5',
+                    color: data.account?.isActive === false ? '#DC2626' : '#059669',
+                    padding: '2px 10px',
+                    borderRadius: '9999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700
+                  }}>
+                    <CheckCircle2 size={13} />
+                    {data.account?.isActive === false ? 'Đã khóa' : 'Đang hoạt động'}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{
+                marginTop: 'auto',
+                backgroundColor: '#EFF6FF',
+                border: '1px solid #BFDBFE',
+                borderRadius: '0.65rem',
+                padding: '0.8rem 0.95rem',
+                fontSize: '0.8rem',
+                color: '#1E40AF',
+                lineHeight: 1.5
+              }}>
+                Nếu bạn mới nhận tài khoản từ HR (mật khẩu mặc định), hãy đổi sang mật khẩu cá nhân để bảo mật thông tin lương và hồ sơ của mình.
+              </div>
+            </div>
+
+            {/* Form đổi mật khẩu */}
+            <form
+              onSubmit={handleChangePassword}
+              style={{
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: '0.9rem',
+                padding: '1.35rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', paddingBottom: '0.75rem', borderBottom: '1px solid #E2E8F0' }}>
+                <KeyRound size={18} color="#7C3AED" />
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>
+                  Đổi mật khẩu đăng nhập
+                </h3>
+              </div>
+
+              {[
+                { key: 'currentPassword', label: 'Mật khẩu hiện tại', showKey: 'current', placeholder: 'Nhập mật khẩu hiện tại...' },
+                { key: 'newPassword', label: 'Mật khẩu mới (tối thiểu 6 ký tự)', showKey: 'next', placeholder: 'Nhập mật khẩu mới...' },
+                { key: 'confirmPassword', label: 'Xác nhận mật khẩu mới', showKey: 'confirm', placeholder: 'Nhập lại mật khẩu mới...' }
+              ].map((field) => (
+                <div key={field.key}>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>
+                    {field.label}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPasswords[field.showKey] ? 'text' : 'password'}
+                      value={passwordForm[field.key]}
+                      onChange={(e) => setPasswordForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      placeholder={field.placeholder}
+                      style={{
+                        width: '100%',
+                        padding: '0.6rem 2.4rem 0.6rem 0.85rem',
+                        borderRadius: '0.55rem',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '0.875rem',
+                        outline: 'none'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswords((prev) => ({ ...prev, [field.showKey]: !prev[field.showKey] }))}
+                      style={{
+                        position: 'absolute',
+                        right: '0.6rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748B',
+                        display: 'flex',
+                        padding: '2px'
+                      }}
+                    >
+                      {showPasswords[field.showKey] ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="submit"
+                disabled={changingPassword}
+                style={{
+                  marginTop: '0.25rem',
+                  height: '40px',
+                  borderRadius: '0.55rem',
+                  border: 'none',
+                  backgroundColor: '#2563EB',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  cursor: changingPassword ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                <KeyRound size={15} />
+                {changingPassword ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+              </button>
+            </form>
+          </div>
+        )}
+
+      </div>
       </div>
 
       {/* ======================================================== */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   FileText, Send, ArrowLeft, Clock, Plus, CheckCircle2, AlertTriangle
@@ -54,6 +54,7 @@ export const EmployeeExplanations = () => {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
   const [viewMode, setViewMode] = useState('LIST'); // 'LIST' | 'FORM_PAGE'
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -75,14 +76,14 @@ export const EmployeeExplanations = () => {
   const fullName = localStorage.getItem('fullName') || 'Nhân viên';
   const employeeId = localStorage.getItem('employeeId');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     const headers = getAuthHeaders();
     if (employeeId) {
       try {
         const [adjRes, profRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/attendance/adjustments', { headers }),
-          axios.get(`http://localhost:5000/api/employees/${employeeId}`, { headers }).catch(() => ({ data: null })),
+          axios.get('/api/attendance/adjustments', { headers }),
+          axios.get(`/api/employees/${employeeId}`, { headers }).catch(() => ({ data: null })),
         ]);
         if (Array.isArray(adjRes.data)) setMyAdjustments(adjRes.data);
         if (profRes?.data) setEmpProfile(profRes.data);
@@ -91,18 +92,19 @@ export const EmployeeExplanations = () => {
       }
     }
     setLoading(false);
-  };
+  }, [employeeId]);
 
   useEffect(() => {
     fetchData();
-  }, [employeeId]);
+  }, [fetchData]);
 
-  const openNewForm = (category = 'CONFIRM_ATTENDANCE', prefill = {}) => {
+  const openNewForm = useCallback((category = 'CONFIRM_ATTENDANCE', prefill = {}) => {
     const cfg = FORM_CATEGORIES[category] || FORM_CATEGORIES.CONFIRM_ATTENDANCE;
+    const todayStr = new Date().toISOString().split('T')[0];
     setRequestForm({
       id: null,
       formCategory: category,
-      date: prefill.date || now.toISOString().split('T')[0],
+      date: prefill.date || todayStr,
       subType: prefill.subType || cfg.defaultSubType,
       duration: prefill.duration || prefill.lateDuration || cfg.defaultDuration || '',
       oldTime: prefill.oldTime || (category === 'CONFIRM_ATTENDANCE' ? '07:54 / — (Thiếu giờ)' : ''),
@@ -112,7 +114,7 @@ export const EmployeeExplanations = () => {
     });
     setViewMode('FORM_PAGE');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, []);
 
   const openExistingDoc = (adj) => {
     const category = getExplanationCategory(adj.type);
@@ -137,7 +139,7 @@ export const EmployeeExplanations = () => {
       openNewForm(prefillState.category || 'CONFIRM_ATTENDANCE', prefillState);
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state]);
+  }, [location.state, location.pathname, navigate, openNewForm]);
 
   const monthAdjustments = useMemo(() => {
     return myAdjustments.filter(a => {
@@ -148,9 +150,12 @@ export const EmployeeExplanations = () => {
   }, [myAdjustments, selectedMonth, selectedYear]);
 
   const filteredAdjustments = useMemo(() => {
-    if (statusFilter === 'ALL') return monthAdjustments;
-    return monthAdjustments.filter(a => a.status === statusFilter);
-  }, [monthAdjustments, statusFilter]);
+    return monthAdjustments.filter((a) => {
+      if (statusFilter !== 'ALL' && a.status !== statusFilter) return false;
+      if (typeFilter !== 'ALL' && getExplanationCategory(a.type) !== typeFilter) return false;
+      return true;
+    });
+  }, [monthAdjustments, statusFilter, typeFilter]);
 
   const usedLateQuota = useMemo(() => {
     return monthAdjustments.filter(
@@ -171,7 +176,7 @@ export const EmployeeExplanations = () => {
 
   useEffect(() => {
     resetPage();
-  }, [selectedMonth, selectedYear, statusFilter, resetPage]);
+  }, [selectedMonth, selectedYear, statusFilter, typeFilter, resetPage]);
 
   const handleSwitchCategory = (cat) => {
     const cfg = FORM_CATEGORIES[cat];
@@ -201,7 +206,7 @@ export const EmployeeExplanations = () => {
       }
 
       const res = await axios.post(
-        'http://localhost:5000/api/attendance/adjustments',
+        '/api/attendance/adjustments',
         {
           employeeId,
           date: requestForm.date,
@@ -501,17 +506,30 @@ export const EmployeeExplanations = () => {
             </div>
           </div>
 
-          <select
-            className="form-input"
-            style={{ width: 'auto', minWidth: 180, height: 34, fontSize: '0.82rem' }}
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="PENDING">Chờ duyệt</option>
-            <option value="APPROVED">HCNS đã duyệt</option>
-            <option value="REJECTED">Từ chối</option>
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <select
+              className="form-input"
+              style={{ width: 'auto', minWidth: 175, height: 34, fontSize: '0.82rem' }}
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value)}
+            >
+              <option value="ALL">Tất cả loại đơn</option>
+              <option value="CONFIRM_ATTENDANCE">Xác nhận chấm công</option>
+              <option value="LATE_ARRIVAL">Xin đi muộn</option>
+              <option value="EARLY_LEAVE">Xin về sớm</option>
+            </select>
+            <select
+              className="form-input"
+              style={{ width: 'auto', minWidth: 165, height: 34, fontSize: '0.82rem' }}
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="PENDING">Chờ duyệt</option>
+              <option value="APPROVED">HCNS đã duyệt</option>
+              <option value="REJECTED">Từ chối</option>
+            </select>
+          </div>
         </div>
 
         <div className="table-responsive">

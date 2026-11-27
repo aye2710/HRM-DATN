@@ -8,10 +8,10 @@ import { createAuditLog } from '../../utils/audit';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_hrm_2026';
 
-// 1. POST: Đăng nhập cấp Token
+// 1. POST: Đăng nhập cấp Token (Tách biệt chặt Cổng Quản trị & Cổng Nhân viên)
 router.post('/login', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { username, password } = req.body;
+    const { username, password, portal } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Vui lòng nhập tài khoản và mật khẩu' });
@@ -49,6 +49,24 @@ router.post('/login', async (req: Request, res: Response): Promise<any> => {
     
     if (!isMatch) {
       return res.status(401).json({ error: 'Mật khẩu không chính xác' });
+    }
+
+    // 2.1 Kiểm tra đúng cổng đăng nhập (Tách biệt tuyệt đối Admin và Employee)
+    const normalizedPortal = String(portal || '').toUpperCase();
+    const roleName = String(account.role.name || '').toUpperCase();
+
+    if (normalizedPortal === 'EMPLOYEE') {
+      if (roleName !== 'EMPLOYEE' || !account.employeeId) {
+        return res.status(403).json({
+          error: 'Tài khoản Quản trị viên không thể đăng nhập tại Cổng Nhân viên. Vui lòng sử dụng Cổng Quản trị (/admin).'
+        });
+      }
+    } else if (normalizedPortal === 'ADMIN') {
+      if (roleName === 'EMPLOYEE') {
+        return res.status(403).json({
+          error: 'Tài khoản Nhân viên không có quyền truy cập Cổng Quản trị. Vui lòng đăng nhập tại Cổng Nhân sự (/employee/login).'
+        });
+      }
     }
 
     // 3. Tạo Payload cho JWT

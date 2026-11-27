@@ -90,7 +90,7 @@ export const PayslipDetail = () => {
   const fetchPayslip = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/payroll/payslip/${id}`);
+      const res = await axios.get(`/api/payroll/payslip/${id}`);
       setPayslip(res.data);
     } catch (error) {
       console.error(error);
@@ -147,7 +147,7 @@ export const PayslipDetail = () => {
     e.preventDefault();
     setSavingEdit(true);
     try {
-      await axios.put(`http://localhost:5000/api/payroll/payslip/${id}/lla-adjust`, {
+      await axios.put(`/api/payroll/payslip/${id}/lla-adjust`, {
         ...editForm,
         standardWorkingDays: lla.standardWorkingDays || 26
       });

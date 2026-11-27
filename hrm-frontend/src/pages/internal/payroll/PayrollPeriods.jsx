@@ -30,7 +30,7 @@ export const PayrollPeriods = () => {
   const fetchPeriods = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/payroll/periods');
+      const res = await axios.get('/api/payroll/periods');
       setPeriods(res.data || []);
     } catch (error) {
       console.error(error);
@@ -57,7 +57,7 @@ export const PayrollPeriods = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/payroll/periods', {
+      await axios.post('/api/payroll/periods', {
         month: Number(newMonth),
         year: Number(newYear),
         standardWorkingDays: Number(standardWorkingDays)
@@ -68,7 +68,7 @@ export const PayrollPeriods = () => {
       // Nếu chọn tự động tính toán luôn
       if (autoGenerate) {
         try {
-          const genRes = await axios.post('http://localhost:5000/api/payroll/generate', {
+          const genRes = await axios.post('/api/payroll/generate', {
             month: Number(newMonth),
             year: Number(newYear)
           });
@@ -95,7 +95,7 @@ export const PayrollPeriods = () => {
 
     setCalculatingId(period.id);
     try {
-      const res = await axios.post('http://localhost:5000/api/payroll/generate', {
+      const res = await axios.post('/api/payroll/generate', {
         month: period.month,
         year: period.year
       });
@@ -129,7 +129,7 @@ export const PayrollPeriods = () => {
     if (result.isConfirmed) {
       try {
         const nextStatus = isLocked ? 'DRAFT' : 'LOCKED';
-        await axios.post('http://localhost:5000/api/payroll/period/toggle-lock', {
+        await axios.post('/api/payroll/period/toggle-lock', {
           month: period.month,
           year: period.year,
           status: nextStatus
@@ -160,7 +160,7 @@ export const PayrollPeriods = () => {
 
     if (result.isConfirmed) {
       try {
-        await axios.delete(`http://localhost:5000/api/payroll/periods/${period.id}`);
+        await axios.delete(`/api/payroll/periods/${period.id}`);
         toast.success(`Đã xóa ${period.name}`);
         fetchPeriods();
       } catch (err) {

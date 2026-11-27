@@ -18,7 +18,7 @@ export const Holidays = () => {
 
   const fetchHolidays = () => {
     setLoading(true);
-    axios.get('http://localhost:5000/api/holidays')
+    axios.get('/api/holidays')
       .then(res => setHolidays(res.data))
       .catch(err => toast.error('Lỗi lấy danh sách nghỉ lễ'))
       .finally(() => setLoading(false));
@@ -30,7 +30,7 @@ export const Holidays = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    axios.post('http://localhost:5000/api/holidays', formData)
+    axios.post('/api/holidays', formData)
       .then(() => {
         toast.success('Thêm ngày lễ thành công');
         setShowModal(false);
@@ -59,7 +59,7 @@ export const Holidays = () => {
   const handleDelete = async (id) => {
     const result = await Swal.fire({ title: 'Xóa ngày lễ?', text: "Hành động này không thể hoàn tác", icon: 'warning', showCancelButton: true, confirmButtonText: 'Xóa', cancelButtonText: 'Hủy' });
     if (result.isConfirmed) {
-      axios.delete(`http://localhost:5000/api/holidays/${id}`)
+      axios.delete(`/api/holidays/${id}`)
         .then(() => {
           toast.success('Xóa thành công');
           fetchHolidays();

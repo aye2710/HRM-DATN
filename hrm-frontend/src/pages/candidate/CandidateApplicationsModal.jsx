@@ -61,7 +61,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
 
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/candidate-auth/my-applications', {
+      const res = await axios.get('/api/candidate-auth/my-applications', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setApplications(res.data);
@@ -106,7 +106,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
     const token = localStorage.getItem('candidateToken');
     try {
       await axios.post(
-        `http://localhost:5000/api/candidate-auth/offers/${app.id}/reject`,
+        `/api/candidate-auth/offers/${app.id}/reject`,
         { declineReason: finalReason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -129,7 +129,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
     const token = localStorage.getItem('candidateToken');
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/candidate-auth/interviews/${interviewId}/confirm`,
+        `/api/candidate-auth/interviews/${interviewId}/confirm`,
         { candidateNotes: 'Ứng viên xác nhận tham gia phỏng vấn đúng giờ' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -216,7 +216,7 @@ export const CandidateApplicationsModal = ({ isOpen, onClose, candidateUser }) =
     const token = localStorage.getItem('candidateToken');
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/candidate-auth/interviews/${interview.id}/decline`,
+        `/api/candidate-auth/interviews/${interview.id}/decline`,
         { declineReason: finalReason },
         { headers: { Authorization: `Bearer ${token}` } }
       );

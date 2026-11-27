@@ -99,16 +99,16 @@ export const PayrollMgmt = () => {
     setLoading(true);
     try {
       const [payrollRes, periodRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/payroll?month=${month}&year=${year}`),
-        axios.get(`http://localhost:5000/api/payroll/period/info?month=${month}&year=${year}`)
+        axios.get(`/api/payroll?month=${month}&year=${year}`),
+        axios.get(`/api/payroll/period/info?month=${month}&year=${year}`)
       ]);
       const pInfo = periodRes.data || { status: 'DRAFT', standardWorkingDays: 26 };
       setPeriodInfo(pInfo);
 
       const list = payrollRes.data || [];
       if (list.length === 0 && autoGenerateIfEmpty && pInfo.status !== 'LOCKED') {
-        await axios.post('http://localhost:5000/api/payroll/generate', { month, year });
-        const refreshed = await axios.get(`http://localhost:5000/api/payroll?month=${month}&year=${year}`);
+        await axios.post('/api/payroll/generate', { month, year });
+        const refreshed = await axios.get(`/api/payroll?month=${month}&year=${year}`);
         setPayrolls(refreshed.data || []);
       } else {
         setPayrolls(list);
@@ -137,7 +137,7 @@ export const PayrollMgmt = () => {
     }
     setCalculating(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/payroll/generate', { month, year });
+      const res = await axios.post('/api/payroll/generate', { month, year });
       toast.success(res.data.message || `Đã tính toán xong bảng lương tháng ${month}/${year}`);
       fetchData(false);
     } catch (error) {
@@ -167,7 +167,7 @@ export const PayrollMgmt = () => {
     if (result.isConfirmed) {
       try {
         const nextStatus = isLocked ? 'DRAFT' : 'LOCKED';
-        await axios.post('http://localhost:5000/api/payroll/period/toggle-lock', {
+        await axios.post('/api/payroll/period/toggle-lock', {
           month,
           year,
           status: nextStatus
@@ -198,7 +198,7 @@ export const PayrollMgmt = () => {
 
     if (result.isConfirmed) {
       try {
-        await axios.post(`http://localhost:5000/api/payroll/payslip/${payslip.id}/toggle-payment-hold`, {
+        await axios.post(`/api/payroll/payslip/${payslip.id}/toggle-payment-hold`, {
           lock,
           reason: lock ? 'Tạm khóa chi trả do chậm nộp hồ sơ gốc cứng quá 7 ngày' : 'HR xác nhận đã thu đủ hồ sơ cứng. Mở khóa chi trả.'
         });
@@ -237,7 +237,7 @@ export const PayrollMgmt = () => {
     if (!editingPayslip) return;
     setSavingEdit(true);
     try {
-      await axios.put(`http://localhost:5000/api/payroll/payslip/${editingPayslip.id}/lla-adjust`, {
+      await axios.put(`/api/payroll/payslip/${editingPayslip.id}/lla-adjust`, {
         ...editForm,
         standardWorkingDays: periodInfo.standardWorkingDays || 26
       });

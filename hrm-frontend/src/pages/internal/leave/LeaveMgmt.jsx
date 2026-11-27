@@ -47,9 +47,9 @@ export const LeaveMgmt = () => {
     setLoading(true);
     try {
       const [leavesRes, empsRes, typesRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/leaves'),
-        axios.get('http://localhost:5000/api/employees').catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/leave-config/types').catch(() => ({ data: [] }))
+        axios.get('/api/leaves'),
+        axios.get('/api/employees').catch(() => ({ data: [] })),
+        axios.get('/api/leave-config/types').catch(() => ({ data: [] }))
       ]);
       setLeaves(leavesRes.data || []);
       setEmployees(empsRes.data || []);
@@ -92,7 +92,7 @@ export const LeaveMgmt = () => {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.put(`http://localhost:5000/api/leaves/${id}/status`, { status: newStatus });
+      await axios.put(`/api/leaves/${id}/status`, { status: newStatus });
       toast.success(`Đã ${actionText.toLowerCase()} đơn nghỉ phép thành công!`);
       fetchLeaves();
     } catch (err) {
@@ -115,7 +115,7 @@ export const LeaveMgmt = () => {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.put(`http://localhost:5000/api/leaves/${id}/status`, { status: 'REJECTED' });
+      await axios.put(`/api/leaves/${id}/status`, { status: 'REJECTED' });
       toast.success('Đã thu hồi đơn và hoàn lại ngày phép, bảng công thành công!');
       fetchLeaves();
     } catch (err) {
@@ -131,7 +131,7 @@ export const LeaveMgmt = () => {
     }
     setSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/leaves', createForm);
+      await axios.post('/api/leaves', createForm);
       toast.success('Lập đơn xin nghỉ phép thành công!');
       setShowCreateModal(false);
       setCreateForm({

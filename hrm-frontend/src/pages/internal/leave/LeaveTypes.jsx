@@ -31,7 +31,7 @@ export const LeaveTypes = () => {
 
   const fetchTypes = () => {
     setLoading(true);
-    axios.get('http://localhost:5000/api/leave-config/types')
+    axios.get('/api/leave-config/types')
       .then(res => setTypes(res.data))
       .catch(err => toast.error('Lỗi lấy dữ liệu loại phép'))
       .finally(() => setLoading(false));
@@ -74,7 +74,7 @@ export const LeaveTypes = () => {
     };
 
     if (editingItem) {
-      axios.put(`http://localhost:5000/api/leave-config/types/${editingItem.id}`, payload)
+      axios.put(`/api/leave-config/types/${editingItem.id}`, payload)
         .then(() => {
           toast.success('Cập nhật loại phép thành công');
           setShowModal(false);
@@ -83,7 +83,7 @@ export const LeaveTypes = () => {
         })
         .catch(err => toast.error(err.response?.data?.error || 'Lỗi cập nhật loại phép'));
     } else {
-      axios.post('http://localhost:5000/api/leave-config/types', payload)
+      axios.post('/api/leave-config/types', payload)
         .then(() => {
           toast.success('Thêm loại phép mới thành công');
           setShowModal(false);
@@ -124,7 +124,7 @@ export const LeaveTypes = () => {
       cancelButtonText: 'Hủy' 
     });
     if (result.isConfirmed) {
-      axios.delete(`http://localhost:5000/api/leave-config/types/${id}`)
+      axios.delete(`/api/leave-config/types/${id}`)
         .then(() => { toast.success('Xóa thành công'); fetchTypes(); })
         .catch(err => toast.error(err.response?.data?.error || 'Lỗi xóa loại phép'));
     }

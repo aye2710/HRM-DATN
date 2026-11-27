@@ -29,7 +29,7 @@ export const AuditLogs = () => {
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('http://localhost:5000/api/settings/audit-logs', {
+      const res = await axios.get('/api/settings/audit-logs', {
         params: { limit: 100 }
       });
       if (res.data?.data) {
@@ -110,7 +110,7 @@ export const AuditLogs = () => {
     }
 
     try {
-      await axios.post('http://localhost:5000/api/settings/audit-logs', {
+      await axios.post('/api/settings/audit-logs', {
         action: newAction,
         resource: newResource,
         details: `Cũ: ${newOldVal} | Mới: ${newNewVal}`

@@ -57,10 +57,10 @@ export const AttendanceMgmt = () => {
     setLoading(true);
     try {
       const [attRes, empRes, deptRes, schedRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/attendance?month=${monthStr}`),
-        axios.get('http://localhost:5000/api/employees'),
-        axios.get('http://localhost:5000/api/departments'),
-        axios.get(`http://localhost:5000/api/attendance/month-schedule?year=${selectedYear}&month=${selectedMonth}`)
+        axios.get(`/api/attendance?month=${monthStr}`),
+        axios.get('/api/employees'),
+        axios.get('/api/departments'),
+        axios.get(`/api/attendance/month-schedule?year=${selectedYear}&month=${selectedMonth}`)
       ]);
       const activeEmps = (empRes.data || []).filter(e => e.status !== 'RESIGNED');
       setEmployees(activeEmps);
@@ -76,11 +76,11 @@ export const AttendanceMgmt = () => {
       if ((autoSyncIfEmpty && attList.length === 0 && activeEmps.length > 0) || (autoSyncIfEmpty && missingWorkingSat && activeEmps.length > 0)) {
         // Tự động đồng bộ dữ liệu máy chấm công mẫu (bao gồm Thứ 7 đi làm cách tuần x2 công)
         try {
-          await axios.post('http://localhost:5000/api/attendance/sync-month', {
+          await axios.post('/api/attendance/sync-month', {
             month: selectedMonth,
             year: selectedYear
           });
-          const reloadAtt = await axios.get(`http://localhost:5000/api/attendance?month=${monthStr}`);
+          const reloadAtt = await axios.get(`/api/attendance?month=${monthStr}`);
           attList = reloadAtt.data || [];
         } catch (syncErr) {
           console.error('Auto sync skipped:', syncErr);
@@ -103,7 +103,7 @@ export const AttendanceMgmt = () => {
   const handleSyncMonth = async () => {
     setSyncingMonth(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/attendance/sync-month', {
+      const res = await axios.post('/api/attendance/sync-month', {
         month: selectedMonth,
         year: selectedYear
       });
@@ -141,7 +141,7 @@ export const AttendanceMgmt = () => {
       if (logs.length === 0) {
         return toast.error('File CSV không đúng định dạng: Mã NV, YYYY-MM-DD, HH:mm (Vào), HH:mm (Ra)');
       }
-      const res = await axios.post('http://localhost:5000/api/attendance/import-logs', { logs });
+      const res = await axios.post('/api/attendance/import-logs', { logs });
       toast.success(res.data.message || `Đã import ${logs.length} dòng log máy chấm công!`);
       fetchData(false);
     } catch (err) {
@@ -322,7 +322,7 @@ export const AttendanceMgmt = () => {
 
     setSweeping(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/attendance/daily-sweep', {
+      const res = await axios.post('/api/attendance/daily-sweep', {
         date: selectedDate
       });
       toast.success(res.data.message || 'Đã hoàn tất quét và chốt công ngày!');
@@ -366,7 +366,7 @@ export const AttendanceMgmt = () => {
         finalWorkingDay = 0.0;
       }
 
-      const res = await axios.post('http://localhost:5000/api/attendance/manual', {
+      const res = await axios.post('/api/attendance/manual', {
         employeeId: manualForm.employeeId,
         date: manualForm.date,
         checkIn: checkInISO,

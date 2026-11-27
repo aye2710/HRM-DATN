@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { 
-  Target, Award, TrendingUp, CheckCircle2, Clock, AlertCircle, 
-  ChevronRight, Sparkles, Star, Edit3, BarChart2, Edit, X
+import {
+  Target, Award, TrendingUp, Edit, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
@@ -11,7 +10,6 @@ import { PageHeader } from '../../components/common/PageHeader';
 export const EmployeeKPI = () => {
   const [selectedQuarter, setSelectedQuarter] = useState('Q3-2026');
   const employeeId = localStorage.getItem('employeeId');
-  const [loading, setLoading] = useState(false);
   const [updatingKpi, setUpdatingKpi] = useState(null);
   const [newAchieved, setNewAchieved] = useState(0);
   const [newEvidenceUrl, setNewEvidenceUrl] = useState('');
@@ -75,11 +73,10 @@ export const EmployeeKPI = () => {
     }
   ]);
 
-  const fetchKpis = async () => {
+  const fetchKpis = useCallback(async () => {
     if (!employeeId) return;
     try {
-      setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/kpi/employee/${employeeId}`);
+      const res = await axios.get(`/api/kpi/employee/${employeeId}`);
       if (res.data?.kpis && Array.isArray(res.data.kpis)) {
         setKpis(res.data.kpis);
       }
@@ -88,14 +85,12 @@ export const EmployeeKPI = () => {
       }
     } catch (err) {
       console.error('Error fetching employee KPIs:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [employeeId]);
 
   useEffect(() => {
     fetchKpis();
-  }, [employeeId]);
+  }, [fetchKpis]);
 
   const currentReview = useMemo(() => {
     return reviews.find(r => r.status !== 'COMPLETED') || reviews[0] || null;
@@ -125,7 +120,7 @@ export const EmployeeKPI = () => {
     e.preventDefault();
     if (!updatingKpi) return;
     try {
-      await axios.put(`http://localhost:5000/api/kpi/kpi/${updatingKpi.id}`, {
+      await axios.put(`/api/kpi/kpi/${updatingKpi.id}`, {
         achieved: Number(newAchieved),
         evidenceUrl: newEvidenceUrl
       });
@@ -133,6 +128,7 @@ export const EmployeeKPI = () => {
       setUpdatingKpi(null);
       fetchKpis();
     } catch (err) {
+      console.error('Error updating KPI:', err);
       toast.error('Lỗi khi cập nhật tiến độ');
     }
   };
@@ -141,7 +137,7 @@ export const EmployeeKPI = () => {
     e.preventDefault();
     if (!currentReview) return toast.error('Không tìm thấy phiếu đánh giá của kỳ này');
     try {
-      await axios.put(`http://localhost:5000/api/kpi/reviews/${currentReview.id}/self-review`, {
+      await axios.put(`/api/kpi/reviews/${currentReview.id}/self-review`, {
         selfScore: Number(selfScoreInput),
         selfComments: selfCommentsInput
       });

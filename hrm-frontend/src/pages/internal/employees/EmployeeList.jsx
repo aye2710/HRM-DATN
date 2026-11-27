@@ -81,9 +81,9 @@ export const EmployeeList = () => {
     setLoading(true);
     try {
       const [empRes, deptRes, posRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/employees'),
-        axios.get('http://localhost:5000/api/departments'),
-        axios.get('http://localhost:5000/api/positions')
+        axios.get('/api/employees'),
+        axios.get('/api/departments'),
+        axios.get('/api/positions')
       ]);
       setEmployees(empRes.data || []);
       setDepartments(deptRes.data || []);
@@ -194,7 +194,7 @@ export const EmployeeList = () => {
       count: selectedCount,
       itemLabel: 'hồ sơ nhân sự',
       confirmText: 'Thao tác này sẽ xóa các hồ sơ đã chọn khỏi hệ thống (khuyến nghị chuyển sang "Đã thôi việc" đối với nhân sự đã từng công tác).',
-      executeDeletes: () => selectedIds.map(id => axios.delete(`http://localhost:5000/api/employees/${id}`)),
+      executeDeletes: () => selectedIds.map(id => axios.delete(`/api/employees/${id}`)),
       onDone: () => {
         clearSelection();
         fetchData();
@@ -358,7 +358,7 @@ export const EmployeeList = () => {
     });
     if (!result.isConfirmed) return;
     try {
-      await axios.delete(`http://localhost:5000/api/employees/${id}`);
+      await axios.delete(`/api/employees/${id}`);
       toast.success('Xóa nhân sự thành công!');
       fetchData();
     } catch (error) {
@@ -375,10 +375,10 @@ export const EmployeeList = () => {
     setIsSubmitting(true);
     try {
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/employees/${formData.id}`, formData);
+        await axios.put(`/api/employees/${formData.id}`, formData);
         toast.success('Cập nhật nhân sự thành công!');
       } else {
-        await axios.post(`http://localhost:5000/api/employees`, formData);
+        await axios.post(`/api/employees`, formData);
         toast.success('Thêm mới nhân sự thành công!');
       }
       setShowModal(false);
@@ -450,7 +450,7 @@ export const EmployeeList = () => {
   const handleConfirmImportEmployees = async (validRows) => {
     const token = localStorage.getItem('token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await axios.post('http://localhost:5000/api/employees/bulk-import', { employees: validRows }, { headers });
+    const res = await axios.post('/api/employees/bulk-import', { employees: validRows }, { headers });
     fetchData();
     return res.data;
   };

@@ -34,7 +34,7 @@ export const Performance = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/kpi/reviews');
+      const res = await axios.get('/api/kpi/reviews');
       setEvaluations(res.data || []);
     } catch (err) {
       toast.error('Lỗi khi tải dữ liệu KPI');
@@ -64,7 +64,7 @@ export const Performance = () => {
     if (review.employeeId) {
       setLoadingEmpKpis(true);
       try {
-        const res = await axios.get(`http://localhost:5000/api/kpi/employee/${review.employeeId}`);
+        const res = await axios.get(`/api/kpi/employee/${review.employeeId}`);
         if (res.data?.kpis) {
           setEmpKpis(res.data.kpis);
         }
@@ -87,7 +87,7 @@ export const Performance = () => {
   const handleSubmitReview = async () => {
     if (score < 0 || score > 100) return toast.error("Điểm đánh giá phải từ 0 đến 100");
     try {
-      await axios.put(`http://localhost:5000/api/kpi/reviews/${selectedReview.id}`, {
+      await axios.put(`/api/kpi/reviews/${selectedReview.id}`, {
         score: Number(score),
         competencyScore: Number(competencyScore),
         kpiWeight: Number(kpiWeight),

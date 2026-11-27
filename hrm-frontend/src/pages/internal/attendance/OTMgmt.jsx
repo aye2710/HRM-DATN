@@ -55,9 +55,9 @@ export const OTMgmt = () => {
     setLoading(true);
     try {
       const [deptRes, empRes, otRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/departments', { headers }).catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/employees', { headers }).catch(() => ({ data: [] })),
-        axios.get(`http://localhost:5000/api/ot?month=${monthQueryParam}&year=${selectedYear}&departmentId=${selectedDept}&status=${statusFilter}`, { headers })
+        axios.get('/api/departments', { headers }).catch(() => ({ data: [] })),
+        axios.get('/api/employees', { headers }).catch(() => ({ data: [] })),
+        axios.get(`/api/ot?month=${monthQueryParam}&year=${selectedYear}&departmentId=${selectedDept}&status=${statusFilter}`, { headers })
       ]);
 
       if (Array.isArray(deptRes.data)) setDepartments(deptRes.data);
@@ -159,7 +159,7 @@ export const OTMgmt = () => {
     setSubmittingReview(true);
     try {
       await axios.put(
-        `http://localhost:5000/api/ot/${selectedRequest.id}/status`,
+        `/api/ot/${selectedRequest.id}/status`,
         {
           status,
           actualHours: status === 'APPROVED' ? Number(actualHoursInput) : 0,
@@ -192,7 +192,7 @@ export const OTMgmt = () => {
     setSubmittingCreate(true);
     try {
       await axios.post(
-        'http://localhost:5000/api/ot',
+        '/api/ot',
         {
           employeeId: createForm.employeeId,
           date: createForm.date,
@@ -228,7 +228,7 @@ export const OTMgmt = () => {
     if (!selectedDeleteRequest) return;
     setSubmittingDelete(true);
     try {
-      await axios.delete(`http://localhost:5000/api/ot/${selectedDeleteRequest.id}`, { headers });
+      await axios.delete(`/api/ot/${selectedDeleteRequest.id}`, { headers });
       toast.success('Đã xóa đơn làm thêm giờ thành công!');
       setDeleteModalOpen(false);
       setSelectedDeleteRequest(null);

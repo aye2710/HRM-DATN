@@ -160,10 +160,10 @@ export const DecisionCreate = () => {
     const fetchData = async () => {
       try {
         const [empRes, deptRes, posRes, decRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/employees'),
-          axios.get('http://localhost:5000/api/departments'),
-          axios.get('http://localhost:5000/api/positions'),
-          axios.get('http://localhost:5000/api/decisions')
+          axios.get('/api/employees'),
+          axios.get('/api/departments'),
+          axios.get('/api/positions'),
+          axios.get('/api/decisions')
         ]);
         const activeEmps = empRes.data.filter(e => e.status !== 'RESIGNED');
         setEmployees(activeEmps);
@@ -288,7 +288,7 @@ export const DecisionCreate = () => {
 
     setSubmitting(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/decisions', {
+      const res = await axios.post('/api/decisions', {
         ...formData,
         status: statusTarget
       });

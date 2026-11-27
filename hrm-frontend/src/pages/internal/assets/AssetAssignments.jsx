@@ -9,6 +9,7 @@ import { TablePagination, usePagination } from '../../../components/common/Table
 import { DateInput } from '../../../components/common/DateInput';
 import { formatDate } from '../../../utils/dateUtils';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { API_BASE_URL } from '../../../services/api';
 
 export const AssetAssignments = () => {
   const [assignments, setAssignments] = useState([]);
@@ -58,9 +59,9 @@ export const AssetAssignments = () => {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const [assetsRes, assignsRes, empsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/assets', { headers }),
-        fetch('http://localhost:5000/api/assets/assignments', { headers }),
-        fetch('http://localhost:5000/api/employees', { headers })
+        fetch(`${API_BASE_URL}/api/assets`, { headers }),
+        fetch(`${API_BASE_URL}/api/assets/assignments`, { headers }),
+        fetch(`${API_BASE_URL}/api/employees`, { headers })
       ]);
 
       const [assetsData, assignsData, empsData] = await Promise.all([
@@ -267,7 +268,7 @@ export const AssetAssignments = () => {
         conditionOnAssign: 'Mới 100%, hoạt động bình thường, đầy đủ phụ kiện'
       };
 
-      const res = await fetch('http://localhost:5000/api/assets/assign', {
+      const res = await fetch(`${API_BASE_URL}/api/assets/assign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -397,7 +398,7 @@ export const AssetAssignments = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/assets/assignments/batch-return', {
+      const res = await fetch(`${API_BASE_URL}/api/assets/assignments/batch-return`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

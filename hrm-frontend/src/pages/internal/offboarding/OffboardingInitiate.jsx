@@ -27,8 +27,8 @@ export const OffboardingInitiate = () => {
     setLoading(true);
     try {
       const [empRes, deptRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/employees'),
-        axios.get('http://localhost:5000/api/departments')
+        axios.get('/api/employees'),
+        axios.get('/api/departments')
       ]);
       setAllEmployees(empRes.data || []);
       setDepartments(deptRes.data || []);

@@ -35,9 +35,9 @@ export const RecruitmentATS = () => {
   const fetchJobsAndCandidates = () => {
     setLoading(true);
     Promise.all([
-      axios.get('http://localhost:5000/api/job-postings'),
-      axios.get('http://localhost:5000/api/candidates'),
-      axios.get('http://localhost:5000/api/departments')
+      axios.get('/api/job-postings'),
+      axios.get('/api/candidates'),
+      axios.get('/api/departments')
     ])
     .then(([jobRes, candRes, deptRes]) => {
       setJobPostings(jobRes.data || []);
@@ -58,7 +58,7 @@ export const RecruitmentATS = () => {
   // --- Handlers for Forms ---
   const handleCreateJob = () => {
     if (!jobForm.title.trim()) return toast.error("Vui lòng nhập tiêu đề vị trí tuyển dụng");
-    axios.post('http://localhost:5000/api/job-postings', jobForm)
+    axios.post('/api/job-postings', jobForm)
       .then(() => {
         fetchJobsAndCandidates();
         setShowJobModal(false);
@@ -87,7 +87,7 @@ export const RecruitmentATS = () => {
     if (!candidateForm.name.trim() || !candidateForm.email.trim() || !candidateForm.jobPostingId) {
       return toast.error("Vui lòng nhập Tên, Email và Chọn Vị trí tuyển dụng");
     }
-    axios.post('http://localhost:5000/api/candidates', candidateForm)
+    axios.post('/api/candidates', candidateForm)
       .then(() => {
         fetchJobsAndCandidates();
         setShowCandidateModal(false);
@@ -160,7 +160,7 @@ export const RecruitmentATS = () => {
     setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, status: newStatus } : c));
     setPendingDrop(null);
 
-    axios.put(`http://localhost:5000/api/candidates/${candidateId}`, { status: newStatus })
+    axios.put(`/api/candidates/${candidateId}`, { status: newStatus })
       .then(() => toast.success(`Đã cập nhật trạng thái ứng viên!`))
       .catch(err => {
         console.error("Lỗi khi chuyển trạng thái", err);

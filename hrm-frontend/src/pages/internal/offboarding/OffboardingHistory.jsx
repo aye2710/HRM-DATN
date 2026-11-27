@@ -23,7 +23,7 @@ export const OffboardingHistory = () => {
   const fetchHistoryData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/offboarding/overview');
+      const res = await axios.get('/api/offboarding/overview');
       setResignedList(res.data.resigned || []);
     } catch (error) {
       console.error('Error fetching offboarding history:', error);

@@ -69,7 +69,7 @@ export const PreOnboardingModal = ({ isOpen, onClose, candidate, offer, onSucces
     setLoading(true);
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/candidate-auth/offers/${candidate.id}/accept`,
+        `/api/candidate-auth/offers/${candidate.id}/accept`,
         formData,
         {
           headers: { Authorization: `Bearer ${token}` }

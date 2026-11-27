@@ -254,10 +254,10 @@ export const EmployeeDetail = () => {
     setLoading(true);
     try {
       const [empRes, deptRes, posRes, allEmpRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/employees/${id}`),
-        axios.get('http://localhost:5000/api/departments'),
-        axios.get('http://localhost:5000/api/positions'),
-        axios.get('http://localhost:5000/api/employees')
+        axios.get(`/api/employees/${id}`),
+        axios.get('/api/departments'),
+        axios.get('/api/positions'),
+        axios.get('/api/employees')
       ]);
       const formattedPositions = (posRes.data || []).map(p => ({
         id: p.id,
@@ -310,7 +310,7 @@ export const EmployeeDetail = () => {
           }
         ];
         const attachedFilesJson = JSON.stringify(nextFiles);
-        await axios.put(`http://localhost:5000/api/employees/${id}`, {
+        await axios.put(`/api/employees/${id}`, {
           ...employee,
           attachedFiles: attachedFilesJson
         });
@@ -331,7 +331,7 @@ export const EmployeeDetail = () => {
       const currentFiles = parseAttachedFiles(employee.attachedFiles);
       const nextFiles = currentFiles.filter((f) => f.id !== attId);
       const attachedFilesJson = nextFiles.length > 0 ? JSON.stringify(nextFiles) : null;
-      await axios.put(`http://localhost:5000/api/employees/${id}`, {
+      await axios.put(`/api/employees/${id}`, {
         ...employee,
         attachedFiles: attachedFilesJson
       });
@@ -344,7 +344,7 @@ export const EmployeeDetail = () => {
 
   const handleSave = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/employees/${id}`, employee);
+      await axios.put(`/api/employees/${id}`, employee);
       toast.success('Đã cập nhật hồ sơ thành công!');
       setIsEditMode(false);
       fetchData();
@@ -395,7 +395,7 @@ export const EmployeeDetail = () => {
       return toast.error('Vui lòng điền Họ tên và Mối quan hệ');
     }
     try {
-      await axios.post(`http://localhost:5000/api/employees/${id}/relatives`, relativeForm);
+      await axios.post(`/api/employees/${id}/relatives`, relativeForm);
       toast.success('Đã thêm người thân / người phụ thuộc thành công!');
       setShowAddRelativeModal(false);
       setRelativeForm({
@@ -418,7 +418,7 @@ export const EmployeeDetail = () => {
   const handleDeleteRelative = async (relId) => {
     if (!window.confirm('Xác nhận xóa người thân/người phụ thuộc này?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/employees/${id}/relatives/${relId}`);
+      await axios.delete(`/api/employees/${id}/relatives/${relId}`);
       toast.success('Đã xóa thành công!');
       fetchData();
     } catch (err) {
@@ -433,7 +433,7 @@ export const EmployeeDetail = () => {
       return toast.error('Vui lòng điền Tên bằng cấp, Chuyên ngành và Trường đào tạo');
     }
     try {
-      await axios.post(`http://localhost:5000/api/employees/${id}/degrees`, degreeForm);
+      await axios.post(`/api/employees/${id}/degrees`, degreeForm);
       toast.success('Đã thêm bằng cấp thành công!');
       setShowAddDegreeModal(false);
       setDegreeForm({
@@ -453,7 +453,7 @@ export const EmployeeDetail = () => {
   const handleDeleteDegree = async (degId) => {
     if (!window.confirm('Xác nhận xóa bằng cấp này?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/employees/${id}/degrees/${degId}`);
+      await axios.delete(`/api/employees/${id}/degrees/${degId}`);
       toast.success('Đã xóa bằng cấp!');
       fetchData();
     } catch (err) {
@@ -468,7 +468,7 @@ export const EmployeeDetail = () => {
       return toast.error('Vui lòng điền Tên chứng chỉ và Đơn vị cấp');
     }
     try {
-      await axios.post(`http://localhost:5000/api/employees/${id}/certificates`, certForm);
+      await axios.post(`/api/employees/${id}/certificates`, certForm);
       toast.success('Đã thêm chứng chỉ thành công!');
       setShowAddCertModal(false);
       setCertForm({
@@ -487,7 +487,7 @@ export const EmployeeDetail = () => {
   const handleDeleteCert = async (certId) => {
     if (!window.confirm('Xác nhận xóa chứng chỉ này?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/employees/${id}/certificates/${certId}`);
+      await axios.delete(`/api/employees/${id}/certificates/${certId}`);
       toast.success('Đã xóa chứng chỉ!');
       fetchData();
     } catch (err) {
@@ -503,7 +503,7 @@ export const EmployeeDetail = () => {
     }
     setIsSubmittingContract(true);
     try {
-      await axios.post('http://localhost:5000/api/contracts', {
+      await axios.post('/api/contracts', {
         employeeId: id,
         ...newContractForm,
         fileUrl: newContractForm.fileUrls.length > 0 ? JSON.stringify(newContractForm.fileUrls) : null,
@@ -562,10 +562,21 @@ export const EmployeeDetail = () => {
   ];
 
   return (
-    <div className="animate-fade-in" style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div
+      className="animate-fade-in"
+      style={{
+        padding: '0 0.5rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem',
+        height: 'calc(100vh - 104px)',
+        overflow: 'hidden'
+      }}
+    >
       
-      {/* 1. Header chuẩn đồng bộ */}
-      <PageHeader
+      {/* 1. Header chuẩn đồng bộ (Ghim cố định trên cùng) */}
+      <div style={{ flexShrink: 0 }}>
+        <PageHeader
         leftActions={
           <button
             onClick={() => navigate('/internal/employees')}
@@ -641,19 +652,28 @@ export const EmployeeDetail = () => {
           </>
         }
       />
+      </div>
 
-      {/* 2. Bố Cục 2 Cột: Cột Trái (Mục Lục Dọc) + Cột Phải (Các Thẻ Accordion) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '1.25rem', alignItems: 'flex-start' }}>
+      {/* 2. Bố Cục 2 Cột: Cột Trái (Mục Lục Dọc ghim cố định) + Cột Phải (Cuộn riêng phần thông tin) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '250px 1fr',
+          gap: '1.25rem',
+          alignItems: 'stretch',
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden'
+        }}
+      >
         
-        {/* CỘT TRÁI: Vertical Anchor Sidebar (Menu Đề Mục Dọc giống hệt GHC.Lexora) */}
+        {/* CỘT TRÁI: Vertical Anchor Sidebar (Ghim cố định) */}
         <div style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '12px',
           border: '1px solid #E2E8F0',
           padding: '8px',
-          position: 'sticky',
-          top: '20px',
-          maxHeight: 'calc(100vh - 100px)',
+          height: '100%',
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
@@ -695,8 +715,17 @@ export const EmployeeDetail = () => {
           })}
         </div>
 
-        {/* CỘT PHẢI: Collapsible Accordion Cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
+        {/* CỘT PHẢI: Collapsible Accordion Cards (Chỉ cuộn riêng khu vực này) */}
+        <div
+          style={{
+            minWidth: 0,
+            height: '100%',
+            overflowY: 'auto',
+            paddingRight: '6px',
+            paddingBottom: '1.5rem'
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
           {/* CARD 1: TỔNG QUAN (Thông tin nhân thân cơ bản) */}
           <div id="section-overview" style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
@@ -715,6 +744,33 @@ export const EmployeeDetail = () => {
               <div style={{ padding: '1.25rem', borderTop: '1px solid #F1F5F9', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                 <FormField label="Họ và tên" value={employee.fullName} isEditMode={isEditMode} onChange={(v) => handleChange('fullName', v)} />
                 <FormField label="Mã nhân sự" value={employee.code} disabled={true} isEditMode={isEditMode} onChange={(v) => handleChange('code', v)} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B' }}>Tài khoản cổng ESS</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '28px' }}>
+                    {employee.account ? (
+                      <>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>
+                          {employee.account.username}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            padding: '2px 7px',
+                            borderRadius: '999px',
+                            backgroundColor: employee.account.isActive ? '#DCFCE7' : '#FEE2E2',
+                            color: employee.account.isActive ? '#15803D' : '#B91C1C',
+                            border: `1px solid ${employee.account.isActive ? '#BBF7D0' : '#FECACA'}`
+                          }}
+                        >
+                          {employee.account.isActive ? 'Đang hoạt động' : 'Đã khóa'}
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: '0.85rem', color: '#94A3B8' }}>Chưa cấp tài khoản</span>
+                    )}
+                  </div>
+                </div>
                 <FormField 
                   label="Giới tính" 
                   value={employee.gender} 
@@ -1562,6 +1618,7 @@ export const EmployeeDetail = () => {
             )}
           </div>
 
+          </div>
         </div>
 
       </div>

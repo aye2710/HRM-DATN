@@ -43,29 +43,35 @@ export const PortalSelection = () => {
     setError('');
 
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', { 
+      const res = await axios.post('/api/auth/login', { 
         username: loginUser.trim(), 
-        password: loginPass 
+        password: loginPass,
+        portal: 'ADMIN'
       });
       
       const { token, user } = res.data;
+
+      if (user.role === 'EMPLOYEE') {
+        setError('Tài khoản Nhân viên không được phép đăng nhập tại Cổng Quản trị. Vui lòng dùng Cổng Nhân sự (/employee/login).');
+        toast.error('Không có quyền truy cập Cổng Quản trị.');
+        return;
+      }
       
-      // Lưu thông tin phiên đăng nhập
+      // Xóa sạch phiên cũ trước khi lưu phiên Quản trị
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('fullName');
+      localStorage.removeItem('employeeCode');
+      localStorage.removeItem('employeeId');
+
       localStorage.setItem('token', token);
       localStorage.setItem('role', user.role);
       localStorage.setItem('fullName', user.fullName || loginUser);
       localStorage.setItem('employeeCode', user.employeeCode || '');
-      localStorage.setItem('employeeId', res.data.user.employeeId || '');
+      localStorage.setItem('employeeId', user.employeeId || '');
 
       toast.success(`Chào mừng trở lại, ${user.fullName || loginUser}!`);
-
-      // Điều hướng theo phân quyền vai trò
-      if (user.role === 'EMPLOYEE') {
-        toast('Tài khoản Nhân viên: Đang chuyển vào Cổng Nhân sự...', { icon: 'ℹ️' });
-        navigate('/employee');
-      } else {
-        navigate('/internal');
-      }
+      navigate('/internal');
     } catch (err) {
       setError(err.response?.data?.error || 'Tài khoản hoặc mật khẩu không chính xác.');
       toast.error('Đăng nhập thất bại.');

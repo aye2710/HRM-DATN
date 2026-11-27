@@ -31,10 +31,10 @@ Hệ thống HRM được thiết kế theo nguyên lý **Domain-Driven Design (
    Đại diện cho các đối tượng thực tế trong doanh nghiệp (Nhân viên, Phòng ban, Hợp đồng, Phiếu lương...). Tất cả các thực thể đều kế thừa từ lớp trừu tượng `BaseEntity` để chuẩn hóa các thuộc tính định danh (`id: UUID`) và thời gian ghi vết (`createdAt`, `updatedAt`). Các lớp này đóng gói dữ liệu và cung cấp các phương thức kiểm tra tính hợp lệ (Validation Rules) và tính toán cục bộ.
 
 2. **Lớp Dịch vụ Nghiệp vụ (Domain Service Classes):**  
-   Chịu trách nhiệm thực thi các luồng nghiệp vụ phức tạp liên quan đến nhiều thực thể: `PayrollEngine` (chạy tính toán Gross-to-Net, bảo hiểm, 7 bậc thuế), `AttendanceService` (đối soát quẹt thẻ và ngày công chuẩn), `RecruitmentService` (quản lý phễu Kanban 7 bước), `ContractService` (cảnh báo 30 ngày hết hạn).
+   Chịu trách nhiệm thực thi các luồng nghiệp vụ phức tạp liên quan đến nhiều thực thể: `PayrollEngine` (tính lương 16 cột, tách chặng hợp đồng, BHXH, miễn thuế ăn trưa 730k & OT vượt, thuế TNCN 7 bậc), `AttendanceService` (đối soát máy chấm công vân tay/khuôn mặt & ngày công chuẩn động), `RecruitmentService` (quản lý phễu Kanban 6 cột theo ma trận chuyển trạng thái hợp lệ), `ContractService` (cảnh báo 30 ngày hết hạn, giới hạn thực tập 93 ngày & Điều 20 BLLĐ).
 
 3. **Lớp Tiện ích & Hỗ trợ (Infrastructure & Utility Classes):**  
-   Các lớp dùng chung đảm bảo tính toàn vẹn hệ thống: `AuditLogger` (ghi vết bất biến), `MailerService` (gửi OTP, thư mời phỏng vấn, thư mời nhận việc), `SecurityGuard` (xác thực token, kiểm soát bảo mật Anti-IDOR và phân quyền RBAC).
+   Các lớp dùng chung đảm bảo tính toàn vẹn hệ thống: `AuditLogger` (ghi vết bất biến), `MailerService` (gửi OTP đăng ký tài khoản ứng viên 5 phút, Magic Link phỏng vấn 24h & Offer), `SecurityGuard` (xác thực phiên đăng nhập, kiểm soát bảo mật Anti-IDOR và phân quyền 3 tác nhân `ADMIN`, `EMPLOYEE`, `CANDIDATE`).
 
 ---
 
@@ -66,7 +66,7 @@ classDiagram
 
 | Tên lớp | Trách nhiệm nghiệp vụ | Thuộc tính chính (Attributes) | Phương thức nghiệp vụ (Operations) |
 | :--- | :--- | :--- | :--- |
-| **`Department`** | Quản lý cây phân cấp tổ chức và định biên nhân sự | `- String code`<br>`- String name`<br>`- Int quota`<br>`- String parentId`<br>`- String managerId` | `+ validateQuota(): Boolean`<br>`+ calculateFillRate(): Float`<br>`+ checkHierarchyLoop(newParentId): Boolean`<br>`+ blockDepartment(): Void`<br>`+ getSubDepartments(): List~Department~` |
+| **`Department`** | Quản lý cây phân cấp tổ chức và định biên nhân sự | `- String code`<br>`- String name`<br>`- Int quota`<br>`- String status`<br>`- String parentId`<br>`- String managerId` | `+ validateQuota(): Boolean`<br>`+ calculateFillRate(): Float`<br>`+ checkHierarchyLoop(newParentId): Boolean`<br>`+ toggleStatus(): Void`<br>`+ getSubDepartments(): List~Department~` |
 | **`Position`** | Quản lý chức danh và khung dải lương | `- String code`<br>`- String title`<br>`- Decimal minSalary`<br>`- Decimal maxSalary`<br>`- String departmentId` | `+ validateSalaryRange(): Boolean`<br>`+ isSalaryInRange(salary): Boolean`<br>`+ updateSalaryRange(min, max): Void` |
 
 ---
@@ -121,6 +121,8 @@ classDiagram
         -ContractStatus status
         -String employeeId
         +isExpiringIn30Days() Boolean
+        +validateInternshipLimit() Boolean
+        +validateConsecutiveFixedTerm() Boolean
         +signContract() Void
         +renewContract(newType, newEndDate) Contract
         +terminateContract(liquidateDate) Void
@@ -149,6 +151,7 @@ classDiagram
         -DecisionStatus status
         +generateDecisionNumber() String
         +approveDecision() Void
+        +revokeDecision(reason) Void
         +executeImpacts() Void
     }
 
@@ -176,16 +179,16 @@ classDiagram
     }
 
     class Candidate {
+        -String trackingCode
         -String fullName
         -String email
         -String phone
         -String cvUrl
         -CandidateStatus status
         -String jobPostingId
+        +validateTransition(newStage) Boolean
         +moveToNextStage(newStage) Void
         +reject(reason) Void
-        +generateOtp() String
-        +verifyOtp(otp) Boolean
     }
 
     class JobOffer {
@@ -196,21 +199,21 @@ classDiagram
         -OfferStatus status
         -String candidateId
         +validateProbationSalaryRate() Boolean
-        +sendToCandidate() Void
-        +acceptOffer() Void
+        +sendMagicLink() Void
+        +acceptOffer(preProfile) Void
         +declineOffer(reason) Void
-        +isExpired24h() Boolean
+        +isExpired(expiryDays) Boolean
     }
 
     class OnboardingTask {
         -String title
-        -OnboardingMilestone milestone
+        -String category
         -Boolean isCompleted
         -DateTime completedAt
         -String employeeId
-        -String mentorId
         +markComplete() Void
-        +reopen() Void
+        +bodOverrideUnlock(reason) Void
+        +evaluateProbation(result) Void
     }
 
     JobPosting "1" o-- "0..*" Candidate : receives
@@ -233,6 +236,7 @@ classDiagram
         -Float workUnits
         -AttendanceStatus status
         -String employeeId
+        +syncFromHardwareLogs() Void
         +calculateWorkUnits() Float
         +detectAbnormalities() AttendanceStatus
         +applyHolidayCredit() Void
@@ -240,15 +244,18 @@ classDiagram
 
     class LeaveRequest {
         -LeaveType leaveType
+        -String leaveTypeId
+        -String startSession
+        -String endSession
         -DateTime startDate
         -DateTime endDate
-        -Float requestedDays
         -RequestStatus status
         -String employeeId
         +validateAgainstBalance(currentBalance) Boolean
-        +calculateExcludingHolidays() Float
+        +checkOverlapAndPayrollLock() Boolean
         +approve() Void
-        +reject(reason) Void
+        +revokeApproved() Void
+        +cancelPendingHardDelete() Void
     }
 
     class OTRequest {
@@ -258,21 +265,22 @@ classDiagram
         -Float multiplierRate
         -RequestStatus status
         -String employeeId
-        +validateMonthlyCap(currentMonthOT) Boolean
+        +validateAllCaps(daily, monthly, yearly) Boolean
+        +reconcileCheckoutLog() String
         +calculateMultiplier(isWeekend, isHoliday) Float
         +approve() Void
     }
 
     class LeaveBalance {
         -Int year
-        -Float baseDays
-        -Float seniorityDays
-        -Float usedDays
-        -Float remainingDays
+        -Decimal totalDays
+        -Decimal usedDays
+        -Decimal carryForwardDays
+        -Decimal carryForwardUsed
         -String employeeId
         +deductDays(days) Boolean
         +revertDays(days) Void
-        +calculateRemaining() Float
+        +calculateRemaining() Decimal
     }
 
     Employee "1" o-- "0..*" Attendance : records
@@ -295,7 +303,7 @@ classDiagram
         -Decimal totalCompanyExpense
         +openPeriod() Void
         +calculateGrossToNetAll() Void
-        +lockPeriod() Void
+        +toggleLockPeriod() Void
         +exportBankPaymentFile() File
     }
 
@@ -314,9 +322,10 @@ classDiagram
         -Boolean isPayoutLocked
         -String employeeId
         -String payrollPeriodId
+        +calculateSplitCompensation() Void
         +computeGrossToNet() Void
         +computeProgressiveTax7Brackets() Decimal
-        +lockPayout() Void
+        +applyHardDocHold() Void
     }
 
     class PayslipDetail {
@@ -357,16 +366,64 @@ classDiagram
         -DateTime returnDate
         -AssetCondition returnCondition
         -Decimal compensationFee
+        -Boolean securityWiped
+        -String dataWipeNotes
         -AssignmentStatus status
         -String assetId
         -String employeeId
         +calculateCompensation(damagePercent) Decimal
         +confirmReceipt() Void
         +confirmReturn() Void
+        +confirmSecurityWipe(notes) Void
     }
 
     Asset "1" *-- "0..*" AssetAssignment : tracked_by
     Employee "1" o-- "0..*" AssetAssignment : responsible_for
+```
+
+---
+
+## 2.9. Nhóm Lớp Đánh giá Hiệu suất KPI: `KPITemplate`, `KPI`, `PerformanceReview`
+
+```mermaid
+classDiagram
+    class KPITemplate {
+        -String name
+        -String department
+        -String positionId
+        -Int criteria
+        -String weight
+        -String status
+        +validateTotalWeight100() Boolean
+        +assignToEmployee(empId, cycleId) List~KPI~
+    }
+
+    class KPI {
+        -String description
+        -Decimal target
+        -Decimal achieved
+        -String unit
+        -Decimal weight
+        -String status
+        -String employeeId
+        +calculateSelfScore() Decimal
+        +lockTargetAndWeight() Void
+    }
+
+    class PerformanceReview {
+        -Decimal score
+        -Decimal kpiScore
+        -Decimal competencyScore
+        -Decimal selfScore
+        -String finalGrade
+        -String status
+        -String employeeId
+        +gradeByThreshold() String
+        +finalizeCycle() Void
+    }
+
+    Employee "1" o-- "0..*" KPI : assigned
+    Employee "1" o-- "0..*" PerformanceReview : evaluated
 ```
 
 ---
@@ -435,10 +492,11 @@ classDiagram
     }
 
     class Candidate {
+        -String trackingCode
         -String fullName
         -String email
         -CandidateStatus status
-        +verifyOtp(code) Boolean
+        +validateTransition(stage) Boolean
     }
 
     class JobOffer {
@@ -518,9 +576,9 @@ classDiagram
     }
 
     class PerformanceReview {
-        -Float finalScore
-        -String rankGrade
-        +applyBellCurve() Void
+        -Decimal score
+        -String finalGrade
+        +gradeByThreshold() String
     }
 
     %% Asset
@@ -533,6 +591,8 @@ classDiagram
     class AssetAssignment {
         -String formCode
         -DateTime assignedDate
+        -Boolean securityWiped
+        +confirmSecurityWipe() Void
     }
 
     %% Inheritance
@@ -626,9 +686,10 @@ classDiagram
     }
 
     class SecurityGuard {
-        +verifyJwtToken(token) User
-        +enforceRbac(role, requiredPermission) Boolean
+        +verifySessionToken(token) User
+        +enforceActorPortal(role) Boolean
         +preventIdorAccess(reqEmpId, targetEmpId) Boolean
+        +blockEmployeeSelfCheckIn(role) Void
     }
 
     class AuditLogger {

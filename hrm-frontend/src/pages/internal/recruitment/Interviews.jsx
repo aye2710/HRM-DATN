@@ -94,9 +94,9 @@ export const Interviews = () => {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      axios.get('http://localhost:5000/api/interviews'),
-      axios.get('http://localhost:5000/api/candidates'),
-      axios.get('http://localhost:5000/api/employees').catch(err => {
+      axios.get('/api/interviews'),
+      axios.get('/api/candidates'),
+      axios.get('/api/employees').catch(err => {
         console.warn('Could not fetch employees:', err);
         return { data: [] };
       })
@@ -206,7 +206,7 @@ export const Interviews = () => {
       confirmButtonColor: '#EF4444'
     });
     if (result.isConfirmed) {
-      axios.delete(`http://localhost:5000/api/interviews/${id}`)
+      axios.delete(`/api/interviews/${id}`)
         .then(() => { 
           toast.success("Đã hủy lịch phỏng vấn thành công!"); 
           fetchData(); 
@@ -242,7 +242,7 @@ export const Interviews = () => {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          await axios.post(`http://localhost:5000/api/interviews/${inv.id}/no-show`, { action: 'REJECT' });
+          await axios.post(`/api/interviews/${inv.id}/no-show`, { action: 'REJECT' });
           toast.success('Đã ghi nhận ứng viên vắng mặt và tự động loại hồ sơ.');
           fetchData();
         } catch (error) {
@@ -261,7 +261,7 @@ export const Interviews = () => {
     }
 
     if (modalMode === 'add') {
-      axios.post('http://localhost:5000/api/interviews', scheduleForm)
+      axios.post('/api/interviews', scheduleForm)
         .then(() => {
           toast.success("Đã lên lịch phỏng vấn thành công!");
           fetchData();
@@ -269,7 +269,7 @@ export const Interviews = () => {
         })
         .catch(() => toast.error("Lỗi khi xếp lịch phỏng vấn"));
     } else {
-      axios.put(`http://localhost:5000/api/interviews/${selectedInterviewId}`, scheduleForm)
+      axios.put(`/api/interviews/${selectedInterviewId}`, scheduleForm)
         .then(() => {
           toast.success("Đã cập nhật thông tin lịch phỏng vấn!");
           fetchData();
@@ -281,7 +281,7 @@ export const Interviews = () => {
 
   const handleFeedbackSubmit = (e) => {
     e.preventDefault();
-    axios.post(`http://localhost:5000/api/interviews/${selectedInterviewId}/feedback`, feedbackForm)
+    axios.post(`/api/interviews/${selectedInterviewId}/feedback`, feedbackForm)
       .then(() => {
         setShowFeedbackModal(false);
         setFeedbackForm({ score: 5, comments: '' });
@@ -313,7 +313,7 @@ export const Interviews = () => {
   const updateCandidateStatus = (interviewId, status) => {
     const inv = interviews.find(i => i.id === interviewId);
     if (inv) {
-      axios.put(`http://localhost:5000/api/candidates/${inv.candidateId}`, { status })
+      axios.put(`/api/candidates/${inv.candidateId}`, { status })
         .then(() => {
           toast.success(`Đã chuyển ứng viên sang trạng thái: ${status === 'OFFERING' ? 'Chốt Offer' : 'Từ chối'}!`);
           fetchData();

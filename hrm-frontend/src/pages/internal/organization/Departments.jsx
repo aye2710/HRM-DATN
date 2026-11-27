@@ -8,6 +8,7 @@ import { UniversalImportModal } from '../../../components/common/UniversalImport
 import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { API_BASE_URL } from '../../../services/api';
 
 // Hàm loại bỏ dấu tiếng Việt
 const removeVietnameseTones = (str) => {
@@ -269,7 +270,7 @@ export const Departments = () => {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
-    const res = await fetch('http://localhost:5000/api/departments/bulk-import', {
+    const res = await fetch(`${API_BASE_URL}/api/departments/bulk-import`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ departments: validRows })
@@ -288,7 +289,7 @@ export const Departments = () => {
 
   const fetchDepartments = () => {
     setLoading(true);
-    axios.get('http://localhost:5000/api/departments')
+    axios.get('/api/departments')
       .then(res => setDepartments(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
@@ -362,7 +363,7 @@ export const Departments = () => {
     };
 
     if (modalMode === 'add') {
-      axios.post('http://localhost:5000/api/departments', payload)
+      axios.post('/api/departments', payload)
         .then(() => {
           toast.success('Đã thêm phòng ban thành công!');
           fetchDepartments();
@@ -370,7 +371,7 @@ export const Departments = () => {
         })
         .catch(err => toast.error(err.response?.data?.error || 'Lỗi thêm phòng ban'));
     } else {
-      axios.put(`http://localhost:5000/api/departments/${editingId}`, payload)
+      axios.put(`/api/departments/${editingId}`, payload)
         .then(() => {
           toast.success('Đã cập nhật phòng ban!');
           fetchDepartments();
@@ -384,7 +385,7 @@ export const Departments = () => {
     if (!lockTarget) return;
     const isCurrentlyActive = lockTarget.status === 'ACTIVE' || lockTarget.status === 'Hoạt động';
     const newStatus = isCurrentlyActive ? 'INACTIVE' : 'ACTIVE';
-    axios.put(`http://localhost:5000/api/departments/${lockTarget.id}`, { ...lockTarget, status: newStatus })
+    axios.put(`/api/departments/${lockTarget.id}`, { ...lockTarget, status: newStatus })
       .then(() => {
         toast.success(newStatus === 'ACTIVE' ? 'Đã mở khóa phòng ban!' : 'Đã khóa phòng ban!');
         fetchDepartments();
@@ -398,7 +399,7 @@ export const Departments = () => {
 
   const handleDelete = () => {
     if (!deleteId) return;
-    axios.delete(`http://localhost:5000/api/departments/${deleteId}`)
+    axios.delete(`/api/departments/${deleteId}`)
       .then(() => {
         fetchDepartments();
         setDeleteId(null);
@@ -443,7 +444,7 @@ export const Departments = () => {
       count: selectedCount,
       itemLabel: 'phòng ban',
       confirmText: `Hệ thống sẽ xóa các phòng ban đã chọn (những phòng ban còn nhân sự, vị trí hoặc đơn vị con trực thuộc sẽ được tự động giữ lại).`,
-      executeDeletes: () => selectedIds.map(id => axios.delete(`http://localhost:5000/api/departments/${id}`)),
+      executeDeletes: () => selectedIds.map(id => axios.delete(`/api/departments/${id}`)),
       onDone: () => {
         clearSelection();
         fetchDepartments();

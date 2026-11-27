@@ -42,7 +42,7 @@ export const Contracts = () => {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/employees');
+      const res = await axios.get('/api/employees');
       setEmployees(res.data);
     } catch (error) {
       console.error(error);

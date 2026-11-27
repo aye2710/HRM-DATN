@@ -42,14 +42,27 @@ export const EmployeeLogin = () => {
     setError('');
 
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', { 
+      const res = await axios.post('/api/auth/login', { 
         username: loginUser.trim(), 
-        password: loginPass 
+        password: loginPass,
+        portal: 'EMPLOYEE'
       });
       
       const { token, user } = res.data;
+
+      if (user.role !== 'EMPLOYEE' || !user.employeeId) {
+        setError('Chỉ tài khoản Nhân viên mới được phép đăng nhập vào Cổng Nhân sự.');
+        toast.error('Sai cổng đăng nhập.');
+        return;
+      }
       
-      // Lưu thông tin phiên đăng nhập
+      // Xóa sạch phiên cũ trước khi lưu phiên của nhân viên hiện tại (tách bạch từng nhân viên)
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('fullName');
+      localStorage.removeItem('employeeCode');
+      localStorage.removeItem('employeeId');
+
       localStorage.setItem('token', token);
       localStorage.setItem('role', user.role);
       localStorage.setItem('fullName', user.fullName || loginUser);
@@ -57,14 +70,7 @@ export const EmployeeLogin = () => {
       localStorage.setItem('employeeId', user.employeeId || '');
 
       toast.success(`Chào mừng trở lại, ${user.fullName || loginUser}!`);
-
-      // Điều hướng theo phân quyền vai trò
-      if (user.role === 'EMPLOYEE') {
-        navigate('/employee');
-      } else {
-        toast('Tài khoản Quản trị: Đang chuyển vào Cổng Quản trị Doanh nghiệp...', { icon: 'ℹ️' });
-        navigate('/internal');
-      }
+      navigate('/employee');
     } catch (err) {
       setError(err.response?.data?.error || 'Tài khoản hoặc mật khẩu không chính xác.');
       toast.error('Đăng nhập thất bại.');

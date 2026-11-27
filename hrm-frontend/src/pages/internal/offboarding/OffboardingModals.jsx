@@ -34,7 +34,7 @@ export const HandoverDrawerModal = ({
   // Toggle checklist task
   const handleToggleTask = async (taskName, category, currentStatus) => {
     try {
-      await axios.post('http://localhost:5000/api/offboarding/task/toggle', {
+      await axios.post('/api/offboarding/task/toggle', {
         employeeId: employee.id,
         taskName,
         category,
@@ -61,7 +61,7 @@ export const HandoverDrawerModal = ({
 
     if (result.isConfirmed) {
       try {
-        await axios.post('http://localhost:5000/api/offboarding/asset/quick-return', {
+        await axios.post('/api/offboarding/asset/quick-return', {
           assignmentId,
           employeeId: employee.id
         });
@@ -108,7 +108,7 @@ export const HandoverDrawerModal = ({
 
     if (confirm.isConfirmed) {
       try {
-        await axios.post('http://localhost:5000/api/offboarding/finalize', {
+        await axios.post('/api/offboarding/finalize', {
           employeeId: employee.id
         });
         Swal.fire('Thành công!', 'Nhân sự đã hoàn tất toàn bộ quy trình thôi việc và được chuyển vào Sổ Lịch sử.', 'success');
@@ -623,7 +623,7 @@ export const InitiateOffboardingModal = ({ employee, onClose, onSuccess }) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/offboarding/initiate', {
+      await axios.post('/api/offboarding/initiate', {
         employeeId: employee.id,
         resignationDate: initiateForm.resignationDate,
         resignationReason: initiateForm.resignationReason

@@ -151,7 +151,7 @@ export const CandidateLandingPage = () => {
       }
     }
 
-    axios.get('http://localhost:5000/api/job-postings?status=PUBLISHED')
+    axios.get('/api/job-postings?status=PUBLISHED')
       .then(res => {
         setJobPostings(res.data || []);
       })
@@ -247,7 +247,7 @@ export const CandidateLandingPage = () => {
 
     setIsSubmitting(true);
 
-    axios.post('http://localhost:5000/api/candidates', {
+    axios.post('/api/candidates', {
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone?.trim() || null,
@@ -287,7 +287,7 @@ export const CandidateLandingPage = () => {
       code: trackSecurityCode.trim()
     });
 
-    axios.get(`http://localhost:5000/api/candidates/track?${query.toString()}`)
+    axios.get(`/api/candidates/track?${query.toString()}`)
       .then(res => {
         setTrackResults(res.data);
       })

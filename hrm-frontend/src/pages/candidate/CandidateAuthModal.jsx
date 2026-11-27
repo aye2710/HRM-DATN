@@ -35,7 +35,7 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/candidate-auth/login', loginData);
+      const res = await axios.post('/api/candidate-auth/login', loginData);
       const { token, user } = res.data;
       localStorage.setItem('candidateToken', token);
       localStorage.setItem('candidateUser', JSON.stringify(user));
@@ -66,7 +66,7 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
 
     setSendingOtp(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/candidate-auth/send-register-otp', {
+      const res = await axios.post('/api/candidate-auth/send-register-otp', {
         name: registerData.name,
         email: registerData.email
       });
@@ -88,7 +88,7 @@ export const CandidateAuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
 
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/candidate-auth/register', {
+      const res = await axios.post('/api/candidate-auth/register', {
         name: registerData.name,
         email: registerData.email,
         phone: registerData.phone,

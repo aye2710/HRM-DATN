@@ -94,8 +94,8 @@ export const ContractDetail = () => {
     setLoading(true);
     try {
       const [empRes, settingsRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/employees/${id}`),
-        axios.get('http://localhost:5000/api/settings').catch(() => ({ data: [] }))
+        axios.get(`/api/employees/${id}`),
+        axios.get('/api/settings').catch(() => ({ data: [] }))
       ]);
       setEmployee(empRes.data);
       const settingsList = Array.isArray(settingsRes.data) ? settingsRes.data : [];
@@ -310,7 +310,7 @@ export const ContractDetail = () => {
       setIsSubmitting(true);
       const t = toast.loading('Đang xử lý kết thúc thử việc...');
       try {
-        await axios.post('http://localhost:5000/api/contracts', {
+        await axios.post('/api/contracts', {
           employeeId: employee.id,
           evaluationResult: 'FAILED',
           endDate: formData.endDate || new Date().toISOString().split('T')[0],
@@ -342,7 +342,7 @@ export const ContractDetail = () => {
     setIsSubmitting(true);
     const t = toast.loading('Đang khởi tạo và ký kết hợp đồng...');
     try {
-      await axios.post('http://localhost:5000/api/contracts', {
+      await axios.post('/api/contracts', {
         employeeId: employee.id,
         contractNumber: formData.contractNumber,
         contractType: formData.contractType,
@@ -504,7 +504,7 @@ export const ContractDetail = () => {
       const existingList = curContract ? normalizeContractFiles(curContract.fileUrl) : [];
       const combinedList = [...existingList, ...newAttachments];
 
-      await axios.patch(`http://localhost:5000/api/contracts/${contractId}`, {
+      await axios.patch(`/api/contracts/${contractId}`, {
         fileUrl: JSON.stringify(combinedList)
       });
 
@@ -527,7 +527,7 @@ export const ContractDetail = () => {
     const updatedList = list.filter(f => f.id !== fileId);
     const t = toast.loading('Đang xóa tệp...');
     try {
-      await axios.patch(`http://localhost:5000/api/contracts/${contractId}`, {
+      await axios.patch(`/api/contracts/${contractId}`, {
         fileUrl: updatedList.length > 0 ? JSON.stringify(updatedList) : null
       });
       toast.dismiss(t);

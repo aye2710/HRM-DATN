@@ -28,7 +28,8 @@ import {
 } from 'lucide-react';
 import { DateInput } from '../../components/common/DateInput';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL as ROOT_API_URL } from '../../services/api';
+const API_BASE_URL = `${ROOT_API_URL}/api`;
 
 export const CandidateMagicResponse = () => {
   const [searchParams] = useSearchParams();

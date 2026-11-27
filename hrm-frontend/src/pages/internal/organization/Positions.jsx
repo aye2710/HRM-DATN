@@ -8,6 +8,7 @@ import { UniversalImportModal } from '../../../components/common/UniversalImport
 import { TableCheckbox, BulkSelectionBar, useTableSelection, runBatchDelete } from '../../../components/common/TableSelection';
 import { TablePagination, usePagination } from '../../../components/common/TablePagination';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { API_BASE_URL } from '../../../services/api';
 
 // Hàm loại bỏ dấu tiếng Việt
 const removeVietnameseTones = (str) => {
@@ -262,7 +263,7 @@ export const Positions = () => {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
-    const res = await fetch('http://localhost:5000/api/positions/bulk-import', {
+    const res = await fetch(`${API_BASE_URL}/api/positions/bulk-import`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ positions: validRows })
@@ -281,13 +282,13 @@ export const Positions = () => {
   }, []);
 
   const fetchPositions = () => {
-    axios.get('http://localhost:5000/api/positions')
+    axios.get('/api/positions')
       .then(res => setPositions(res.data))
       .catch(err => console.error(err));
   };
 
   const fetchDepartments = () => {
-    axios.get('http://localhost:5000/api/departments')
+    axios.get('/api/departments')
       .then(res => setDepartments(res.data))
       .catch(err => console.error(err));
   };
@@ -383,7 +384,7 @@ export const Positions = () => {
     };
 
     if (modalMode === 'add') {
-      axios.post('http://localhost:5000/api/positions', payload)
+      axios.post('/api/positions', payload)
         .then(() => {
           toast.success('Đã thêm vị trí thành công!');
           fetchPositions();
@@ -391,7 +392,7 @@ export const Positions = () => {
         })
         .catch(err => toast.error(err.response?.data?.error || 'Lỗi thêm vị trí'));
     } else {
-      axios.put(`http://localhost:5000/api/positions/${editingId}`, payload)
+      axios.put(`/api/positions/${editingId}`, payload)
         .then(() => {
           toast.success('Đã cập nhật vị trí!');
           fetchPositions();
@@ -405,7 +406,7 @@ export const Positions = () => {
     if (!lockTarget) return;
     const isCurrentlyActive = lockTarget.status === 'ACTIVE';
     const newStatus = isCurrentlyActive ? 'INACTIVE' : 'ACTIVE';
-    axios.put(`http://localhost:5000/api/positions/${lockTarget.id}`, { ...lockTarget, status: newStatus })
+    axios.put(`/api/positions/${lockTarget.id}`, { ...lockTarget, status: newStatus })
       .then(() => {
         toast.success(newStatus === 'ACTIVE' ? 'Đã mở khóa vị trí!' : 'Đã khóa vị trí!');
         fetchPositions();
@@ -419,7 +420,7 @@ export const Positions = () => {
 
   const handleDelete = () => {
     if (!deleteId) return;
-    axios.delete(`http://localhost:5000/api/positions/${deleteId}`)
+    axios.delete(`/api/positions/${deleteId}`)
       .then(() => {
         fetchPositions();
         setDeleteId(null);
@@ -462,7 +463,7 @@ export const Positions = () => {
       count: selectedCount,
       itemLabel: 'vị trí',
       confirmText: 'Hệ thống sẽ xóa các vị trí đã chọn (những vị trí đang có nhân viên đảm nhiệm sẽ được tự động giữ lại).',
-      executeDeletes: () => selectedIds.map(id => axios.delete(`http://localhost:5000/api/positions/${id}`)),
+      executeDeletes: () => selectedIds.map(id => axios.delete(`/api/positions/${id}`)),
       onDone: () => {
         clearSelection();
         fetchPositions();

@@ -109,7 +109,7 @@ export const OnboardingMgmt = () => {
   const fetchNewbies = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/onboarding/newbies');
+      const res = await axios.get('/api/onboarding/newbies');
       setNewbies(res.data || []);
     } catch (error) {
       console.error(error);
@@ -135,7 +135,7 @@ export const OnboardingMgmt = () => {
 
   const toggleTask = async (taskName, category, currentStatus) => {
     try {
-      const res = await axios.post('http://localhost:5000/api/onboarding/task/toggle', {
+      const res = await axios.post('/api/onboarding/task/toggle', {
         employeeId: selectedEmp.id,
         taskName,
         category,
@@ -182,7 +182,7 @@ export const OnboardingMgmt = () => {
     setShowConfirmPopup(false);
     setIsSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/onboarding/complete', {
+      await axios.post('/api/onboarding/complete', {
         employeeId: selectedEmp.id
       });
       const nextStatusStr = selectedEmp.position?.level?.toLowerCase() === 'intern' ? 'THỰC TẬP' : 'THỬ VIỆC';

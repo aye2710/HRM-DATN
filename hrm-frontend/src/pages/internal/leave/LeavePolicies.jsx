@@ -28,8 +28,8 @@ export const LeavePolicies = () => {
   const fetchPolicies = () => {
     setLoading(true);
     Promise.all([
-      axios.get('http://localhost:5000/api/leave-config/policies'),
-      axios.get('http://localhost:5000/api/leave-config/types').catch(() => ({ data: [] }))
+      axios.get('/api/leave-config/policies'),
+      axios.get('/api/leave-config/types').catch(() => ({ data: [] }))
     ])
       .then(([polRes, typesRes]) => {
         setPolicies(polRes.data || []);
@@ -64,7 +64,7 @@ export const LeavePolicies = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (editingItem) {
-      axios.put(`http://localhost:5000/api/leave-config/policies/${editingItem.id}`, formData)
+      axios.put(`/api/leave-config/policies/${editingItem.id}`, formData)
         .then(() => {
           toast.success('Cập nhật chính sách thành công');
           setShowModal(false);
@@ -73,7 +73,7 @@ export const LeavePolicies = () => {
         })
         .catch(err => toast.error(err.response?.data?.error || 'Lỗi cập nhật chính sách'));
     } else {
-      axios.post('http://localhost:5000/api/leave-config/policies', formData)
+      axios.post('/api/leave-config/policies', formData)
         .then(() => {
           toast.success('Thêm chính sách thành công');
           setShowModal(false);
@@ -114,7 +114,7 @@ export const LeavePolicies = () => {
       cancelButtonText: 'Hủy' 
     });
     if (result.isConfirmed) {
-      axios.delete(`http://localhost:5000/api/leave-config/policies/${id}`)
+      axios.delete(`/api/leave-config/policies/${id}`)
         .then(() => { toast.success('Xóa thành công'); fetchPolicies(); })
         .catch(err => toast.error('Lỗi xóa chính sách'));
     }

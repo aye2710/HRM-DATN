@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Clock, Cpu, FileText, AlertTriangle, CheckCircle2, Plus
+  Clock, Cpu, FileText, AlertTriangle, CheckCircle2, Plus, Calendar, List
 } from 'lucide-react';
 import axios from 'axios';
 import { TablePagination, usePagination } from '../../components/common/TablePagination';
@@ -16,7 +16,7 @@ import {
 
 export const EmployeeAttendance = () => {
   const navigate = useNavigate();
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
   const [currentTime, setCurrentTime] = useState(now.toLocaleTimeString('vi-VN'));
 
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
@@ -25,6 +25,8 @@ export const EmployeeAttendance = () => {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [myAdjustments, setMyAdjustments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [viewMode, setViewMode] = useState('TABLE');
   const [policyConfig, setPolicyConfig] = useState({
     graceMinutes: 15,
     maxLateQuota: 3,
@@ -54,14 +56,14 @@ export const EmployeeAttendance = () => {
     return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
   };
 
-  const fetchAttendanceData = async () => {
+  const fetchAttendanceData = useCallback(async () => {
     setLoading(true);
     const headers = getAuthHeaders();
 
     try {
       const [settingsRes, shiftsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/settings', { headers }).catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/attendance/shifts', { headers }).catch(() => ({ data: [] })),
+        axios.get('/api/settings', { headers }).catch(() => ({ data: [] })),
+        axios.get('/api/attendance/shifts', { headers }).catch(() => ({ data: [] })),
       ]);
       const map = Object.fromEntries((Array.isArray(settingsRes.data) ? settingsRes.data : []).map(i => [i.key, i.value]));
       const activeShift = (Array.isArray(shiftsRes.data) ? shiftsRes.data : []).find(s => s.isActive) || shiftsRes.data?.[0];
@@ -81,8 +83,8 @@ export const EmployeeAttendance = () => {
     if (employeeId) {
       try {
         const [attRes, adjRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/attendance/employee/${employeeId}?month=${monthQueryStr}`, { headers }),
-          axios.get('http://localhost:5000/api/attendance/adjustments', { headers }),
+          axios.get(`/api/attendance/employee/${employeeId}?month=${monthQueryStr}`, { headers }),
+          axios.get('/api/attendance/adjustments', { headers }),
         ]);
 
         const recordsList = Array.isArray(attRes.data) ? attRes.data : (attRes.data?.records || []);
@@ -96,11 +98,31 @@ export const EmployeeAttendance = () => {
       }
     }
     setLoading(false);
-  };
+  }, [employeeId, monthQueryStr, now]);
 
   useEffect(() => {
     fetchAttendanceData();
-  }, [employeeId, selectedMonth, selectedYear]);
+  }, [fetchAttendanceData]);
+
+  const filteredAttendanceRecords = useMemo(() => {
+    if (statusFilter === 'ALL') return attendanceRecords;
+    return attendanceRecords.filter((rec) => {
+      const inStr = fmtTime(rec.checkIn);
+      const outStr = fmtTime(rec.checkOut);
+      const lateMins = getLateMinutes(rec.checkIn);
+      const isLeave = rec.status === 'ON_LEAVE';
+      const isHoliday = rec.status === 'HOLIDAY';
+      const isAbsent = rec.status === 'ABSENT';
+      const isEarlyLeave = rec.status === 'EARLY_LEAVE';
+      const isMissingOut = Boolean(inStr && !outStr && !isLeave && !isHoliday && !isAbsent);
+      const isLateOverGrace = Boolean(lateMins > policyConfig.graceMinutes && rec.status !== 'NORMAL' && !isLeave && !isHoliday);
+      if (statusFilter === 'LATE') return isLateOverGrace || isEarlyLeave;
+      if (statusFilter === 'MISSING') return isMissingOut || isAbsent;
+      if (statusFilter === 'ISSUE') return isLateOverGrace || isEarlyLeave || isMissingOut || isAbsent;
+      if (statusFilter === 'OK') return !isLateOverGrace && !isEarlyLeave && !isMissingOut && !isAbsent;
+      return true;
+    });
+  }, [attendanceRecords, statusFilter, policyConfig.graceMinutes]);
 
   const {
     currentPage: attPage,
@@ -111,11 +133,11 @@ export const EmployeeAttendance = () => {
     totalPages: attTotalPages,
     paginatedItems: paginatedAttendance,
     resetPage: resetAttPage,
-  } = usePagination(attendanceRecords, 10);
+  } = usePagination(filteredAttendanceRecords, 10);
 
   useEffect(() => {
     resetAttPage();
-  }, [selectedMonth, selectedYear, resetAttPage]);
+  }, [selectedMonth, selectedYear, statusFilter, resetAttPage]);
 
   const usedLateQuota = useMemo(() => {
     return myAdjustments.filter(a => {
@@ -282,17 +304,164 @@ export const EmployeeAttendance = () => {
         border: '1px solid #E2E8F0',
         overflow: 'hidden'
       }}>
-        <div style={{ padding: '0.8rem 1.25rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ padding: '0.8rem 1.25rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
             <strong style={{ fontSize: '0.95rem', color: '#0F172A' }}>
-              Chi tiết Bảng chấm công Tháng {selectedMonth}/{selectedYear} ({attendanceRecords.length} ngày làm việc)
+              Chi tiết Bảng chấm công Tháng {selectedMonth}/{selectedYear} ({filteredAttendanceRecords.length} ngày)
             </strong>
             <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
               Các ngày quên Check-out, đi muộn hoặc về sớm có nút lập đơn nhanh chuyển thẳng sang trang Giải trình công
             </div>
           </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {viewMode === 'TABLE' && (
+              <select
+                className="form-input"
+                style={{ width: 'auto', minWidth: 185, height: 34, fontSize: '0.8rem' }}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="ISSUE">Ngày có bất thường</option>
+                <option value="LATE">Đi muộn / Về sớm</option>
+                <option value="MISSING">Thiếu Check-out / Vắng</option>
+                <option value="OK">Đủ công / Hợp lệ</option>
+              </select>
+            )}
+            <div style={{ display: 'inline-flex', backgroundColor: '#F1F5F9', padding: 3, borderRadius: '0.5rem', gap: 2 }}>
+              <button
+                type="button"
+                onClick={() => setViewMode('TABLE')}
+                style={{
+                  border: 'none',
+                  borderRadius: '0.38rem',
+                  padding: '0.32rem 0.65rem',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  backgroundColor: viewMode === 'TABLE' ? '#FFFFFF' : 'transparent',
+                  color: viewMode === 'TABLE' ? '#2563EB' : '#64748B',
+                  boxShadow: viewMode === 'TABLE' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                }}
+              >
+                <List size={14} /> Dạng bảng
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('CALENDAR')}
+                style={{
+                  border: 'none',
+                  borderRadius: '0.38rem',
+                  padding: '0.32rem 0.65rem',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  backgroundColor: viewMode === 'CALENDAR' ? '#FFFFFF' : 'transparent',
+                  color: viewMode === 'CALENDAR' ? '#2563EB' : '#64748B',
+                  boxShadow: viewMode === 'CALENDAR' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                }}
+              >
+                <Calendar size={14} /> Lịch tháng
+              </button>
+            </div>
+          </div>
         </div>
 
+        {viewMode === 'CALENDAR' ? (
+          <div style={{ padding: '1rem 1.25rem' }}>
+            {(() => {
+              const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+              const firstWeekday = (new Date(selectedYear, selectedMonth - 1, 1).getDay() + 6) % 7; // Mon=0..Sun=6
+              const recordByDay = new Map();
+              attendanceRecords.forEach((r) => {
+                if (!r.date) return;
+                const d = new Date(r.date);
+                if (d.getMonth() + 1 === Number(selectedMonth) && d.getFullYear() === Number(selectedYear)) {
+                  recordByDay.set(d.getDate(), r);
+                }
+              });
+              const cells = [];
+              for (let b = 0; b < firstWeekday; b++) cells.push(null);
+              for (let day = 1; day <= daysInMonth; day++) cells.push(day);
+              const weekLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '0.45rem' }}>
+                    {weekLabels.map((lbl, idx) => (
+                      <div key={lbl} style={{ textAlign: 'center', fontSize: '0.74rem', fontWeight: 700, color: idx >= 5 ? '#DC2626' : '#475569', padding: '0.25rem 0' }}>
+                        {lbl}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '0.45rem' }}>
+                    {cells.map((day, idx) => {
+                      if (!day) {
+                        return <div key={`empty-${idx}`} style={{ minHeight: 74, borderRadius: '0.5rem', backgroundColor: '#F8FAFC' }} />;
+                      }
+                      const rec = recordByDay.get(day);
+                      const inStr = rec ? fmtTime(rec.checkIn) : '';
+                      const outStr = rec ? fmtTime(rec.checkOut) : '';
+                      const lateMins = rec ? getLateMinutes(rec.checkIn) : 0;
+                      const isMissingOut = Boolean(rec && inStr && !outStr && rec.status !== 'ON_LEAVE' && rec.status !== 'HOLIDAY' && rec.status !== 'ABSENT');
+                      const isLate = Boolean(rec && lateMins > policyConfig.graceMinutes && rec.status !== 'NORMAL' && rec.status !== 'ON_LEAVE' && rec.status !== 'HOLIDAY');
+                      let cellBg = '#FFFFFF';
+                      let cellBorder = '#E2E8F0';
+                      let badgeText = '';
+                      let badgeColor = '#475569';
+                      if (rec) {
+                        if (rec.status === 'ON_LEAVE') {
+                          cellBg = '#EEF2FF'; cellBorder = '#C7D2FE'; badgeText = 'Nghỉ phép'; badgeColor = '#4338CA';
+                        } else if (rec.status === 'HOLIDAY') {
+                          cellBg = '#FAF5FF'; cellBorder = '#E9D5FF'; badgeText = 'Nghỉ lễ'; badgeColor = '#7E22CE';
+                        } else if (rec.status === 'ABSENT') {
+                          cellBg = '#FEF2F2'; cellBorder = '#FECACA'; badgeText = 'Vắng'; badgeColor = '#DC2626';
+                        } else if (isMissingOut || isLate || rec.status === 'EARLY_LEAVE') {
+                          cellBg = '#FFFBEB'; cellBorder = '#FDE68A'; badgeText = isMissingOut ? 'Thiếu Out' : `Muộn ${lateMins}p`; badgeColor = '#B45309';
+                        } else {
+                          cellBg = '#F0FDF4'; cellBorder = '#BBF7D0'; badgeText = `${Number(rec.workingDay ?? 1)} công`; badgeColor = '#15803D';
+                        }
+                      }
+                      return (
+                        <div key={day} style={{
+                          minHeight: 74,
+                          borderRadius: '0.5rem',
+                          border: `1px solid ${cellBorder}`,
+                          backgroundColor: cellBg,
+                          padding: '0.4rem 0.5rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <strong style={{ fontSize: '0.78rem', color: '#0F172A' }}>{day}</strong>
+                            {badgeText && (
+                              <span style={{ fontSize: '0.64rem', fontWeight: 700, color: badgeColor }}>{badgeText}</span>
+                            )}
+                          </div>
+                          {rec && (inStr || outStr) && (
+                            <div style={{ fontSize: '0.68rem', fontFamily: 'monospace', color: '#334155', lineHeight: 1.3 }}>
+                              <div>In: {inStr || '--:--'}</div>
+                              <div>Out: {outStr || '--:--'}</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        ) : (
+        <>
         <div className="table-responsive">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
             <thead>
@@ -474,6 +643,8 @@ export const EmployeeAttendance = () => {
             onPageSizeChange={setAttPageSize}
             itemLabel="ngày"
           />
+        )}
+        </>
         )}
       </div>
     </div>

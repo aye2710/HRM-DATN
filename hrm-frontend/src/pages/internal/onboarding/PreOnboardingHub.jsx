@@ -59,7 +59,7 @@ export const PreOnboardingHub = () => {
   const fetchPreOnboarding = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/onboarding/pre-onboarding');
+      const res = await axios.get('/api/onboarding/pre-onboarding');
       setCandidates(res.data || []);
     } catch (error) {
       console.error('Error fetching pre-onboarding candidates:', error);
@@ -139,7 +139,7 @@ export const PreOnboardingHub = () => {
       return toast.error('Vui lòng nhập lý do từ chối / thu hồi Offer!');
     }
     try {
-      await axios.post(`http://localhost:5000/api/offers/${selectedCandidate.id}/reject`, {
+      await axios.post(`/api/offers/${selectedCandidate.id}/reject`, {
         reason: revokeReason.trim()
       });
       toast.success(`Đã thu hồi Offer và loại ứng viên ${selectedCandidate.name} khỏi danh sách chờ tiếp nhận.`);
@@ -169,7 +169,7 @@ export const PreOnboardingHub = () => {
         contractType: acceptingCandidate.offer?.contractType || 'PROBATION'
       };
 
-      const res = await axios.post('http://localhost:5000/api/offers/accept', payload);
+      const res = await axios.post('/api/offers/accept', payload);
       toast.success(`Đã tiếp nhận thành công ứng viên ${acceptingCandidate.name}!`);
       setShowAcceptModal(false);
       fetchPreOnboarding();

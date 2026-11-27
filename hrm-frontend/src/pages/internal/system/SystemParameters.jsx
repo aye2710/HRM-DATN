@@ -7,6 +7,7 @@ import {
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { API_BASE_URL } from '../../../services/api';
 
 export const SystemParameters = () => {
   const [settings, setSettings] = useState([]);
@@ -23,7 +24,7 @@ export const SystemParameters = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await fetch('http://localhost:5000/api/settings', { headers });
+      const res = await fetch(`${API_BASE_URL}/api/settings`, { headers });
       if (!res.ok) throw new Error('Không thể tải cấu hình tham số');
       const data = await res.json();
       setSettings(data);
@@ -67,7 +68,7 @@ export const SystemParameters = () => {
         value: String(value)
       }));
 
-      const res = await fetch('http://localhost:5000/api/settings/bulk', {
+      const res = await fetch(`${API_BASE_URL}/api/settings/bulk`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({ updates })
@@ -109,7 +110,7 @@ export const SystemParameters = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       };
 
-      const res = await fetch('http://localhost:5000/api/settings/reset', {
+      const res = await fetch(`${API_BASE_URL}/api/settings/reset`, {
         method: 'POST',
         headers
       });

@@ -39,9 +39,9 @@ export const KPITemplates = () => {
     setLoading(true);
     try {
       const [res, posRes, deptRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/kpi/templates'),
-        axios.get('http://localhost:5000/api/positions').catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/departments').catch(() => ({ data: [] }))
+        axios.get('/api/kpi/templates'),
+        axios.get('/api/positions').catch(() => ({ data: [] })),
+        axios.get('/api/departments').catch(() => ({ data: [] }))
       ]);
       setTemplates(res.data || []);
       setPositions(posRes.data || []);
@@ -166,7 +166,7 @@ export const KPITemplates = () => {
     }
 
     try {
-      await axios.post('http://localhost:5000/api/kpi/templates', {
+      await axios.post('/api/kpi/templates', {
         name: formData.name,
         department: formData.department,
         positionId: formData.positionId || null,
@@ -227,7 +227,7 @@ export const KPITemplates = () => {
     }
 
     try {
-      await axios.put(`http://localhost:5000/api/kpi/templates/${editFormData.id}`, {
+      await axios.put(`/api/kpi/templates/${editFormData.id}`, {
         name: editFormData.name,
         department: editFormData.department,
         positionId: editFormData.positionId || null,
@@ -248,7 +248,7 @@ export const KPITemplates = () => {
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Xác nhận xóa Mẫu KPI: "${name}"?`)) return;
     try {
-      await axios.delete(`http://localhost:5000/api/kpi/templates/${id}`);
+      await axios.delete(`/api/kpi/templates/${id}`);
       toast.success('Đã xóa mẫu KPI');
       fetchTemplates();
     } catch (err) {

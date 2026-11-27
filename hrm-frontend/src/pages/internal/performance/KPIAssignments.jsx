@@ -70,10 +70,10 @@ export const KPIAssignments = () => {
     setLoading(true);
     try {
       const [kpiRes, empRes, tplRes, posRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/kpi/kpi'),
-        axios.get('http://localhost:5000/api/employees'),
-        axios.get('http://localhost:5000/api/kpi/templates'),
-        axios.get('http://localhost:5000/api/positions').catch(() => ({ data: [] }))
+        axios.get('/api/kpi/kpi'),
+        axios.get('/api/employees'),
+        axios.get('/api/kpi/templates'),
+        axios.get('/api/positions').catch(() => ({ data: [] }))
       ]);
       setKpis(kpiRes.data || []);
       const emps = empRes.data || [];
@@ -300,7 +300,7 @@ export const KPIAssignments = () => {
           return toast.error(`Tổng trọng số bộ chỉ tiêu phải bằng 100% (Hiện tại là ${totalTemplateWeight}%)`);
         }
 
-        await axios.post('http://localhost:5000/api/kpi/assign-template', {
+        await axios.post('/api/kpi/assign-template', {
           employeeIds: selectedEmployeeIds,
           templateId: selectedTemplateId,
           customItems: templateItems,
@@ -320,7 +320,7 @@ export const KPIAssignments = () => {
           return toast.error('Vui lòng nhập mô tả chỉ tiêu KPI');
         }
 
-        await axios.post('http://localhost:5000/api/kpi/kpi', {
+        await axios.post('/api/kpi/kpi', {
           employeeId: manualForm.employeeId,
           description: manualForm.description,
           target: Number(manualForm.target),
@@ -364,7 +364,7 @@ export const KPIAssignments = () => {
     e.preventDefault();
     if (!updatingKpi) return;
     try {
-      await axios.put(`http://localhost:5000/api/kpi/kpi/${updatingKpi.id}`, {
+      await axios.put(`/api/kpi/kpi/${updatingKpi.id}`, {
         achieved: Number(achievedVal),
         evidenceUrl: evidenceUrlVal
       });
@@ -395,7 +395,7 @@ export const KPIAssignments = () => {
     e.preventDefault();
     if (!editingKpi) return;
     try {
-      await axios.put(`http://localhost:5000/api/kpi/kpi/${editingKpi.id}`, {
+      await axios.put(`/api/kpi/kpi/${editingKpi.id}`, {
         description: editKpiForm.description,
         target: Number(editKpiForm.target),
         achieved: Number(editKpiForm.achieved),
@@ -415,7 +415,7 @@ export const KPIAssignments = () => {
   const handleDeleteKpi = async (id, desc) => {
     if (!window.confirm(`Xác nhận xóa chỉ tiêu KPI: "${desc}"?`)) return;
     try {
-      await axios.delete(`http://localhost:5000/api/kpi/kpi/${id}`);
+      await axios.delete(`/api/kpi/kpi/${id}`);
       toast.success('Đã xóa KPI');
       fetchData();
     } catch (err) {

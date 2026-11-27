@@ -17,6 +17,7 @@ import { TablePagination, usePagination } from '../../../components/common/Table
 import { DateInput } from '../../../components/common/DateInput';
 import { formatDate } from '../../../utils/dateUtils';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { API_BASE_URL } from '../../../services/api';
 
 export const AssetInventory = () => {
   const [assets, setAssets] = useState([]);
@@ -182,7 +183,7 @@ export const AssetInventory = () => {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
-    const res = await fetch('http://localhost:5000/api/assets/bulk-import', {
+    const res = await fetch(`${API_BASE_URL}/api/assets/bulk-import`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ assets: validRows })
@@ -206,8 +207,8 @@ export const AssetInventory = () => {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const [assetsRes, empsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/assets', { headers }),
-        fetch('http://localhost:5000/api/employees', { headers })
+        fetch(`${API_BASE_URL}/api/assets`, { headers }),
+        fetch(`${API_BASE_URL}/api/employees`, { headers })
       ]);
 
       if (assetsRes.ok) {
@@ -345,8 +346,8 @@ export const AssetInventory = () => {
     e.preventDefault();
     try {
       const url = editingAsset 
-        ? `http://localhost:5000/api/assets/${editingAsset.id}` 
-        : 'http://localhost:5000/api/assets';
+        ? `/api/assets/${editingAsset.id}` 
+        : '/api/assets';
       const method = editingAsset ? 'PUT' : 'POST';
 
       const payload = { ...formData };
@@ -419,7 +420,7 @@ export const AssetInventory = () => {
 
       if (!formValues) return;
 
-      const res = await fetch(`http://localhost:5000/api/assets/${asset.id}/maintenance`, {
+      const res = await fetch(`${API_BASE_URL}/api/assets/${asset.id}/maintenance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formValues)
@@ -472,7 +473,7 @@ export const AssetInventory = () => {
     if (!formValues) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/assets/${asset.id}/maintenance-complete`, {
+      const res = await fetch(`${API_BASE_URL}/api/assets/${asset.id}/maintenance-complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formValues)
@@ -494,7 +495,7 @@ export const AssetInventory = () => {
   const handleDeleteAsset = async (id, name) => {
     if (!window.confirm(`Bạn có chắc chắn muốn chuyển tài sản "${name}" sang trạng thái Thanh lý (Xóa mềm)?\nLịch sử cấp phát cũ sẽ được bảo toàn nguyên vẹn cho kiểm toán.`)) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/assets/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE_URL}/api/assets/${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Không thể xóa');
@@ -581,7 +582,7 @@ export const AssetInventory = () => {
       count: unitSelection.selectedCount,
       itemLabel: 'tài sản',
       confirmText: 'Hệ thống sẽ chuyển các thiết bị đã chọn sang trạng thái Thanh lý / Xóa mềm (thiết bị đang được nhân viên giữ sẽ được bảo vệ và giữ lại).',
-      executeDeletes: () => unitSelection.selectedIds.map(id => axios.delete(`http://localhost:5000/api/assets/${id}`)),
+      executeDeletes: () => unitSelection.selectedIds.map(id => axios.delete(`/api/assets/${id}`)),
       onDone: () => {
         unitSelection.clearSelection();
         fetchData();
@@ -900,7 +901,7 @@ export const AssetInventory = () => {
         conditionOnAssign: 'Mới 100%, hoạt động bình thường, đầy đủ phụ kiện'
       };
 
-      const res = await fetch('http://localhost:5000/api/assets/assign', {
+      const res = await fetch(`${API_BASE_URL}/api/assets/assign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -948,7 +949,7 @@ export const AssetInventory = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/assets/assignments/batch-return', {
+      const res = await fetch(`${API_BASE_URL}/api/assets/assignments/batch-return`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

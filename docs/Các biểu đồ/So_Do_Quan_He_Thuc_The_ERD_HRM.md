@@ -478,52 +478,61 @@ Toàn bộ cơ sở dữ liệu được tổ chức theo mô hình **Lấy Nhâ
 ---
 
 ## 2.22. Bảng `LeaveBalance`: Quỹ phép năm
-> **Mô tả chức năng:** Quản lý số ngày phép được hưởng theo thâm niên (Điều 113-114), số ngày đã dùng và còn lại.  
-> **Tổng số cột/trường:** 5 trường dữ liệu.
-
-| STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
-| :-: | :--- | :--- | :---: | :--- | :--- |
-| 1 | `id` | `String` | Không | 🔑 PRIMARY KEY | Mặc định: `uuid()` | Khóa chính định danh duy nhất (UUIDv4) |
-| 2 | `employeeId` | `String` | Không | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Nhân viên (Employee.id) |
-| 3 | `year` | `Int` | Không | Thuộc tính thường | Dữ liệu thông tin year của bản ghi |
-| 4 | `totalDays` | `Decimal` | Không | Mặc định: `12` | Dữ liệu thông tin totalDays của bản ghi |
-| 5 | `usedDays` | `Decimal` | Không | Mặc định: `0` | Dữ liệu thông tin usedDays của bản ghi |
-
----
-
-## 2.23. Bảng `LeaveRequest`: Đơn xin nghỉ phép
-> **Mô tả chức năng:** Đơn xin nghỉ phép năm, phép ốm, thai sản, việc riêng kèm trạng thái phê duyệt.  
-> **Tổng số cột/trường:** 11 trường dữ liệu.
-
-| STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
-| :-: | :--- | :--- | :---: | :--- | :--- |
-| 1 | `id` | `String` | Không | 🔑 PRIMARY KEY | Mặc định: `uuid()` | Khóa chính định danh duy nhất (UUIDv4) |
-| 2 | `employeeId` | `String` | Không | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Nhân viên (Employee.id) |
-| 3 | `leaveType` | `LeaveType` | Không | Thuộc tính thường | Trạng thái nghiệp vụ theo định dạng danh mục Enum `LeaveType` |
-| 4 | `session` | `String` | Cho phép Null | Mặc định: `"ALL_DAY"` | Dữ liệu thông tin session của bản ghi |
-| 5 | `startDate` | `DateTime` | Không | Thuộc tính thường | Thời gian ghi nhận mốc nghiệp vụ |
-| 6 | `endDate` | `DateTime` | Không | Thuộc tính thường | Thời gian ghi nhận mốc nghiệp vụ |
-| 7 | `status` | `RequestStatus` | Không | Mặc định: `PENDING` | Trạng thái hoạt động / phê duyệt của bản ghi |
-| 8 | `reason` | `String` | Cho phép Null | Thuộc tính thường | Ghi chú, lý do hoặc diễn giải nghiệp vụ |
-| 9 | `approverId` | `String` | Cho phép Null | 🔗 FOREIGN KEY | Dữ liệu thông tin approverId của bản ghi |
-| 10 | `createdAt` | `DateTime` | Không | Mặc định: `now()` | Thời điểm khởi tạo bản ghi trong hệ thống |
-| 11 | `updatedAt` | `DateTime` | Không | Mặc định: `now()` | Thời điểm cập nhật bản ghi gần nhất |
-
----
-
-## 2.24. Bảng `LeaveTypeConfig`: Cấu hình loại phép
-> **Mô tả chức năng:** Định nghĩa các loại nghỉ phép (hưởng lương, không hưởng lương, BHXH chi trả).  
+> **Mô tả chức năng:** Quản lý số ngày phép được hưởng theo thâm niên (Điều 113-114), số ngày phép chuyển tiếp năm trước (`carryForwardDays`), số ngày đã dùng và còn lại.  
 > **Tổng số cột/trường:** 7 trường dữ liệu.
 
 | STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
 | :-: | :--- | :--- | :---: | :--- | :--- |
-| 1 | `id` | `String` | Không | 🔑 PRIMARY KEY | Mặc định: `uuid()` | Khóa chính định danh duy nhất (UUIDv4) |
-| 2 | `name` | `String` | Không | Thuộc tính thường | Dữ liệu thông tin name của bản ghi |
-| 3 | `code` | `String` | Không | ⭐ UNIQUE | Mã nghiệp vụ duy nhất (Mã nhân viên, mã phòng, mã chức danh...) |
-| 4 | `defaultDays` | `Int` | Không | Mặc định: `12` | Dữ liệu thông tin defaultDays của bản ghi |
-| 5 | `paid` | `Boolean` | Không | Mặc định: `true` | Dữ liệu thông tin paid của bản ghi |
-| 6 | `carryForward` | `Boolean` | Không | Mặc định: `true` | Dữ liệu thông tin carryForward của bản ghi |
-| 7 | `status` | `String` | Không | Mặc định: `"Hoạt động"` | Trạng thái hoạt động / phê duyệt của bản ghi |
+| 1 | `id` | `String` | Có | 🔑 PRIMARY KEY | Khóa chính định danh duy nhất (UUIDv4, mặc định `uuid()`) |
+| 2 | `employeeId` | `String` | Có | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Nhân viên (`Employee.id`) |
+| 3 | `year` | `Int` | Có | Thuộc tính thường | Năm áp dụng quỹ phép |
+| 4 | `totalDays` | `Decimal` | Có | Mặc định: `12` | Tổng số ngày phép được hưởng trong năm |
+| 5 | `usedDays` | `Decimal` | Có | Mặc định: `0` | Số ngày phép năm đã sử dụng |
+| 6 | `carryForwardDays` | `Decimal` | Có | Mặc định: `0` | Số ngày phép tồn từ năm trước được chuyển sang |
+| 7 | `carryForwardUsed` | `Decimal` | Có | Mặc định: `0` | Số ngày phép chuyển tiếp đã sử dụng |
+
+---
+
+## 2.23. Bảng `LeaveRequest`: Đơn xin nghỉ phép
+> **Mô tả chức năng:** Đơn xin nghỉ phép năm, phép ốm, chế độ, không lương kèm ca nghỉ và trạng thái phê duyệt.  
+> **Tổng số cột/trường:** 14 trường dữ liệu.
+
+| STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
+| :-: | :--- | :--- | :---: | :--- | :--- |
+| 1 | `id` | `String` | Có | 🔑 PRIMARY KEY | Khóa chính định danh duy nhất (UUIDv4, mặc định `uuid()`) |
+| 2 | `employeeId` | `String` | Có | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Nhân viên (`Employee.id`) |
+| 3 | `leaveType` | `LeaveType` | Có | Mặc định: `PAID` | Phân loại hưởng lương (`PAID`, `UNPAID`) |
+| 4 | `leaveTypeId` | `String` | Cho phép Null | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến danh mục `LeaveTypeConfig.id` |
+| 5 | `session` | `String` | Cho phép Null | Mặc định: `"ALL_DAY"` | Ca nghỉ (`ALL_DAY`, `MORNING`, `AFTERNOON`) |
+| 6 | `startSession` | `String` | Cho phép Null | Mặc định: `"MORNING"` | Buổi bắt đầu nghỉ (`MORNING`, `AFTERNOON`) |
+| 7 | `endSession` | `String` | Cho phép Null | Mặc định: `"AFTERNOON"` | Buổi kết thúc nghỉ (`MORNING`, `AFTERNOON`) |
+| 8 | `startDate` | `DateTime` | Có | Thuộc tính thường | Ngày bắt đầu nghỉ phép |
+| 9 | `endDate` | `DateTime` | Có | Thuộc tính thường | Ngày kết thúc nghỉ phép |
+| 10 | `status` | `RequestStatus` | Có | Mặc định: `PENDING` | Trạng thái phê duyệt (`PENDING`, `APPROVED`, `REJECTED`) |
+| 11 | `reason` | `String` | Cho phép Null | Thuộc tính thường | Lý do xin nghỉ phép |
+| 12 | `approverId` | `String` | Cho phép Null | 🔗 FOREIGN KEY | Mã định danh người phê duyệt |
+| 13 | `createdAt` | `DateTime` | Có | Mặc định: `now()` | Thời điểm khởi tạo bản ghi |
+| 14 | `updatedAt` | `DateTime` | Có | Mặc định: `now()` | Thời điểm cập nhật bản ghi gần nhất |
+
+---
+
+## 2.24. Bảng `LeaveTypeConfig`: Cấu hình loại phép
+> **Mô tả chức năng:** Định nghĩa các loại nghỉ phép (tự sinh mã `LP01...`, trừ quỹ phép năm hay không, đơn vị chi trả, giới hạn ngày/lần và yêu cầu minh chứng).  
+> **Tổng số cột/trường:** 11 trường dữ liệu.
+
+| STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
+| :-: | :--- | :--- | :---: | :--- | :--- |
+| 1 | `id` | `String` | Có | 🔑 PRIMARY KEY | Khóa chính định danh duy nhất (UUIDv4, mặc định `uuid()`) |
+| 2 | `name` | `String` | Có | Thuộc tính thường | Tên loại nghỉ phép |
+| 3 | `code` | `String` | Có | ⭐ UNIQUE | Mã định danh tự sinh (`LP01`, `LP02`...) |
+| 4 | `defaultDays` | `Int` | Có | Mặc định: `12` | Số ngày mặc định của loại phép |
+| 5 | `paid` | `Boolean` | Có | Mặc định: `true` | Có được hưởng lương hay không |
+| 6 | `carryForward` | `Boolean` | Có | Mặc định: `true` | Cho phép chuyển tồn sang năm sau hay không |
+| 7 | `status` | `String` | Có | Mặc định: `"Hoạt động"` | Trạng thái áp dụng (`Hoạt động`, `Tạm dừng`) |
+| 8 | `deductAnnualLeave` | `Boolean` | Có | Mặc định: `true` | Có trừ vào Quỹ phép năm (12 ngày) hay không |
+| 9 | `paidBy` | `String` | Có | Mặc định: `"COMPANY"` | Đơn vị chi trả (`COMPANY`, `SOCIAL_INSURANCE`, `NONE`) |
+| 10 | `maxDaysPerOccasion` | `Int` | Cho phép Null | Thuộc tính thường | Giới hạn ngày tối đa mỗi lần nghỉ (Điều 115 BLLĐ) |
+| 11 | `requiresAttachment` | `Boolean` | Có | Mặc định: `false` | Bắt buộc đính kèm tệp minh chứng hay không |
 
 ---
 
@@ -788,58 +797,82 @@ Toàn bộ cơ sở dữ liệu được tổ chức theo mô hình **Lấy Nhâ
 
 ## 2.40. Bảng `ReviewCycle`: Chu kỳ đánh giá KPI
 > **Mô tả chức năng:** Đợt đánh giá hiệu suất định kỳ theo Quý hoặc Năm.  
-> **Tổng số cột/trường:** 4 trường dữ liệu.
+> **Tổng số cột/trường:** 6 trường dữ liệu.
 
 | STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
 | :-: | :--- | :--- | :---: | :--- | :--- |
-| 1 | `id` | `String` | Không | 🔑 PRIMARY KEY | Mặc định: `uuid()` | Khóa chính định danh duy nhất (UUIDv4) |
-| 2 | `name` | `String` | Không | Thuộc tính thường | Dữ liệu thông tin name của bản ghi |
-| 3 | `startDate` | `DateTime` | Không | Thuộc tính thường | Thời gian ghi nhận mốc nghiệp vụ |
-| 4 | `endDate` | `DateTime` | Không | Thuộc tính thường | Thời gian ghi nhận mốc nghiệp vụ |
+| 1 | `id` | `String` | Có | 🔑 PRIMARY KEY | Khóa chính định danh duy nhất (UUIDv4, mặc định `uuid()`) |
+| 2 | `name` | `String` | Có | Thuộc tính thường | Tên chu kỳ đánh giá (ví dụ: Q1 2026) |
+| 3 | `startDate` | `DateTime` | Có | Thuộc tính thường | Ngày bắt đầu chu kỳ |
+| 4 | `endDate` | `DateTime` | Có | Thuộc tính thường | Ngày kết thúc chu kỳ |
+| 5 | `status` | `String` | Có | Mặc định: `"ACTIVE"` | Trạng thái chu kỳ đánh giá |
+| 6 | `createdAt` | `DateTime` | Có | Mặc định: `now()` | Thời điểm khởi tạo bản ghi |
 
 ---
 
 ## 2.41. Bảng `KPI`: Mục tiêu KPI cá nhân
-> **Mô tả chức năng:** Mục tiêu cụ thể, chỉ số đo lường (KPI) và tỷ trọng đánh giá của từng nhân viên.  
-> **Tổng số cột/trường:** 5 trường dữ liệu.
+> **Mô tả chức năng:** Mục tiêu cụ thể, chỉ số đo lường (KPI), trọng số, chiều đánh giá và minh chứng của từng nhân viên.  
+> **Tổng số cột/trường:** 16 trường dữ liệu.
 
 | STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
 | :-: | :--- | :--- | :---: | :--- | :--- |
-| 1 | `id` | `String` | Không | 🔑 PRIMARY KEY | Mặc định: `uuid()` | Khóa chính định danh duy nhất (UUIDv4) |
-| 2 | `employeeId` | `String` | Không | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Nhân viên (Employee.id) |
-| 3 | `description` | `String` | Không | Thuộc tính thường | Ghi chú, lý do hoặc diễn giải nghiệp vụ |
-| 4 | `target` | `Decimal` | Không | Thuộc tính thường | Dữ liệu thông tin target của bản ghi |
-| 5 | `achieved` | `Decimal` | Không | Mặc định: `0` | Dữ liệu thông tin achieved của bản ghi |
+| 1 | `id` | `String` | Có | 🔑 PRIMARY KEY | Khóa chính định danh duy nhất (UUIDv4, mặc định `uuid()`) |
+| 2 | `employeeId` | `String` | Có | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Nhân viên (`Employee.id`) |
+| 3 | `reviewCycleId` | `String` | Cho phép Null | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến chu kỳ đánh giá (`ReviewCycle.id`) |
+| 4 | `description` | `String` | Có | Thuộc tính thường | Mô tả chỉ tiêu công việc |
+| 5 | `target` | `Decimal` | Có | Thuộc tính thường | Chỉ tiêu mục tiêu cần đạt |
+| 6 | `achieved` | `Decimal` | Có | Mặc định: `0` | Kết quả thực tế đạt được |
+| 7 | `unit` | `String` | Cho phép Null | Mặc định: `"%"` | Đơn vị đo lường chỉ tiêu |
+| 8 | `weight` | `Decimal` | Cho phép Null | Mặc định: `20` | Trọng số phần trăm của tiêu chí |
+| 9 | `category` | `String` | Cho phép Null | Mặc định: `"OUTPUT"` | Phân loại nhóm tiêu chí KPI |
+| 10 | `direction` | `String` | Cho phép Null | Mặc định: `"HIGHER_IS_BETTER"` | Chiều đánh giá (`HIGHER_IS_BETTER`, `LOWER_IS_BETTER`, `BOOLEAN`) |
+| 11 | `maxScoreCap` | `Decimal` | Cho phép Null | Mặc định: `120` | Điểm trần tối đa cho phép |
+| 12 | `minScoreFloor` | `Decimal` | Cho phép Null | Mặc định: `0` | Điểm sàn tối thiểu |
+| 13 | `period` | `String` | Cho phép Null | Mặc định: `"Q3-2026"` | Kỳ áp dụng chỉ tiêu |
+| 14 | `status` | `String` | Cho phép Null | Mặc định: `"IN_PROGRESS"` | Trạng thái thực hiện KPI |
+| 15 | `evidenceUrl` | `String` | Cho phép Null | Thuộc tính thường | Đường dẫn tài liệu minh chứng |
+| 16 | `createdAt` | `DateTime` | Có | Mặc định: `now()` | Thời điểm khởi tạo bản ghi |
 
 ---
 
 ## 2.42. Bảng `PerformanceReview`: Phiếu đánh giá KPI
-> **Mô tả chức năng:** Tổng hợp điểm tự chấm, điểm quản lý và xếp loại cưỡng bức Bell Curve (20-60-20).  
-> **Tổng số cột/trường:** 5 trường dữ liệu.
+> **Mô tả chức năng:** Tổng hợp điểm tự chấm, điểm quản lý và xếp loại A/B/C/D theo ngưỡng điểm (`>=90` A, `>=75` B, `>=60` C, `<60` D).  
+> **Tổng số cột/trường:** 14 trường dữ liệu.
 
 | STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
 | :-: | :--- | :--- | :---: | :--- | :--- |
-| 1 | `id` | `String` | Không | 🔑 PRIMARY KEY | Mặc định: `uuid()` | Khóa chính định danh duy nhất (UUIDv4) |
-| 2 | `employeeId` | `String` | Không | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Nhân viên (Employee.id) |
-| 3 | `reviewCycleId` | `String` | Không | 🔗 FOREIGN KEY | Dữ liệu thông tin reviewCycleId của bản ghi |
-| 4 | `score` | `Decimal` | Không | Thuộc tính thường | Dữ liệu thông tin score của bản ghi |
-| 5 | `comments` | `String` | Cho phép Null | Thuộc tính thường | Dữ liệu thông tin comments của bản ghi |
+| 1 | `id` | `String` | Có | 🔑 PRIMARY KEY | Khóa chính định danh duy nhất (UUIDv4, mặc định `uuid()`) |
+| 2 | `employeeId` | `String` | Có | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Nhân viên (`Employee.id`) |
+| 3 | `reviewCycleId` | `String` | Có | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu đến bảng Chu kỳ (`ReviewCycle.id`) |
+| 4 | `score` | `Decimal` | Có | Mặc định: `0` | Tổng điểm đánh giá cuối cùng |
+| 5 | `kpiScore` | `Decimal` | Cho phép Null | Mặc định: `0` | Điểm phần mục tiêu KPI |
+| 6 | `competencyScore` | `Decimal` | Cho phép Null | Mặc định: `0` | Điểm phần năng lực |
+| 7 | `kpiWeight` | `Decimal` | Cho phép Null | Mặc định: `70` | Tỷ trọng điểm KPI (%) |
+| 8 | `competencyWeight` | `Decimal` | Cho phép Null | Mặc định: `30` | Tỷ trọng điểm năng lực (%) |
+| 9 | `selfScore` | `Decimal` | Cho phép Null | Mặc định: `0` | Điểm tự đánh giá của nhân viên |
+| 10 | `selfComments` | `String (Text)` | Cho phép Null | Thuộc tính thường | Nhận xét tự đánh giá của nhân viên |
+| 11 | `finalGrade` | `String` | Cho phép Null | Mặc định: `"B"` | Xếp loại cuối kỳ (`A`, `B`, `C`, `D`) |
+| 12 | `comments` | `String (Text)` | Cho phép Null | Thuộc tính thường | Nhận xét đánh giá của quản lý |
+| 13 | `status` | `String` | Cho phép Null | Mặc định: `"PENDING"` | Trạng thái phiếu (`PENDING`, `SELF_EVALUATED`, `COMPLETED`) |
+| 14 | `createdAt` | `DateTime` | Có | Mặc định: `now()` | Thời điểm khởi tạo bản ghi |
 
 ---
 
 ## 2.43. Bảng `KPITemplate`: Mẫu tiêu chí KPI
 > **Mô tả chức năng:** Khung tiêu chí và trọng số KPI mẫu theo từng phòng ban và chức danh.  
-> **Tổng số cột/trường:** 7 trường dữ liệu.
+> **Tổng số cột/trường:** 9 trường dữ liệu.
 
 | STT | Tên trường (Field) | Kiểu dữ liệu | Bắt buộc | Ràng buộc / Khóa | Ý nghĩa nghiệp vụ & Ràng buộc dữ liệu |
 | :-: | :--- | :--- | :---: | :--- | :--- |
 | 1 | `id` | `String` | Có | 🔑 PRIMARY KEY | Khóa chính định danh duy nhất (UUIDv4) |
 | 2 | `name` | `String` | Có | Thuộc tính thường | Tên bộ mẫu tiêu chí KPI (ví dụ: Mẫu KPI Developer Q1) |
 | 3 | `department` | `String` | Có | Thuộc tính thường | Phòng ban áp dụng bộ mẫu tiêu chí |
-| 4 | `criteria` | `Int` | Có | Mặc định: `1` | Số lượng tiêu chuẩn trong bộ mẫu |
-| 5 | `weight` | `String` | Có | Mặc định: `"100%"` | Tổng tỷ lệ trọng số chuẩn hóa (Bắt buộc đạt 100%) |
-| 6 | `status` | `String` | Có | Mặc định: `"Active"` | Trạng thái sử dụng (Active / Inactive) |
-| 7 | `items` | `String (Text)`| Không | Thuộc tính thường | JSON danh sách tiêu chí con `[{ title, category, target, unit, weight, description }]` |
+| 4 | `positionId` | `String` | Cho phép Null | 🔗 FOREIGN KEY | Khóa ngoại tham chiếu vị trí chức danh (`Position.id`) |
+| 5 | `criteria` | `Int` | Có | Mặc định: `1` | Số lượng tiêu chuẩn trong bộ mẫu |
+| 6 | `weight` | `String` | Có | Mặc định: `"100%"` | Tổng tỷ lệ trọng số chuẩn hóa (Bắt buộc đạt 100%) |
+| 7 | `status` | `String` | Có | Mặc định: `"Active"` | Trạng thái sử dụng (`Active` / `Inactive`) |
+| 8 | `items` | `String (Text)` | Không | Thuộc tính thường | JSON danh sách tiêu chí con `[{ title, category, target, unit, weight, direction, maxScoreCap, description }]` |
+| 9 | `createdAt` | `DateTime` | Có | Mặc định: `now()` | Thời điểm khởi tạo bản ghi |
 
 ---
 

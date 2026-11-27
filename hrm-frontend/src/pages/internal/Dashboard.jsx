@@ -130,7 +130,7 @@ export const InternalDashboard = () => {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const res = await axios.get(
-        `http://localhost:5000/api/dashboard/overview?period=${periodToLoad}&year=${yearToLoad}&month=${monthToLoad}`,
+        `/api/dashboard/overview?period=${periodToLoad}&year=${yearToLoad}&month=${monthToLoad}`,
         { headers }
       );
       setOverview(res.data || null);

@@ -26,9 +26,9 @@ export const DecisionDetail = () => {
     setLoading(true);
     try {
       const [decRes, deptRes, posRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/decisions/${id}`),
-        axios.get('http://localhost:5000/api/departments'),
-        axios.get('http://localhost:5000/api/positions')
+        axios.get(`/api/decisions/${id}`),
+        axios.get('/api/departments'),
+        axios.get('/api/positions')
       ]);
       setDecision(decRes.data);
       setDepartments(deptRes.data);
@@ -63,7 +63,7 @@ export const DecisionDetail = () => {
 
     if (result.isConfirmed) {
       try {
-        const res = await axios.put(`http://localhost:5000/api/decisions/${decision.id}/approve`, {});
+        const res = await axios.put(`/api/decisions/${decision.id}/approve`, {});
         Swal.fire({
           title: 'Đã ban hành thành công!',
           text: res.data.message,
@@ -92,7 +92,7 @@ export const DecisionDetail = () => {
 
     if (reason !== undefined) {
       try {
-        await axios.put(`http://localhost:5000/api/decisions/${decision.id}/reject`, { reason });
+        await axios.put(`/api/decisions/${decision.id}/reject`, { reason });
         toast.success('Đã từ chối quyết định');
         fetchDecisionData();
       } catch (error) {
@@ -125,7 +125,7 @@ export const DecisionDetail = () => {
 
     if (reason) {
       try {
-        const res = await axios.put(`http://localhost:5000/api/decisions/${decision.id}/revoke`, { revokeReason: reason });
+        const res = await axios.put(`/api/decisions/${decision.id}/revoke`, { revokeReason: reason });
         Swal.fire({
           title: 'Đã thu hồi thành công!',
           text: res.data.message,
@@ -153,7 +153,7 @@ export const DecisionDetail = () => {
 
     if (result.isConfirmed) {
       try {
-        await axios.delete(`http://localhost:5000/api/decisions/${decision.id}`);
+        await axios.delete(`/api/decisions/${decision.id}`);
         toast.success('Đã xóa quyết định');
         navigate(-1);
       } catch (error) {
@@ -174,7 +174,7 @@ export const DecisionDetail = () => {
       const fileData = event.target.result;
       setUploadingScan(true);
       try {
-        await axios.put(`http://localhost:5000/api/decisions/${decision.id}`, { fileUrl: fileData });
+        await axios.put(`/api/decisions/${decision.id}`, { fileUrl: fileData });
         toast.success('Đã cập nhật tệp đính kèm thành công!');
         fetchDecisionData();
       } catch (err) {

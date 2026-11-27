@@ -22,7 +22,7 @@ export const ReportsDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await axios.get('http://localhost:5000/api/reports/overview', { headers });
+      const res = await axios.get('/api/reports/overview', { headers });
       setData(res.data);
     } catch (error) {
       console.error(error);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Clock, Plus, Trash2, X, CheckCircle2, AlertTriangle, Calendar
@@ -31,6 +31,8 @@ export const EmployeeOT = () => {
 
   const [showOtModal, setShowOtModal] = useState(false);
   const [submittingOt, setSubmittingOt] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [confirmCancelOt, setConfirmCancelOt] = useState(null);
   const [otForm, setOtForm] = useState({
     date: now.toISOString().split('T')[0],
     requestHours: 2,
@@ -40,12 +42,12 @@ export const EmployeeOT = () => {
   const employeeId = localStorage.getItem('employeeId');
   const monthQueryStr = getMonthQueryStr(selectedYear, selectedMonth);
 
-  const fetchOtData = async () => {
+  const fetchOtData = useCallback(async () => {
     setLoading(true);
     if (employeeId) {
       try {
         const res = await axios.get(
-          `http://localhost:5000/api/ot/employee/${employeeId}?month=${monthQueryStr}`,
+          `/api/ot/employee/${employeeId}?month=${monthQueryStr}`,
           { headers: getAuthHeaders() }
         );
         if (res.data?.requests) setMyOtRequests(res.data.requests);
@@ -55,11 +57,16 @@ export const EmployeeOT = () => {
       }
     }
     setLoading(false);
-  };
+  }, [employeeId, monthQueryStr]);
 
   useEffect(() => {
     fetchOtData();
-  }, [employeeId, selectedMonth, selectedYear]);
+  }, [fetchOtData]);
+
+  const filteredOtRequests = useMemo(() => {
+    if (statusFilter === 'ALL') return myOtRequests;
+    return myOtRequests.filter(r => r.status === statusFilter);
+  }, [myOtRequests, statusFilter]);
 
   const {
     currentPage,
@@ -70,11 +77,11 @@ export const EmployeeOT = () => {
     totalPages,
     paginatedItems: paginatedOtRequests,
     resetPage,
-  } = usePagination(myOtRequests, 10);
+  } = usePagination(filteredOtRequests, 10);
 
   useEffect(() => {
     resetPage();
-  }, [selectedMonth, selectedYear, resetPage]);
+  }, [selectedMonth, selectedYear, statusFilter, resetPage]);
 
   const pendingCount = useMemo(
     () => myOtRequests.filter(r => r.status === 'PENDING').length,
@@ -92,7 +99,7 @@ export const EmployeeOT = () => {
     setSubmittingOt(true);
     try {
       const res = await axios.post(
-        'http://localhost:5000/api/ot',
+        '/api/ot',
         {
           employeeId,
           date: otForm.date,
@@ -116,10 +123,10 @@ export const EmployeeOT = () => {
   };
 
   const handleCancelOt = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đăng ký làm thêm này không?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/ot/${id}`, { headers: getAuthHeaders() });
+      await axios.delete(`/api/ot/${id}`, { headers: getAuthHeaders() });
       toast.success('Đã hủy đăng ký làm thêm!');
+      setConfirmCancelOt(null);
       await fetchOtData();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Lỗi khi hủy đăng ký OT');
@@ -163,23 +170,43 @@ export const EmployeeOT = () => {
           </div>
           <Clock size={20} color="#7C3AED" />
         </div>
-        <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Đã duyệt tháng (trần {otSummary.monthCap || 40}h)</div>
-            <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#15803D' }}>
-              {otSummary.totalApprovedHours || 0}h / {otSummary.monthCap || 40}h
+        <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Đã duyệt tháng (trần {otSummary.monthCap || 40}h)</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#15803D' }}>
+                {otSummary.totalApprovedHours || 0}h / {otSummary.monthCap || 40}h
+              </div>
             </div>
+            <CheckCircle2 size={20} color="#15803D" />
           </div>
-          <CheckCircle2 size={20} color="#15803D" />
+          <div style={{ width: '100%', height: 6, backgroundColor: '#E2E8F0', borderRadius: '999px', overflow: 'hidden' }}>
+            <div style={{
+              width: `${Math.min(100, Math.round(((otSummary.totalApprovedHours || 0) / (otSummary.monthCap || 40)) * 100))}%`,
+              height: '100%',
+              backgroundColor: (otSummary.totalApprovedHours || 0) >= (otSummary.monthCap || 40) * 0.8 ? '#F59E0B' : '#10B981',
+              borderRadius: '999px'
+            }} />
+          </div>
         </div>
-        <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Lũy kế năm {selectedYear} (trần {otSummary.yearCap || 200}h)</div>
-            <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F172A' }}>
-              {otSummary.totalYearApprovedHours || 0}h / {otSummary.yearCap || 200}h
+        <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Lũy kế năm {selectedYear} (trần {otSummary.yearCap || 200}h)</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F172A' }}>
+                {otSummary.totalYearApprovedHours || 0}h / {otSummary.yearCap || 200}h
+              </div>
             </div>
+            <Calendar size={20} color="#2563EB" />
           </div>
-          <Calendar size={20} color="#2563EB" />
+          <div style={{ width: '100%', height: 6, backgroundColor: '#E2E8F0', borderRadius: '999px', overflow: 'hidden' }}>
+            <div style={{
+              width: `${Math.min(100, Math.round(((otSummary.totalYearApprovedHours || 0) / (otSummary.yearCap || 200)) * 100))}%`,
+              height: '100%',
+              backgroundColor: '#2563EB',
+              borderRadius: '999px'
+            }} />
+          </div>
         </div>
         <div className="card" style={{ padding: '0.9rem 1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -209,17 +236,30 @@ export const EmployeeOT = () => {
         }}>
           <div>
             <strong style={{ fontSize: '0.95rem', color: '#581C87' }}>
-              Lịch sử Đăng ký Làm thêm giờ (OT) Tháng {selectedMonth}/{selectedYear} ({myOtRequests.length})
+              Lịch sử Đăng ký Làm thêm giờ (OT) Tháng {selectedMonth}/{selectedYear} ({filteredOtRequests.length})
             </strong>
             <div style={{ fontSize: '0.73rem', color: '#6B21A8' }}>
               Giới hạn tối đa 4h/ngày • 40h/tháng • 200h/năm (mọi OT phải đăng ký trước khi làm)
             </div>
           </div>
-          {otSummary.isMonthWarning && (
-            <span style={{ fontSize: '0.76rem', backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', padding: '3px 10px', borderRadius: '6px', color: '#B45309', fontWeight: 700 }}>
-              ⚠️ Cảnh báo: Đạt {otSummary.monthWarningPercent || 80}% hạn mức OT tháng
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {otSummary.isMonthWarning && (
+              <span style={{ fontSize: '0.76rem', backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', padding: '3px 10px', borderRadius: '6px', color: '#B45309', fontWeight: 700 }}>
+                ⚠️ Cảnh báo: Đạt {otSummary.monthWarningPercent || 80}% hạn mức OT tháng
+              </span>
+            )}
+            <select
+              className="form-input"
+              style={{ width: 'auto', minWidth: 160, height: 34, fontSize: '0.8rem' }}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="PENDING">Chờ duyệt</option>
+              <option value="APPROVED">Đã phê duyệt</option>
+              <option value="REJECTED">Từ chối</option>
+            </select>
+          </div>
         </div>
 
         <div className="table-responsive">
@@ -243,7 +283,7 @@ export const EmployeeOT = () => {
                     Đang tải lịch sử OT...
                   </td>
                 </tr>
-              ) : myOtRequests.length === 0 ? (
+              ) : filteredOtRequests.length === 0 ? (
                 <tr>
                   <td colSpan="8" style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
                     Chưa có đăng ký làm thêm giờ (OT) nào trong tháng {selectedMonth}/{selectedYear}.
@@ -285,9 +325,9 @@ export const EmployeeOT = () => {
                               fontWeight: 700,
                               color:
                                 ot.crossCheck.complianceStatus === 'QUALIFIED' ? '#15803D' :
-                                ot.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#B45309' :
-                                ot.crossCheck.complianceStatus === 'ZERO_OT' ? '#B91C1C' :
-                                ot.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#B91C1C' : '#64748B'
+                                  ot.crossCheck.complianceStatus === 'UNDER_HOURS' ? '#B45309' :
+                                    ot.crossCheck.complianceStatus === 'ZERO_OT' ? '#B91C1C' :
+                                      ot.crossCheck.complianceStatus === 'NO_CHECKOUT' ? '#B91C1C' : '#64748B'
                             }}>
                               {ot.crossCheck.complianceTitle}
                             </span>
@@ -317,7 +357,7 @@ export const EmployeeOT = () => {
                       <td style={{ padding: '0.7rem 1.1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {ot.status === 'PENDING' ? (
                           <button
-                            onClick={() => handleCancelOt(ot.id)}
+                            onClick={() => setConfirmCancelOt(ot)}
                             className="btn btn-outline"
                             style={{ height: 26, padding: '0 0.5rem', fontSize: '0.72rem', color: '#EF4444', borderColor: '#FECACA' }}
                             title="Hủy đơn OT"
@@ -453,6 +493,37 @@ export const EmployeeOT = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {confirmCancelOt && createPortal(
+        <div className="modal-overlay" onClick={() => setConfirmCancelOt(null)}>
+          <div className="modal-card" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <strong style={{ fontSize: '1rem', color: '#0F172A' }}>Xác nhận hủy đơn OT</strong>
+              <button onClick={() => setConfirmCancelOt(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '1.1rem 1.25rem', fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>
+              Bạn có chắc chắn muốn hủy đăng ký làm thêm giờ ngày{' '}
+              <strong>{new Date(confirmCancelOt.date).toLocaleDateString('vi-VN')}</strong> ({Number(confirmCancelOt.requestHours).toFixed(1)}h)?
+            </div>
+            <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', backgroundColor: '#F8FAFC' }}>
+              <button type="button" onClick={() => setConfirmCancelOt(null)} className="btn btn-outline">
+                Giữ lại
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCancelOt(confirmCancelOt.id)}
+                className="btn btn-primary"
+                style={{ backgroundColor: '#EF4444', borderColor: '#EF4444' }}
+              >
+                Xác nhận hủy
+              </button>
+            </div>
           </div>
         </div>,
         document.body

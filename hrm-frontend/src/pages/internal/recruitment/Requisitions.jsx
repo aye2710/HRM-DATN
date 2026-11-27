@@ -60,10 +60,10 @@ export const Requisitions = () => {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      axios.get('http://localhost:5000/api/job-postings'),
-      axios.get('http://localhost:5000/api/departments'),
-      axios.get('http://localhost:5000/api/positions'),
-      axios.get('http://localhost:5000/api/employees').catch(() => ({ data: [] }))
+      axios.get('/api/job-postings'),
+      axios.get('/api/departments'),
+      axios.get('/api/positions'),
+      axios.get('/api/employees').catch(() => ({ data: [] }))
     ])
     .then(([jobRes, deptRes, posRes, empRes]) => {
       setRequisitions(jobRes.data);
@@ -247,7 +247,7 @@ export const Requisitions = () => {
     }
     
     if (modalMode === 'add') {
-      axios.post('http://localhost:5000/api/job-postings', formData)
+      axios.post('/api/job-postings', formData)
         .then(() => {
           toast.success("Thêm yêu cầu tuyển dụng thành công!");
           fetchData();
@@ -264,7 +264,7 @@ export const Requisitions = () => {
           });
         });
     } else {
-      axios.put(`http://localhost:5000/api/job-postings/${editingId}`, formData)
+      axios.put(`/api/job-postings/${editingId}`, formData)
         .then(() => {
           toast.success("Cập nhật thành công!");
           fetchData();
@@ -293,7 +293,7 @@ export const Requisitions = () => {
       cancelButtonText: 'Hủy' 
     });
     if (result.isConfirmed) {
-      axios.delete(`http://localhost:5000/api/job-postings/${id}`)
+      axios.delete(`/api/job-postings/${id}`)
         .then(() => {
           toast.success("Đã xóa yêu cầu tuyển dụng!");
           fetchData();

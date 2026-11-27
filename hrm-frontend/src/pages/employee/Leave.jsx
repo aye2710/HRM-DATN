@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  CalendarRange, Plus, CheckCircle2, Clock, XCircle, AlertCircle, 
-  FileText, Calendar, Filter, Sparkles, X, ChevronRight, Info, Award, Users
+import {
+  CalendarRange, Plus, CheckCircle2, Clock, XCircle,
+  FileText, Calendar, X, Info
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -13,10 +13,12 @@ import { PageHeader } from '../../components/common/PageHeader';
 
 export const EmployeeLeave = () => {
   const [requests, setRequests] = useState([]);
-  const [balance, setBalance] = useState({ totalDays: 12, usedDays: 0 });
+  const [balance, setBalance] = useState({ totalDays: 12, usedDays: 0, carryForwardDays: 0, carryForwardUsed: 0 });
   const [quotaInfo, setQuotaInfo] = useState({ baseDays: 12, seniorityBonusDays: 0, yearsOfService: 0, approvalThreshold: 2 });
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const employeeId = localStorage.getItem('employeeId');
 
   const [showModal, setShowModal] = useState(false);
@@ -34,15 +36,15 @@ export const EmployeeLeave = () => {
     reason: ''
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!employeeId) {
       setLoading(false);
       return;
     }
     try {
       const [res, typesRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/leaves/employee/${employeeId}`),
-        axios.get('http://localhost:5000/api/leave-config/types').catch(() => ({ data: [] }))
+        axios.get(`/api/leaves/employee/${employeeId}`),
+        axios.get('/api/leave-config/types').catch(() => ({ data: [] }))
       ]);
       setRequests(res.data.requests || []);
       if (res.data.balance) {
@@ -53,8 +55,8 @@ export const EmployeeLeave = () => {
       }
       const types = typesRes.data || [];
       setLeaveTypes(types);
-      if (types.length > 0 && !formData.leaveTypeId) {
-        setFormData(prev => ({
+      if (types.length > 0) {
+        setFormData(prev => (prev.leaveTypeId ? prev : {
           ...prev,
           leaveTypeId: types[0].id,
           leaveType: types[0].paid ? 'PAID' : 'UNPAID'
@@ -65,11 +67,11 @@ export const EmployeeLeave = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [employeeId]);
 
   useEffect(() => {
     fetchData();
-  }, [employeeId]);
+  }, [fetchData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -82,7 +84,7 @@ export const EmployeeLeave = () => {
 
     setSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/leaves', {
+      await axios.post('/api/leaves', {
         employeeId,
         ...formData
       });
@@ -107,10 +109,12 @@ export const EmployeeLeave = () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
 
-  const totalDays = Number(balance.totalDays) || 12;
-  const usedDays = Number(balance.usedDays) || 0;
-  const availableDays = Math.max(0, totalDays - usedDays);
-  const usedPercent = Math.min(100, Math.round((usedDays / totalDays) * 100));
+  const totalDays = Number(balance.totalDays ?? 12);
+  const carryRemain = Math.max(0, Number(balance.carryForwardDays || 0) - Number(balance.carryForwardUsed || 0));
+  const usedDays = Number(balance.usedDays || 0);
+  const rawRemain = totalDays - usedDays + carryRemain;
+  const availableDays = Math.max(0, rawRemain);
+  const usedPercent = totalDays > 0 ? Math.min(100, Math.round((usedDays / totalDays) * 100)) : 0;
 
   const leaveDaysCount = formData.startDate && formData.endDate 
     ? calculateDays(formData.startDate, formData.endDate, formData.session) 
@@ -128,8 +132,16 @@ export const EmployeeLeave = () => {
   }, [formData.startDate]);
 
   const filteredRequests = requests.filter(req => {
-    if (statusFilter === 'ALL') return true;
-    return req.status === statusFilter;
+    if (statusFilter !== 'ALL' && req.status !== statusFilter) return false;
+    if (typeFilter === 'PAID' && req.leaveType === 'UNPAID') return false;
+    if (typeFilter === 'UNPAID' && req.leaveType !== 'UNPAID') return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const reason = String(req.reason || '').toLowerCase();
+      const typeName = String(req.leaveTypeConfig?.name || '').toLowerCase();
+      if (!reason.includes(q) && !typeName.includes(q)) return false;
+    }
+    return true;
   });
 
   const {
@@ -145,7 +157,7 @@ export const EmployeeLeave = () => {
 
   useEffect(() => {
     resetPage();
-  }, [statusFilter, resetPage]);
+  }, [statusFilter, typeFilter, searchQuery, resetPage]);
 
   const getLeaveTypeBadge = (req) => {
     if (req?.leaveTypeConfig?.name) {
@@ -316,16 +328,20 @@ export const EmployeeLeave = () => {
               <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Phép khả dụng còn lại
               </span>
-              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#059669', lineHeight: 1.1, marginTop: '0.25rem' }}>
+              <div style={{ fontSize: '2.4rem', fontWeight: 800, color: availableDays > 0 ? '#059669' : '#DC2626', lineHeight: 1.1, marginTop: '0.25rem' }}>
                 {availableDays} <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#94A3B8' }}>ngày</span>
               </div>
             </div>
-            <div style={{ width: 40, height: 40, borderRadius: '10px', backgroundColor: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '10px', backgroundColor: availableDays > 0 ? '#ECFDF5' : '#FEF2F2', color: availableDays > 0 ? '#059669' : '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CheckCircle2 size={20} />
             </div>
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            ✓ Đủ điều kiện đăng ký nghỉ có hưởng lương
+          <div style={{ fontSize: '0.75rem', color: availableDays > 0 ? '#059669' : '#D97706', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+            {availableDays > 0
+              ? `✓ Đủ điều kiện đăng ký nghỉ có hưởng lương${carryRemain > 0 ? ` (gồm ${carryRemain} ngày tồn)` : ''}`
+              : rawRemain < 0
+                ? `⚠ Đã vượt quỹ phép ${Math.abs(rawRemain)} ngày (đơn mới tính không lương)`
+                : '⚠ Đã hết quỹ phép năm (đơn mới sẽ tính nghỉ không lương)'}
           </div>
         </div>
 
@@ -358,56 +374,52 @@ export const EmployeeLeave = () => {
             </span>
           </div>
 
-          {/* Filter Status Buttons */}
-          <div style={{ display: 'flex', gap: '0.35rem', backgroundColor: '#F8FAFC', padding: '3px', borderRadius: '0.5rem', border: '1px solid #E2E8F0' }}>
-            <button
-              onClick={() => setStatusFilter('ALL')}
-              style={{
-                border: 'none',
-                background: statusFilter === 'ALL' ? '#FFFFFF' : 'transparent',
-                color: statusFilter === 'ALL' ? '#2563EB' : '#64748B',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-                padding: '4px 10px',
-                borderRadius: '4px',
-                boxShadow: statusFilter === 'ALL' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer'
-              }}
+          {/* Filter Status & Type & Search */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Tìm theo lý do, loại nghỉ..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: 190, height: 34, fontSize: '0.8rem' }}
+            />
+            <select
+              className="form-input"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              style={{ width: 'auto', height: 34, fontSize: '0.8rem' }}
             >
-              Tất cả ({requests.length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('PENDING')}
-              style={{
-                border: 'none',
-                background: statusFilter === 'PENDING' ? '#FFFFFF' : 'transparent',
-                color: statusFilter === 'PENDING' ? '#D97706' : '#64748B',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-                padding: '4px 10px',
-                borderRadius: '4px',
-                boxShadow: statusFilter === 'PENDING' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Chờ duyệt
-            </button>
-            <button
-              onClick={() => setStatusFilter('APPROVED')}
-              style={{
-                border: 'none',
-                background: statusFilter === 'APPROVED' ? '#FFFFFF' : 'transparent',
-                color: statusFilter === 'APPROVED' ? '#059669' : '#64748B',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-                padding: '4px 10px',
-                borderRadius: '4px',
-                boxShadow: statusFilter === 'APPROVED' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Đã duyệt
-            </button>
+              <option value="ALL">Tất cả loại nghỉ</option>
+              <option value="PAID">Nghỉ có lương</option>
+              <option value="UNPAID">Nghỉ không lương</option>
+            </select>
+            <div style={{ display: 'flex', gap: '0.35rem', backgroundColor: '#F8FAFC', padding: '3px', borderRadius: '0.5rem', border: '1px solid #E2E8F0' }}>
+              {[
+                { key: 'ALL', label: `Tất cả (${requests.length})`, activeColor: '#2563EB' },
+                { key: 'PENDING', label: 'Chờ duyệt', activeColor: '#D97706' },
+                { key: 'APPROVED', label: 'Đã duyệt', activeColor: '#059669' },
+                { key: 'REJECTED', label: 'Từ chối', activeColor: '#DC2626' }
+              ].map((st) => (
+                <button
+                  key={st.key}
+                  onClick={() => setStatusFilter(st.key)}
+                  style={{
+                    border: 'none',
+                    background: statusFilter === st.key ? '#FFFFFF' : 'transparent',
+                    color: statusFilter === st.key ? st.activeColor : '#64748B',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    boxShadow: statusFilter === st.key ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -706,6 +718,34 @@ export const EmployeeLeave = () => {
                       {leaveDaysCount} ngày
                     </strong>
                   </div>
+
+                  {(() => {
+                    const currentType = leaveTypes.find(t => t.id === formData.leaveTypeId);
+                    const deductsAnnual = currentType ? currentType.deductAnnualLeave : formData.leaveType === 'PAID';
+                    if (!deductsAnnual || leaveDaysCount <= 0) return null;
+                    const projected = availableDays - leaveDaysCount;
+                    const overQuota = projected < 0;
+                    return (
+                      <div style={{
+                        padding: '0.55rem 0.85rem',
+                        borderRadius: '0.5rem',
+                        backgroundColor: overQuota ? '#FEF2F2' : '#F0FDF4',
+                        border: `1px solid ${overQuota ? '#FECACA' : '#BBF7D0'}`,
+                        fontSize: '0.78rem',
+                        color: overQuota ? '#991B1B' : '#166534',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <span>Dự kiến quỹ phép sau đơn này:</span>
+                        <strong>
+                          {overQuota
+                            ? `Vượt ${Math.abs(projected)} ngày (Còn ${availableDays} ngày)`
+                            : `Còn ${projected} / ${availableDays} ngày`}
+                        </strong>
+                      </div>
+                    );
+                  })()}
 
                   {/* Cảnh báo hạn báo trước theo Company-wide Policies (14/10/2026) */}
                   {isUrgentNotice && (

@@ -83,9 +83,9 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
     setLoading(true);
     try {
       const [decRes, deptRes, posRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/decisions'),
-        axios.get('http://localhost:5000/api/departments'),
-        axios.get('http://localhost:5000/api/positions')
+        axios.get('/api/decisions'),
+        axios.get('/api/departments'),
+        axios.get('/api/positions')
       ]);
       setDecisions(decRes.data);
       setDepartments(deptRes.data);
@@ -123,7 +123,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
 
     if (result.isConfirmed) {
       try {
-        const res = await axios.put(`http://localhost:5000/api/decisions/${dec.id}/approve`, {});
+        const res = await axios.put(`/api/decisions/${dec.id}/approve`, {});
         Swal.fire({
           title: 'Thành công!',
           text: res.data.message,
@@ -151,7 +151,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
 
     if (reason !== undefined) {
       try {
-        await axios.put(`http://localhost:5000/api/decisions/${dec.id}/reject`, { reason });
+        await axios.put(`/api/decisions/${dec.id}/reject`, { reason });
         toast.success('Đã từ chối quyết định');
         fetchData();
       } catch (error) {
@@ -184,7 +184,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
 
     if (revokeReason) {
       try {
-        const res = await axios.put(`http://localhost:5000/api/decisions/${dec.id}/revoke`, {
+        const res = await axios.put(`/api/decisions/${dec.id}/revoke`, {
           revokeReason,
           reason: revokeReason
         });
@@ -214,7 +214,7 @@ export const Decisions = ({ fixedType = 'ALL' }) => {
 
     if (result.isConfirmed) {
       try {
-        await axios.delete(`http://localhost:5000/api/decisions/${dec.id}`);
+        await axios.delete(`/api/decisions/${dec.id}`);
         toast.success('Đã xóa quyết định');
         fetchData();
       } catch (error) {

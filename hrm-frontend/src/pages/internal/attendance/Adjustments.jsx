@@ -42,8 +42,8 @@ export const Adjustments = () => {
     setLoading(true);
     try {
       const [adjRes, empRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/attendance/adjustments'),
-        axios.get('http://localhost:5000/api/employees')
+        axios.get('/api/attendance/adjustments'),
+        axios.get('/api/employees')
       ]);
       setAdjustments(adjRes.data || []);
       const activeEmps = (empRes.data || []).filter(e => e.status !== 'RESIGNED');
@@ -87,7 +87,7 @@ export const Adjustments = () => {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          await axios.put(`http://localhost:5000/api/attendance/adjustments/${adj.id}/status`, { status });
+          await axios.put(`/api/attendance/adjustments/${adj.id}/status`, { status });
           toast.success(
             isApprove
               ? `Đã duyệt đơn của ${adj.employee?.fullName}! Bảng công ngày ${new Date(adj.date).toLocaleDateString('vi-VN')} đã cập nhật.`
@@ -145,7 +145,7 @@ export const Adjustments = () => {
     }
     setSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/attendance/adjustments', {
+      await axios.post('/api/attendance/adjustments', {
         employeeId: formData.employeeId,
         date: formData.date,
         type: formData.type,

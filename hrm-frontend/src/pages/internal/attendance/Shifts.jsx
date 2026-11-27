@@ -35,7 +35,7 @@ export const Shifts = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await axios.get('http://localhost:5000/api/settings', { headers });
+      const res = await axios.get('/api/settings', { headers });
       const list = Array.isArray(res.data) ? res.data : [];
       const map = Object.fromEntries(list.map(item => [item.key, item.value]));
       setPolicyConfig({
@@ -54,7 +54,7 @@ export const Shifts = () => {
   const fetchShifts = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/attendance/shifts');
+      const res = await axios.get('/api/attendance/shifts');
       setShifts(res.data || []);
     } catch (err) {
       toast.error('Lỗi khi tải danh sách ca làm việc');
@@ -110,9 +110,9 @@ export const Shifts = () => {
       };
 
       if (formData.id) {
-        await axios.put(`http://localhost:5000/api/attendance/shifts/${formData.id}`, payload);
+        await axios.put(`/api/attendance/shifts/${formData.id}`, payload);
       } else {
-        await axios.post('http://localhost:5000/api/attendance/shifts', payload);
+        await axios.post('/api/attendance/shifts', payload);
       }
 
       toast.success(formData.id ? 'Đã cập nhật thông số ca làm việc' : 'Đã thêm ca làm việc mới');
@@ -334,7 +334,7 @@ export const Shifts = () => {
                               }).then(async (result) => {
                                 if (result.isConfirmed) {
                                   try {
-                                    await axios.delete(`http://localhost:5000/api/attendance/shifts/${shift.id}`);
+                                    await axios.delete(`/api/attendance/shifts/${shift.id}`);
                                     fetchShifts();
                                     toast.success('Đã xóa ca làm việc thành công');
                                   } catch (e) {

@@ -31,7 +31,7 @@ export const OffboardingChecklist = () => {
   const fetchOverviewData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/offboarding/overview');
+      const res = await axios.get('/api/offboarding/overview');
       setInProgressList(res.data.inProgress || []);
       setStats(res.data.stats || { resignedCount: 0, inProgressCount: 0, pendingAssetReturns: 0 });
     } catch (error) {
@@ -50,7 +50,7 @@ export const OffboardingChecklist = () => {
     setSelectedHandoverEmp(emp);
     setLoadingDetail(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/offboarding/${emp.id}/detail`);
+      const res = await axios.get(`/api/offboarding/${emp.id}/detail`);
       setHandoverDetail(res.data);
     } catch (err) {
       console.error(err);
@@ -62,7 +62,7 @@ export const OffboardingChecklist = () => {
 
   const handleRunSecurityCheck = async () => {
     try {
-      const res = await axios.post('http://localhost:5000/api/offboarding/trigger-daily-cutoff');
+      const res = await axios.post('/api/offboarding/trigger-daily-cutoff');
       Swal.fire({
         title: 'Quét An Ninh Hoàn Tất',
         html: `Đã rà soát danh sách nhân sự thôi việc trong ngày.<br/><b>Số tài khoản đã tự động khóa:</b> ${res.data?.lockedCount || 0}`,

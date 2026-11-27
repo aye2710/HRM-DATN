@@ -91,7 +91,7 @@ export const Offers = () => {
   const fetchOffers = () => {
     setLoading(true);
     axios
-      .get('http://localhost:5000/api/offers')
+      .get('/api/offers')
       .then((res) => setCandidates(res.data || []))
       .catch((err) => {
         console.error(err);
@@ -143,7 +143,7 @@ export const Offers = () => {
     if (result.isConfirmed) {
       const loadingToast = toast.loading('Đang khởi tạo hồ sơ nhân sự...');
       try {
-        await axios.post('http://localhost:5000/api/offers/accept', {
+        await axios.post('/api/offers/accept', {
           candidateId: candidate.id
         });
         toast.dismiss(loadingToast);
@@ -187,7 +187,7 @@ export const Offers = () => {
 
     setIsSubmitting(true);
     axios
-      .post('http://localhost:5000/api/offers/send-offer', offerForm)
+      .post('/api/offers/send-offer', offerForm)
       .then(() => {
         toast.success('Đã gửi Thư mời nhận việc (Offer) tới Cổng ứng viên!');
         setShowSendOfferModal(false);
@@ -212,7 +212,7 @@ export const Offers = () => {
     if (!result.isConfirmed) return;
 
     axios
-      .post(`http://localhost:5000/api/offers/${candidateId}/reject`)
+      .post(`/api/offers/${candidateId}/reject`)
       .then(() => {
         toast.success('Đã hủy Offer.');
         fetchOffers();

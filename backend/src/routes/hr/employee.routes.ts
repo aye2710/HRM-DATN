@@ -562,7 +562,14 @@ router.get('/:id', async (req: Request, res: Response) => {
         position: true,
         manager: { select: { id: true, fullName: true, code: true, position: { select: { title: true } } } },
         contracts: { orderBy: { startDate: 'desc' }, include: { appendices: { orderBy: { effectiveDate: 'desc' } } } },
-        account: true,
+        account: {
+          select: {
+            id: true,
+            username: true,
+            isActive: true,
+            role: { select: { name: true } }
+          }
+        },
         relatives: true,
         degrees: true,
         certificates: true,
